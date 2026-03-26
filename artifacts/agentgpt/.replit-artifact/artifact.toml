@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "AgentGPT"
+version = "1.0.0"
+id = "artifacts/agentgpt"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18867
+
+[services.development]
+run = "pnpm --filter @workspace/agentgpt run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/agentgpt", "run", "build" ]
+publicDir = "artifacts/agentgpt/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18867"
+BASE_PATH = "/"
