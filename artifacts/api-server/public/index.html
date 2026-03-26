@@ -117,7 +117,7 @@ code { font-family: monospace; }
 
 /* MODALS */
 .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 200; display: none; flex-direction: column; overflow: hidden;}
-.modal-header { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg); }
+.modal-header { padding: max(12px, env(safe-area-inset-top)) 18px 12px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg); }
 .modal-header h3 { margin: 0; font-size: 18px; }
 .modal-tabs { display: flex; background: var(--sec-bg); padding: 4px; margin: 10px 14px; border-radius: 10px; }
 .tab-btn { flex: 1; padding: 8px; text-align: center; font-size: 11px; font-weight: 800; border-radius: 8px; color: #888; cursor: pointer; white-space: nowrap; border: none; background: transparent; transition: all 0.2s; }
@@ -667,7 +667,7 @@ function initGestures() {
     addSwipeListener(document.body, 
         () => { 
             if(document.getElementById('workspace-panel').classList.contains('open')) { closeAllPanels(); } 
-            else { closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI(); }
+            else { closeAllPanels(); document.getElementById('vars-slide-panel').classList.add('open'); refreshUI(); }
         }, 
         () => { 
             let rightPanelsOpen = document.querySelectorAll('.side-panel:not(.left-panel).open, .ctx-panel.open').length > 0;
@@ -675,6 +675,16 @@ function initGestures() {
             else { closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); renderWorkspaceLists(); }
         }
     );
+    const inputZoneEl = document.querySelector('.input-zone');
+    if (inputZoneEl) {
+        let izStartX = 0, izStartY = 0;
+        inputZoneEl.addEventListener('touchstart', e => { izStartX = e.touches[0].clientX; izStartY = e.touches[0].clientY; }, {passive: true});
+        inputZoneEl.addEventListener('touchend', e => {
+            if (e.target.closest('textarea') || e.target.closest('input') || e.target.closest('[contenteditable="true"]')) return;
+            let endX = e.changedTouches[0].clientX, endY = e.changedTouches[0].clientY;
+            if (Math.abs(izStartY - endY) < 50 && izStartX - endX > 40) { closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI(); }
+        });
+    }
     mainScrollEl.addEventListener('wheel', () => { if(currentAborter) userScrolledDuringGen = true; }, {passive:true}); mainScrollEl.addEventListener('touchstart', () => { if(currentAborter) userScrolledDuringGen = true; }, {passive:true});
 }
 function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
