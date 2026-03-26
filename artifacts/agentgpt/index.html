@@ -654,7 +654,7 @@ function addSwipeListener(element, onSwipeLeft, onSwipeRight) {
     let startX = 0, startY = 0; 
     element.addEventListener('touchstart', e => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; }, {passive: true}); 
     element.addEventListener('touchend', e => { 
-        if (e.target.closest('textarea') || e.target.closest('input') || e.target.closest('pre') || e.target.closest('.mermaid-container') || e.target.closest('[contenteditable="true"]')) return;
+        if (e.target.closest('textarea') || e.target.closest('input') || e.target.closest('pre') || e.target.closest('.mermaid-container') || e.target.closest('[contenteditable="true"]') || e.target.closest('.input-zone') || e.target.closest('.inline-prompts-container')) return;
         let endX = e.changedTouches[0].clientX, endY = e.changedTouches[0].clientY; 
         if(Math.abs(startY - endY) < 50) { 
             if(startX - endX > 40) onSwipeLeft(); 
@@ -664,25 +664,17 @@ function addSwipeListener(element, onSwipeLeft, onSwipeRight) {
 }
 
 function initGestures() {
-    let startX = 0, startY = 0;
-    document.body.addEventListener('touchstart', e => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; }, {passive: true});
-    document.body.addEventListener('touchend', e => {
-        if (e.target.closest('textarea') || e.target.closest('input') || e.target.closest('pre') || e.target.closest('.mermaid-container') || e.target.closest('[contenteditable="true"]')) return;
-        let endX = e.changedTouches[0].clientX, endY = e.changedTouches[0].clientY;
-        if (Math.abs(startY - endY) < 50) {
-            let inInputZone = !!(e.target.closest('.input-zone') || e.target.closest('.inline-prompts-container'));
-            if (startX - endX > 40) {
-                if (document.getElementById('workspace-panel').classList.contains('open')) { closeAllPanels(); }
-                else if (inInputZone) { closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI(); }
-                else { closeAllPanels(); document.getElementById('vars-slide-panel').classList.add('open'); refreshUI(); }
-            }
-            if (endX - startX > 40) {
-                let rightPanelsOpen = document.querySelectorAll('.side-panel:not(.left-panel).open, .ctx-panel.open').length > 0;
-                if (rightPanelsOpen) { closeAllPanels(); }
-                else { closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); renderWorkspaceLists(); }
-            }
+    addSwipeListener(document.body, 
+        () => { 
+            if(document.getElementById('workspace-panel').classList.contains('open')) { closeAllPanels(); } 
+            else { closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI(); }
+        }, 
+        () => { 
+            let rightPanelsOpen = document.querySelectorAll('.side-panel:not(.left-panel).open, .ctx-panel.open').length > 0;
+            if(rightPanelsOpen) { closeAllPanels(); } 
+            else { closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); renderWorkspaceLists(); }
         }
-    });
+    );
     mainScrollEl.addEventListener('wheel', () => { if(currentAborter) userScrolledDuringGen = true; }, {passive:true}); mainScrollEl.addEventListener('touchstart', () => { if(currentAborter) userScrolledDuringGen = true; }, {passive:true});
 }
 function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
