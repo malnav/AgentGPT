@@ -178,9 +178,9 @@ code { font-family: monospace; }
 <div id="workspace-panel" class="side-panel left-panel" style="z-index: 158;">
     <div class="panel-header">
         <span style="font-size:14px; font-weight:800;">💬 Sessions</span>
-        <div style="display:flex; gap:8px; align-items:center;">
-            <button class="chip" style="font-size:18px; padding:2px 10px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession();" title="New Session">+</button>
-            <div onclick="closeAllPanels()" style="font-size:20px; cursor:pointer;">✕</div>
+        <div style="display:flex; gap:16px; align-items:center;">
+            <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession();" title="New Session">+</button>
+            <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
     </div>
     <div style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column;">
@@ -283,17 +283,17 @@ code { font-family: monospace; }
                         <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); document.getElementById('attach-menu').classList.add('closed');">📁 Files</div>
                         <div class="tool-menu-item" onclick="toggleTplPanel(); renderTemplates(); document.getElementById('attach-menu').classList.add('closed');">📄 Templates</div>
                         <div class="tool-menu-item" onclick="toggleSrvPanel(); renderToolsList(); document.getElementById('attach-menu').classList.add('closed');">🔌 Services</div>
-                        <div class="tool-menu-item" onclick="toggleCtxPanel(); refreshUI(); document.getElementById('attach-menu').classList.add('closed');">📋 Context Window</div>
+                        <div class="tool-menu-item" onclick="toggleCtxPanel(); refreshUI(); document.getElementById('attach-menu').classList.add('closed');">📋 Context</div>
                     </div>
                 </div>
 
                 <select id="chatModel" class="model-sel"></select>
                 <div onclick="popState()" style="display:none;" title="Undo">↩️</div>
                 <div onclick="redoStateAction()" style="display:none;" title="Redo">↪️</div>
-                <div onclick="resetCurrentSession()" style="cursor:pointer; font-size:18px; padding:2px; opacity:0.85;" title="New Chat">📝</div>
             </div>
-            <div style="display:flex; gap:6px; align-items:center;">
-                <div id="ctx-indicator" onclick="toggleAllContext()" style="cursor:pointer; font-size:18px; padding:2px; opacity:0.85;" title="Toggle Context">☁️</div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <div id="ctx-indicator" onclick="toggleAllContext()" style="cursor:pointer; font-size:14px; width:31px; height:25px; border-radius:7px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); background:var(--sec-bg);" title="Toggle Context">☁️</div>
+                <div onclick="resetCurrentSession()" style="cursor:pointer; font-size:14px; width:31px; height:25px; border-radius:7px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); background:var(--sec-bg);" title="New Chat">📝</div>
                 <button class="send-btn" id="send-btn-el" onclick="sendToAI()" title="Send">↑</button>
             </div>
         </div>
@@ -949,11 +949,21 @@ function openHtmlPreview(html) {
 function exportHtmlAsPdf() {
     const iframe = document.getElementById('fs-iframe');
     if (!iframe || !iframe.contentWindow) { notify("No HTML preview open", "#ff3b30"); return; }
-    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
-    catch(e) {
+    try {
+        const iDoc = iframe.contentWindow.document;
+        if (!iDoc.getElementById('_pdf_print_style')) {
+            const s = iDoc.createElement('style'); s.id = '_pdf_print_style';
+            s.textContent = '@page { margin: 0; size: auto; } @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }';
+            iDoc.head.appendChild(s);
+        }
+        iframe.contentWindow.focus(); iframe.contentWindow.print();
+    } catch(e) {
         const w = window.open('', '_blank');
-        if (w) { w.document.write(_currentHtmlPreview); w.document.close(); w.focus(); setTimeout(() => w.print(), 500); }
-        else notify("Allow pop-ups to export PDF", "#ff3b30");
+        if (w) {
+            const printStyle = '<style>@page{margin:0;size:auto;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>';
+            w.document.write(_currentHtmlPreview.replace('</head>', printStyle + '</head>'));
+            w.document.close(); w.focus(); setTimeout(() => w.print(), 500);
+        } else notify("Allow pop-ups to export PDF", "#ff3b30");
     }
 }
 
