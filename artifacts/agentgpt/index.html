@@ -198,11 +198,14 @@ body::before {
 .bubble-content p:last-child { margin: 0; }
 
 /* ── CODE ── */
-pre { background: rgba(30,34,44,0.92); backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm); color: #abb2bf; padding: 14px; border-radius: 14px; overflow-x: auto; margin: 8px 0; font-size: 13px; position: relative; border: 0.5px solid rgba(255,255,255,0.07); }
+pre { background: rgba(12,15,22,0.68); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); color: #c9d1e0; padding: 14px 14px 48px 14px; border-radius: 14px; overflow-x: auto; margin: 8px 0; font-size: 13px; position: relative; border: 0.5px solid rgba(255,255,255,0.11); }
+.bubble.user pre { background: rgba(0,0,0,0.28); border-color: rgba(255,255,255,0.13); color: #e8edf8; }
 code { font-family: "SF Mono", ui-monospace, monospace; }
-.copy-code-btn { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.14); backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm); color: #fff; border: 0.5px solid rgba(255,255,255,0.15); width: 32px; height: 32px; border-radius: 9px; font-size: 15px; cursor: pointer; transition: background 0.2s; z-index: 10; display:flex; align-items:center; justify-content:center; }
+.copy-code-btn { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.14); backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm); color: #fff; border: 0.5px solid rgba(255,255,255,0.18); width: 32px; height: 32px; border-radius: 9px; font-size: 15px; cursor: pointer; transition: background 0.2s; z-index: 10; display:flex; align-items:center; justify-content:center; }
+.copy-code-btn.bottom { top: auto; bottom: 8px; }
 .copy-code-btn:active { background: rgba(255,255,255,0.28); }
-.action-btn-overlay { position: absolute; top: 8px; background: rgba(255,255,255,0.14); backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm); color: #fff; border: 0.5px solid rgba(255,255,255,0.15); width: 32px; height: 32px; border-radius: 9px; font-size: 15px; cursor: pointer; transition: background 0.2s; z-index: 10; display:flex; align-items:center; justify-content:center; }
+.action-btn-overlay { position: absolute; top: 8px; background: rgba(255,255,255,0.14); backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm); color: #fff; border: 0.5px solid rgba(255,255,255,0.18); width: 32px; height: 32px; border-radius: 9px; font-size: 15px; cursor: pointer; transition: background 0.2s; z-index: 10; display:flex; align-items:center; justify-content:center; }
+.action-btn-overlay.bottom { top: auto; bottom: 8px; }
 .action-btn-overlay:active { background: rgba(255,255,255,0.28); }
 .mermaid-container { background: var(--ai-bubble); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border-radius: 14px; padding: 12px; margin: 8px 0; border: 0.5px solid var(--glass-border); overflow-x: auto; position: relative; box-shadow: var(--glass-shadow); }
 .bubble-content img { max-width: 100% !important; height: auto !important; border-radius: 12px; margin-top: 8px; display: block; }
@@ -417,7 +420,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <input type="file" id="attach-cam" accept="image/*" capture="environment" style="display:none;" onchange="handleAttachments(event)">
 <input type="file" id="attach-img" accept="image/*" multiple style="display:none;" onchange="handleAttachments(event)">
-<input type="file" id="attach-file" multiple style="display:none;" onchange="handleAttachments(event)">
+<input type="file" id="attach-file" accept=".pdf,.txt,.md,.csv,.json,.xml,.html,.htm,.js,.ts,.jsx,.tsx,.css,.py,.swift,.kt,.doc,.docx,.xls,.xlsx" multiple style="display:none;" onchange="handleAttachments(event)">
 
 <div class="top-nav">
     <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
@@ -542,7 +545,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div style="position:relative;">
                     <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="toggleMenu(document.getElementById('attach-menu'))">➕</button>
                     <div id="attach-menu" class="tool-menu closed" style="bottom: 100%; top: auto; left: 0; right: auto; margin-bottom: 10px; min-width: 160px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15);">
-                        <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); document.getElementById('attach-menu').classList.add('closed');">📷 Take Photo</div>
+                        <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); document.getElementById('attach-menu').classList.add('closed');">📷 Camera</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-img').click(); document.getElementById('attach-menu').classList.add('closed');">🖼️ Photo Library</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); document.getElementById('attach-menu').classList.add('closed');">📁 Files</div>
                         <div class="tool-menu-item" onclick="toggleTplPanel(); renderTemplates(); document.getElementById('attach-menu').classList.add('closed');">📄 Templates</div>
@@ -1266,14 +1269,17 @@ function renderChatHistory() {
                      pre.parentNode.replaceChild(mDiv, pre);
                 } else {
                      const wrap = document.createElement('div'); wrap.style.position = 'relative'; pre.parentNode.insertBefore(wrap, pre); wrap.appendChild(pre);
-                     const btn = document.createElement('button'); btn.className = 'copy-code-btn'; btn.innerText = '📋'; btn.onclick = () => { navigator.clipboard.writeText(codeEl ? codeEl.textContent : pre.textContent); notify('Copied!', '#34c759'); }; wrap.appendChild(btn);
+                     const codeText = () => codeEl ? codeEl.textContent : pre.textContent;
+                     // top buttons
+                     const btn = document.createElement('button'); btn.className = 'copy-code-btn'; btn.innerText = '📋'; btn.onclick = () => { navigator.clipboard.writeText(codeText()); notify('Copied!', '#34c759'); }; wrap.appendChild(btn);
                      const dlBtn = document.createElement('button'); dlBtn.className = 'action-btn-overlay'; dlBtn.innerText = '📤'; dlBtn.style.right = '42px';
-                     dlBtn.onclick = () => shareOrDownload(codeEl ? codeEl.textContent : pre.textContent, 'snippet.txt'); wrap.appendChild(dlBtn);
-                     
-                     if(codeEl && (codeEl.className.includes('language-html') || codeEl.className.includes('language-xml'))) {
-                         const prvBtn = document.createElement('button'); prvBtn.className = 'action-btn-overlay'; prvBtn.innerText = '👁️'; prvBtn.style.right = '78px';
-                         prvBtn.onclick = () => openHtmlPreview(codeEl.textContent); wrap.appendChild(prvBtn);
-                     }
+                     dlBtn.onclick = () => shareOrDownload(codeText(), 'snippet.txt'); wrap.appendChild(dlBtn);
+                     const isHtml = codeEl && (codeEl.className.includes('language-html') || codeEl.className.includes('language-xml'));
+                     if(isHtml) { const prvBtn = document.createElement('button'); prvBtn.className = 'action-btn-overlay'; prvBtn.innerText = '👁️'; prvBtn.style.right = '78px'; prvBtn.onclick = () => openHtmlPreview(codeEl.textContent); wrap.appendChild(prvBtn); }
+                     // bottom buttons (mirror)
+                     const btnB = document.createElement('button'); btnB.className = 'copy-code-btn bottom'; btnB.innerText = '📋'; btnB.onclick = () => { navigator.clipboard.writeText(codeText()); notify('Copied!', '#34c759'); }; wrap.appendChild(btnB);
+                     const dlBtnB = document.createElement('button'); dlBtnB.className = 'action-btn-overlay bottom'; dlBtnB.innerText = '📤'; dlBtnB.style.right = '42px'; dlBtnB.onclick = () => shareOrDownload(codeText(), 'snippet.txt'); wrap.appendChild(dlBtnB);
+                     if(isHtml) { const prvBtnB = document.createElement('button'); prvBtnB.className = 'action-btn-overlay bottom'; prvBtnB.innerText = '👁️'; prvBtnB.style.right = '78px'; prvBtnB.onclick = () => openHtmlPreview(codeEl.textContent); wrap.appendChild(prvBtnB); }
                 }
             });
 
@@ -1518,7 +1524,12 @@ async function sendToAI() {
     let appendedText = fullText; let newContent = [];
 
     pendingAttachments.forEach(att => {
-        if(att.type === 'text') { appendedText += `\n\n--- Attached File: ${att.name} ---\n${att.text}`; } 
+        if(att.type === 'text') {
+            const ext = (att.name.split('.').pop() || '').toLowerCase();
+            const langMap = { html:'html', htm:'html', xml:'xml', js:'javascript', ts:'typescript', jsx:'javascript', tsx:'typescript', css:'css', json:'json', md:'markdown', py:'python', swift:'swift', kt:'kotlin' };
+            const lang = langMap[ext] || ext;
+            appendedText += `\n\n--- Attached: ${att.name} ---\n\`\`\`${lang}\n${att.text}\n\`\`\``;
+        }
         else if (att.type === 'image') { newContent.push({ type: "input_image", image_url: att.data }); }
     });
 
