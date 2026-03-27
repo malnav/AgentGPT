@@ -156,11 +156,12 @@ code { font-family: monospace; }
 <input type="file" id="attach-file" multiple style="display:none;" onchange="handleAttachments(event)">
 
 <div class="top-nav">
-    <select id="main-profile-sel" class="main-profile-dropdown" onchange="switchProfileSession(this.value)"></select>
-    <div style="flex:1;"></div>
+    <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
+        <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="cursor:pointer; font-size:18px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:var(--sec-bg); border:1px solid var(--border); border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1);" title="Workspace">🗂️</div>
+        <select id="main-profile-sel" class="main-profile-dropdown" onchange="switchProfileSession(this.value)"></select>
+    </div>
     <div class="sys-icons">
         <div onclick="openCalendar()" style="cursor:pointer;" title="Global Calendar">📅</div>
-        <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="cursor:pointer;" title="Workspace">🗂️</div>
         <div style="border-left: 1px solid var(--border); height: 18px; margin: 0 2px;"></div>
         <div onclick="openModal('master-modal')" style="cursor:pointer;" title="Settings">⚙️</div>
     </div>
@@ -172,40 +173,37 @@ code { font-family: monospace; }
 
 <div id="scroll-bottom-btn">⬇️</div>
 
-<div id="floating-actions">
-    <div id="ctx-indicator" class="float-btn" onclick="toggleAllContext()" style="background:transparent; border:none; box-shadow:none; font-size:28px; padding:0;">☁️</div>
-    <div class="float-btn" onclick="resetCurrentSession()" title="New Chat" style="background:transparent; border:none; box-shadow:none; font-size:28px; padding:0;">📝</div>
-</div>
-
 <div class="pull-indicator global-pull" onclick="toggleVarsPanel()"></div>
 
 <div id="workspace-panel" class="side-panel left-panel" style="z-index: 158;">
     <div class="panel-header">
-        <div class="sub-tabs" style="margin:0; border:none; background:transparent; padding:0; gap:2px;">
-            <div class="sub-tab-btn active" id="wtab-chats" onclick="switchWorkspaceTab('chats')">💬 CHATS</div>
-            <div class="sub-tab-btn" id="wtab-datasets" onclick="switchWorkspaceTab('datasets')">🗄️ DATA SETS</div>
+        <span style="font-size:14px; font-weight:800;">💬 Sessions</span>
+        <div style="display:flex; gap:8px; align-items:center;">
+            <button class="chip" style="font-size:18px; padding:2px 10px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession();" title="New Session">+</button>
+            <div onclick="closeAllPanels()" style="font-size:20px; cursor:pointer;">✕</div>
         </div>
-        <div onclick="closeAllPanels()" style="font-size:20px; cursor:pointer;">✕</div>
     </div>
-    <div id="wview-chats" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column;">
-        <button class="chip" style="width:100%; background:var(--accent); color:#fff; padding:12px; margin-bottom:12px; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession();">+ NEW SESSION</button>
+    <div style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column;">
         <ul id="sessions-list" style="list-style:none; padding:0; margin:0;"></ul>
-    </div>
-    <div id="wview-datasets" class="closed" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column;">
-        <button class="chip" style="width:100%; background:var(--accent); color:#fff; padding:12px; margin-bottom:12px; font-weight:bold;" onclick="createNewDataset()">+ NEW DATA SET</button>
-        <ul id="datasets-list" style="list-style:none; padding:0; margin:0;"></ul>
     </div>
 </div>
 
 <div id="vars-slide-panel" class="side-panel">
-    <div class="panel-header">
-        <span id="active-dataset-title" style="font-size:14px; font-weight:800; color:var(--accent); cursor:pointer;" onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); switchWorkspaceTab('datasets'); renderWorkspaceLists();">Data Set</span>
-        <div style="display:flex; gap:6px;">
-            <button class="chip" style="font-size:11px; padding:6px 10px;" onclick="editExtractionRules()">⚙️ Rules</button>
-            <button class="chip" style="font-size:11px; padding:6px 10px; background:var(--accent); color:#fff;" onclick="autoExtractVariables(true)">✨ Extract</button>
+    <div class="panel-header" style="padding: 8px 14px;">
+        <div class="sub-tabs" style="margin:0; flex:1; border:none; background:transparent; padding:0; gap:2px;">
+            <div class="sub-tab-btn active" id="vtab-vars" onclick="switchVarsTab('vars')" style="padding:4px 8px;">📊 VARS</div>
+            <div class="sub-tab-btn" id="vtab-datasets" onclick="switchVarsTab('datasets')" style="padding:4px 8px;">🗄️ DATASETS</div>
+        </div>
+        <div id="vtab-vars-btns" style="display:flex; gap:4px; margin-left:8px;">
+            <button class="chip" style="font-size:11px; padding:4px 8px;" onclick="editExtractionRules()" title="Rules">⚙️</button>
+            <button class="chip" style="font-size:11px; padding:4px 8px; background:var(--accent); color:#fff;" onclick="autoExtractVariables(true)" title="Extract">✨</button>
+        </div>
+        <div id="vtab-datasets-btns" style="display:none; gap:4px; margin-left:8px;">
+            <button class="chip" style="font-size:18px; padding:2px 10px; background:var(--accent); color:#fff; font-weight:bold;" onclick="createNewDataset()" title="New Dataset">+</button>
         </div>
     </div>
-    <div style="flex:1; overflow-y:auto; padding:12px 14px;">
+    <div id="vview-vars" style="flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column;">
+        <div style="font-size:12px; color:var(--accent); margin-bottom:8px; cursor:pointer; font-weight:700;" onclick="switchVarsTab('datasets')"><span id="active-dataset-title">Data Set</span> ▶</div>
         <ul id="session-vars-list" style="list-style:none; padding:0; margin:0; background:var(--sec-bg); border-radius:8px;"></ul>
         <hr style="border:none; border-top:1px solid var(--border); margin: 16px 0;">
         <input type="text" id="ai-suggest-prompt" class="pp-input" style="margin-bottom:8px; font-size:14px;" placeholder="Prompt: Needed vars?">
@@ -213,6 +211,9 @@ code { font-family: monospace; }
             <button class="chip" style="border:1px dashed var(--border);" onclick="addManualVariable()">+ Define</button>
             <button class="chip" style="border:1px dashed var(--border); color:var(--accent);" onclick="suggestVariablesAI()">🪄 AI Gen</button>
         </div>
+    </div>
+    <div id="vview-datasets" class="closed" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column;">
+        <ul id="datasets-list" style="list-style:none; padding:0; margin:0;"></ul>
     </div>
 </div>
 
@@ -280,16 +281,18 @@ code { font-family: monospace; }
                         <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); document.getElementById('attach-menu').classList.add('closed');">📷 Take Photo</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-img').click(); document.getElementById('attach-menu').classList.add('closed');">🖼️ Photo Library</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); document.getElementById('attach-menu').classList.add('closed');">📁 Files</div>
+                        <div class="tool-menu-item" onclick="toggleTplPanel(); renderTemplates(); document.getElementById('attach-menu').classList.add('closed');">📄 Templates</div>
+                        <div class="tool-menu-item" onclick="toggleSrvPanel(); renderToolsList(); document.getElementById('attach-menu').classList.add('closed');">🔌 Services</div>
                     </div>
                 </div>
 
                 <select id="chatModel" class="model-sel"></select>
                 <div onclick="popState()" style="cursor:pointer; font-size:16px; padding:4px; opacity:0.7;" title="Undo">↩️</div>
                 <div onclick="redoStateAction()" style="cursor:pointer; font-size:16px; padding:4px; opacity:0.7;" title="Redo">↪️</div>
+                <div id="ctx-indicator" onclick="toggleAllContext()" style="cursor:pointer; font-size:18px; padding:2px; opacity:0.85;" title="Toggle Context">☁️</div>
+                <div onclick="resetCurrentSession()" style="cursor:pointer; font-size:18px; padding:2px; opacity:0.85;" title="New Chat">📝</div>
             </div>
-            <div style="display:flex; gap:12px; align-items:center;">
-                <div onclick="toggleTplPanel(); renderTemplates();" style="cursor:pointer; font-size:18px; padding:2px;" title="Templates">📄</div>
-                <div onclick="toggleSrvPanel(); renderToolsList();" style="cursor:pointer; font-size:18px; padding:2px;" title="Services">🔌</div>
+            <div style="display:flex; gap:8px; align-items:center;">
                 <button class="send-btn" id="send-btn-el" onclick="sendToAI()" title="Send">↑</button>
             </div>
         </div>
@@ -675,14 +678,14 @@ function initGestures() {
             else { closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); renderWorkspaceLists(); }
         }
     );
-    const inputZoneEl = document.querySelector('.input-zone');
-    if (inputZoneEl) {
-        let izStartX = 0, izStartY = 0;
-        inputZoneEl.addEventListener('touchstart', e => { izStartX = e.touches[0].clientX; izStartY = e.touches[0].clientY; }, {passive: true});
-        inputZoneEl.addEventListener('touchend', e => {
-            if (e.target.closest('textarea') || e.target.closest('input') || e.target.closest('[contenteditable="true"]')) return;
+    const inputBottomBarEl = document.querySelector('.input-bottom-bar');
+    if (inputBottomBarEl) {
+        let ibStartX = 0, ibStartY = 0;
+        inputBottomBarEl.addEventListener('touchstart', e => { ibStartX = e.touches[0].clientX; ibStartY = e.touches[0].clientY; }, {passive: true});
+        inputBottomBarEl.addEventListener('touchend', e => {
+            if (e.target.closest('select') || e.target.closest('button') || e.target.closest('.tool-menu')) return;
             let endX = e.changedTouches[0].clientX, endY = e.changedTouches[0].clientY;
-            if (Math.abs(izStartY - endY) < 50 && izStartX - endX > 40) { closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI(); }
+            if (Math.abs(ibStartY - endY) < 50 && ibStartX - endX > 40) { closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI(); }
         });
     }
     mainScrollEl.addEventListener('wheel', () => { if(currentAborter) userScrolledDuringGen = true; }, {passive:true}); mainScrollEl.addEventListener('touchstart', () => { if(currentAborter) userScrolledDuringGen = true; }, {passive:true});
@@ -743,7 +746,8 @@ function insertSelectedContexts() { let boxes = document.querySelectorAll('.ctx-
 function insertContextAtCursor(i) { insertAtCursor(CONTEXT_LINES[i], true, false); closeAllPanels(); }
 async function saveModelEntry() { const l = document.getElementById('mod-l').value, t = document.getElementById('mod-t').value; if(!l || !t) return notify("Fill both label and ID", "#ff3b30"); AI_MODELS.push({ label: l, text: t, profile: "Global" }); document.getElementById('mod-l').value = ""; document.getElementById('mod-t').value = ""; await saveAll(); refreshUI(); renderModelList(); notify("Model Added!", "#34c759"); }
 function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile === activeProfileLabel || t.profile === 'Global'); document.getElementById('tools-view').innerHTML = filtT.map(t => { let tIdx = API_SERVICES.indexOf(t); return `<div class="list-item" style="border-radius:8px; border:1px solid var(--border); margin-bottom:4px;" onclick="triggerApiService(${tIdx}); closeAllPanels();"><div style="flex:1;"><strong>${t.label}</strong></div></div>`; }).join(''); }
-function switchWorkspaceTab(t) { document.getElementById('wtab-chats').classList.toggle('active', t==='chats'); document.getElementById('wtab-datasets').classList.toggle('active', t==='datasets'); document.getElementById('wview-chats').classList.toggle('closed', t!=='chats'); document.getElementById('wview-datasets').classList.toggle('closed', t!=='datasets'); if(t === 'datasets') renderDatasetsList(); }
+function switchWorkspaceTab(t) { }
+function switchVarsTab(t) { document.getElementById('vtab-vars').classList.toggle('active', t==='vars'); document.getElementById('vtab-datasets').classList.toggle('active', t==='datasets'); document.getElementById('vview-vars').classList.toggle('closed', t!=='vars'); document.getElementById('vview-datasets').classList.toggle('closed', t!=='datasets'); document.getElementById('vtab-vars-btns').style.display = t==='vars' ? 'flex' : 'none'; document.getElementById('vtab-datasets-btns').style.display = t==='datasets' ? 'flex' : 'none'; if(t === 'datasets') renderDatasetsList(); }
 function renderWorkspaceLists() { renderSessionsList(); renderDatasetsList(); }
 async function loadSession(id) { let sData = getSessions(); sData.current = String(id); let cur = sData.list.find(x => String(x.id) === String(id)); if(cur) { chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; addLog("SESSION", "Load Chat", cur.title); await saveAll(); refreshUI(); renderChatHistory(); closeAllPanels(); scrollToLastRequest(); } }
 function renderSessionsList() { let sData = getSessions(); let sortedChats = [...sData.list].sort((a,b) => Number(b.id) - Number(a.id)); document.getElementById('sessions-list').innerHTML = sortedChats.map(s => `<li class="list-item ${String(s.id) === String(sData.current) ? 'in-cut' : ''}" onclick="loadSession('${s.id}')"><div style="flex:1;"><strong>${s.title}</strong> <span style="font-size:10px; color:#888;">${(s.msgs||[]).length} msgs</span></div><div class="inline-btn" onclick="event.stopPropagation(); deleteSession('${s.id}')">🗑️</div></li>`).join(''); }
