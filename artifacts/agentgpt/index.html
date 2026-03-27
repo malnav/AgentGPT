@@ -283,16 +283,17 @@ code { font-family: monospace; }
                         <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); document.getElementById('attach-menu').classList.add('closed');">📁 Files</div>
                         <div class="tool-menu-item" onclick="toggleTplPanel(); renderTemplates(); document.getElementById('attach-menu').classList.add('closed');">📄 Templates</div>
                         <div class="tool-menu-item" onclick="toggleSrvPanel(); renderToolsList(); document.getElementById('attach-menu').classList.add('closed');">🔌 Services</div>
+                        <div class="tool-menu-item" onclick="toggleCtxPanel(); refreshUI(); document.getElementById('attach-menu').classList.add('closed');">📋 Context Window</div>
                     </div>
                 </div>
 
                 <select id="chatModel" class="model-sel"></select>
-                <div onclick="popState()" style="cursor:pointer; font-size:16px; padding:4px; opacity:0.7;" title="Undo">↩️</div>
-                <div onclick="redoStateAction()" style="cursor:pointer; font-size:16px; padding:4px; opacity:0.7;" title="Redo">↪️</div>
-                <div id="ctx-indicator" onclick="toggleAllContext()" style="cursor:pointer; font-size:18px; padding:2px; opacity:0.85;" title="Toggle Context">☁️</div>
+                <div onclick="popState()" style="display:none;" title="Undo">↩️</div>
+                <div onclick="redoStateAction()" style="display:none;" title="Redo">↪️</div>
                 <div onclick="resetCurrentSession()" style="cursor:pointer; font-size:18px; padding:2px; opacity:0.85;" title="New Chat">📝</div>
             </div>
-            <div style="display:flex; gap:8px; align-items:center;">
+            <div style="display:flex; gap:6px; align-items:center;">
+                <div id="ctx-indicator" onclick="toggleAllContext()" style="cursor:pointer; font-size:18px; padding:2px; opacity:0.85;" title="Toggle Context">☁️</div>
                 <button class="send-btn" id="send-btn-el" onclick="sendToAI()" title="Send">↑</button>
             </div>
         </div>
@@ -480,7 +481,10 @@ code { font-family: monospace; }
 <div id="fullscreen-modal" class="modal" style="z-index: 600;">
     <div class="modal-header">
         <h3 id="fs-title">Preview</h3>
-        <div onclick="closeModal('fullscreen-modal')" style="font-size:24px; cursor:pointer;">✕</div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <button id="fs-export-pdf-btn" class="chip" style="display:none; font-size:12px; padding:6px 12px; background:var(--accent); color:#fff;" onclick="exportHtmlAsPdf()">⬇️ PDF</button>
+            <div onclick="closeModal('fullscreen-modal')" style="font-size:24px; cursor:pointer;">✕</div>
+        </div>
     </div>
     <div class="modal-content" id="fs-content" style="padding:0; flex:1; display:flex; flex-direction:column; background:#fff; height:calc(100vh - 60px);"></div>
 </div>
@@ -686,6 +690,18 @@ function initGestures() {
             if (e.target.closest('select') || e.target.closest('button') || e.target.closest('.tool-menu')) return;
             let endX = e.changedTouches[0].clientX, endY = e.changedTouches[0].clientY;
             if (Math.abs(ibStartY - endY) < 50 && ibStartX - endX > 40) { closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI(); }
+        });
+    }
+    const noteInputEl = document.getElementById('note-input');
+    if (noteInputEl) {
+        let taStartX = 0, taStartY = 0;
+        noteInputEl.addEventListener('touchstart', e => { taStartX = e.touches[0].clientX; taStartY = e.touches[0].clientY; }, {passive: true});
+        noteInputEl.addEventListener('touchend', e => {
+            let endX = e.changedTouches[0].clientX, endY = e.changedTouches[0].clientY;
+            let dx = taStartX - endX, dy = Math.abs(taStartY - endY);
+            if (dy < 40 && Math.abs(dx) > 70) {
+                if (dx > 0) popState(); else redoStateAction();
+            }
         });
     }
     mainScrollEl.addEventListener('wheel', () => { if(currentAborter) userScrolledDuringGen = true; }, {passive:true}); mainScrollEl.addEventListener('touchstart', () => { if(currentAborter) userScrolledDuringGen = true; }, {passive:true});
@@ -919,16 +935,31 @@ async function shareOrDownload(dataStr, filename) {
     } catch(e) { notify("Export failed", "#ff3b30"); }
 }
 
+let _currentHtmlPreview = "";
 function openHtmlPreview(html) {
+    _currentHtmlPreview = html;
     document.getElementById('fs-title').innerText = "HTML Preview";
+    document.getElementById('fs-export-pdf-btn').style.display = 'inline-flex';
     const container = document.getElementById('fs-content'); container.innerHTML = '';
-    const iframe = document.createElement('iframe'); iframe.style.cssText = "width:100%; height:100%; border:none; background:#fff;";
+    const iframe = document.createElement('iframe'); iframe.id = 'fs-iframe'; iframe.style.cssText = "width:100%; height:100%; border:none; background:#fff;";
     container.appendChild(iframe); openModal('fullscreen-modal');
     setTimeout(() => { iframe.contentWindow.document.open(); iframe.contentWindow.document.write(html); iframe.contentWindow.document.close(); }, 50);
 }
 
+function exportHtmlAsPdf() {
+    const iframe = document.getElementById('fs-iframe');
+    if (!iframe || !iframe.contentWindow) { notify("No HTML preview open", "#ff3b30"); return; }
+    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
+    catch(e) {
+        const w = window.open('', '_blank');
+        if (w) { w.document.write(_currentHtmlPreview); w.document.close(); w.focus(); setTimeout(() => w.print(), 500); }
+        else notify("Allow pop-ups to export PDF", "#ff3b30");
+    }
+}
+
 function openMermaidFullscreen(svgHtml) {
     document.getElementById('fs-title').innerText = "Chart Preview";
+    document.getElementById('fs-export-pdf-btn').style.display = 'none';
     const container = document.getElementById('fs-content');
     container.innerHTML = `<div style="width:100%; height:100%; overflow:auto; background:#fff; display:flex; align-items:center; justify-content:center; padding:20px;"><div style="transform:scale(1.2); transform-origin:center;">${svgHtml}</div></div>`;
     openModal('fullscreen-modal');
