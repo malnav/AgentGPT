@@ -221,7 +221,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 /* ── INPUT ZONE — floating glass card ── */
 .input-zone {
   flex-shrink: 0;
-  padding: 6px 12px calc(5px + env(safe-area-inset-bottom, 0px)) 12px;
+  padding: 6px 12px calc(2px + env(safe-area-inset-bottom, 0px)) 12px;
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -1046,7 +1046,7 @@ async function resetCurrentSession() {
     chatHistory = newChat; document.getElementById('note-input').value = ""; lastCursorPos = null; cutIdx = CONFIG.def_ctx === 'none' ? -1 : CONTEXT_LINES.length - 1;
     sData.list.push({ id: newId, title: "Chat " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), msgs: newChat, var_id: newId, draft: "" });
     sData.current = newId; GLOBAL_DATASETS[newId] = { title: "Data Set " + newId.substring(newId.length-4), data: {} };
-    chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); refreshUI(); await saveAll(); document.getElementById('note-input').focus();
+    chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); refreshUI(); document.getElementById('note-input').focus(); await saveAll(); setTimeout(() => document.getElementById('note-input').focus(), 150);
 }
 
 function renderDatasetsList() {
@@ -1627,7 +1627,7 @@ async function pullFromFirebase() {
     } catch(e) { addLog("SYNC", "Pull Error", e.message); }
 }
 
-function triggerAutoSync() { if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => { pushToFirebase(); }, 3000); }
+function triggerAutoSync() { if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => { pushToFirebase(); }, 500); }
 
 // --- CALENDAR LOGIC ---
 function openCalendar() { renderCalFilters(); renderCalendar(); openModal('calendar-modal'); }
