@@ -1597,23 +1597,35 @@ async function initFirebase() {
 }
 
 async function pushToFirebase(manual = false) {
-    const db = await initFirebase(); if(!db) { if(manual) notify("Setup Firebase in Settings first", "#ff3b30"); return; }
-    let chatCount = 0; Object.values(chatHistories).forEach(p => chatCount += (p.list ? p.list.length : 0));
-    if (chatCount === 0 && AI_PROFILES.length <= 1 && !manual) {
-        try {
-            const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
-            const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
-            if (snap.exists() && snap.data().last_sync) { let cloudChats = 0; if(snap.data().chunks_count > 0) cloudChats = 1; if (cloudChats > 0) { addLog("SYNC", "Push Aborted", "Local empty, cloud has data. Avoiding accidental overwrite."); return; } }
-        } catch(e) {}
+    const db = await initFirebase(); if(!db) { if(manual) notify("⚠️ Setup Firebase in Settings first", "#ff3b30"); return; }
+    // Only guard on very first ever push from a fresh device (never pushed before AND no local chats)
+    // to avoid accidentally wiping cloud data. Once we've pushed once, always allow.
+    if(lastPushedSyncTime === 0 && !manual) {
+        let chatCount = 0; Object.values(chatHistories).forEach(p => chatCount += (p.list ? p.list.length : 0));
+        if(chatCount === 0 && AI_PROFILES.length <= 1) {
+            try {
+                const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+                const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
+                if(snap.exists() && snap.data().last_sync && snap.data().chunks_count > 0) {
+                    addLog("SYNC", "Push Skipped", "Fresh device, cloud has data — pull first."); return;
+                }
+            } catch(e) {}
+        }
     }
     try {
-        const { doc, setDoc, writeBatch } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"); const batch = writeBatch(db);
+        const { doc, writeBatch } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"); const batch = writeBatch(db);
         const payload = { profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, last_sync: Date.now() };
         const histStr = JSON.stringify(chatHistories); const chunks = []; const chunkSize = 300000; for (let i = 0; i < histStr.length; i += chunkSize) { chunks.push(histStr.substring(i, i + chunkSize)); } payload.chunks_count = chunks.length;
         batch.set(doc(db, "quicknote_data", "primary_user"), payload); for(let i=0; i<chunks.length; i++) { batch.set(doc(db, "quicknote_data", "primary_hist_"+i), { data: chunks[i] }); } await batch.commit();
         lastPushedSyncTime = payload.last_sync;
-        addLog("SYNC", "Cloud Push", `Synced: ${chatCount} Chats.`); 
-    } catch(e) { addLog("SYNC", "Push Error", e.message); console.error("Firebase Push Error:", e); }
+        let chatCount = 0; Object.values(chatHistories).forEach(p => chatCount += (p.list ? p.list.length : 0));
+        addLog("SYNC", "Cloud Push", `OK: ${chatCount} chats`);
+        if(manual) notify("☁️ Pushed to cloud!", "#34c759");
+    } catch(e) {
+        addLog("SYNC", "Push Error", e.message);
+        notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000);
+        console.error("Firebase Push Error:", e);
+    }
 }
 
 async function pullFromFirebase(silent = false) {
@@ -1625,11 +1637,15 @@ async function pullFromFirebase(silent = false) {
             if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles'); if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts'); if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates'); if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools'); if(data.models) AI_MODELS = sanitizeImport(data.models, 'models'); if(data.config) CONFIG = data.config; if(data.datasets) GLOBAL_DATASETS = data.datasets;
             if(data.chunks_count > 0) { let fullStr = ""; for(let i=0; i<data.chunks_count; i++) { let chunkSnap = await getDoc(doc(db, "quicknote_data", "primary_hist_"+i)); if(chunkSnap.exists()) fullStr += chunkSnap.data().data; } if(fullStr) chatHistories = JSON.parse(fullStr); } else if(data.histories) { chatHistories = data.histories; }
             if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
-            await saveAll(true); await refreshUI(); renderWorkspaceLists(); renderChatHistory(); scrollToLastRequest();
+            // Sync local chatHistory to freshly pulled current session (must happen BEFORE saveAll so stale local msgs don't overwrite cloud data)
+            const pulledProfile = chatHistories[activeProfileLabel];
+            if(pulledProfile) { const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(pulledProfile.current)) : null; if(pulledCur) chatHistory = pulledCur.msgs || []; }
+            await dbHelper.setMulti({ 'profiles': AI_PROFILES, 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'models': AI_MODELS, 'config': CONFIG, 'datasets': GLOBAL_DATASETS, 'histories': chatHistories, 'activeProfile': activeProfileLabel });
+            await refreshUI(); renderWorkspaceLists(); renderChatHistory(); scrollToLastRequest();
             let countChats = 0; Object.values(chatHistories).forEach(p => countChats += (p.list ? p.list.length : 0)); addLog("SYNC", "Cloud Pull", `Loaded ${countChats} Chats.`);
-            if(!silent) notify("Synced from cloud!", "#34c759"); else notify("↓ Synced", "#34c759", 1500);
+            if(!silent) notify("☁️ Synced from cloud!", "#34c759"); else notify("↓ Synced", "#34c759", 1500);
         }
-    } catch(e) { addLog("SYNC", "Pull Error", e.message); }
+    } catch(e) { addLog("SYNC", "Pull Error", e.message); if(!silent) notify("⚠️ Sync pull failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
 }
 
 function triggerAutoSync() { if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => { pushToFirebase(); }, 500); }
