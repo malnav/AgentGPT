@@ -1009,6 +1009,7 @@ async function init() {
     if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0].label; }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); refreshUI(); initGestures(); setTimeout(updateInputHeightVar, 100);
+    startAutoPolling();
 }
 
 async function refreshUI() {
@@ -1449,7 +1450,8 @@ async function saveMasterConfig() {
     CONFIG.ai_key = document.getElementById('ai-key-f').value; CONFIG.def_profile = document.getElementById('def-prof-f').value; CONFIG.def_model = document.getElementById('def-mod-f').value; 
     CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = document.getElementById('fb-auto-f').checked;
     CONFIG.def_ctx = document.getElementById('def-ctx-f').value;
-    await saveAll(); await refreshUI(); notify("Config Saved!", "#34c759"); 
+    await saveAll(); await refreshUI(); notify("Config Saved!", "#34c759");
+    fbDb = null; startAutoPolling();
 }
 
 function setTplTab(tab) { tplTab = tab; document.getElementById('tab-tpl-all').classList.toggle('active', tab === 'all'); document.getElementById('tab-tpl-fav').classList.toggle('active', tab === 'fav'); document.getElementById('tab-tpl-recent').classList.toggle('active', tab === 'recent'); renderTemplates(); }
@@ -1587,7 +1589,7 @@ async function sendToAI() {
     finally { sendBtn.innerHTML = '↑'; sendBtn.classList.remove('sending'); currentAborter = null; }
 }
 
-let fbDb = null; let syncTimer = null;
+let fbDb = null; let syncTimer = null; let lastPushedSyncTime = 0; let autoPollInterval = null;
 
 async function initFirebase() {
     if(!CONFIG.fb_api || !CONFIG.fb_project) return null; if(fbDb) return fbDb;
@@ -1609,12 +1611,13 @@ async function pushToFirebase(manual = false) {
         const payload = { profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, last_sync: Date.now() };
         const histStr = JSON.stringify(chatHistories); const chunks = []; const chunkSize = 300000; for (let i = 0; i < histStr.length; i += chunkSize) { chunks.push(histStr.substring(i, i + chunkSize)); } payload.chunks_count = chunks.length;
         batch.set(doc(db, "quicknote_data", "primary_user"), payload); for(let i=0; i<chunks.length; i++) { batch.set(doc(db, "quicknote_data", "primary_hist_"+i), { data: chunks[i] }); } await batch.commit();
+        lastPushedSyncTime = payload.last_sync;
         addLog("SYNC", "Cloud Push", `Synced: ${chatCount} Chats.`); 
     } catch(e) { addLog("SYNC", "Push Error", e.message); console.error("Firebase Push Error:", e); }
 }
 
-async function pullFromFirebase() {
-    const db = await initFirebase(); if(!db) return notify("Setup Firebase in Settings first", "#ff3b30");
+async function pullFromFirebase(silent = false) {
+    const db = await initFirebase(); if(!db) return silent ? null : notify("Setup Firebase in Settings first", "#ff3b30");
     try {
         const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"); const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
         if(snap.exists()) {
@@ -1622,12 +1625,41 @@ async function pullFromFirebase() {
             if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles'); if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts'); if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates'); if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools'); if(data.models) AI_MODELS = sanitizeImport(data.models, 'models'); if(data.config) CONFIG = data.config; if(data.datasets) GLOBAL_DATASETS = data.datasets;
             if(data.chunks_count > 0) { let fullStr = ""; for(let i=0; i<data.chunks_count; i++) { let chunkSnap = await getDoc(doc(db, "quicknote_data", "primary_hist_"+i)); if(chunkSnap.exists()) fullStr += chunkSnap.data().data; } if(fullStr) chatHistories = JSON.parse(fullStr); } else if(data.histories) { chatHistories = data.histories; }
             if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
-            await saveAll(true); refreshUI(); renderWorkspaceLists(); renderChatHistory(); scrollToLastRequest(); let countChats = 0; Object.values(chatHistories).forEach(p => countChats += (p.list ? p.list.length : 0)); addLog("SYNC", "Cloud Pull", `Loaded ${countChats} Chats.`); 
+            await saveAll(true); await refreshUI(); renderWorkspaceLists(); renderChatHistory(); scrollToLastRequest();
+            let countChats = 0; Object.values(chatHistories).forEach(p => countChats += (p.list ? p.list.length : 0)); addLog("SYNC", "Cloud Pull", `Loaded ${countChats} Chats.`);
+            if(!silent) notify("Synced from cloud!", "#34c759"); else notify("↓ Synced", "#34c759", 1500);
         }
     } catch(e) { addLog("SYNC", "Pull Error", e.message); }
 }
 
 function triggerAutoSync() { if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => { pushToFirebase(); }, 500); }
+
+async function checkAndPullIfNewer() {
+    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
+    try {
+        const db = await initFirebase(); if(!db) return;
+        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
+        if(!snap.exists()) return;
+        const cloudTime = snap.data().last_sync || 0;
+        if(cloudTime > lastPushedSyncTime + 1500) {
+            lastPushedSyncTime = cloudTime;
+            addLog("SYNC", "Auto-Pull", "Cloud is newer — pulling...");
+            await pullFromFirebase(true);
+        }
+    } catch(e) { addLog("SYNC", "Poll Error", e.message); }
+}
+
+function startAutoPolling() {
+    if(autoPollInterval) clearInterval(autoPollInterval);
+    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
+    autoPollInterval = setInterval(checkAndPullIfNewer, 12000);
+    checkAndPullIfNewer();
+}
+
+function stopAutoPolling() {
+    if(autoPollInterval) { clearInterval(autoPollInterval); autoPollInterval = null; }
+}
 
 // --- CALENDAR LOGIC ---
 function openCalendar() { renderCalFilters(); renderCalendar(); openModal('calendar-modal'); }
