@@ -72,13 +72,14 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%);
+  background: var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%));
   z-index: -1;
   pointer-events: none;
+  transition: background 0.5s ease;
 }
 @media (prefers-color-scheme: dark) {
   body::before {
-    background: linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%);
+    background: var(--bg-gradient, linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%));
   }
 }
 
@@ -217,7 +218,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 /* ── INPUT ZONE — floating glass card ── */
 .input-zone {
   flex-shrink: 0;
-  padding: 6px 12px calc(10px + env(safe-area-inset-bottom, 0px)) 12px;
+  padding: 6px 12px calc(5px + env(safe-area-inset-bottom, 0px)) 12px;
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -266,7 +267,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .side-panel {
   position: fixed;
   top: calc(58px + env(safe-area-inset-top));
-  bottom: var(--input-h);
+  bottom: 0;
   right: -105%;
   width: 100%;
   background: var(--glass);
@@ -292,7 +293,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .ctx-panel {
   position: fixed;
   top: calc(58px + env(safe-area-inset-top));
-  bottom: var(--input-h);
+  bottom: 0;
   right: -105%;
   width: 100%;
   background: var(--glass);
@@ -534,7 +535,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     <div class="input-wrapper">
         <div id="expand-btn" onclick="toggleExpandInput()" title="Expand Input">⤢</div>
         <div id="attachment-preview"></div>
-        <textarea id="note-input" placeholder="Draft text..."></textarea>
+        <textarea id="note-input" placeholder="Draft text..." autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"></textarea>
         
         <div class="input-bottom-bar">
             <div style="display:flex; gap:6px; align-items:center;">
@@ -572,6 +573,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <button id="mtab-logs" class="tab-btn" onclick="switchMasterTab('logs')">📜 LOGS</button>
     </div>
     <div id="mview-config" class="modal-content">
+        <small style="font-weight:800; font-size:11px; color:var(--accent); display:block; margin-bottom:10px;">🎨 BACKGROUND THEME</small>
+        <div id="bg-theme-swatches" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px;"></div>
+        <hr style="border:none; border-top:0.5px solid var(--border); margin: 0 0 18px 0;">
         <small style="font-weight:800; font-size:11px; color:#888;">DEFAULT CONTEXT (NEW CHAT)</small>
         <select id="def-ctx-f" class="pp-input" onchange="saveMasterConfig()">
             <option value="all">All Enabled</option>
@@ -1028,7 +1032,7 @@ function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile ==
 function switchWorkspaceTab(t) { }
 function switchVarsTab(t) { document.getElementById('vtab-vars').classList.toggle('active', t==='vars'); document.getElementById('vtab-datasets').classList.toggle('active', t==='datasets'); document.getElementById('vview-vars').classList.toggle('closed', t!=='vars'); document.getElementById('vview-datasets').classList.toggle('closed', t!=='datasets'); document.getElementById('vtab-vars-btns').style.display = t==='vars' ? 'flex' : 'none'; document.getElementById('vtab-datasets-btns').style.display = t==='datasets' ? 'flex' : 'none'; if(t === 'datasets') renderDatasetsList(); }
 function renderWorkspaceLists() { renderSessionsList(); renderDatasetsList(); }
-async function loadSession(id) { let sData = getSessions(); sData.current = String(id); let cur = sData.list.find(x => String(x.id) === String(id)); if(cur) { chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; addLog("SESSION", "Load Chat", cur.title); await saveAll(); refreshUI(); renderChatHistory(); closeAllPanels(); scrollToLastRequest(); } }
+async function loadSession(id) { let sData = getSessions(); sData.current = String(id); let cur = sData.list.find(x => String(x.id) === String(id)); if(cur) { chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; addLog("SESSION", "Load Chat", cur.title); closeAllPanels(); await saveAll(); refreshUI(); renderChatHistory(); scrollToLastRequest(); } }
 function renderSessionsList() { let sData = getSessions(); let sortedChats = [...sData.list].sort((a,b) => Number(b.id) - Number(a.id)); document.getElementById('sessions-list').innerHTML = sortedChats.map(s => `<li class="list-item ${String(s.id) === String(sData.current) ? 'in-cut' : ''}" onclick="loadSession('${s.id}')"><div style="flex:1;"><strong>${s.title}</strong> <span style="font-size:10px; color:#888;">${(s.msgs||[]).length} msgs</span></div><div class="inline-btn" onclick="event.stopPropagation(); deleteSession('${s.id}')">🗑️</div></li>`).join(''); }
 
 async function resetCurrentSession() { 
@@ -1486,10 +1490,10 @@ async function openModal(id) {
     closeAllPanels(); 
     if(id === 'workspace-modal') await autoCleanupEmptyChats();
     document.getElementById(id).style.display = 'flex'; 
-    if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); } 
+    if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); } 
 }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-function switchMasterTab(t) { document.getElementById('mtab-config').classList.toggle('active', t==='config'); document.getElementById('mtab-profiles').classList.toggle('active', t==='profiles'); document.getElementById('mtab-models').classList.toggle('active', t==='models'); document.getElementById('mtab-logs').classList.toggle('active', t==='logs'); document.getElementById('mview-config').classList.toggle('closed', t!=='config'); document.getElementById('mview-profiles').classList.toggle('closed', t!=='profiles'); document.getElementById('mview-models').classList.toggle('closed', t!=='models'); document.getElementById('mview-logs').classList.toggle('closed', t!=='logs'); if(t==='models') renderModelList(); if(t==='profiles') renderProfileList(); if(t==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); }
+function switchMasterTab(t) { document.getElementById('mtab-config').classList.toggle('active', t==='config'); document.getElementById('mtab-profiles').classList.toggle('active', t==='profiles'); document.getElementById('mtab-models').classList.toggle('active', t==='models'); document.getElementById('mtab-logs').classList.toggle('active', t==='logs'); document.getElementById('mview-config').classList.toggle('closed', t!=='config'); document.getElementById('mview-profiles').classList.toggle('closed', t!=='profiles'); document.getElementById('mview-models').classList.toggle('closed', t!=='models'); document.getElementById('mview-logs').classList.toggle('closed', t!=='logs'); if(t==='models') renderModelList(); if(t==='profiles') renderProfileList(); if(t==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(t==='config') renderBgSwatches(); }
 function switchModalTab(t) { document.getElementById('tab-editor').classList.toggle('active', t==='editor'); document.getElementById('tab-bulk').classList.toggle('active', t==='bulk'); document.getElementById('view-editor').classList.toggle('closed', t!=='editor'); document.getElementById('view-bulk').classList.toggle('closed', t!=='bulk'); }
 
 function getActiveData() { return (activeCrud==='prompts')?PROMPTS:(activeCrud==='tools')?API_SERVICES:(activeCrud==='profiles')?AI_PROFILES:(activeCrud==='models')?AI_MODELS:TEMPLATES; }
@@ -1659,6 +1663,40 @@ function renderCalendar() {
 }
 
 function showDatasetDetails(base64Data) { try { let ds = JSON.parse(decodeURIComponent(escape(atob(base64Data)))); document.getElementById('ds-detail-title').innerText = ds.title; let html = Object.keys(ds.data).map(k => { let v = typeof ds.data[k] === 'object' ? ds.data[k].value : ds.data[k]; return `<div style="font-size:12px; padding:6px; border-bottom:0.5px solid var(--border);"><strong>${k}:</strong> ${v}</div>`; }).join(''); if(!html) html = "<em>Empty dataset</em>"; document.getElementById('ds-detail-content').innerHTML = html; openModal('dataset-detail-modal'); } catch(e) {} }
+
+/* ── BACKGROUND THEMES ── */
+const BG_THEMES = [
+    { name: "Aurora",    preview: "linear-gradient(135deg,#ddeaff,#ead9ff,#ffd9ec,#d9f5f0)", gradient: "linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)" },
+    { name: "Ocean",     preview: "linear-gradient(135deg,#d0f0fa,#b8e0ff,#d0d8ff,#d0f0f8)", gradient: "linear-gradient(145deg, #d0f0fa 0%, #b8e0ff 38%, #d0d8ff 68%, #d0f0f8 100%)" },
+    { name: "Sunset",    preview: "linear-gradient(135deg,#fff3e0,#ffccbc,#ffa8a8,#fce4ec)", gradient: "linear-gradient(145deg, #fff3e0 0%, #ffccbc 38%, #ffa8a8 68%, #fce4ec 100%)" },
+    { name: "Forest",    preview: "linear-gradient(135deg,#e8f5e9,#c8e6c9,#b2dfdb,#f1f8e9)", gradient: "linear-gradient(145deg, #e8f5e9 0%, #c8e6c9 38%, #b2dfdb 68%, #f1f8e9 100%)" },
+    { name: "Lavender",  preview: "linear-gradient(135deg,#ede7f6,#d1c4e9,#c5cae9,#e8eaf6)", gradient: "linear-gradient(145deg, #ede7f6 0%, #d1c4e9 38%, #c5cae9 68%, #e8eaf6 100%)" },
+    { name: "Rose",      preview: "linear-gradient(135deg,#fce4ec,#f8bbd0,#ffccbc,#fff3e0)", gradient: "linear-gradient(145deg, #fce4ec 0%, #f8bbd0 38%, #ffccbc 68%, #fff3e0 100%)" },
+    { name: "Monochrome",preview: "#f2f2f7",                                                  gradient: "#f2f2f7" },
+    { name: "Nebula",    preview: "linear-gradient(135deg,#06061a,#10061c,#1a060d,#06100d)",  gradient: "linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)" },
+];
+function applyBgTheme(idx) {
+    const g = BG_THEMES[idx].gradient;
+    document.documentElement.style.setProperty('--bg-gradient', g);
+    localStorage.setItem('APP_BG_THEME_IDX', idx);
+    renderBgSwatches();
+}
+function loadBgTheme() {
+    const saved = localStorage.getItem('APP_BG_THEME_IDX');
+    if (saved !== null && BG_THEMES[saved]) {
+        document.documentElement.style.setProperty('--bg-gradient', BG_THEMES[saved].gradient);
+    }
+}
+function renderBgSwatches() {
+    const saved = parseInt(localStorage.getItem('APP_BG_THEME_IDX') ?? 0);
+    const container = document.getElementById('bg-theme-swatches');
+    if (!container) return;
+    container.innerHTML = BG_THEMES.map((t, i) => `
+        <div onclick="applyBgTheme(${i})" title="${t.name}" style="width:48px; height:48px; border-radius:14px; background:${t.preview}; cursor:pointer; border:${i===saved ? '3px solid var(--accent)' : '2px solid transparent'}; box-shadow:0 2px 8px rgba(0,0,0,0.15); display:flex; align-items:flex-end; justify-content:center; padding-bottom:4px; transition:transform 0.15s;">
+            <span style="font-size:9px; font-weight:800; color:rgba(0,0,0,0.5); text-shadow:0 1px 2px rgba(255,255,255,0.8);">${t.name.split(' ')[0].substring(0,5)}</span>
+        </div>`).join('');
+}
+loadBgTheme();
 
 window.onload = init;
 </script>
