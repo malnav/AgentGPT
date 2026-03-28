@@ -24,8 +24,7 @@
   --user-bubble: rgba(255,255,255,0.78);
   --log-bg: #1c1c1e;
   --log-text: #34c759;
-  --input-h: 160px;
-  --input-zone-h: 110px;
+  --input-h: 130px;
 
   /* Glass tokens */
   --glass: rgba(255,255,255,0.62);
@@ -148,7 +147,7 @@ body::before {
 .chip.active { background: var(--accent) !important; color: #fff !important; border-color: transparent; box-shadow: 0 4px 14px rgba(0,122,255,0.35); }
 
 /* ── SCROLL AREA ── */
-.scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; padding-top: calc(64px + env(safe-area-inset-top)); padding-bottom: var(--input-h, 160px); position: relative; scroll-behavior: smooth; }
+.scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; padding-top: calc(64px + env(safe-area-inset-top)); position: relative; scroll-behavior: smooth; }
 
 /* ── BUBBLES ── */
 #chat-container { padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; padding-bottom: 22px; }
@@ -222,40 +221,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .bubble-tools div { cursor: pointer; padding: 6px; transition: transform 0.15s var(--spring); min-width: 32px; min-height: 32px; display: flex; align-items: center; justify-content: center; }
 .bubble-tools div:active { transform: scale(0.88); }
 
-/* ── BOTTOM AREA (prompt bar + input zone, fixed overlay) ── */
-#bottom-area {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
-  background: transparent;
-  pointer-events: auto;
-}
-#prompt-bar-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px 2px 12px;
-  background: transparent;
-}
-/* Fade gradient so chat smoothly blurs into the input area */
-#chat-fade {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: var(--input-h, 160px);
-  height: 52px;
-  background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.55));
-  pointer-events: none;
-  z-index: 49;
-}
-@media (prefers-color-scheme: dark) {
-  #chat-fade { background: linear-gradient(to bottom, transparent, rgba(18,18,28,0.65)); }
-}
 /* ── INPUT ZONE — floating glass card ── */
 .input-zone {
-  padding: 2px 12px env(safe-area-inset-bottom, 0px) 12px;
+  flex-shrink: 0;
+  padding: 4px 12px env(safe-area-inset-bottom, 0px) 12px;
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -304,7 +273,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .side-panel {
   position: fixed;
   top: calc(58px + env(safe-area-inset-top));
-  bottom: var(--input-zone-h, 110px);
+  bottom: var(--input-h, 130px);
   right: -105%;
   width: 100%;
   background: var(--glass);
@@ -333,7 +302,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .ctx-panel {
   position: fixed;
   top: calc(58px + env(safe-area-inset-top));
-  bottom: var(--input-zone-h, 110px);
+  bottom: var(--input-h, 130px);
   right: -105%;
   width: 100%;
   background: var(--glass);
@@ -566,13 +535,12 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 </div>
 
-<div id="chat-fade"></div>
-<div id="bottom-area">
-    <div id="prompt-bar-row">
+<div class="input-zone" id="main-input-zone">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
         <div id="inline-prompts-container" class="inline-prompts-container"></div>
         <div class="prompt-chip" style="background:transparent; border:none; padding:4px; font-size:18px;" onclick="manageSection('prompts'); closeAllPanels();" title="Manage Prompts">📚</div>
     </div>
-<div class="input-zone" id="main-input-zone">
+
     <div class="input-wrapper">
         <div id="expand-btn" onclick="toggleExpandInput()" title="Expand Input">⤢</div>
         <div id="attachment-preview"></div>
@@ -603,7 +571,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             </div>
         </div>
     </div>
-</div>
 </div>
 
 <div id="master-modal" class="modal">
@@ -930,12 +897,7 @@ async function getStorageSize() { const str = JSON.stringify(chatHistories); ret
 
 document.addEventListener('click', (e) => { if(!e.target.closest('.tool-menu') && !e.target.closest('.inline-btn') && !e.target.closest('.chip')) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => m.classList.add('closed')); } });
 function toggleMenu(menuEl) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => { if(m !== menuEl) m.classList.add('closed'); }); menuEl.classList.toggle('closed'); }
-function updateInputHeightVar() {
-    const ba = document.getElementById('bottom-area');
-    const iz = document.getElementById('main-input-zone');
-    if(ba) document.documentElement.style.setProperty('--input-h', ba.offsetHeight + 'px');
-    if(iz) document.documentElement.style.setProperty('--input-zone-h', iz.offsetHeight + 'px');
-}
+function updateInputHeightVar() { const z = document.getElementById('main-input-zone'); if (z) document.documentElement.style.setProperty('--input-h', z.offsetHeight + 'px'); }
 window.addEventListener('resize', updateInputHeightVar);
 
 const mainScrollEl = document.getElementById('mainScroll'); const scrollBtnEl = document.getElementById('scroll-bottom-btn');
