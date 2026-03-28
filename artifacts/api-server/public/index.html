@@ -286,17 +286,19 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   overflow: hidden;
   pointer-events: auto;
   box-shadow: var(--glass-shadow-lg);
-  border-bottom: 0.5px solid var(--glass-border);
+  border-radius: 20px;
 }
 .side-panel.open { right: 0; }
 .left-panel {
   left: -105%;
   right: auto;
   bottom: 0;
+  border-radius: 20px;
   transition: left 0.38s var(--spring);
   box-shadow: var(--glass-shadow-lg);
 }
 .left-panel.open { left: 0; right: auto; }
+#vars-slide-panel { bottom: 0; }
 .ctx-panel {
   position: fixed;
   top: calc(58px + env(safe-area-inset-top));
@@ -312,8 +314,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   flex-direction: column;
   overflow: hidden;
   pointer-events: auto;
-  border-bottom: 0.5px solid var(--glass-border);
   box-shadow: var(--glass-shadow-lg);
+  border-radius: 20px;
 }
 .ctx-panel.open { right: 0; }
 
@@ -1451,11 +1453,16 @@ function importApiKeys(event) {
 }
 
 async function saveMasterConfig() { 
+    const prevFbApi = CONFIG.fb_api, prevFbProject = CONFIG.fb_project;
     CONFIG.ai_key = document.getElementById('ai-key-f').value; CONFIG.def_profile = document.getElementById('def-prof-f').value; CONFIG.def_model = document.getElementById('def-mod-f').value; 
     CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = document.getElementById('fb-auto-f').checked;
     CONFIG.def_ctx = document.getElementById('def-ctx-f').value;
     await saveAll(); await refreshUI(); notify("Config Saved!", "#34c759");
     fbDb = null; startAutoPolling();
+    // Immediately pull when Firebase credentials are set or changed
+    const credentialsReady = CONFIG.fb_api && CONFIG.fb_project;
+    const credentialsChanged = CONFIG.fb_api !== prevFbApi || CONFIG.fb_project !== prevFbProject;
+    if(credentialsReady && (credentialsChanged || lastPushedSyncTime === 0)) { setTimeout(() => pullFromFirebase(false), 300); }
 }
 
 function setTplTab(tab) { tplTab = tab; document.getElementById('tab-tpl-all').classList.toggle('active', tab === 'all'); document.getElementById('tab-tpl-fav').classList.toggle('active', tab === 'fav'); document.getElementById('tab-tpl-recent').classList.toggle('active', tab === 'recent'); renderTemplates(); }
