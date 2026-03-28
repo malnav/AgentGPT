@@ -150,7 +150,7 @@ body::before {
 .scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; padding-top: calc(64px + env(safe-area-inset-top)); position: relative; scroll-behavior: smooth; }
 
 /* ── BUBBLES ── */
-#chat-container { padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; padding-bottom: 22px; }
+#chat-container { padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; padding-bottom: calc(var(--input-h, 130px) + 32px); }
 
 .bubble {
   min-width: 72%;
@@ -223,13 +223,29 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 /* ── INPUT ZONE — floating glass card ── */
 .input-zone {
-  flex-shrink: 0;
-  padding: 4px 12px env(safe-area-inset-bottom, 0px) 12px;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0 12px env(safe-area-inset-bottom, 0px) 12px;
   z-index: 50;
   display: flex;
   flex-direction: column;
-  position: relative;
   background: transparent;
+}
+/* Gradient fade above the input zone so bubbles dissolve into it */
+.input-zone::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 100%;
+  height: 56px;
+  background: linear-gradient(to bottom, transparent, var(--glass));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 100%);
 }
 .input-wrapper {
   position: relative;
