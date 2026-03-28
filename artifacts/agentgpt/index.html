@@ -227,25 +227,32 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 /* ── INPUT ZONE — floating glass card ── */
 .input-zone {
   flex-shrink: 0;
-  padding: 4px 12px env(safe-area-inset-bottom, 0px) 12px;
+  padding: 4px 10px env(safe-area-inset-bottom, 0px) 10px;
   z-index: 50;
   display: flex;
   flex-direction: column;
   position: relative;
-  background: transparent;
+  /* Fill safe-area strip with glass so no gradient color shows at the bottom */
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-top: 0.5px solid var(--glass-border);
 }
 .input-wrapper {
   position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--glass);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  border-radius: 22px;
+  background: rgba(255,255,255,0.38);
+  backdrop-filter: var(--blur-sm);
+  -webkit-backdrop-filter: var(--blur-sm);
+  border-radius: 20px;
   border: 0.5px solid var(--glass-border);
   overflow: visible;
-  box-shadow: var(--glass-shadow-md);
+  box-shadow: var(--glass-shadow);
+}
+@media (prefers-color-scheme: dark) {
+  .input-wrapper { background: rgba(255,255,255,0.07); }
 }
 #attachment-preview { display: none; padding: 8px 14px 0 14px; gap: 8px; overflow-x: auto; white-space: nowrap; border-bottom: 0.5px solid var(--border); scrollbar-width: none; border-top-left-radius: 22px; border-top-right-radius: 22px; }
 #attachment-preview::-webkit-scrollbar { display: none; }
@@ -293,6 +300,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   border-radius: 22px;
 }
 .side-panel.open { right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+/* Dataset / variables panel expands over the input zone */
+#vars-slide-panel { bottom: 0; }
+#vars-slide-panel.open { border-bottom-left-radius: 0; }
 .left-panel {
   left: -105%;
   right: auto;
