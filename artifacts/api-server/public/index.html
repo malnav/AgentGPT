@@ -147,7 +147,7 @@ body::before {
 .chip.active { background: var(--accent) !important; color: #fff !important; border-color: transparent; box-shadow: 0 4px 14px rgba(0,122,255,0.35); }
 
 /* ── SCROLL AREA ── */
-.scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; padding-top: calc(64px + env(safe-area-inset-top)); position: relative; scroll-behavior: smooth; }
+.scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; padding-top: calc(64px + env(safe-area-inset-top)); padding-bottom: var(--input-h, 130px); position: relative; scroll-behavior: smooth; }
 
 /* ── BUBBLES ── */
 #chat-container { padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; padding-bottom: 22px; }
@@ -221,16 +221,21 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .bubble-tools div { cursor: pointer; padding: 6px; transition: transform 0.15s var(--spring); min-width: 32px; min-height: 32px; display: flex; align-items: center; justify-content: center; }
 .bubble-tools div:active { transform: scale(0.88); }
 
-/* ── INPUT ZONE — floating glass card ── */
+/* ── INPUT ZONE — fixed overlay at bottom ── */
 .input-zone {
-  flex-shrink: 0;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   padding: 4px 12px env(safe-area-inset-bottom, 0px) 12px;
   z-index: 50;
   display: flex;
   flex-direction: column;
-  position: relative;
   background: transparent;
 }
+/* chips row: hidden when empty, shown when prompts exist */
+#chips-row { display: none; align-items: center; gap: 8px; margin-bottom: 6px; }
+#chips-row.has-chips { display: flex; }
 .input-wrapper {
   position: relative;
   width: 100%;
@@ -536,9 +541,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </div>
 
 <div class="input-zone" id="main-input-zone">
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+    <div id="chips-row">
         <div id="inline-prompts-container" class="inline-prompts-container"></div>
-        <div class="prompt-chip" style="background:transparent; border:none; padding:4px; font-size:18px;" onclick="manageSection('prompts'); closeAllPanels();" title="Manage Prompts">📚</div>
     </div>
 
     <div class="input-wrapper">
@@ -560,6 +564,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                     </div>
                 </div>
 
+                <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="manageSection('prompts'); closeAllPanels();" title="Manage Prompts">📚</button>
                 <select id="chatModel" class="model-sel"></select>
                 <div onclick="popState()" style="display:none;" title="Undo">↩️</div>
                 <div onclick="redoStateAction()" style="display:none;" title="Redo">↪️</div>
@@ -989,7 +994,13 @@ function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getEleme
 function toggleSrvPanel() { closeAllPanels('srv-slide-panel'); document.getElementById('srv-slide-panel').classList.toggle('open'); }
 function toggleExpandInput(forceExpand = false) { if(forceExpand && isInputExpanded) return; isInputExpanded = forceExpand ? true : !isInputExpanded; const t = document.getElementById('note-input'), b = document.getElementById('expand-btn'); if(isInputExpanded) { t.style.minHeight = '50vh'; t.style.height = '50vh'; t.style.maxHeight = '70vh'; b.innerText = '⤡'; } else { t.style.minHeight = '60px'; t.style.maxHeight = '200px'; b.innerText = '⤢'; sync(); } setTimeout(updateInputHeightVar, 50); }
 function toggleAllContext() { cutIdx = (cutIdx === -1) ? CONTEXT_LINES.length - 1 : -1; refreshUI(); }
-function renderInlinePrompts() { const filtP = PROMPTS.filter(p => p.profile === activeProfileLabel || p.profile === 'Global'); document.getElementById('inline-prompts-container').innerHTML = filtP.map(p => { let actualIdx = PROMPTS.indexOf(p); return `<div class="prompt-chip ${activePromptIdx === actualIdx ? 'active' : ''}" onclick="applyPrompt(${actualIdx})">${p.label}</div>`; }).join(''); }
+function renderInlinePrompts() {
+    const filtP = PROMPTS.filter(p => p.profile === activeProfileLabel || p.profile === 'Global');
+    document.getElementById('inline-prompts-container').innerHTML = filtP.map(p => { let actualIdx = PROMPTS.indexOf(p); return `<div class="prompt-chip ${activePromptIdx === actualIdx ? 'active' : ''}" onclick="applyPrompt(${actualIdx})">${p.label}</div>`; }).join('');
+    const row = document.getElementById('chips-row');
+    if(row) { if(filtP.length > 0) row.classList.add('has-chips'); else row.classList.remove('has-chips'); }
+    setTimeout(updateInputHeightVar, 30);
+}
 
 async function saveAll(skipCloud = false) { 
     try {
