@@ -62,7 +62,6 @@ body {
   background: var(--bg);
   color: var(--text);
   height: 100vh;
-  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -161,10 +160,7 @@ body::before {
   font-size: 14px;
   line-height: 1.45;
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 4px 10px;
+  flex-direction: column;
   margin-bottom: 2px;
 }
 .bubble.user {
@@ -200,7 +196,7 @@ body::before {
   text-align: center;
   border: 0.5px dashed var(--border);
 }
-.bubble-content { word-break: break-word; flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.bubble-content { word-break: break-word; }
 .bubble-content p { margin: 0 0 8px 0; }
 .bubble-content p:last-child { margin: 0; }
 
@@ -218,41 +214,35 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .bubble-content img { max-width: 100% !important; height: auto !important; border-radius: 12px; margin-top: 8px; display: block; }
 
 /* ── BUBBLE ACTIONS ── */
-.bubble-tools { display: flex; align-self: flex-end; justify-content: flex-end; gap: 12px; font-size: 16px; opacity: 0.72; flex-shrink: 0; margin-left: auto; }
-.bubble-tools { color: rgba(0,0,0,0.45); }
-@media (prefers-color-scheme: dark) { .bubble-tools { color: rgba(255,255,255,0.45); } }
-.bubble-tools div { cursor: pointer; padding: 6px; transition: transform 0.15s var(--spring); min-width: 30px; min-height: 30px; display: flex; align-items: center; justify-content: center; }
+.bubble-tools { display: flex; align-self: flex-end; justify-content: flex-end; gap: 18px; margin-top: 7px; font-size: 16px; opacity: 0.75; width: 100%; }
+.user .bubble-tools { color: rgba(255,255,255,0.8); }
+.ai .bubble-tools { color: rgba(0,0,0,0.45); }
+@media (prefers-color-scheme: dark) { .ai .bubble-tools { color: rgba(255,255,255,0.45); } }
+.bubble-tools div { cursor: pointer; padding: 6px; transition: transform 0.15s var(--spring); min-width: 32px; min-height: 32px; display: flex; align-items: center; justify-content: center; }
 .bubble-tools div:active { transform: scale(0.88); }
 
 /* ── INPUT ZONE — floating glass card ── */
 .input-zone {
   flex-shrink: 0;
-  padding: 4px 10px env(safe-area-inset-bottom, 0px) 10px;
+  padding: 4px 12px env(safe-area-inset-bottom, 0px) 12px;
   z-index: 50;
   display: flex;
   flex-direction: column;
   position: relative;
-  /* Fill safe-area strip with glass so no gradient color shows at the bottom */
-  background: var(--glass);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  border-top: 0.5px solid var(--glass-border);
+  background: transparent;
 }
 .input-wrapper {
   position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
-  background: rgba(255,255,255,0.38);
-  backdrop-filter: var(--blur-sm);
-  -webkit-backdrop-filter: var(--blur-sm);
-  border-radius: 20px;
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-radius: 22px;
   border: 0.5px solid var(--glass-border);
   overflow: visible;
-  box-shadow: var(--glass-shadow);
-}
-@media (prefers-color-scheme: dark) {
-  .input-wrapper { background: rgba(255,255,255,0.07); }
+  box-shadow: var(--glass-shadow-md);
 }
 #attachment-preview { display: none; padding: 8px 14px 0 14px; gap: 8px; overflow-x: auto; white-space: nowrap; border-bottom: 0.5px solid var(--border); scrollbar-width: none; border-top-left-radius: 22px; border-top-right-radius: 22px; }
 #attachment-preview::-webkit-scrollbar { display: none; }
@@ -296,13 +286,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   overflow: hidden;
   pointer-events: auto;
   box-shadow: var(--glass-shadow-lg);
-  border: 0.5px solid var(--glass-border);
-  border-radius: 22px;
+  border-bottom: 0.5px solid var(--glass-border);
 }
-.side-panel.open { right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
-/* Dataset / variables panel expands over the input zone */
-#vars-slide-panel { bottom: 0; }
-#vars-slide-panel.open { border-bottom-left-radius: 0; }
+.side-panel.open { right: 0; }
 .left-panel {
   left: -105%;
   right: auto;
@@ -310,7 +296,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   transition: left 0.38s var(--spring);
   box-shadow: var(--glass-shadow-lg);
 }
-.left-panel.open { left: 0; right: auto; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.left-panel.open { left: 0; right: auto; }
 .ctx-panel {
   position: fixed;
   top: calc(58px + env(safe-area-inset-top));
@@ -326,11 +312,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   flex-direction: column;
   overflow: hidden;
   pointer-events: auto;
-  border: 0.5px solid var(--glass-border);
+  border-bottom: 0.5px solid var(--glass-border);
   box-shadow: var(--glass-shadow-lg);
-  border-radius: 22px;
 }
-.ctx-panel.open { right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.ctx-panel.open { right: 0; }
 
 .panel-header {
   padding: 13px 16px;
@@ -1466,15 +1451,11 @@ function importApiKeys(event) {
 }
 
 async function saveMasterConfig() { 
-    const prevFbApi = CONFIG.fb_api, prevFbProject = CONFIG.fb_project;
     CONFIG.ai_key = document.getElementById('ai-key-f').value; CONFIG.def_profile = document.getElementById('def-prof-f').value; CONFIG.def_model = document.getElementById('def-mod-f').value; 
     CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = document.getElementById('fb-auto-f').checked;
     CONFIG.def_ctx = document.getElementById('def-ctx-f').value;
     await saveAll(); await refreshUI(); notify("Config Saved!", "#34c759");
     fbDb = null; startAutoPolling();
-    // Auto-pull from Firebase whenever credentials are set or changed
-    const fbChanged = (CONFIG.fb_api !== prevFbApi || CONFIG.fb_project !== prevFbProject);
-    if(CONFIG.fb_api && CONFIG.fb_project && fbChanged) { notify("☁️ Fetching cloud data…", "#007aff", 2000); setTimeout(() => pullFromFirebase(false), 400); }
 }
 
 function setTplTab(tab) { tplTab = tab; document.getElementById('tab-tpl-all').classList.toggle('active', tab === 'all'); document.getElementById('tab-tpl-fav').classList.toggle('active', tab === 'fav'); document.getElementById('tab-tpl-recent').classList.toggle('active', tab === 'recent'); renderTemplates(); }
