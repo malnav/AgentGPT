@@ -612,11 +612,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <small style="font-weight:800; font-size:11px; color:var(--accent);">API KEYS BACKUP</small>
         </div>
-        <select id="api-provider-f" class="pp-input" onchange="saveMasterConfig()" style="margin-bottom:8px;">
-            <option value="openai">OpenAI (Responses API + Web Search)</option>
-            <option value="openrouter">OpenRouter (Auto Model Routing)</option>
-        </select>
-        <input type="password" id="ai-key-f" class="pp-input" placeholder="API Key (OpenAI or OpenRouter)" onchange="saveMasterConfig()" style="margin-bottom:10px;">
+        <input type="password" id="ai-key-f" class="pp-input" placeholder="OpenAI Key" onchange="saveMasterConfig()" style="margin-bottom:10px;">
         <div style="display:flex; gap:10px;">
             <button class="chip" style="flex:1;" onclick="exportApiKeys()">Export Keys</button>
             <button class="chip" style="flex:1; background:var(--text); color:var(--bg);" onclick="document.getElementById('import-keys-file').click()">Import Keys</button>
@@ -840,7 +836,7 @@ const dbHelper = {
 };
 
 const DB_KEY = "QUICKNOTE_V117_ELITE"; 
-const DEFAULT_DATA = { profiles: [{ label: "Agent", text: "Expert Agent.", expected_vars: [], extraction_rules: "" }], prompts: [{ label:"Welcome", text:"Check-in", model:"", profile: "Global" }], templates: [{ label:"Hi", text:"Hello!", tags:"", profile: "Global", fav: false, lastUsed: 0 }], tools: [], models: [{ label: "GPT-5", text: "gpt-5-preview" },{ label: "GPT-4.1", text: "gpt-4.1" },{ label: "o3-mini", text: "o3-mini" },{ label: "Auto Route (OpenRouter)", text: "openrouter/auto" }], context: ["Verified", "Paid", "Wifi", "Ready", "Out"], ai_prompts: { profiles: "Persona Designer: Create detailed 'System Instructions' for AI: [TITLE].", prompts: "Prompt Engineer: Create reusable prompt text for: [TITLE].", templates: "Writer: Expand [TITLE] into a full draft.", tools: "API Architect: Respond ONLY JSON: {'method', 'url', 'headers', 'body'} for [TITLE]." } };
+const DEFAULT_DATA = { profiles: [{ label: "Agent", text: "Expert Agent.", expected_vars: [], extraction_rules: "" }], prompts: [{ label:"Welcome", text:"Check-in", model:"", profile: "Global" }], templates: [{ label:"Hi", text:"Hello!", tags:"", profile: "Global", fav: false, lastUsed: 0 }], tools: [], models: [{ label: "GPT-5", text: "gpt-5-preview" },{ label: "GPT-4.1", text: "gpt-4.1" },{ label: "o3-mini", text: "o3-mini" }], context: ["Verified", "Paid", "Wifi", "Ready", "Out"], ai_prompts: { profiles: "Persona Designer: Create detailed 'System Instructions' for AI: [TITLE].", prompts: "Prompt Engineer: Create reusable prompt text for: [TITLE].", templates: "Writer: Expand [TITLE] into a full draft.", tools: "API Architect: Respond ONLY JSON: {'method', 'url', 'headers', 'body'} for [TITLE]." } };
 const SCHEMA_HINTS = { profiles: `[ { "label": "Name", "text": "Instructions", "expected_vars": [], "extraction_rules": "" } ]`, prompts: `[ { "label": "Name", "text": "Prompt Data", "model": "", "profile": "Global" } ]`, templates: `[ { "label": "Name", "text": "Data", "tags": "tag1, tag2", "profile": "Global", "fav": false, "lastUsed": 0 } ]`, tools: `[ { "label": "Name", "method": "GET", "text": "URL", "headers": "{}", "body": "", "extract": "", "use_oauth": false, "profile": "Global" } ]`, models: `[ { "label": "Display Name", "text": "model-id" } ]` };
 
 let AI_PROFILES = [], PROMPTS = [], TEMPLATES = [], API_SERVICES = [], AI_MODELS = [], CONFIG = {}, chatHistories = {};
@@ -1028,7 +1024,7 @@ async function init() {
     }
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {};
     const storedCfg = await dbHelper.get('config') || {};
-    CONFIG = { ai_key: storedCfg.ai_key || "", api_provider: storedCfg.api_provider || "openai", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", bg_model: storedCfg.bg_model || "", ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: storedCfg.fb_auto || false, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", bg_model: storedCfg.bg_model || "", ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: storedCfg.fb_auto || false, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null };
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
@@ -1052,7 +1048,7 @@ async function refreshUI() {
     updateCtxSelection(); 
     let ctxLabel = cutIdx === -1 ? '☁️' : '🌦️'; document.getElementById('ctx-indicator').innerText = ctxLabel; document.getElementById('ctx-btn-all').classList.toggle('active', cutIdx === CONTEXT_LINES.length - 1); document.getElementById('ctx-btn-none').classList.toggle('active', cutIdx === -1);
     document.getElementById('def-ctx-f').value = CONFIG.def_ctx || "all"; document.getElementById('def-prof-f').innerHTML = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); document.getElementById('def-mod-f').innerHTML = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('def-prof-f').value = CONFIG.def_profile; document.getElementById('def-mod-f').value = CONFIG.def_model;
-    document.getElementById('ai-key-f').value = CONFIG.ai_key || ""; document.getElementById('api-provider-f').value = CONFIG.api_provider || "openai"; document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('fb-auto-f').checked = CONFIG.fb_auto || false; document.getElementById('bg-model-f').value = CONFIG.bg_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
+    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('fb-auto-f').checked = CONFIG.fb_auto || false; document.getElementById('bg-model-f').value = CONFIG.bg_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
 }
 
 function updateCtxSelection() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let btn = document.getElementById('ctx-bulk-btn-wrapper'); if(boxes.length > 0) { btn.style.display = 'block'; btn.querySelector('button').innerText = `Insert ${boxes.length} Selected ⟶`; } else { btn.style.display = 'none'; } }
@@ -1138,23 +1134,7 @@ async function deleteVariable(key) { openConfirm(`Delete variable {{${key}}} fro
 async function addManualVariable() { let key = await promptUserAsync("Enter variable name (e.g. order_id):"); if(!key) return; let p = AI_PROFILES.find(x => x.label === activeProfileLabel); if(!p.expected_vars) p.expected_vars = []; if(!p.expected_vars.includes(key)) p.expected_vars.push(key); let val = await promptUserAsync(`Enter value for {{${key}}}:`); if(val === null) return; let vars = getActiveVars(); vars[key] = { value: val, locked: false }; await saveAll(); renderSessionVariables(); }
 function getBgModel() { return CONFIG.bg_model || document.getElementById('chatModel').value; }
 
-function getApiBase() {
-    return CONFIG.api_provider === "openrouter" ? "https://openrouter.ai/api/v1" : "https://api.openai.com/v1";
-}
-function getApiHeaders() {
-    const h = { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` };
-    if (CONFIG.api_provider === "openrouter") { h["HTTP-Referer"] = location.origin; h["X-Title"] = "AgentGPT"; }
-    return h;
-}
-function toChatMessages(history) {
-    return history.map(m => {
-        if (typeof m.content === "string") return m;
-        const text = (m.content || []).map(p => p.text || p.content || "").join("");
-        return { role: m.role, content: text };
-    }).filter(m => m.role !== "tool" && m.role !== "system_note");
-}
-
-async function suggestVariablesAI() { if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30"); notify("Suggesting variables...", "#007aff"); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let extra = document.getElementById('ai-suggest-prompt').value; let sysPrompt = `Based on the profile instructions: "${p.text}", suggest a JSON array of 3 to 5 short variable names (snake_case) that would be useful to extract and track in conversations. Return ONLY a valid JSON array of strings. e.g. ["customer_name", "order_id"]`; if(extra) sysPrompt += `\nUser Context/Requirement: ${extra}`; try { const res = await fetch(`${getApiBase()}/chat/completions`, { method: "POST", headers: getApiHeaders(), body: JSON.stringify({ model: getBgModel(), messages: [{role:"user", content: sysPrompt}] }) }); if(!res.ok) throw new Error("API Failure"); const d = await res.json(); let arr = JSON.parse(d.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim()); if(!p.expected_vars) p.expected_vars = []; let added = 0; arr.forEach(v => { if(!p.expected_vars.includes(v)) { p.expected_vars.push(v); added++; } }); await saveAll(); renderSessionVariables(); notify(`Added ${added} new variables!`, "#34c759"); document.getElementById('ai-suggest-prompt').value = ""; } catch(e) { notify("Failed to suggest.", "#ff3b30"); } }
+async function suggestVariablesAI() { if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30"); notify("Suggesting variables...", "#007aff"); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let extra = document.getElementById('ai-suggest-prompt').value; let sysPrompt = `Based on the profile instructions: "${p.text}", suggest a JSON array of 3 to 5 short variable names (snake_case) that would be useful to extract and track in conversations. Return ONLY a valid JSON array of strings. e.g. ["customer_name", "order_id"]`; if(extra) sysPrompt += `\nUser Context/Requirement: ${extra}`; try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getBgModel(), messages: [{role:"user", content: sysPrompt}] }) }); if(!res.ok) throw new Error("API Failure"); const d = await res.json(); let arr = JSON.parse(d.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim()); if(!p.expected_vars) p.expected_vars = []; let added = 0; arr.forEach(v => { if(!p.expected_vars.includes(v)) { p.expected_vars.push(v); added++; } }); await saveAll(); renderSessionVariables(); notify(`Added ${added} new variables!`, "#34c759"); document.getElementById('ai-suggest-prompt').value = ""; } catch(e) { notify("Failed to suggest.", "#ff3b30"); } }
 
 async function autoExtractVariables(isManual = false) {
     if(!CONFIG.ai_key) return; let p = AI_PROFILES.find(x => x.label === activeProfileLabel);
@@ -1169,7 +1149,7 @@ async function autoExtractVariables(isManual = false) {
     let historyText = allUserMsgs.join('\n'); let sysPrompt = `Extract values for these exact keys based on the chronological conversation history below (latest data is at the bottom): ${JSON.stringify(unlockedVars)}. Prefer the newest information if there are conflicts. Return a flat JSON object. If you cannot determine a value, omit the key or set it to empty string. Respond ONLY with valid JSON.`;
     if(p.extraction_rules) { sysPrompt += `\n\nFollow these specific rules for extraction:\n${p.extraction_rules}`; }
     try {
-        const res = await fetch(`${getApiBase()}/chat/completions`, { method: "POST", headers: getApiHeaders(), body: JSON.stringify({ model: getBgModel(), messages: [{ role: "system", content: sysPrompt }, { role: "user", content: `Conversation:\n${historyText}` }], response_format: { type: "json_object" } }) });
+        const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getBgModel(), messages: [{ role: "system", content: sysPrompt }, { role: "user", content: `Conversation:\n${historyText}` }], response_format: { type: "json_object" } }) });
         if(!res.ok) throw new Error("API Limit/Failure");
         const d = await res.json(); if (d.error) throw new Error(d.error.message); if (!d.choices) throw new Error("Invalid API response");
         let rawContent = d.choices[0].message.content.trim(); let extractedObj;
@@ -1197,14 +1177,14 @@ async function generateChatTitleAI(chatId) {
     if(!CONFIG.ai_key) return; let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(chatId)); if(!cur || cur.msgs.length < 2) return; 
     let userMsgs = cur.msgs.filter(m => m.role === 'user').map(m => getTextFromContent(m.content)).join('\n').substring(0, 500);
     let sysPrompt = `Summarize the core topic of these messages into a very short title (2-5 words max). Return ONLY the title text without quotes.`;
-    try { const res = await fetch(`${getApiBase()}/chat/completions`, { method: "POST", headers: getApiHeaders(), body: JSON.stringify({ model: getBgModel(), messages: [{ role: "system", content: sysPrompt }, { role: "user", content: userMsgs }] }) }); const d = await res.json(); let newTitle = d.choices[0].message.content.replace(/["']/g, '').trim(); cur.title = newTitle; await saveAll(); } catch(e) {}
+    try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getBgModel(), messages: [{ role: "system", content: sysPrompt }, { role: "user", content: userMsgs }] }) }); const d = await res.json(); let newTitle = d.choices[0].message.content.replace(/["']/g, '').trim(); cur.title = newTitle; await saveAll(); } catch(e) {}
 }
 
 async function generateDatasetTitleAI(var_id) {
     if(!CONFIG.ai_key) return; let ds = GLOBAL_DATASETS[var_id]; if(!ds || !ds.data || Object.keys(ds.data).length === 0) return;
     let valStr = JSON.stringify(Object.fromEntries(Object.entries(ds.data).map(([k,v]) => [k, v.value]))); let sysPrompt = `Based on these extracted variables, generate a short title (2-5 words max) identifying this data set (e.g. "John's Flight Booking", "Project Alpha Specs"). Return ONLY the title text without quotes. Data: ${valStr}`;
     try { 
-        const res = await fetch(`${getApiBase()}/chat/completions`, { method: "POST", headers: getApiHeaders(), body: JSON.stringify({ model: getBgModel(), messages: [{ role: "system", content: sysPrompt }] }) }); 
+        const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getBgModel(), messages: [{ role: "system", content: sysPrompt }] }) }); 
         const d = await res.json(); ds.title = d.choices[0].message.content.replace(/["']/g, '').trim(); 
         await saveAll(); 
         let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); 
@@ -1397,7 +1377,7 @@ async function aiGenerateContent() {
     const title = document.getElementById('entry-l').value; if(!title) return notify("Enter title", "#ff3b30"); if(!CONFIG.ai_key) return notify("No Key", "#ff3b30");
     const finalPrompt = document.getElementById('ai-gen-prompt').value.replace('[TITLE]', title); const modelToUse = document.getElementById('ai-gen-model').value || document.getElementById('chatModel').value; notify("🪄 AI generating...", "#007aff", 5000);
     try {
-        const res = await fetch(`${getApiBase()}/chat/completions`, { method: "POST", headers: getApiHeaders(), body: JSON.stringify({ model: modelToUse, messages: [{ role: "system", content: finalPrompt }, { role: "user", content: title }] }) });
+        const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: modelToUse, messages: [{ role: "system", content: finalPrompt }, { role: "user", content: title }] }) });
         if(!res.ok) { const errText = await res.text(); throw new Error(`Status ${res.status}: ${errText}`); }
         const d = await res.json(); if(d.error) throw new Error(d.error.message || "API Error"); if(!d.choices) throw new Error("Invalid API Response"); const content = d.choices[0].message.content; addLog("AI_GEN", "Auto Generate", title);
         if(activeCrud === 'tools') { try { const cfg = JSON.parse(content.replace(/```json|```/g, "").trim()); document.getElementById('api-method').value = cfg.method || "GET"; document.getElementById('entry-url').value = cfg.url || ""; document.getElementById('api-headers').value = JSON.stringify(cfg.headers || {}, null, 2); document.getElementById('api-body').value = typeof cfg.body === 'object' ? JSON.stringify(cfg.body, null, 2) : (cfg.body || ""); } catch(e) { document.getElementById('entry-t').value = content; } } 
@@ -1493,7 +1473,7 @@ function importApiKeys(event) {
 
 async function saveMasterConfig() { 
     const prevFbApi = CONFIG.fb_api, prevFbProject = CONFIG.fb_project;
-    CONFIG.ai_key = document.getElementById('ai-key-f').value; CONFIG.api_provider = document.getElementById('api-provider-f').value; CONFIG.def_profile = document.getElementById('def-prof-f').value; CONFIG.def_model = document.getElementById('def-mod-f').value; 
+    CONFIG.ai_key = document.getElementById('ai-key-f').value; CONFIG.def_profile = document.getElementById('def-prof-f').value; CONFIG.def_model = document.getElementById('def-mod-f').value; 
     CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = document.getElementById('fb-auto-f').checked;
     CONFIG.bg_model = document.getElementById('bg-model-f').value;
     CONFIG.def_ctx = document.getElementById('def-ctx-f').value;
@@ -1610,22 +1590,9 @@ async function sendToAI() {
     const sendBtn = document.getElementById('send-btn-el'); sendBtn.innerHTML = '⏹'; sendBtn.classList.add('sending'); currentAborter = new AbortController();
     
     const modelToUse = document.getElementById('chatModel').value;
-    const useOpenRouter = CONFIG.api_provider === "openrouter";
     try {
-        let res;
-        if (useOpenRouter) {
-            // OpenRouter: standard chat completions with streaming
-            const activeProfile = AI_PROFILES.find(x => x.label === activeProfileLabel);
-            const sysMsg = activeProfile ? { role: "system", content: activeProfile.text } : null;
-            const msgs = toChatMessages(chatHistory);
-            if (sysMsg) msgs.unshift(sysMsg);
-            const body = { model: modelToUse, messages: msgs, stream: true };
-            res = await fetch(`${getApiBase()}/chat/completions`, { method: "POST", headers: getApiHeaders(), body: JSON.stringify(body), signal: currentAborter.signal });
-        } else {
-            // OpenAI Responses API with web search
-            const body = { model: modelToUse, input: chatHistory, tools: [{ type: "web_search_preview" }], stream: true };
-            res = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify(body), signal: currentAborter.signal });
-        }
+        const body = { model: modelToUse, input: chatHistory, tools: [{ type: "web_search_preview" }], stream: true };
+        const res = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify(body), signal: currentAborter.signal });
         if (!res.ok) { const errText = await res.text(); throw new Error(`API Error ${res.status}: ${errText}`); }
         const reader = res.body.getReader(), decoder = new TextDecoder("utf-8"); let fullR = "";
         while (true) {
@@ -1634,23 +1601,17 @@ async function sendToAI() {
                 if (line.startsWith("data: ")) {
                     const jStr = line.replace("data: ", ""); if (jStr === "[DONE]") return;
                     try { 
-                        const data = JSON.parse(jStr);
-                        let delta = "";
-                        if (useOpenRouter) {
-                            delta = data.choices?.[0]?.delta?.content || "";
-                        } else {
-                            if (data.type === "response.output_text.delta") delta = data.delta || "";
-                        }
-                        if (delta) {
+                        const data = JSON.parse(jStr); 
+                        if (data.type === "response.output_text.delta") { 
                             if (fullR === "") aiB.innerHTML = `<div class="bubble-content"></div>`; 
-                            fullR += delta; aiB.querySelector('.bubble-content').innerHTML = marked.parse(fullR); 
+                            fullR += data.delta; aiB.querySelector('.bubble-content').innerHTML = marked.parse(fullR); 
                             if(!userScrolledDuringGen) scrollToLastRequest();
-                        }
+                        } 
                     } catch(e){}
                 }
             });
         }
-        addLog("AI_CHAT", activeProfileLabel, `Response via ${useOpenRouter ? "OpenRouter" : "OpenAI"}`); 
+        addLog("AI_CHAT", activeProfileLabel, "Response Generated"); 
         chatHistory.push({ role: "assistant", content: [{ type: "output_text", text: fullR }] }); await saveAll(); await autoExtractVariables(false); renderChatHistory(); 
         if(!userScrolledDuringGen) scrollToLastRequest();
         
