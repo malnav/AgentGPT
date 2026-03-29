@@ -1740,38 +1740,39 @@ async function pullFromFirebase(silent = false) {
         if(snap.exists()) {
             const data = snap.data();
 
-            // ── Snapshot local state BEFORE overwriting so we can protect unsaved msgs ──
+            // ── Snapshot ALL local histories before overwriting ──
+            const localHistoriesBackup = JSON.parse(JSON.stringify(chatHistories));
             const localProfileLabel = activeProfileLabel;
-            const localSessionId = chatHistories[localProfileLabel]?.current;
-            const localMsgsSnapshot = [...chatHistory]; // current in-memory messages
+            const localSessionId = localHistoriesBackup[localProfileLabel]?.current;
 
             if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles'); if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts'); if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates'); if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools'); if(data.models) AI_MODELS = sanitizeImport(data.models, 'models'); if(data.config) CONFIG = data.config; if(data.datasets) GLOBAL_DATASETS = data.datasets;
             if(data.chunks_count > 0) { let fullStr = ""; for(let i=0; i<data.chunks_count; i++) { let chunkSnap = await getDoc(doc(db, "quicknote_data", "primary_hist_"+i)); if(chunkSnap.exists()) fullStr += chunkSnap.data().data; } if(fullStr) chatHistories = JSON.parse(fullStr); } else if(data.histories) { chatHistories = data.histories; }
             if(localChangePending) { addLog("SYNC", "Pull Aborted", "Local change during pull — keeping local"); pullInProgress = false; return; }
             if(!AI_PROFILES.find(p => p.label === localProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
 
-            // ── Merge: protect local messages that haven't been pushed yet ──
-            // If local in-memory session has MORE messages than the cloud copy of that same
-            // session, the local messages are newer (push debounce hasn't fired). Keep them.
-            const pulledProfile = chatHistories[localProfileLabel];
-            if(pulledProfile && localSessionId) {
-                const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(localSessionId)) : null;
-                if(pulledCur) {
-                    const cloudMsgs = pulledCur.msgs || [];
-                    // Local is ahead → restore local messages into the pulled structure
-                    if(localMsgsSnapshot.length > cloudMsgs.length) {
-                        pulledCur.msgs = localMsgsSnapshot;
-                        chatHistory = localMsgsSnapshot;
-                    } else {
-                        chatHistory = cloudMsgs;
+            // ── Merge ALL sessions across ALL profiles ──
+            // For every session that existed locally, keep the version with more messages.
+            // Sessions only on this device (not yet pushed) are re-added to the cloud data.
+            Object.keys(localHistoriesBackup).forEach(profileLabel => {
+                const localProfile = localHistoriesBackup[profileLabel];
+                if(!localProfile || !localProfile.list) return;
+                if(!chatHistories[profileLabel]) chatHistories[profileLabel] = { current: localProfile.current, list: [] };
+                const cloudProfile = chatHistories[profileLabel];
+                localProfile.list.forEach(localSess => {
+                    const cloudSess = cloudProfile.list ? cloudProfile.list.find(s => String(s.id) === String(localSess.id)) : null;
+                    if(cloudSess) {
+                        if((localSess.msgs || []).length > (cloudSess.msgs || []).length) { cloudSess.msgs = localSess.msgs; }
+                    } else if((localSess.msgs || []).filter(m => m.role !== 'developer').length > 0) {
+                        cloudProfile.list.push(localSess);
                     }
-                } else {
-                    // Session exists locally but not in cloud yet — keep local
-                    chatHistory = localMsgsSnapshot;
-                }
-            } else if(pulledProfile) {
-                const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(pulledProfile.current)) : null;
-                if(pulledCur) chatHistory = pulledCur.msgs || [];
+                });
+            });
+
+            // ── Sync in-memory chatHistory from the merged current session ──
+            const mergedProfile = chatHistories[localProfileLabel];
+            if(mergedProfile) {
+                const mergedCur = mergedProfile.list ? mergedProfile.list.find(x => String(x.id) === String(localSessionId)) : null;
+                chatHistory = (mergedCur ? mergedCur.msgs : null) || (mergedProfile.list && mergedProfile.list[0] ? mergedProfile.list[0].msgs : null) || [];
             }
 
             await dbHelper.setMulti({ 'profiles': AI_PROFILES, 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'models': AI_MODELS, 'config': CONFIG, 'datasets': GLOBAL_DATASETS, 'histories': chatHistories, 'activeProfile': activeProfileLabel });
