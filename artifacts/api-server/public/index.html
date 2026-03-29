@@ -432,6 +432,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .tool-menu-item { padding: 13px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 0.5px solid var(--border); color: var(--text); text-align: left; transition: background 0.15s; }
 .tool-menu-item:last-child { border-bottom: none; }
 .tool-menu-item:active { background: rgba(0,122,255,0.08); }
+@keyframes sync-pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 </style>
 </head>
 <body>
@@ -639,6 +640,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <small style="font-weight:800; font-size:11px; color:var(--accent);">🔥 FIREBASE CLOUD SYNC</small>
             <label style="font-size:11px; font-weight:700;"><input type="checkbox" id="fb-auto-f" onchange="saveMasterConfig()"> Auto-Sync</label>
+            <span id="sync-live-badge" style="display:none; font-size:10px; font-weight:800; color:#34c759; margin-left:6px; animation: sync-pulse 2s infinite;">● LIVE</span>
         </div>
         <input type="text" id="fb-project-f" class="pp-input" placeholder="Firebase Project ID (e.g. my-app-123)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
         <input type="password" id="fb-api-f" class="pp-input" placeholder="Firebase Web API Key" onchange="saveMasterConfig()" style="margin-bottom:10px;">
@@ -1060,7 +1062,7 @@ async function init() {
     if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0].label; }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); refreshUI(); initGestures(); setTimeout(updateInputHeightVar, 100);
-    startAutoPolling();
+    startRealtimeSync();
 }
 
 async function refreshUI() {
@@ -1512,8 +1514,8 @@ async function saveMasterConfig() {
     CONFIG.def_ctx = document.getElementById('def-ctx-f').value;
     await saveAll(); await refreshUI(); notify("Config Saved!", "#34c759");
     const credentialsChanged = CONFIG.fb_api !== prevFbApi || CONFIG.fb_project !== prevFbProject;
-    if(credentialsChanged) { fbDb = null; lastPushedSyncTime = 0; } // reset baseline when credentials change
-    startAutoPolling(); // fires checkAndPullIfNewer immediately; if cloud is newer it will pull
+    if(credentialsChanged) { fbDb = null; lastPushedSyncTime = 0; stopRealtimeSync(); }
+    startRealtimeSync();
 }
 
 function setTplTab(tab) { tplTab = tab; document.getElementById('tab-tpl-all').classList.toggle('active', tab === 'all'); document.getElementById('tab-tpl-fav').classList.toggle('active', tab === 'fav'); document.getElementById('tab-tpl-recent').classList.toggle('active', tab === 'recent'); renderTemplates(); }
@@ -1700,7 +1702,7 @@ async function sendToAI() {
     finally { sendBtn.innerHTML = '↑'; sendBtn.classList.remove('sending'); currentAborter = null; }
 }
 
-let fbDb = null; let syncTimer = null; let lastPushedSyncTime = 0; let autoPollInterval = null; let pullInProgress = false;
+let fbDb = null; let syncTimer = null; let lastPushedSyncTime = 0; let realtimeUnsub = null; let pullInProgress = false;
 
 async function initFirebase() {
     if(!CONFIG.fb_api || !CONFIG.fb_project) return null; if(fbDb) return fbDb;
@@ -1799,38 +1801,32 @@ async function pullFromFirebase(silent = false) {
 
 function triggerAutoSync() { if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => { pushToFirebase(); }, 500); }
 
-async function checkAndPullIfNewer() {
+function updateSyncLiveBadge(live) { const el = document.getElementById('sync-live-badge'); if(el) el.style.display = live ? 'inline' : 'none'; }
+
+async function startRealtimeSync() {
+    stopRealtimeSync();
     if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
-    if(pullInProgress) return; // skip check entirely while a pull is already running
+    const db = await initFirebase(); if(!db) return;
     try {
-        const db = await initFirebase(); if(!db) return;
-        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
-        const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
-        if(!snap.exists()) {
-            // No cloud data yet — safe to push immediately
-            if(lastPushedSyncTime === 0) lastPushedSyncTime = 1; // unblock pushes
-            return;
-        }
-        const cloudTime = snap.data().last_sync || 0;
-        if(cloudTime > lastPushedSyncTime + 1500) {
-            addLog("SYNC", "Auto-Pull", "Cloud is newer — pulling...");
-            await pullFromFirebase(true); // pull sets lastPushedSyncTime = cloudTime on success
-        } else if(lastPushedSyncTime === 0) {
-            // Cloud exists but isn't newer than our last push — still unblock pushes
-            lastPushedSyncTime = cloudTime || 1;
-        }
-    } catch(e) { addLog("SYNC", "Poll Error", e.message); }
+        const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        realtimeUnsub = onSnapshot(doc(db, "quicknote_data", "primary_user"), async (snap) => {
+            if(!snap.exists()) { if(lastPushedSyncTime === 0) lastPushedSyncTime = 1; return; }
+            const cloudTime = snap.data().last_sync || 0;
+            if(cloudTime > lastPushedSyncTime + 1500) {
+                addLog("SYNC", "Realtime Pull", "Cloud updated — pulling...");
+                await pullFromFirebase(true);
+            } else if(lastPushedSyncTime === 0) {
+                lastPushedSyncTime = cloudTime || 1;
+            }
+        }, (e) => { addLog("SYNC", "Listener Error", e.message); updateSyncLiveBadge(false); });
+        addLog("SYNC", "Realtime", "Listener connected");
+        updateSyncLiveBadge(true);
+    } catch(e) { addLog("SYNC", "Realtime Init Error", e.message); }
 }
 
-function startAutoPolling() {
-    if(autoPollInterval) clearInterval(autoPollInterval);
-    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
-    autoPollInterval = setInterval(checkAndPullIfNewer, 12000);
-    checkAndPullIfNewer();
-}
-
-function stopAutoPolling() {
-    if(autoPollInterval) { clearInterval(autoPollInterval); autoPollInterval = null; }
+function stopRealtimeSync() {
+    if(realtimeUnsub) { realtimeUnsub(); realtimeUnsub = null; }
+    updateSyncLiveBadge(false);
 }
 
 // --- CALENDAR LOGIC ---
