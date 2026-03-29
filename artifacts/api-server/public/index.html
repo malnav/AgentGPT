@@ -1751,6 +1751,14 @@ async function pullFromFirebase(silent = false) {
             if(data.chunks_count > 0) { let fullStr = ""; for(let i=0; i<data.chunks_count; i++) { let chunkSnap = await getDoc(doc(db, "quicknote_data", "primary_hist_"+i)); if(chunkSnap.exists()) fullStr += chunkSnap.data().data; } if(fullStr) chatHistories = JSON.parse(fullStr); } else if(data.histories) { chatHistories = data.histories; }
             if(!AI_PROFILES.find(p => p.label === localProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
 
+            // ── Restore local "current" session pointer — which session is open is device-local
+            // state and must never be overwritten by another device's cloud value.
+            if(localSessionId && chatHistories[localProfileLabel]) {
+                const sessionStillExists = chatHistories[localProfileLabel].list?.find(x => String(x.id) === String(localSessionId));
+                if(sessionStillExists) chatHistories[localProfileLabel].current = localSessionId;
+                // If the local session was deleted on cloud, fall through to whatever cloud has
+            }
+
             // ── Merge: protect local messages that haven't been pushed yet ──
             // If local in-memory session has MORE messages than the cloud copy of that same
             // session, the local messages are newer (push debounce hasn't fired). Keep them.
