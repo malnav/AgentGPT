@@ -1814,13 +1814,12 @@ async function startRealtimeSync() {
         const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
         realtimeUnsub = onSnapshot(doc(db, "quicknote_data", "primary_user"), async (snap) => {
             if(!snap.exists()) { if(lastPushedSyncTime === 0) lastPushedSyncTime = 1; return; }
-            if(pendingLocalPush) { addLog("SYNC", "Pull Skipped", "Local changes pending push"); return; }
             const cloudTime = snap.data().last_sync || 0;
+            if(lastPushedSyncTime === 0) lastPushedSyncTime = cloudTime || 1;
+            if(pendingLocalPush) { addLog("SYNC", "Pull Skipped", "Local changes pending push"); return; }
             if(cloudTime > lastPushedSyncTime + 1500) {
                 addLog("SYNC", "Realtime Pull", "Cloud updated — pulling...");
                 await pullFromFirebase(true);
-            } else if(lastPushedSyncTime === 0) {
-                lastPushedSyncTime = cloudTime || 1;
             }
         }, (e) => { addLog("SYNC", "Listener Error", e.message); updateSyncLiveBadge(false); });
         addLog("SYNC", "Realtime", "Listener connected");
