@@ -1702,7 +1702,7 @@ async function sendToAI() {
     finally { sendBtn.innerHTML = '↑'; sendBtn.classList.remove('sending'); currentAborter = null; }
 }
 
-let fbDb = null; let syncTimer = null; let lastPushedSyncTime = 0; let realtimeUnsub = null; let pullInProgress = false;
+let fbDb = null; let syncTimer = null; let lastPushedSyncTime = 0; let realtimeUnsub = null; let pullInProgress = false; let pendingLocalPush = false;
 
 async function initFirebase() {
     if(!CONFIG.fb_api || !CONFIG.fb_project) return null; if(fbDb) return fbDb;
@@ -1722,10 +1722,12 @@ async function pushToFirebase(manual = false) {
         const histStr = JSON.stringify(chatHistories); const chunks = []; const chunkSize = 300000; for (let i = 0; i < histStr.length; i += chunkSize) { chunks.push(histStr.substring(i, i + chunkSize)); } payload.chunks_count = chunks.length;
         batch.set(doc(db, "quicknote_data", "primary_user"), payload); for(let i=0; i<chunks.length; i++) { batch.set(doc(db, "quicknote_data", "primary_hist_"+i), { data: chunks[i] }); } await batch.commit();
         lastPushedSyncTime = payload.last_sync;
+        pendingLocalPush = false;
         let chatCount = 0; Object.values(chatHistories).forEach(p => chatCount += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Push", `OK: ${chatCount} chats`);
         if(manual) notify("☁️ Pushed to cloud!", "#34c759");
     } catch(e) {
+        pendingLocalPush = false;
         addLog("SYNC", "Push Error", e.message);
         notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000);
         console.error("Firebase Push Error:", e);
@@ -1748,6 +1750,7 @@ async function pullFromFirebase(silent = false) {
 
             if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles'); if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts'); if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates'); if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools'); if(data.models) AI_MODELS = sanitizeImport(data.models, 'models'); if(data.config) CONFIG = data.config; if(data.datasets) GLOBAL_DATASETS = data.datasets;
             if(data.chunks_count > 0) { let fullStr = ""; for(let i=0; i<data.chunks_count; i++) { let chunkSnap = await getDoc(doc(db, "quicknote_data", "primary_hist_"+i)); if(chunkSnap.exists()) fullStr += chunkSnap.data().data; } if(fullStr) chatHistories = JSON.parse(fullStr); } else if(data.histories) { chatHistories = data.histories; }
+            if(pendingLocalPush) { addLog("SYNC", "Pull Aborted", "Local change happened during pull — skipping apply"); pullInProgress = false; return; }
             if(!AI_PROFILES.find(p => p.label === localProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
 
             // ── Merge: protect local messages that haven't been pushed yet ──
@@ -1799,7 +1802,7 @@ async function pullFromFirebase(silent = false) {
     finally { pullInProgress = false; }
 }
 
-function triggerAutoSync() { if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => { pushToFirebase(); }, 500); }
+function triggerAutoSync() { if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return; clearTimeout(syncTimer); pendingLocalPush = true; syncTimer = setTimeout(() => { pushToFirebase(); }, 500); }
 
 function updateSyncLiveBadge(live) { const el = document.getElementById('sync-live-badge'); if(el) el.style.display = live ? 'inline' : 'none'; }
 
@@ -1811,6 +1814,7 @@ async function startRealtimeSync() {
         const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
         realtimeUnsub = onSnapshot(doc(db, "quicknote_data", "primary_user"), async (snap) => {
             if(!snap.exists()) { if(lastPushedSyncTime === 0) lastPushedSyncTime = 1; return; }
+            if(pendingLocalPush) { addLog("SYNC", "Pull Skipped", "Local changes pending push"); return; }
             const cloudTime = snap.data().last_sync || 0;
             if(cloudTime > lastPushedSyncTime + 1500) {
                 addLog("SYNC", "Realtime Pull", "Cloud updated — pulling...");
