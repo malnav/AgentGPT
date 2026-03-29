@@ -1489,11 +1489,9 @@ async function saveMasterConfig() {
     CONFIG.bg_model = document.getElementById('bg-model-f').value;
     CONFIG.def_ctx = document.getElementById('def-ctx-f').value;
     await saveAll(); await refreshUI(); notify("Config Saved!", "#34c759");
-    fbDb = null; startAutoPolling();
-    // Immediately pull when Firebase credentials are set or changed
-    const credentialsReady = CONFIG.fb_api && CONFIG.fb_project;
     const credentialsChanged = CONFIG.fb_api !== prevFbApi || CONFIG.fb_project !== prevFbProject;
-    if(credentialsReady && (credentialsChanged || lastPushedSyncTime === 0)) { setTimeout(() => pullFromFirebase(false), 300); }
+    if(credentialsChanged) { fbDb = null; lastPushedSyncTime = 0; } // reset baseline when credentials change
+    startAutoPolling(); // fires checkAndPullIfNewer immediately; if cloud is newer it will pull
 }
 
 function setTplTab(tab) { tplTab = tab; document.getElementById('tab-tpl-all').classList.toggle('active', tab === 'all'); document.getElementById('tab-tpl-fav').classList.toggle('active', tab === 'fav'); document.getElementById('tab-tpl-recent').classList.toggle('active', tab === 'recent'); renderTemplates(); }
@@ -1680,7 +1678,7 @@ async function sendToAI() {
     finally { sendBtn.innerHTML = '↑'; sendBtn.classList.remove('sending'); currentAborter = null; }
 }
 
-let fbDb = null; let syncTimer = null; let lastPushedSyncTime = 0; let autoPollInterval = null;
+let fbDb = null; let syncTimer = null; let lastPushedSyncTime = 0; let autoPollInterval = null; let pullInProgress = false;
 
 async function initFirebase() {
     if(!CONFIG.fb_api || !CONFIG.fb_project) return null; if(fbDb) return fbDb;
@@ -1689,20 +1687,11 @@ async function initFirebase() {
 
 async function pushToFirebase(manual = false) {
     const db = await initFirebase(); if(!db) { if(manual) notify("⚠️ Setup Firebase in Settings first", "#ff3b30"); return; }
-    // Only guard on very first ever push from a fresh device (never pushed before AND no local chats)
-    // to avoid accidentally wiping cloud data. Once we've pushed once, always allow.
-    if(lastPushedSyncTime === 0 && !manual) {
-        let chatCount = 0; Object.values(chatHistories).forEach(p => chatCount += (p.list ? p.list.length : 0));
-        if(chatCount === 0 && AI_PROFILES.length <= 1) {
-            try {
-                const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
-                const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
-                if(snap.exists() && snap.data().last_sync && snap.data().chunks_count > 0) {
-                    addLog("SYNC", "Push Skipped", "Fresh device, cloud has data — pull first."); return;
-                }
-            } catch(e) {}
-        }
-    }
+    // Block auto-push until we've confirmed the cloud state at least once this session.
+    // This prevents a fresh (or reloaded) device from overwriting cloud data before it has
+    // had a chance to pull. lastPushedSyncTime is set either by checkAndPullIfNewer (on poll)
+    // or by pullFromFirebase itself (after a successful pull).
+    if(lastPushedSyncTime === 0 && !manual) { addLog("SYNC", "Push Deferred", "Waiting for initial cloud check"); return; }
     try {
         const { doc, writeBatch } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"); const batch = writeBatch(db);
         const payload = { profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, last_sync: Date.now() };
@@ -1720,7 +1709,9 @@ async function pushToFirebase(manual = false) {
 }
 
 async function pullFromFirebase(silent = false) {
-    const db = await initFirebase(); if(!db) return silent ? null : notify("Setup Firebase in Settings first", "#ff3b30");
+    if(pullInProgress) { addLog("SYNC", "Pull Skipped", "Already in progress"); return; }
+    pullInProgress = true;
+    const db = await initFirebase(); if(!db) { pullInProgress = false; return silent ? null : notify("Setup Firebase in Settings first", "#ff3b30"); }
     try {
         const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"); const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
         if(snap.exists()) {
@@ -1772,26 +1763,36 @@ async function pullFromFirebase(silent = false) {
                 scrollToLastRequest();
             }
 
+            // Mark cloud baseline so pushes are unblocked and polls don't re-pull same data
+            if(data.last_sync) lastPushedSyncTime = data.last_sync;
             let countChats = 0; Object.values(chatHistories).forEach(p => countChats += (p.list ? p.list.length : 0)); addLog("SYNC", "Cloud Pull", `Loaded ${countChats} Chats.`);
             if(!silent) notify("☁️ Synced from cloud!", "#34c759"); else notify("↓ Synced", "#34c759", 1500);
         }
     } catch(e) { addLog("SYNC", "Pull Error", e.message); if(!silent) notify("⚠️ Sync pull failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
+    finally { pullInProgress = false; }
 }
 
 function triggerAutoSync() { if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => { pushToFirebase(); }, 500); }
 
 async function checkAndPullIfNewer() {
     if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
+    if(pullInProgress) return; // skip check entirely while a pull is already running
     try {
         const db = await initFirebase(); if(!db) return;
         const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
         const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
-        if(!snap.exists()) return;
+        if(!snap.exists()) {
+            // No cloud data yet — safe to push immediately
+            if(lastPushedSyncTime === 0) lastPushedSyncTime = 1; // unblock pushes
+            return;
+        }
         const cloudTime = snap.data().last_sync || 0;
         if(cloudTime > lastPushedSyncTime + 1500) {
-            lastPushedSyncTime = cloudTime;
             addLog("SYNC", "Auto-Pull", "Cloud is newer — pulling...");
-            await pullFromFirebase(true);
+            await pullFromFirebase(true); // pull sets lastPushedSyncTime = cloudTime on success
+        } else if(lastPushedSyncTime === 0) {
+            // Cloud exists but isn't newer than our last push — still unblock pushes
+            lastPushedSyncTime = cloudTime || 1;
         }
     } catch(e) { addLog("SYNC", "Poll Error", e.message); }
 }
