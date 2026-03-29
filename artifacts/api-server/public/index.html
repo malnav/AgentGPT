@@ -147,7 +147,9 @@ body::before {
 .chip.active { background: var(--accent) !important; color: #fff !important; border-color: transparent; box-shadow: 0 4px 14px rgba(0,122,255,0.35); }
 
 /* ── SCROLL AREA ── */
-.scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; padding-top: calc(64px + env(safe-area-inset-top)); padding-bottom: var(--input-h, 130px); position: relative; scroll-behavior: smooth; }
+.scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; padding-top: calc(64px + env(safe-area-inset-top)); position: relative; scroll-behavior: smooth; }
+/* spacer keeps last bubble above the fixed input zone without causing scroll jumps */
+#scroll-spacer { flex-shrink: 0; height: var(--input-h, 130px); pointer-events: none; }
 
 /* ── BUBBLES ── */
 #chat-container { padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; padding-bottom: 22px; }
@@ -447,9 +449,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <div class="scroll-area" id="mainScroll">
     <div id="chat-container"></div>
+    <div id="scroll-spacer"></div>
 </div>
 
-<div id="scroll-bottom-btn">⬇️</div>
+<div id="scroll-bottom-btn">↓</div>
 
 <div class="pull-indicator global-pull" onclick="toggleVarsPanel()"></div>
 
@@ -601,6 +604,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <select id="def-prof-f" class="pp-input" style="flex:1;" onchange="saveMasterConfig()"></select>
             <select id="def-mod-f" class="pp-input" style="flex:1;" onchange="saveMasterConfig()"></select>
         </div>
+        <small style="font-weight:800; font-size:11px; color:#888; display:block; margin-top:10px;">BACKGROUND MODEL</small>
+        <small style="font-size:10px; color:#aaa; display:block; margin-bottom:6px;">Used for auto-titling, variable extraction &amp; suggestions</small>
+        <select id="bg-model-f" class="pp-input" style="width:100%;" onchange="saveMasterConfig()"></select>
         
         <hr style="border:none; border-top:1px solid var(--border); margin: 24px 0;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -1018,7 +1024,7 @@ async function init() {
     }
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {};
     const storedCfg = await dbHelper.get('config') || {};
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: storedCfg.fb_auto || false, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", bg_model: storedCfg.bg_model || "", ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: storedCfg.fb_auto || false, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null };
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
@@ -1035,14 +1041,14 @@ async function refreshUI() {
     const currentGlobalModel = document.getElementById('chatModel').value || CONFIG.def_model;
     let profOptions = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); profOptions += `<option value="_new_" style="color:var(--accent); font-weight:bold;">+ Create New Profile</option>`;
     document.getElementById('main-profile-sel').innerHTML = profOptions; document.getElementById('main-profile-sel').value = activeProfileLabel;
-    const mH = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('chatModel').innerHTML = mH; document.getElementById('ai-gen-model').innerHTML = mH; document.getElementById('p-model-set').innerHTML = `<option value="">(Keep Global Model)</option>` + mH;
+    const mH = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('chatModel').innerHTML = mH; document.getElementById('ai-gen-model').innerHTML = mH; document.getElementById('p-model-set').innerHTML = `<option value="">(Keep Global Model)</option>` + mH; document.getElementById('bg-model-f').innerHTML = `<option value="">(same as chat)</option>` + mH;
     if(currentGlobalModel) document.getElementById('chatModel').value = currentGlobalModel;
     renderSessionVariables(); renderInlinePrompts();
     document.getElementById('context-list').innerHTML = CONTEXT_LINES.map((l,i) => `<li class="list-item ${cutIdx!==-1 && i<=cutIdx?'in-cut':''}"><input type="checkbox" class="ctx-checkbox" value="${i}" onchange="updateCtxSelection()"><div style="flex:1; white-space:normal; word-break:break-word; padding-right:8px; cursor:pointer;" onclick="insertContextAtCursor(${i})">${l}</div><div class="btn-row"><div class="inline-btn" onclick="event.stopPropagation(); cutIdx=(cutIdx===${i})?-1:${i}; refreshUI();">${cutIdx===i?'✂️':'|'}</div></div></li>`).join('');
     updateCtxSelection(); 
     let ctxLabel = cutIdx === -1 ? '☁️' : '🌦️'; document.getElementById('ctx-indicator').innerText = ctxLabel; document.getElementById('ctx-btn-all').classList.toggle('active', cutIdx === CONTEXT_LINES.length - 1); document.getElementById('ctx-btn-none').classList.toggle('active', cutIdx === -1);
     document.getElementById('def-ctx-f').value = CONFIG.def_ctx || "all"; document.getElementById('def-prof-f').innerHTML = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); document.getElementById('def-mod-f').innerHTML = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('def-prof-f').value = CONFIG.def_profile; document.getElementById('def-mod-f').value = CONFIG.def_model;
-    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('fb-auto-f').checked = CONFIG.fb_auto || false; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
+    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('fb-auto-f').checked = CONFIG.fb_auto || false; document.getElementById('bg-model-f').value = CONFIG.bg_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
 }
 
 function updateCtxSelection() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let btn = document.getElementById('ctx-bulk-btn-wrapper'); if(boxes.length > 0) { btn.style.display = 'block'; btn.querySelector('button').innerText = `Insert ${boxes.length} Selected ⟶`; } else { btn.style.display = 'none'; } }
@@ -1126,7 +1132,9 @@ async function editExtractionRules() { let p = AI_PROFILES.find(x => x.label ===
 async function toggleVarLock(key) { let vars = getActiveVars(); if(typeof vars[key] === 'string') vars[key] = { value: vars[key], locked: false }; if(vars[key]) { vars[key].locked = !vars[key].locked; } else { vars[key] = { value: "", locked: true }; } await saveAll(); renderSessionVariables(); }
 async function deleteVariable(key) { openConfirm(`Delete variable {{${key}}} from profile?`, async () => { let p = AI_PROFILES.find(x => x.label === activeProfileLabel); if(p.expected_vars) p.expected_vars = p.expected_vars.filter(v => v !== key); let vars = getActiveVars(); if(vars) delete vars[key]; await saveAll(); renderSessionVariables(); }); }
 async function addManualVariable() { let key = await promptUserAsync("Enter variable name (e.g. order_id):"); if(!key) return; let p = AI_PROFILES.find(x => x.label === activeProfileLabel); if(!p.expected_vars) p.expected_vars = []; if(!p.expected_vars.includes(key)) p.expected_vars.push(key); let val = await promptUserAsync(`Enter value for {{${key}}}:`); if(val === null) return; let vars = getActiveVars(); vars[key] = { value: val, locked: false }; await saveAll(); renderSessionVariables(); }
-async function suggestVariablesAI() { if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30"); notify("Suggesting variables...", "#007aff"); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let extra = document.getElementById('ai-suggest-prompt').value; let sysPrompt = `Based on the profile instructions: "${p.text}", suggest a JSON array of 3 to 5 short variable names (snake_case) that would be useful to extract and track in conversations. Return ONLY a valid JSON array of strings. e.g. ["customer_name", "order_id"]`; if(extra) sysPrompt += `\nUser Context/Requirement: ${extra}`; try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: document.getElementById('chatModel').value, messages: [{role:"user", content: sysPrompt}] }) }); if(!res.ok) throw new Error("API Failure"); const d = await res.json(); let arr = JSON.parse(d.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim()); if(!p.expected_vars) p.expected_vars = []; let added = 0; arr.forEach(v => { if(!p.expected_vars.includes(v)) { p.expected_vars.push(v); added++; } }); await saveAll(); renderSessionVariables(); notify(`Added ${added} new variables!`, "#34c759"); document.getElementById('ai-suggest-prompt').value = ""; } catch(e) { notify("Failed to suggest.", "#ff3b30"); } }
+function getBgModel() { return CONFIG.bg_model || document.getElementById('chatModel').value; }
+
+async function suggestVariablesAI() { if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30"); notify("Suggesting variables...", "#007aff"); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let extra = document.getElementById('ai-suggest-prompt').value; let sysPrompt = `Based on the profile instructions: "${p.text}", suggest a JSON array of 3 to 5 short variable names (snake_case) that would be useful to extract and track in conversations. Return ONLY a valid JSON array of strings. e.g. ["customer_name", "order_id"]`; if(extra) sysPrompt += `\nUser Context/Requirement: ${extra}`; try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getBgModel(), messages: [{role:"user", content: sysPrompt}] }) }); if(!res.ok) throw new Error("API Failure"); const d = await res.json(); let arr = JSON.parse(d.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim()); if(!p.expected_vars) p.expected_vars = []; let added = 0; arr.forEach(v => { if(!p.expected_vars.includes(v)) { p.expected_vars.push(v); added++; } }); await saveAll(); renderSessionVariables(); notify(`Added ${added} new variables!`, "#34c759"); document.getElementById('ai-suggest-prompt').value = ""; } catch(e) { notify("Failed to suggest.", "#ff3b30"); } }
 
 async function autoExtractVariables(isManual = false) {
     if(!CONFIG.ai_key) return; let p = AI_PROFILES.find(x => x.label === activeProfileLabel);
@@ -1141,7 +1149,7 @@ async function autoExtractVariables(isManual = false) {
     let historyText = allUserMsgs.join('\n'); let sysPrompt = `Extract values for these exact keys based on the chronological conversation history below (latest data is at the bottom): ${JSON.stringify(unlockedVars)}. Prefer the newest information if there are conflicts. Return a flat JSON object. If you cannot determine a value, omit the key or set it to empty string. Respond ONLY with valid JSON.`;
     if(p.extraction_rules) { sysPrompt += `\n\nFollow these specific rules for extraction:\n${p.extraction_rules}`; }
     try {
-        const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: document.getElementById('chatModel').value, messages: [{ role: "system", content: sysPrompt }, { role: "user", content: `Conversation:\n${historyText}` }], response_format: { type: "json_object" } }) });
+        const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getBgModel(), messages: [{ role: "system", content: sysPrompt }, { role: "user", content: `Conversation:\n${historyText}` }], response_format: { type: "json_object" } }) });
         if(!res.ok) throw new Error("API Limit/Failure");
         const d = await res.json(); if (d.error) throw new Error(d.error.message); if (!d.choices) throw new Error("Invalid API response");
         let rawContent = d.choices[0].message.content.trim(); let extractedObj;
@@ -1169,14 +1177,14 @@ async function generateChatTitleAI(chatId) {
     if(!CONFIG.ai_key) return; let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(chatId)); if(!cur || cur.msgs.length < 2) return; 
     let userMsgs = cur.msgs.filter(m => m.role === 'user').map(m => getTextFromContent(m.content)).join('\n').substring(0, 500);
     let sysPrompt = `Summarize the core topic of these messages into a very short title (2-5 words max). Return ONLY the title text without quotes.`;
-    try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: document.getElementById('chatModel').value, messages: [{ role: "system", content: sysPrompt }, { role: "user", content: userMsgs }] }) }); const d = await res.json(); let newTitle = d.choices[0].message.content.replace(/["']/g, '').trim(); cur.title = newTitle; await saveAll(); } catch(e) {}
+    try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getBgModel(), messages: [{ role: "system", content: sysPrompt }, { role: "user", content: userMsgs }] }) }); const d = await res.json(); let newTitle = d.choices[0].message.content.replace(/["']/g, '').trim(); cur.title = newTitle; await saveAll(); } catch(e) {}
 }
 
 async function generateDatasetTitleAI(var_id) {
     if(!CONFIG.ai_key) return; let ds = GLOBAL_DATASETS[var_id]; if(!ds || !ds.data || Object.keys(ds.data).length === 0) return;
     let valStr = JSON.stringify(Object.fromEntries(Object.entries(ds.data).map(([k,v]) => [k, v.value]))); let sysPrompt = `Based on these extracted variables, generate a short title (2-5 words max) identifying this data set (e.g. "John's Flight Booking", "Project Alpha Specs"). Return ONLY the title text without quotes. Data: ${valStr}`;
     try { 
-        const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: document.getElementById('chatModel').value, messages: [{ role: "system", content: sysPrompt }] }) }); 
+        const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getBgModel(), messages: [{ role: "system", content: sysPrompt }] }) }); 
         const d = await res.json(); ds.title = d.choices[0].message.content.replace(/["']/g, '').trim(); 
         await saveAll(); 
         let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); 
@@ -1467,6 +1475,7 @@ async function saveMasterConfig() {
     const prevFbApi = CONFIG.fb_api, prevFbProject = CONFIG.fb_project;
     CONFIG.ai_key = document.getElementById('ai-key-f').value; CONFIG.def_profile = document.getElementById('def-prof-f').value; CONFIG.def_model = document.getElementById('def-mod-f').value; 
     CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = document.getElementById('fb-auto-f').checked;
+    CONFIG.bg_model = document.getElementById('bg-model-f').value;
     CONFIG.def_ctx = document.getElementById('def-ctx-f').value;
     await saveAll(); await refreshUI(); notify("Config Saved!", "#34c759");
     fbDb = null; startAutoPolling();
@@ -1663,7 +1672,7 @@ async function pullFromFirebase(silent = false) {
             const pulledProfile = chatHistories[activeProfileLabel];
             if(pulledProfile) { const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(pulledProfile.current)) : null; if(pulledCur) chatHistory = pulledCur.msgs || []; }
             await dbHelper.setMulti({ 'profiles': AI_PROFILES, 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'models': AI_MODELS, 'config': CONFIG, 'datasets': GLOBAL_DATASETS, 'histories': chatHistories, 'activeProfile': activeProfileLabel });
-            await refreshUI(); renderWorkspaceLists(); renderChatHistory(); scrollToLastRequest();
+            await refreshUI(); renderWorkspaceLists(); renderChatHistory(); if(!silent) scrollToLastRequest();
             let countChats = 0; Object.values(chatHistories).forEach(p => countChats += (p.list ? p.list.length : 0)); addLog("SYNC", "Cloud Pull", `Loaded ${countChats} Chats.`);
             if(!silent) notify("☁️ Synced from cloud!", "#34c759"); else notify("↓ Synced", "#34c759", 1500);
         }
