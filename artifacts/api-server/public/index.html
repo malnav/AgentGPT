@@ -655,7 +655,18 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div style="background:var(--sec-bg); padding:12px; border-radius:10px; margin-bottom:12px;">
             <input type="text" id="mod-l" class="pp-input" placeholder="Model Label (e.g. Claude 3.5)">
             <input type="text" id="mod-t" class="pp-input" placeholder="Model ID (e.g. claude-3-5-sonnet)">
-            <button class="chip" style="width:100%; background:var(--accent); color:#fff; padding:10px; font-size:13px;" onclick="saveModelEntry()">+ QUICK ADD</button>
+            <div style="display:flex; gap:8px;">
+                <button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:10px; font-size:13px;" onclick="saveModelEntry()">+ Add</button>
+                <button class="chip" id="fetch-models-btn" style="flex:1; padding:10px; font-size:13px;" onclick="fetchOpenAIModels()">⬇ Fetch from API</button>
+            </div>
+        </div>
+        <!-- API model picker -->
+        <div id="api-model-picker" style="display:none; background:var(--sec-bg); border-radius:10px; margin-bottom:12px; overflow:hidden;">
+            <div style="padding:10px 12px; border-bottom:0.5px solid var(--border); display:flex; gap:8px; align-items:center;">
+                <input type="text" id="api-model-search" class="pp-input" style="flex:1; margin:0; padding:7px 12px; font-size:13px;" placeholder="Filter models..." oninput="filterApiModels()">
+                <button class="chip" style="padding:4px 10px; font-size:12px;" onclick="document.getElementById('api-model-picker').style.display='none'">✕</button>
+            </div>
+            <div id="api-model-list" style="max-height:280px; overflow-y:auto; padding:4px 0;"></div>
         </div>
         <ul id="model-list-crud" style="list-style:none; padding:0; margin:0;"></ul>
     </div>
@@ -1544,6 +1555,55 @@ function switchModalTab(t) { document.getElementById('tab-editor').classList.tog
 function getActiveData() { return (activeCrud==='prompts')?PROMPTS:(activeCrud==='tools')?API_SERVICES:(activeCrud==='profiles')?AI_PROFILES:(activeCrud==='models')?AI_MODELS:TEMPLATES; }
 function renderEntryList() { const fullD = getActiveData(); let h = fullD.filter(x => (activeCrud === 'profiles' || activeCrud === 'models') || x.profile === activeProfileLabel || x.profile === 'Global').map(item => `<li class="list-item"><span class="item-info"><strong>${item.label}</strong> ${item.profile === 'Global' ? '🌐' : ''}</span><div class="btn-row"><button class="inline-btn" onclick="editItem(${fullD.indexOf(item)})">✏️</button><button class="inline-btn" onclick="quickDel('${activeCrud}', ${fullD.indexOf(item)})">🗑️</button></div></li>`).join(''); document.getElementById('entry-list').innerHTML = h; }
 function renderModelList() { document.getElementById('model-list-crud').innerHTML = AI_MODELS.map((m,i) => `<li class="list-item"><span style="flex:1;"><strong>${m.label}</strong></span> <button class="inline-btn" style="margin-right:8px;" onclick="manageSection('models'); editItem(${i})">✏️</button> <button class="inline-btn" onclick="quickDel('models', ${i})">🗑️</button></li>`).join(''); }
+
+let _fetchedApiModels = [];
+async function fetchOpenAIModels() {
+    if(!CONFIG.ai_key) return notify("Set your OpenAI API key first", "#ff3b30");
+    const btn = document.getElementById('fetch-models-btn');
+    btn.disabled = true; btn.textContent = "Fetching…";
+    try {
+        const res = await fetch("https://api.openai.com/v1/models", { headers: { "Authorization": `Bearer ${CONFIG.ai_key}` } });
+        if(!res.ok) throw new Error(`${res.status}`);
+        const d = await res.json();
+        _fetchedApiModels = d.data
+            .map(m => m.id)
+            .filter(id => /^(gpt|o1|o3|o4|chatgpt|claude|gemini|mistral|text-|dall-e|tts|whisper)/i.test(id))
+            .sort();
+        document.getElementById('api-model-search').value = "";
+        filterApiModels();
+        document.getElementById('api-model-picker').style.display = 'block';
+        notify(`${_fetchedApiModels.length} models loaded`, "#34c759", 2000);
+    } catch(e) { notify("Fetch failed: " + e.message, "#ff3b30"); }
+    finally { btn.disabled = false; btn.textContent = "⬇ Fetch from API"; }
+}
+
+function filterApiModels() {
+    const q = document.getElementById('api-model-search').value.toLowerCase();
+    const existing = new Set(AI_MODELS.map(m => m.text));
+    const filtered = _fetchedApiModels.filter(id => id.toLowerCase().includes(q));
+    document.getElementById('api-model-list').innerHTML = filtered.length
+        ? filtered.map(id => {
+            const added = existing.has(id);
+            const label = id.replace(/^(gpt|o\d|chatgpt)-?/i, '').replace(/-(\d{4})/g, ' $1').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim() || id;
+            return `<div style="display:flex; align-items:center; padding:9px 14px; gap:10px; border-bottom:0.5px solid var(--border);">
+                <div style="flex:1; overflow:hidden;">
+                    <div style="font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${label}</div>
+                    <div style="font-size:10px; color:#888; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${id}</div>
+                </div>
+                ${added
+                    ? `<span style="font-size:11px; color:#34c759; font-weight:700;">✓ Added</span>`
+                    : `<button class="chip" style="padding:5px 12px; font-size:12px; background:var(--accent); color:#fff; flex-shrink:0;" onclick="addApiModel('${id}','${label}')">+ Add</button>`}
+            </div>`;
+        }).join('')
+        : `<div style="padding:20px; text-align:center; color:#888; font-size:13px;">No models match</div>`;
+}
+
+async function addApiModel(id, label) {
+    if(AI_MODELS.find(m => m.text === id)) return notify("Already added", "#888");
+    AI_MODELS.push({ label, text: id });
+    await saveAll(); refreshUI(); renderModelList(); filterApiModels();
+    notify(`${label} added!`, "#34c759");
+}
 function renderProfileList() { document.getElementById('profile-list-crud').innerHTML = AI_PROFILES.map((p,i) => `<li class="list-item"><span style="flex:1;"><strong>${p.label}</strong></span> <button class="inline-btn" style="margin-right:8px;" onclick="manageSection('profiles'); editItem(${i})">✏️</button> <button class="inline-btn" onclick="quickDel('profiles', ${i})">🗑️</button></li>`).join(''); }
 
 function sync() { const noteIn = document.getElementById('note-input'); if(isInputExpanded) return; noteIn.style.height = 'auto'; noteIn.style.height = Math.min(noteIn.scrollHeight, 200) + 'px'; setTimeout(updateInputHeightVar, 50); }
