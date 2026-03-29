@@ -1725,14 +1725,53 @@ async function pullFromFirebase(silent = false) {
         const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"); const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
         if(snap.exists()) {
             const data = snap.data();
+
+            // ── Snapshot local state BEFORE overwriting so we can protect unsaved msgs ──
+            const localProfileLabel = activeProfileLabel;
+            const localSessionId = chatHistories[localProfileLabel]?.current;
+            const localMsgsSnapshot = [...chatHistory]; // current in-memory messages
+
             if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles'); if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts'); if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates'); if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools'); if(data.models) AI_MODELS = sanitizeImport(data.models, 'models'); if(data.config) CONFIG = data.config; if(data.datasets) GLOBAL_DATASETS = data.datasets;
             if(data.chunks_count > 0) { let fullStr = ""; for(let i=0; i<data.chunks_count; i++) { let chunkSnap = await getDoc(doc(db, "quicknote_data", "primary_hist_"+i)); if(chunkSnap.exists()) fullStr += chunkSnap.data().data; } if(fullStr) chatHistories = JSON.parse(fullStr); } else if(data.histories) { chatHistories = data.histories; }
-            if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
-            // Sync local chatHistory to freshly pulled current session (must happen BEFORE saveAll so stale local msgs don't overwrite cloud data)
-            const pulledProfile = chatHistories[activeProfileLabel];
-            if(pulledProfile) { const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(pulledProfile.current)) : null; if(pulledCur) chatHistory = pulledCur.msgs || []; }
+            if(!AI_PROFILES.find(p => p.label === localProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
+
+            // ── Merge: protect local messages that haven't been pushed yet ──
+            // If local in-memory session has MORE messages than the cloud copy of that same
+            // session, the local messages are newer (push debounce hasn't fired). Keep them.
+            const pulledProfile = chatHistories[localProfileLabel];
+            if(pulledProfile && localSessionId) {
+                const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(localSessionId)) : null;
+                if(pulledCur) {
+                    const cloudMsgs = pulledCur.msgs || [];
+                    // Local is ahead → restore local messages into the pulled structure
+                    if(localMsgsSnapshot.length > cloudMsgs.length) {
+                        pulledCur.msgs = localMsgsSnapshot;
+                        chatHistory = localMsgsSnapshot;
+                    } else {
+                        chatHistory = cloudMsgs;
+                    }
+                } else {
+                    // Session exists locally but not in cloud yet — keep local
+                    chatHistory = localMsgsSnapshot;
+                }
+            } else if(pulledProfile) {
+                const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(pulledProfile.current)) : null;
+                if(pulledCur) chatHistory = pulledCur.msgs || [];
+            }
+
             await dbHelper.setMulti({ 'profiles': AI_PROFILES, 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'models': AI_MODELS, 'config': CONFIG, 'datasets': GLOBAL_DATASETS, 'histories': chatHistories, 'activeProfile': activeProfileLabel });
-            await refreshUI(); renderWorkspaceLists(); renderChatHistory(); if(!silent) scrollToLastRequest();
+
+            // ── Re-render without disturbing scroll position on silent pulls ──
+            const scrollEl = document.getElementById('mainScroll');
+            const savedScrollTop = scrollEl ? scrollEl.scrollTop : 0;
+            await refreshUI(); renderWorkspaceLists(); renderChatHistory();
+            if(silent) {
+                // Restore exact scroll position — user shouldn't notice the redraw
+                requestAnimationFrame(() => { if(scrollEl) scrollEl.scrollTop = savedScrollTop; });
+            } else {
+                scrollToLastRequest();
+            }
+
             let countChats = 0; Object.values(chatHistories).forEach(p => countChats += (p.list ? p.list.length : 0)); addLog("SYNC", "Cloud Pull", `Loaded ${countChats} Chats.`);
             if(!silent) notify("☁️ Synced from cloud!", "#34c759"); else notify("↓ Synced", "#34c759", 1500);
         }
