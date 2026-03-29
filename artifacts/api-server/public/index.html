@@ -1039,7 +1039,7 @@ function renderInlinePrompts() {
 
 async function saveAll(skipCloud = false) { 
     try {
-        let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) cur.msgs = chatHistory; }
+        let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { cur.msgs = chatHistory; cur.updated_at = Date.now(); } }
         await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
         if(!skipCloud) triggerAutoSync(); 
     } catch(e) { console.error("DB Save Error:", e); notify("⚠️ DB Error: " + (e.name || "Write Failed"), "#ff3b30", 4000); }
@@ -1761,7 +1761,9 @@ async function pullFromFirebase(silent = false) {
                 localProfile.list.forEach(localSess => {
                     const cloudSess = cloudProfile.list ? cloudProfile.list.find(s => String(s.id) === String(localSess.id)) : null;
                     if(cloudSess) {
-                        if((localSess.msgs || []).length > (cloudSess.msgs || []).length) { cloudSess.msgs = localSess.msgs; }
+                        const localTs = localSess.updated_at || 0;
+                        const cloudTs = cloudSess.updated_at || 0;
+                        if(localTs > cloudTs) { cloudSess.msgs = localSess.msgs; cloudSess.updated_at = localSess.updated_at; }
                     } else if((localSess.msgs || []).filter(m => m.role !== 'developer').length > 0) {
                         cloudProfile.list.push(localSess);
                     }
