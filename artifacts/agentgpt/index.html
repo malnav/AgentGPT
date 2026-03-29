@@ -1514,7 +1514,7 @@ async function saveMasterConfig() {
     CONFIG.def_ctx = document.getElementById('def-ctx-f').value;
     await saveAll(); await refreshUI(); notify("Config Saved!", "#34c759");
     const credentialsChanged = CONFIG.fb_api !== prevFbApi || CONFIG.fb_project !== prevFbProject;
-    if(credentialsChanged) { fbDb = null; lastPushedSyncTime = 0; stopRealtimeSync(); }
+    if(credentialsChanged) { fbDb = null; stopRealtimeSync(); }
     startRealtimeSync();
 }
 
@@ -1702,7 +1702,10 @@ async function sendToAI() {
     finally { sendBtn.innerHTML = '↑'; sendBtn.classList.remove('sending'); currentAborter = null; }
 }
 
-let fbDb = null; let syncTimer = null; let lastPushedSyncTime = 0; let realtimeUnsub = null; let pullInProgress = false; let pendingLocalPush = false;
+let fbDb = null; let syncTimer = null; let realtimeUnsub = null; let pullInProgress = false;
+let syncReady = false;
+let localChangePending = false;
+const myDeviceId = (() => { let id = sessionStorage.getItem('agentgpt_dev'); if(!id) { id = 'dev_' + Date.now().toString(36) + Math.random().toString(36).slice(2); sessionStorage.setItem('agentgpt_dev', id); } return id; })();
 
 async function initFirebase() {
     if(!CONFIG.fb_api || !CONFIG.fb_project) return null; if(fbDb) return fbDb;
@@ -1711,26 +1714,20 @@ async function initFirebase() {
 
 async function pushToFirebase(manual = false) {
     const db = await initFirebase(); if(!db) { if(manual) notify("⚠️ Setup Firebase in Settings first", "#ff3b30"); return; }
-    // Block auto-push until we've confirmed the cloud state at least once this session.
-    // This prevents a fresh (or reloaded) device from overwriting cloud data before it has
-    // had a chance to pull. lastPushedSyncTime is set either by checkAndPullIfNewer (on poll)
-    // or by pullFromFirebase itself (after a successful pull).
-    if(lastPushedSyncTime === 0 && !manual) { addLog("SYNC", "Push Deferred", "Waiting for initial cloud check"); return; }
+    if(!syncReady && !manual) { addLog("SYNC", "Push Deferred", "Waiting for first sync"); return; }
     try {
         const { doc, writeBatch } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"); const batch = writeBatch(db);
-        const payload = { profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, last_sync: Date.now() };
+        const payload = { profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, last_sync: Date.now(), device_id: myDeviceId };
         const histStr = JSON.stringify(chatHistories); const chunks = []; const chunkSize = 300000; for (let i = 0; i < histStr.length; i += chunkSize) { chunks.push(histStr.substring(i, i + chunkSize)); } payload.chunks_count = chunks.length;
         batch.set(doc(db, "quicknote_data", "primary_user"), payload); for(let i=0; i<chunks.length; i++) { batch.set(doc(db, "quicknote_data", "primary_hist_"+i), { data: chunks[i] }); } await batch.commit();
-        lastPushedSyncTime = payload.last_sync;
-        pendingLocalPush = false;
+        localChangePending = false;
         let chatCount = 0; Object.values(chatHistories).forEach(p => chatCount += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Push", `OK: ${chatCount} chats`);
         if(manual) notify("☁️ Pushed to cloud!", "#34c759");
     } catch(e) {
-        pendingLocalPush = false;
+        localChangePending = false;
         addLog("SYNC", "Push Error", e.message);
         notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000);
-        console.error("Firebase Push Error:", e);
     }
 }
 
@@ -1750,7 +1747,7 @@ async function pullFromFirebase(silent = false) {
 
             if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles'); if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts'); if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates'); if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools'); if(data.models) AI_MODELS = sanitizeImport(data.models, 'models'); if(data.config) CONFIG = data.config; if(data.datasets) GLOBAL_DATASETS = data.datasets;
             if(data.chunks_count > 0) { let fullStr = ""; for(let i=0; i<data.chunks_count; i++) { let chunkSnap = await getDoc(doc(db, "quicknote_data", "primary_hist_"+i)); if(chunkSnap.exists()) fullStr += chunkSnap.data().data; } if(fullStr) chatHistories = JSON.parse(fullStr); } else if(data.histories) { chatHistories = data.histories; }
-            if(pendingLocalPush) { addLog("SYNC", "Pull Aborted", "Local change happened during pull — skipping apply"); pullInProgress = false; return; }
+            if(localChangePending) { addLog("SYNC", "Pull Aborted", "Local change during pull — keeping local"); pullInProgress = false; return; }
             if(!AI_PROFILES.find(p => p.label === localProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
 
             // ── Merge: protect local messages that haven't been pushed yet ──
@@ -1794,41 +1791,39 @@ async function pullFromFirebase(silent = false) {
                 }
             }
 
-            // Mark cloud baseline so pushes are unblocked and polls don't re-pull same data
-            if(data.last_sync) lastPushedSyncTime = data.last_sync;
             let countChats = 0; Object.values(chatHistories).forEach(p => countChats += (p.list ? p.list.length : 0)); addLog("SYNC", "Cloud Pull", `Loaded ${countChats} Chats.`);
         }
     } catch(e) { addLog("SYNC", "Pull Error", e.message); if(!silent) notify("⚠️ Sync pull failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
     finally { pullInProgress = false; }
 }
 
-function triggerAutoSync() { if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return; clearTimeout(syncTimer); pendingLocalPush = true; syncTimer = setTimeout(() => { pushToFirebase(); }, 500); }
+function triggerAutoSync() { if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return; localChangePending = true; clearTimeout(syncTimer); syncTimer = setTimeout(() => { syncTimer = null; pushToFirebase(); }, 1000); }
 
 function updateSyncLiveBadge(live) { const el = document.getElementById('sync-live-badge'); if(el) el.style.display = live ? 'inline' : 'none'; }
 
 async function startRealtimeSync() {
     stopRealtimeSync();
+    syncReady = false;
     if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
     const db = await initFirebase(); if(!db) return;
     try {
         const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
         realtimeUnsub = onSnapshot(doc(db, "quicknote_data", "primary_user"), async (snap) => {
-            if(!snap.exists()) { if(lastPushedSyncTime === 0) lastPushedSyncTime = 1; return; }
-            const cloudTime = snap.data().last_sync || 0;
-            if(lastPushedSyncTime === 0) lastPushedSyncTime = cloudTime || 1;
-            if(pendingLocalPush) { addLog("SYNC", "Pull Skipped", "Local changes pending push"); return; }
-            if(cloudTime > lastPushedSyncTime + 1500) {
-                addLog("SYNC", "Realtime Pull", "Cloud updated — pulling...");
-                await pullFromFirebase(true);
-            }
+            if(!snap.exists()) { syncReady = true; return; }
+            const data = snap.data();
+            syncReady = true;
+            if(data.device_id === myDeviceId) { addLog("SYNC", "Skip Pull", "Own push"); return; }
+            if(localChangePending || syncTimer !== null) { addLog("SYNC", "Pull Skipped", "Local changes pending"); return; }
+            if(!pullInProgress) { addLog("SYNC", "Realtime Pull", "Another device updated"); await pullFromFirebase(true); }
         }, (e) => { addLog("SYNC", "Listener Error", e.message); updateSyncLiveBadge(false); });
-        addLog("SYNC", "Realtime", "Listener connected");
+        addLog("SYNC", "Realtime", "Listener connected — device: " + myDeviceId);
         updateSyncLiveBadge(true);
     } catch(e) { addLog("SYNC", "Realtime Init Error", e.message); }
 }
 
 function stopRealtimeSync() {
     if(realtimeUnsub) { realtimeUnsub(); realtimeUnsub = null; }
+    syncReady = false;
     updateSyncLiveBadge(false);
 }
 
