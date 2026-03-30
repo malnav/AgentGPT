@@ -435,6 +435,50 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .tool-menu-item:last-child { border-bottom: none; }
 .tool-menu-item:active { background: rgba(0,122,255,0.08); }
 @keyframes sync-pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+/* ── MENTION DROPDOWN ── */
+.mention-dropdown { position: absolute; bottom: calc(100% + 6px); left: 0; right: 0; background: var(--glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border: 0.5px solid var(--glass-border); border-radius: 16px; box-shadow: var(--glass-shadow-lg); overflow: hidden; z-index: 999; }
+.mention-item { padding: 11px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 0.5px solid var(--border); color: var(--text); transition: background 0.15s; display: flex; align-items: center; gap: 8px; }
+.mention-item:last-child { border-bottom: none; }
+.mention-item:active { background: rgba(0,122,255,0.08); }
+
+/* ── AGENT LABEL (multi-agent bubble header) ── */
+.agent-label { font-size: 11px; font-weight: 800; color: var(--accent); margin-bottom: 6px; padding-bottom: 5px; border-bottom: 0.5px solid var(--border); letter-spacing: 0.2px; }
+
+/* ── DESKTOP / IPAD LAYOUT ── */
+@media (min-width: 900px) {
+    #workspace-panel {
+        left: 0 !important; right: auto !important;
+        top: 0 !important; bottom: 0 !important;
+        width: 270px !important;
+        border-radius: 0 20px 20px 0 !important;
+        transition: none !important;
+        border-right: 0.5px solid var(--glass-border);
+        box-shadow: 2px 0 24px rgba(0,0,0,0.08);
+    }
+    .top-nav { left: 270px !important; }
+    .scroll-area { margin-left: 270px; }
+    .input-zone { left: 270px !important; }
+    #scroll-bottom-btn { left: calc(270px + 14px); }
+    #floating-actions { right: 20px; }
+    .global-pull { display: none; }
+    .side-panel:not(.left-panel) { max-width: 400px; right: -420px; border-radius: 20px 0 0 20px; }
+    .side-panel:not(.left-panel).open { right: 0; }
+    .ctx-panel { max-width: 400px; right: -420px; border-radius: 20px 0 0 20px; }
+    .ctx-panel.open { right: 0; }
+    .bubble { max-width: 72%; min-width: 30%; }
+    #workspace-toggle-btn { display: none !important; }
+    .ws-close-btn { display: none !important; }
+}
+@media (min-width: 1300px) {
+    #workspace-panel { width: 300px !important; }
+    .top-nav { left: 300px !important; }
+    .scroll-area { margin-left: 300px; }
+    .input-zone { left: 300px !important; }
+    #scroll-bottom-btn { left: calc(300px + 14px); }
+    #chat-container { max-width: 860px; margin: 0 auto; width: 100%; }
+    .bubble { max-width: 68%; }
+}
 </style>
 </head>
 <body>
@@ -447,7 +491,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <div class="top-nav">
     <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
-        <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="cursor:pointer; font-size:18px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow);" title="Workspace">🗂️</div>
+        <div id="workspace-toggle-btn" onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="cursor:pointer; font-size:18px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow);" title="Workspace">🗂️</div>
         <select id="main-profile-sel" class="main-profile-dropdown" onchange="switchProfileSession(this.value)"></select>
     </div>
     <div class="sys-icons">
@@ -476,14 +520,14 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
         <div id="wtab-current-btns" style="display:flex; gap:8px; align-items:center; margin-left:8px;">
             <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession();" title="New Session">+</button>
-            <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
+            <div class="ws-close-btn" onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
         <div id="wtab-data-btns" style="display:none; gap:8px; align-items:center; margin-left:8px;">
             <button class="chip" style="font-size:18px; padding:2px 10px; background:var(--accent); color:#fff; font-weight:bold;" onclick="createNewDataset()" title="New Dataset">+</button>
-            <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
+            <div class="ws-close-btn" onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
         <div id="wtab-all-btns" style="display:none; gap:8px; align-items:center; margin-left:8px;">
-            <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
+            <div class="ws-close-btn" onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
     </div>
     <div id="wview-current" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column;">
@@ -578,9 +622,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 
     <div class="input-wrapper">
+        <div id="mention-dropdown" class="mention-dropdown closed"></div>
         <div id="expand-btn" onclick="toggleExpandInput()" title="Expand Input">⤢</div>
         <div id="attachment-preview"></div>
-        <textarea id="note-input" placeholder="Draft text..." enterkeyhint="send"></textarea>
+        <textarea id="note-input" placeholder="Draft text... (type @ to mention an agent)" enterkeyhint="send"></textarea>
         
         <div class="input-bottom-bar">
             <div style="display:flex; gap:6px; align-items:center;">
@@ -1117,7 +1162,7 @@ function initGestures() {
     }
     document.querySelectorAll('.side-panel, .ctx-panel, .modal').forEach(lockPanelScroll);
 }
-function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
+function closeAllPanels(except = null) { const isDesktop = window.innerWidth >= 900; ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except && !(id === 'workspace-panel' && isDesktop)) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
 function toggleVarsPanel() { closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); }
 function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
 function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
@@ -1156,7 +1201,14 @@ async function init() {
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
     activeProfileLabel = await dbHelper.get('activeProfile') || (AI_PROFILES[0] ? AI_PROFILES[0].label : "Agent");
     if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0].label; }
-    bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
+    bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key;
+    document.getElementById('note-input').addEventListener('input', function() {
+        const v = this.value, pos = this.selectionStart; let atIdx = -1;
+        for(let i = pos-1; i >= 0; i--) { if(v[i] === '@') { atIdx = i; break; } if(v[i] === ' ' || v[i] === '\n') break; }
+        if(atIdx >= 0) { mentionAnchorPos = atIdx; showMentionDropdown(v.substring(atIdx+1, pos)); }
+        else { mentionAnchorPos = -1; hideMentionDropdown(); }
+    });
+    document.getElementById('note-input').addEventListener('keydown', function(e) { if(e.key === 'Escape') hideMentionDropdown(); });
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); refreshUI(); initGestures(); setTimeout(updateInputHeightVar, 100);
     startRealtimeSync();
 }
@@ -1479,6 +1531,7 @@ function renderChatHistory() {
             });
 
             while(tempDiv.firstChild) { contentDiv.appendChild(tempDiv.firstChild); }
+            if(msg._agent) { const lbl = document.createElement('div'); lbl.className = 'agent-label'; lbl.textContent = '🤖 ' + msg._agent; b.insertBefore(lbl, b.firstChild); }
             b.appendChild(contentDiv);
             
             const toolsDiv = document.createElement('div'); toolsDiv.className = 'bubble-tools';
@@ -1760,76 +1813,103 @@ function renderProfileList() { document.getElementById('profile-list-crud').inne
 
 function sync() { const noteIn = document.getElementById('note-input'); if(isInputExpanded) return; noteIn.style.height = 'auto'; noteIn.style.height = Math.min(noteIn.scrollHeight, 200) + 'px'; setTimeout(updateInputHeightVar, 50); }
 
-async function sendToAI() {
-    if(currentAborter) { currentAborter.abort(); currentAborter = null; return; }
-    
-    const noteIn = document.getElementById('note-input');
-    const val = noteIn.value.trim(); 
-    
-    if((!val && pendingAttachments.length === 0) || !CONFIG.ai_key) return notify("Missing Text/Attachment or Key", "#ff3b30");
-    
-    let fullText = val; 
-    if(cutIdx !== -1 && val) { const ctx = CONTEXT_LINES.slice(0, cutIdx + 1).join('\n'); fullText = `${val}\n\n[CONTEXT]\n${ctx}`; } 
-    else if (cutIdx !== -1 && !val) { fullText = `[CONTEXT]\n${CONTEXT_LINES.slice(0, cutIdx + 1).join('\n')}`; }
+let mentionAnchorPos = -1;
 
-    let appendedText = fullText; let newContent = [];
-
-    pendingAttachments.forEach(att => {
-        if(att.type === 'text') {
-            const ext = (att.name.split('.').pop() || '').toLowerCase();
-            const langMap = { html:'html', htm:'html', xml:'xml', js:'javascript', ts:'typescript', jsx:'javascript', tsx:'typescript', css:'css', json:'json', md:'markdown', py:'python', swift:'swift', kt:'kotlin' };
-            const lang = langMap[ext] || ext;
-            appendedText += `\n\n--- Attached: ${att.name} ---\n\`\`\`${lang}\n${att.text}\n\`\`\``;
-        }
-        else if (att.type === 'image') { newContent.push({ type: "input_image", image_url: att.data }); }
+function parseMentionedProfiles(text) {
+    const found = []; const seen = new Set();
+    AI_PROFILES.forEach(prof => {
+        const escaped = prof.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if(new RegExp('@' + escaped + '(?![\\w])', 'i').test(text) && !seen.has(prof.label)) { found.push(prof); seen.add(prof.label); }
     });
+    return found;
+}
 
-    newContent.unshift({ type: "input_text", text: appendedText });
+function showMentionDropdown(query) {
+    const filtered = AI_PROFILES.filter(p => p.label.toLowerCase().includes(query.toLowerCase()));
+    const dd = document.getElementById('mention-dropdown');
+    if(filtered.length === 0) { dd.classList.add('closed'); return; }
+    dd.innerHTML = filtered.slice(0, 6).map(p => `<div class="mention-item" onmousedown="event.preventDefault(); insertMention('${p.label.replace(/'/g,"\\'")}')">🤖 ${p.label}</div>`).join('');
+    dd.classList.remove('closed');
+}
 
-    let sData = getSessions(); chatHistory.push({ role: "user", content: newContent }); 
-    
-    pendingAttachments = []; renderAttachmentPreview(); renderChatHistory(); 
-    if(chatHistory.length === 2) { generateChatTitleAI(sData.current); }
-    
-    noteIn.value = ""; let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) cur.draft = "";
-    sync(); noteIn.blur(); closeAllPanels(); activePromptIdx = -1; renderInlinePrompts();
-    
-    const container = document.getElementById('chat-container'); 
-    const aiB = document.createElement('div'); aiB.className = "bubble ai"; aiB.id = `msg-${chatHistory.length}`;
-    aiB.innerHTML = `<div class="bubble-content" style="opacity:0.6;"><em><small>🔍 Generating...</small></em></div>`; container.appendChild(aiB); 
-    
+function hideMentionDropdown() { const dd = document.getElementById('mention-dropdown'); if(dd) dd.classList.add('closed'); }
+
+function insertMention(label) {
+    const inp = document.getElementById('note-input');
+    const val = inp.value; const pos = inp.selectionStart;
+    inp.value = val.substring(0, mentionAnchorPos) + '@' + label + ' ' + val.substring(pos);
+    const newPos = mentionAnchorPos + label.length + 2;
+    inp.setSelectionRange(newPos, newPos); inp.focus();
+    hideMentionDropdown(); mentionAnchorPos = -1;
+}
+
+async function streamProfileResponse(prof, modelToUse, aborter, showLabel) {
+    const container = document.getElementById('chat-container');
+    const aiB = document.createElement('div'); aiB.className = 'bubble ai'; aiB.id = `msg-${chatHistory.length}`;
+    if(showLabel) { const lbl = document.createElement('div'); lbl.className = 'agent-label'; lbl.textContent = '🤖 ' + prof.label; aiB.appendChild(lbl); }
+    const bc = document.createElement('div'); bc.className = 'bubble-content'; bc.style.opacity = '0.6'; bc.innerHTML = '<em><small>🔍 Generating...</small></em>'; aiB.appendChild(bc);
+    container.appendChild(aiB);
     userScrolledDuringGen = false; scrollToLastRequest();
-    const sendBtn = document.getElementById('send-btn-el'); sendBtn.innerHTML = '⏹'; sendBtn.classList.add('sending'); currentAborter = new AbortController();
-    
-    const modelToUse = document.getElementById('chatModel').value;
+    let msgs = chatHistory.map((m, i) => (i === 0 && m.role === 'developer') ? { role: 'developer', content: [{ type: 'input_text', text: prof.text }] } : m);
+    if(msgs.length === 0 || msgs[0].role !== 'developer') msgs = [{ role: 'developer', content: [{ type: 'input_text', text: prof.text || '' }] }, ...msgs];
+    let fullR = '';
     try {
-        const body = { model: modelToUse, input: chatHistory, tools: [{ type: "web_search_preview" }], stream: true };
-        const res = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify(body), signal: currentAborter.signal });
-        if (!res.ok) { const errText = await res.text(); throw new Error(`API Error ${res.status}: ${errText}`); }
-        const reader = res.body.getReader(), decoder = new TextDecoder("utf-8"); let fullR = "";
-        while (true) {
-            const { done, value } = await reader.read(); if (done) break; const chunk = decoder.decode(value);
-            chunk.split("\n").forEach(line => {
-                if (line.startsWith("data: ")) {
-                    const jStr = line.replace("data: ", ""); if (jStr === "[DONE]") return;
-                    try { 
-                        const data = JSON.parse(jStr); 
-                        if (data.type === "response.output_text.delta") { 
-                            if (fullR === "") aiB.innerHTML = `<div class="bubble-content"></div>`; 
-                            fullR += data.delta; aiB.querySelector('.bubble-content').innerHTML = marked.parse(fullR); 
-                            if(!userScrolledDuringGen) scrollToLastRequest();
-                        } 
-                    } catch(e){}
-                }
+        const res = await fetch('https://api.openai.com/v1/responses', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: modelToUse, input: msgs, tools: [{ type: 'web_search_preview' }], stream: true }), signal: aborter.signal });
+        if(!res.ok) { const errText = await res.text(); throw new Error(`API Error ${res.status}: ${errText}`); }
+        const reader = res.body.getReader(), decoder = new TextDecoder('utf-8');
+        while(true) {
+            const { done, value } = await reader.read(); if(done) break;
+            decoder.decode(value).split('\n').forEach(line => {
+                if(!line.startsWith('data: ')) return;
+                const jStr = line.slice(6); if(jStr === '[DONE]') return;
+                try { const d = JSON.parse(jStr); if(d.type === 'response.output_text.delta') { if(fullR === '') bc.style.opacity = '1'; fullR += d.delta; bc.innerHTML = marked.parse(fullR); if(!userScrolledDuringGen) scrollToLastRequest(); } } catch(e) {}
             });
         }
-        addLog("AI_CHAT", activeProfileLabel, "Response Generated"); 
-        chatHistory.push({ role: "assistant", content: [{ type: "output_text", text: fullR }] }); await saveAll(); await autoExtractVariables(false); renderChatHistory(); 
+        addLog('AI_CHAT', prof.label, 'Response Generated');
+        const msg = { role: 'assistant', content: [{ type: 'output_text', text: fullR }] };
+        if(showLabel) msg._agent = prof.label;
+        chatHistory.push(msg);
+        await saveAll(); await autoExtractVariables(false); renderChatHistory();
         if(!userScrolledDuringGen) scrollToLastRequest();
-        
-        try { const htmlBlob = new Blob([marked.parse(fullR)], {type: 'text/html'}); const textBlob = new Blob([fullR], {type: 'text/plain'}); const data = new ClipboardItem({'text/html': htmlBlob, 'text/plain': textBlob}); await navigator.clipboard.write([data]); notify("Response Auto-Copied!", "#34c759"); } catch(e) {}
-    } catch(e) { if(e.name === 'AbortError') { aiB.innerHTML = `<div class="bubble-content" style="color:var(--danger);"><em>Aborted.</em></div>`; addLog("AI_CHAT", "Aborted", ""); } else { aiB.innerHTML = `<div class="bubble-content" style="color:var(--danger); font-size:12px;"><strong>Connection Error:</strong><br>${e.message}</div>`; } }
-    finally { sendBtn.innerHTML = '↑'; sendBtn.classList.remove('sending'); currentAborter = null; }
+        try { await navigator.clipboard.write([new ClipboardItem({'text/html': new Blob([marked.parse(fullR)], {type:'text/html'}), 'text/plain': new Blob([fullR], {type:'text/plain'})})]); if(!showLabel) notify('Response Auto-Copied!', '#34c759'); } catch(e) {}
+    } catch(e) {
+        if(e.name === 'AbortError') { bc.innerHTML = '<em style="color:var(--danger)">Aborted.</em>'; addLog('AI_CHAT', 'Aborted', ''); }
+        else { bc.innerHTML = `<div style="color:var(--danger); font-size:12px;"><strong>Error:</strong><br>${e.message}</div>`; }
+    }
+}
+
+async function sendToAI() {
+    if(currentAborter) { currentAborter.abort(); currentAborter = null; return; }
+    const noteIn = document.getElementById('note-input');
+    const val = noteIn.value.trim();
+    if((!val && pendingAttachments.length === 0) || !CONFIG.ai_key) return notify('Missing Text/Attachment or Key', '#ff3b30');
+    hideMentionDropdown();
+    const mentionedProfiles = parseMentionedProfiles(val);
+    const showLabels = mentionedProfiles.length > 0;
+    const profilesToCall = mentionedProfiles.length > 0 ? mentionedProfiles : [AI_PROFILES.find(p => p.label === activeProfileLabel) || AI_PROFILES[0]];
+    let fullText = val;
+    if(cutIdx !== -1 && val) { const ctx = CONTEXT_LINES.slice(0, cutIdx+1).join('\n'); fullText = `${val}\n\n[CONTEXT]\n${ctx}`; }
+    else if(cutIdx !== -1 && !val) { fullText = `[CONTEXT]\n${CONTEXT_LINES.slice(0,cutIdx+1).join('\n')}`; }
+    let appendedText = fullText; let newContent = [];
+    pendingAttachments.forEach(att => {
+        if(att.type === 'text') { const ext = (att.name.split('.').pop() || '').toLowerCase(); const langMap = { html:'html', htm:'html', xml:'xml', js:'javascript', ts:'typescript', jsx:'javascript', tsx:'typescript', css:'css', json:'json', md:'markdown', py:'python', swift:'swift', kt:'kotlin' }; const lang = langMap[ext] || ext; appendedText += `\n\n--- Attached: ${att.name} ---\n\`\`\`${lang}\n${att.text}\n\`\`\``; }
+        else if(att.type === 'image') { newContent.push({ type: 'input_image', image_url: att.data }); }
+    });
+    newContent.unshift({ type: 'input_text', text: appendedText });
+    let sData = getSessions(); chatHistory.push({ role: 'user', content: newContent });
+    pendingAttachments = []; renderAttachmentPreview(); renderChatHistory();
+    if(chatHistory.length === 2) generateChatTitleAI(sData.current);
+    noteIn.value = ''; let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(cur) cur.draft = '';
+    sync(); noteIn.blur(); closeAllPanels(); activePromptIdx = -1; renderInlinePrompts();
+    const modelToUse = document.getElementById('chatModel').value;
+    const sendBtn = document.getElementById('send-btn-el'); sendBtn.innerHTML = '⏹'; sendBtn.classList.add('sending');
+    currentAborter = new AbortController();
+    try {
+        for(const prof of profilesToCall) {
+            if(currentAborter.signal.aborted) break;
+            await streamProfileResponse(prof, modelToUse, currentAborter, showLabels);
+        }
+    } finally { sendBtn.innerHTML = '↑'; sendBtn.classList.remove('sending'); currentAborter = null; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
