@@ -329,8 +329,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .ctx-panel.open { right: 0; }
 /* Prevent panel inner scrollers from leaking to the page */
 .side-panel > div[style*="overflow-y"], .ctx-panel > div[style*="overflow-y"],
-.side-panel > div > div[style*="overflow-y"], .ctx-panel > div > div[style*="overflow-y"] {
+.side-panel > div > div[style*="overflow-y"], .ctx-panel > div > div[style*="overflow-y"],
+.modal-content {
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .panel-header {
@@ -1021,6 +1023,28 @@ function initGestures() {
         });
     }
     mainScrollEl.addEventListener('wheel', () => { if(currentAborter) userScrolledDuringGen = true; }, {passive:true}); mainScrollEl.addEventListener('touchstart', () => { if(currentAborter) userScrolledDuringGen = true; }, {passive:true});
+
+    // iOS: prevent scroll bleed-through on panel and modal overlays
+    let _pTouchStartY = 0;
+    function lockPanelScroll(el) {
+        el.addEventListener('touchstart', e => { _pTouchStartY = e.touches[0].clientY; }, { passive: true });
+        el.addEventListener('touchmove', e => {
+            let node = e.target;
+            while (node && node !== el) {
+                const cs = getComputedStyle(node);
+                if ((cs.overflowY === 'auto' || cs.overflowY === 'scroll') && node.scrollHeight > node.clientHeight) {
+                    const dy = _pTouchStartY - e.touches[0].clientY;
+                    const atTop = node.scrollTop <= 0;
+                    const atBottom = node.scrollTop + node.clientHeight >= node.scrollHeight - 1;
+                    if ((dy < 0 && atTop) || (dy > 0 && atBottom)) { e.preventDefault(); }
+                    return;
+                }
+                node = node.parentElement;
+            }
+            e.preventDefault();
+        }, { passive: false });
+    }
+    document.querySelectorAll('.side-panel, .ctx-panel, .modal').forEach(lockPanelScroll);
 }
 function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
 function toggleVarsPanel() { closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); }
