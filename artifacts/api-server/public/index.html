@@ -1813,119 +1813,123 @@ async function sendToAI() {
     finally { sendBtn.innerHTML = '↑'; sendBtn.classList.remove('sending'); currentAborter = null; }
 }
 
-let fbDb = null; let syncTimer = null; let realtimeUnsub = null; let pullInProgress = false;
+// ─────────────────────────────────────────────────────────────────────────────
+// SYNC  —  Cloud-First, Stateless Client
+// Principle: Firebase is the source of truth. Local IndexedDB is a write-through
+// cache for offline / fast startup only. Every onSnapshot applies cloud data
+// directly to in-memory state with no merge logic. Writes go to local cache
+// immediately, then debounce-push to cloud. Self-push echoes are identified by
+// a random pushToken per-commit so we can skip the redundant re-render.
+// ─────────────────────────────────────────────────────────────────────────────
+let fbDb = null;
+let syncTimer = null;
+let realtimeUnsub = null;
 let syncReady = false;
-let localChangePending = false;
-const myDeviceId = (() => { let id = sessionStorage.getItem('agentgpt_dev'); if(!id) { id = 'dev_' + Date.now().toString(36) + Math.random().toString(36).slice(2); sessionStorage.setItem('agentgpt_dev', id); } return id; })();
+let applyInProgress = false;
+let lastOwnPushToken = null;
+let pendingCloudData = null;
 
 async function initFirebase() {
-    if(!CONFIG.fb_api || !CONFIG.fb_project) return null; if(fbDb) return fbDb;
-    try { const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js"); const { getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"); const app = initializeApp({ apiKey: CONFIG.fb_api, projectId: CONFIG.fb_project }); fbDb = getFirestore(app); return fbDb; } catch(e) { addLog("SYNC", "Init Failed", e.message); return null; }
+    if(!CONFIG.fb_api || !CONFIG.fb_project) return null;
+    if(fbDb) return fbDb;
+    try {
+        const { initializeApp, getApps } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js");
+        const { getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        const apps = getApps(); const app = apps.length ? apps[0] : initializeApp({ apiKey: CONFIG.fb_api, projectId: CONFIG.fb_project });
+        fbDb = getFirestore(app); return fbDb;
+    } catch(e) { addLog("SYNC", "Init Failed", e.message); return null; }
 }
 
 async function pushToFirebase(manual = false) {
     const db = await initFirebase(); if(!db) { if(manual) notify("⚠️ Setup Firebase in Settings first", "#ff3b30"); return; }
-    if(!syncReady && !manual) { addLog("SYNC", "Push Deferred", "Waiting for first sync"); return; }
+    if(!syncReady && !manual) { addLog("SYNC", "Push Deferred", "Waiting for first snapshot"); return; }
     try {
-        const { doc, writeBatch } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"); const batch = writeBatch(db);
-        const payload = { profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, last_sync: Date.now(), device_id: myDeviceId };
-        const histStr = JSON.stringify(chatHistories); const chunks = []; const chunkSize = 300000; for (let i = 0; i < histStr.length; i += chunkSize) { chunks.push(histStr.substring(i, i + chunkSize)); } payload.chunks_count = chunks.length;
-        batch.set(doc(db, "quicknote_data", "primary_user"), payload); for(let i=0; i<chunks.length; i++) { batch.set(doc(db, "quicknote_data", "primary_hist_"+i), { data: chunks[i] }); } await batch.commit();
-        localChangePending = false;
-        localStorage.setItem('agentgpt_last_push_dev', myDeviceId);
-        let chatCount = 0; Object.values(chatHistories).forEach(p => chatCount += (p.list ? p.list.length : 0));
-        addLog("SYNC", "Cloud Push", `OK: ${chatCount} chats`);
+        const { doc, writeBatch } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        const pushToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        lastOwnPushToken = pushToken;
+        const batch = writeBatch(db);
+        const payload = { profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, push_token: pushToken, last_sync: Date.now() };
+        const histStr = JSON.stringify(chatHistories); const chunks = []; const chunkSize = 300000;
+        for(let i = 0; i < histStr.length; i += chunkSize) chunks.push(histStr.substring(i, i + chunkSize));
+        payload.chunks_count = chunks.length;
+        batch.set(doc(db, "quicknote_data", "primary_user"), payload);
+        for(let i = 0; i < chunks.length; i++) batch.set(doc(db, "quicknote_data", "primary_hist_" + i), { data: chunks[i] });
+        await batch.commit();
+        let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
+        addLog("SYNC", "Cloud Push", `OK — ${n} chats`);
         if(manual) notify("☁️ Pushed to cloud!", "#34c759");
-    } catch(e) {
-        localChangePending = false;
-        addLog("SYNC", "Push Error", e.message);
-        notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000);
-    }
+    } catch(e) { addLog("SYNC", "Push Error", e.message); notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
 }
 
-async function pullFromFirebase(silent = false) {
-    if(pullInProgress) { addLog("SYNC", "Pull Skipped", "Already in progress"); return; }
-    pullInProgress = true;
-    const db = await initFirebase(); if(!db) { pullInProgress = false; return silent ? null : notify("Setup Firebase in Settings first", "#ff3b30"); }
+async function applyCloudData(data, db, silent = false) {
+    if(applyInProgress) { pendingCloudData = { data, db, silent }; return; }
+    applyInProgress = true;
     try {
-        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"); const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
-        if(snap.exists()) {
-            const data = snap.data();
+        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        let newHistories = chatHistories;
+        if(data.chunks_count > 0) {
+            let fullStr = "";
+            for(let i = 0; i < data.chunks_count; i++) { const c = await getDoc(doc(db, "quicknote_data", "primary_hist_" + i)); if(c.exists()) fullStr += c.data().data; }
+            if(fullStr) newHistories = JSON.parse(fullStr);
+        } else if(data.histories) { newHistories = data.histories; }
 
-            // ── Full snapshot of local state before any overwrite ──
-            const localProfileLabel = activeProfileLabel;
-            const localSessionId = chatHistories[localProfileLabel]?.current;
-            const localMsgsSnapshot = [...chatHistory];
-            const prepull = {
-                profiles: JSON.parse(JSON.stringify(AI_PROFILES)),
-                prompts: JSON.parse(JSON.stringify(PROMPTS)),
-                templates: JSON.parse(JSON.stringify(TEMPLATES)),
-                tools: JSON.parse(JSON.stringify(API_SERVICES)),
-                models: JSON.parse(JSON.stringify(AI_MODELS)),
-                config: JSON.parse(JSON.stringify(CONFIG)),
-                datasets: JSON.parse(JSON.stringify(GLOBAL_DATASETS)),
-                histories: JSON.parse(JSON.stringify(chatHistories)),
-            };
+        if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles');
+        if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts');
+        if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates');
+        if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools');
+        if(data.models) AI_MODELS = sanitizeImport(data.models, 'models');
+        if(data.config) CONFIG = data.config;
+        if(data.datasets) GLOBAL_DATASETS = data.datasets;
+        chatHistories = newHistories;
 
-            if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles'); if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts'); if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates'); if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools'); if(data.models) AI_MODELS = sanitizeImport(data.models, 'models'); if(data.config) CONFIG = data.config; if(data.datasets) GLOBAL_DATASETS = data.datasets;
-            if(data.chunks_count > 0) { let fullStr = ""; for(let i=0; i<data.chunks_count; i++) { let chunkSnap = await getDoc(doc(db, "quicknote_data", "primary_hist_"+i)); if(chunkSnap.exists()) fullStr += chunkSnap.data().data; } if(fullStr) chatHistories = JSON.parse(fullStr); } else if(data.histories) { chatHistories = data.histories; }
+        if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
 
-            if(localChangePending) {
-                AI_PROFILES = prepull.profiles; PROMPTS = prepull.prompts; TEMPLATES = prepull.templates; API_SERVICES = prepull.tools; AI_MODELS = prepull.models; CONFIG = prepull.config; GLOBAL_DATASETS = prepull.datasets; chatHistories = prepull.histories;
-                addLog("SYNC", "Pull Aborted", "Local change during pull — keeping local"); pullInProgress = false; return;
+        if(!currentAborter) {
+            const sData = chatHistories[activeProfileLabel];
+            if(sData && sData.list) {
+                const cur = sData.list.find(x => String(x.id) === String(sData.current)) || sData.list[0];
+                if(cur) { chatHistory = cur.msgs || []; sData.current = cur.id; }
             }
-
-            if(!AI_PROFILES.find(p => p.label === localProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
-
-            // ── Merge: protect local messages and restore profile if missing from cloud ──
-            let pulledProfile = chatHistories[localProfileLabel];
-            if(!pulledProfile && localProfileLabel && prepull.histories[localProfileLabel]) {
-                chatHistories[localProfileLabel] = prepull.histories[localProfileLabel];
-                pulledProfile = chatHistories[localProfileLabel];
-                addLog("SYNC", "Profile Restored", "Local profile not in cloud — kept local: " + localProfileLabel);
-            }
-
-            if(pulledProfile && localSessionId) {
-                if(!pulledProfile.list) pulledProfile.list = [];
-                const pulledCur = pulledProfile.list.find(x => String(x.id) === String(localSessionId));
-                if(pulledCur) {
-                    const cloudMsgs = pulledCur.msgs || [];
-                    chatHistory = localMsgsSnapshot.length > cloudMsgs.length ? localMsgsSnapshot : cloudMsgs;
-                    pulledCur.msgs = chatHistory;
-                } else {
-                    chatHistory = localMsgsSnapshot;
-                    const localChat = prepull.histories[localProfileLabel]?.list?.find(x => String(x.id) === String(localSessionId));
-                    pulledProfile.list.push(localChat ? { ...localChat, msgs: localMsgsSnapshot } : { id: localSessionId, title: "Recovered Chat", msgs: localMsgsSnapshot, var_id: localSessionId, todos: [], draft: "" });
-                }
-                pulledProfile.current = localSessionId;
-            } else if(pulledProfile) {
-                const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(pulledProfile.current)) : null;
-                if(pulledCur) chatHistory = pulledCur.msgs || [];
-            }
-
-            // ── Update profile system prompt if it changed in cloud ──
             const activeProf = AI_PROFILES.find(p => p.label === activeProfileLabel);
             if(activeProf && chatHistory.length > 0 && chatHistory[0].role === 'developer') {
                 chatHistory[0].content = [{ type: "input_text", text: activeProf.text }];
             }
-
-            await dbHelper.setMulti({ 'profiles': AI_PROFILES, 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'models': AI_MODELS, 'config': CONFIG, 'datasets': GLOBAL_DATASETS, 'histories': chatHistories, 'activeProfile': activeProfileLabel });
-
-            const scrollEl = document.getElementById('mainScroll');
-            const savedScrollTop = scrollEl ? scrollEl.scrollTop : 0;
-            await refreshUI(); renderWorkspaceLists();
-            if(!currentAborter) {
-                renderChatHistory();
-                if(silent) { requestAnimationFrame(() => { if(scrollEl) scrollEl.scrollTop = savedScrollTop; }); } else { scrollToLastRequest(); }
-            }
-
-            let countChats = 0; Object.values(chatHistories).forEach(p => countChats += (p.list ? p.list.length : 0)); addLog("SYNC", "Cloud Pull", `Loaded ${countChats} Chats.`);
         }
-    } catch(e) { addLog("SYNC", "Pull Error", e.message); if(!silent) notify("⚠️ Sync pull failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
-    finally { pullInProgress = false; }
+
+        await dbHelper.setMulti({ 'profiles': AI_PROFILES, 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'models': AI_MODELS, 'config': CONFIG, 'datasets': GLOBAL_DATASETS, 'histories': chatHistories, 'activeProfile': activeProfileLabel });
+
+        const scrollEl = document.getElementById('mainScroll');
+        const savedTop = scrollEl ? scrollEl.scrollTop : 0;
+        await refreshUI(); renderWorkspaceLists();
+        if(!currentAborter) {
+            renderChatHistory();
+            if(silent) requestAnimationFrame(() => { if(scrollEl) scrollEl.scrollTop = savedTop; });
+            else scrollToLastRequest();
+        }
+        let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
+        addLog("SYNC", "Cloud Applied", `${n} chats loaded`);
+    } catch(e) { addLog("SYNC", "Apply Error", e.message); }
+    finally {
+        applyInProgress = false;
+        if(pendingCloudData) { const next = pendingCloudData; pendingCloudData = null; await applyCloudData(next.data, next.db, next.silent); }
+    }
 }
 
-function triggerAutoSync() { if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return; localChangePending = true; clearTimeout(syncTimer); syncTimer = setTimeout(() => { syncTimer = null; pushToFirebase(); }, 1000); }
+async function pullFromFirebase(silent = false) {
+    const db = await initFirebase(); if(!db) return silent ? null : notify("Setup Firebase in Settings first", "#ff3b30");
+    try {
+        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
+        if(snap.exists()) await applyCloudData(snap.data(), db, silent);
+        else addLog("SYNC", "Pull", "No cloud data yet");
+    } catch(e) { addLog("SYNC", "Pull Error", e.message); if(!silent) notify("⚠️ Pull failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
+}
+
+function triggerAutoSync() {
+    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => { syncTimer = null; pushToFirebase(); }, 1500);
+}
 
 function updateSyncLiveBadge(live) { const el = document.getElementById('sync-live-badge'); if(el) el.style.display = live ? 'inline' : 'none'; }
 
@@ -1937,15 +1941,19 @@ async function startRealtimeSync() {
     try {
         const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
         realtimeUnsub = onSnapshot(doc(db, "quicknote_data", "primary_user"), async (snap) => {
-            if(!snap.exists()) { syncReady = true; return; }
+            if(!snap.exists()) { syncReady = true; addLog("SYNC", "Listener", "No data in cloud yet"); return; }
             const data = snap.data();
-            syncReady = true;
-            const lastKnownPushDev = localStorage.getItem('agentgpt_last_push_dev');
-            if(data.device_id === myDeviceId || data.device_id === lastKnownPushDev) { addLog("SYNC", "Skip Pull", "Own push (current or prior session)"); return; }
-            if(localChangePending || syncTimer !== null) { addLog("SYNC", "Pull Skipped", "Local changes pending"); return; }
-            if(!pullInProgress) { addLog("SYNC", "Realtime Pull", "Another device updated"); await pullFromFirebase(true); }
+            if(!syncReady) {
+                syncReady = true;
+                addLog("SYNC", "Listener", "Initial snapshot received — applying cloud data");
+                await applyCloudData(data, db, true);
+                return;
+            }
+            if(data.push_token && data.push_token === lastOwnPushToken) { addLog("SYNC", "Skip", "Own push echo — no re-apply needed"); return; }
+            addLog("SYNC", "Realtime Update", "External change detected — applying cloud data");
+            await applyCloudData(data, db, true);
         }, (e) => { addLog("SYNC", "Listener Error", e.message); updateSyncLiveBadge(false); });
-        addLog("SYNC", "Realtime", "Listener connected — device: " + myDeviceId);
+        addLog("SYNC", "Realtime", "Listener connected");
         updateSyncLiveBadge(true);
     } catch(e) { addLog("SYNC", "Realtime Init Error", e.message); }
 }
