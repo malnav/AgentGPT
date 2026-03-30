@@ -1039,7 +1039,7 @@ function renderInlinePrompts() {
 
 async function saveAll(skipCloud = false) { 
     try {
-        let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { cur.msgs = chatHistory; cur.updated_at = Date.now(); } }
+        let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) cur.msgs = chatHistory; }
         await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
         if(!skipCloud) triggerAutoSync(); 
     } catch(e) { console.error("DB Save Error:", e); notify("⚠️ DB Error: " + (e.name || "Write Failed"), "#ff3b30", 4000); }
@@ -1089,7 +1089,7 @@ function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile ==
 function switchWorkspaceTab(t) { }
 function switchVarsTab(t) { document.getElementById('vtab-vars').classList.toggle('active', t==='vars'); document.getElementById('vtab-datasets').classList.toggle('active', t==='datasets'); document.getElementById('vview-vars').classList.toggle('closed', t!=='vars'); document.getElementById('vview-datasets').classList.toggle('closed', t!=='datasets'); document.getElementById('vtab-vars-btns').style.display = t==='vars' ? 'flex' : 'none'; document.getElementById('vtab-datasets-btns').style.display = t==='datasets' ? 'flex' : 'none'; if(t === 'datasets') renderDatasetsList(); }
 function renderWorkspaceLists() { renderSessionsList(); renderDatasetsList(); }
-async function loadSession(id) { let sData = getSessions(); sData.current = String(id); let cur = sData.list.find(x => String(x.id) === String(id)); if(cur) { chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; addLog("SESSION", "Load Chat", cur.title); closeAllPanels(); await saveAll(); refreshUI(); renderChatHistory(); scrollToLastRequest(); startSessionListener(id); } }
+async function loadSession(id) { let sData = getSessions(); sData.current = String(id); let cur = sData.list.find(x => String(x.id) === String(id)); if(cur) { chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; addLog("SESSION", "Load Chat", cur.title); closeAllPanels(); await saveAll(); refreshUI(); renderChatHistory(); scrollToLastRequest(); } }
 function renderSessionsList() { let sData = getSessions(); let sortedChats = [...sData.list].sort((a,b) => Number(b.id) - Number(a.id)); document.getElementById('sessions-list').innerHTML = sortedChats.map(s => `<li class="list-item ${String(s.id) === String(sData.current) ? 'in-cut' : ''}" onclick="loadSession('${s.id}')"><div style="flex:1;"><strong>${s.title}</strong> <span style="font-size:10px; color:#888;">${(s.msgs||[]).length} msgs</span></div><div class="inline-btn" onclick="event.stopPropagation(); deleteSession('${s.id}')">🗑️</div></li>`).join(''); }
 
 async function resetCurrentSession() { 
@@ -1100,7 +1100,7 @@ async function resetCurrentSession() {
     chatHistory = newChat; document.getElementById('note-input').value = ""; lastCursorPos = null; cutIdx = CONFIG.def_ctx === 'none' ? -1 : CONTEXT_LINES.length - 1;
     sData.list.push({ id: newId, title: "Chat " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), msgs: newChat, var_id: newId, draft: "" });
     sData.current = newId; GLOBAL_DATASETS[newId] = { title: "Data Set " + newId.substring(newId.length-4), data: {} };
-    chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); refreshUI(); document.getElementById('note-input').focus(); await saveAll(); startSessionListener(newId); setTimeout(() => document.getElementById('note-input').focus(), 150);
+    chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); refreshUI(); document.getElementById('note-input').focus(); await saveAll(); setTimeout(() => document.getElementById('note-input').focus(), 150);
 }
 
 function renderDatasetsList() {
@@ -1250,7 +1250,7 @@ async function switchProfileSession(newLabel) {
     activeProfileLabel = newLabel; activeTagFilter = ""; let sData = getSessions();
     if(sData.list.length === 0) await resetCurrentSession();
     else { let cur = sData.list.find(x => String(x.id) === String(sData.current)) || sData.list[0]; chatHistory = cur.msgs || []; sData.current = cur.id; document.getElementById('note-input').value = cur.draft || ""; lastCursorPos = null; if(chatHistory.length === 0) { const p = AI_PROFILES.find(x => x.label === activeProfileLabel) || AI_PROFILES[0]; if(p) chatHistory.push({ role: "developer", content: [{ type: "input_text", text: p.text }] }); } }
-    addLog("SESSION", "Switch Profile", newLabel); await saveAll(); refreshUI(); renderChatHistory(); scrollToLastRequest(); renderWorkspaceLists(); const _swSData = getSessions(); if(_swSData?.current) startSessionListener(_swSData.current);
+    addLog("SESSION", "Switch Profile", newLabel); await saveAll(); refreshUI(); renderChatHistory(); scrollToLastRequest(); renderWorkspaceLists();
 }
 
 async function copyFormattedText(btn) { try { const bubble = btn.closest('.bubble'); const content = bubble.querySelector('.bubble-content'); if (navigator.clipboard && window.ClipboardItem) { const html = new Blob([content.innerHTML], {type: 'text/html'}); const text = new Blob([content.innerText], {type: 'text/plain'}); const data = new ClipboardItem({'text/html': html, 'text/plain': text}); await navigator.clipboard.write([data]); } else { const selection = window.getSelection(); const range = document.createRange(); range.selectNodeContents(content); selection.removeAllRanges(); selection.addRange(range); document.execCommand('copy'); selection.removeAllRanges(); } notify("Copied Formatted!", "#34c759"); } catch(e) { notify("Copy Failed", "#ff3b30"); } }
@@ -1705,7 +1705,6 @@ async function sendToAI() {
 let fbDb = null; let syncTimer = null; let realtimeUnsub = null; let pullInProgress = false;
 let syncReady = false;
 let localChangePending = false;
-let sessionUnsub = null; let currentListenSessionId = null;
 const myDeviceId = (() => { let id = sessionStorage.getItem('agentgpt_dev'); if(!id) { id = 'dev_' + Date.now().toString(36) + Math.random().toString(36).slice(2); sessionStorage.setItem('agentgpt_dev', id); } return id; })();
 
 async function initFirebase() {
@@ -1717,12 +1716,10 @@ async function pushToFirebase(manual = false) {
     const db = await initFirebase(); if(!db) { if(manual) notify("⚠️ Setup Firebase in Settings first", "#ff3b30"); return; }
     if(!syncReady && !manual) { addLog("SYNC", "Push Deferred", "Waiting for first sync"); return; }
     try {
-        const { doc, writeBatch, setDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"); const batch = writeBatch(db);
+        const { doc, writeBatch } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"); const batch = writeBatch(db);
         const payload = { profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, last_sync: Date.now(), device_id: myDeviceId };
         const histStr = JSON.stringify(chatHistories); const chunks = []; const chunkSize = 300000; for (let i = 0; i < histStr.length; i += chunkSize) { chunks.push(histStr.substring(i, i + chunkSize)); } payload.chunks_count = chunks.length;
         batch.set(doc(db, "quicknote_data", "primary_user"), payload); for(let i=0; i<chunks.length; i++) { batch.set(doc(db, "quicknote_data", "primary_hist_"+i), { data: chunks[i] }); } await batch.commit();
-        const _curPData = chatHistories[activeProfileLabel]; const _curSId = _curPData?.current;
-        if(_curSId) { const _curS = _curPData.list ? _curPData.list.find(s => String(s.id) === String(_curSId)) : null; if(_curS) { await setDoc(doc(db, "quicknote_data", "chat_" + _curSId), { msgs: _curS.msgs || [], updated_at: _curS.updated_at || Date.now(), device_id: myDeviceId, profile_label: activeProfileLabel }); } }
         localChangePending = false;
         let chatCount = 0; Object.values(chatHistories).forEach(p => chatCount += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Push", `OK: ${chatCount} chats`);
@@ -1743,41 +1740,38 @@ async function pullFromFirebase(silent = false) {
         if(snap.exists()) {
             const data = snap.data();
 
-            // ── Snapshot ALL local histories before overwriting ──
-            const localHistoriesBackup = JSON.parse(JSON.stringify(chatHistories));
+            // ── Snapshot local state BEFORE overwriting so we can protect unsaved msgs ──
             const localProfileLabel = activeProfileLabel;
-            const localSessionId = localHistoriesBackup[localProfileLabel]?.current;
+            const localSessionId = chatHistories[localProfileLabel]?.current;
+            const localMsgsSnapshot = [...chatHistory]; // current in-memory messages
 
             if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles'); if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts'); if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates'); if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools'); if(data.models) AI_MODELS = sanitizeImport(data.models, 'models'); if(data.config) CONFIG = data.config; if(data.datasets) GLOBAL_DATASETS = data.datasets;
             if(data.chunks_count > 0) { let fullStr = ""; for(let i=0; i<data.chunks_count; i++) { let chunkSnap = await getDoc(doc(db, "quicknote_data", "primary_hist_"+i)); if(chunkSnap.exists()) fullStr += chunkSnap.data().data; } if(fullStr) chatHistories = JSON.parse(fullStr); } else if(data.histories) { chatHistories = data.histories; }
             if(localChangePending) { addLog("SYNC", "Pull Aborted", "Local change during pull — keeping local"); pullInProgress = false; return; }
             if(!AI_PROFILES.find(p => p.label === localProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
 
-            // ── Merge ALL sessions across ALL profiles ──
-            // For every session that existed locally, keep the version with more messages.
-            // Sessions only on this device (not yet pushed) are re-added to the cloud data.
-            Object.keys(localHistoriesBackup).forEach(profileLabel => {
-                const localProfile = localHistoriesBackup[profileLabel];
-                if(!localProfile || !localProfile.list) return;
-                if(!chatHistories[profileLabel]) chatHistories[profileLabel] = { current: localProfile.current, list: [] };
-                const cloudProfile = chatHistories[profileLabel];
-                localProfile.list.forEach(localSess => {
-                    const cloudSess = cloudProfile.list ? cloudProfile.list.find(s => String(s.id) === String(localSess.id)) : null;
-                    if(cloudSess) {
-                        const localTs = localSess.updated_at || 0;
-                        const cloudTs = cloudSess.updated_at || 0;
-                        if(localTs > cloudTs) { cloudSess.msgs = localSess.msgs; cloudSess.updated_at = localSess.updated_at; }
-                    } else if((localSess.msgs || []).filter(m => m.role !== 'developer').length > 0) {
-                        cloudProfile.list.push(localSess);
+            // ── Merge: protect local messages that haven't been pushed yet ──
+            // If local in-memory session has MORE messages than the cloud copy of that same
+            // session, the local messages are newer (push debounce hasn't fired). Keep them.
+            const pulledProfile = chatHistories[localProfileLabel];
+            if(pulledProfile && localSessionId) {
+                const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(localSessionId)) : null;
+                if(pulledCur) {
+                    const cloudMsgs = pulledCur.msgs || [];
+                    // Local is ahead → restore local messages into the pulled structure
+                    if(localMsgsSnapshot.length > cloudMsgs.length) {
+                        pulledCur.msgs = localMsgsSnapshot;
+                        chatHistory = localMsgsSnapshot;
+                    } else {
+                        chatHistory = cloudMsgs;
                     }
-                });
-            });
-
-            // ── Sync in-memory chatHistory from the merged current session ──
-            const mergedProfile = chatHistories[localProfileLabel];
-            if(mergedProfile) {
-                const mergedCur = mergedProfile.list ? mergedProfile.list.find(x => String(x.id) === String(localSessionId)) : null;
-                chatHistory = (mergedCur ? mergedCur.msgs : null) || (mergedProfile.list && mergedProfile.list[0] ? mergedProfile.list[0].msgs : null) || [];
+                } else {
+                    // Session exists locally but not in cloud yet — keep local
+                    chatHistory = localMsgsSnapshot;
+                }
+            } else if(pulledProfile) {
+                const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(pulledProfile.current)) : null;
+                if(pulledCur) chatHistory = pulledCur.msgs || [];
             }
 
             await dbHelper.setMulti({ 'profiles': AI_PROFILES, 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'models': AI_MODELS, 'config': CONFIG, 'datasets': GLOBAL_DATASETS, 'histories': chatHistories, 'activeProfile': activeProfileLabel });
@@ -1797,7 +1791,7 @@ async function pullFromFirebase(silent = false) {
                 }
             }
 
-            let countChats = 0; Object.values(chatHistories).forEach(p => countChats += (p.list ? p.list.length : 0)); addLog("SYNC", "Cloud Pull", `Loaded ${countChats} Chats.`); const _pullSData = chatHistories[activeProfileLabel]; if(_pullSData?.current) startSessionListener(_pullSData.current);
+            let countChats = 0; Object.values(chatHistories).forEach(p => countChats += (p.list ? p.list.length : 0)); addLog("SYNC", "Cloud Pull", `Loaded ${countChats} Chats.`);
         }
     } catch(e) { addLog("SYNC", "Pull Error", e.message); if(!silent) notify("⚠️ Sync pull failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
     finally { pullInProgress = false; }
@@ -1824,46 +1818,11 @@ async function startRealtimeSync() {
         }, (e) => { addLog("SYNC", "Listener Error", e.message); updateSyncLiveBadge(false); });
         addLog("SYNC", "Realtime", "Listener connected — device: " + myDeviceId);
         updateSyncLiveBadge(true);
-        const _initSData = chatHistories[activeProfileLabel]; if(_initSData?.current) startSessionListener(_initSData.current);
     } catch(e) { addLog("SYNC", "Realtime Init Error", e.message); }
-}
-
-function stopSessionListener() { if(sessionUnsub) { sessionUnsub(); sessionUnsub = null; } currentListenSessionId = null; }
-
-async function startSessionListener(sessionId) {
-    if(!sessionId || currentListenSessionId === String(sessionId)) return;
-    stopSessionListener();
-    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
-    const db = await initFirebase(); if(!db) return;
-    currentListenSessionId = String(sessionId);
-    try {
-        const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
-        sessionUnsub = onSnapshot(doc(db, "quicknote_data", "chat_" + sessionId), (snap) => {
-            if(!snap.exists()) return;
-            const data = snap.data();
-            if(data.device_id === myDeviceId) return;
-            if(localChangePending || syncTimer !== null || currentAborter) return;
-            const profileLabel = data.profile_label || activeProfileLabel;
-            const sData = chatHistories[profileLabel]; if(!sData) return;
-            const sess = sData.list ? sData.list.find(s => String(s.id) === String(sessionId)) : null; if(!sess) return;
-            const cloudTs = data.updated_at || 0; const localTs = sess.updated_at || 0; if(cloudTs <= localTs) return;
-            sess.msgs = data.msgs || []; sess.updated_at = cloudTs;
-            if(String(chatHistories[activeProfileLabel]?.current) === String(sessionId)) {
-                chatHistory = sess.msgs;
-                const scrollEl = document.getElementById('mainScroll'); const savedTop = scrollEl ? scrollEl.scrollTop : 0;
-                renderChatHistory();
-                requestAnimationFrame(() => { if(scrollEl) scrollEl.scrollTop = savedTop; });
-            }
-            dbHelper.setMulti({ 'histories': chatHistories });
-            addLog("SYNC", "Session Pull", "Received from another device: " + sessionId);
-        }, (e) => { addLog("SYNC", "Session Listener Error", e.message); });
-        addLog("SYNC", "Session Listener", "Watching: chat_" + sessionId);
-    } catch(e) { addLog("SYNC", "Session Listener Init", e.message); }
 }
 
 function stopRealtimeSync() {
     if(realtimeUnsub) { realtimeUnsub(); realtimeUnsub = null; }
-    stopSessionListener();
     syncReady = false;
     updateSyncLiveBadge(false);
 }
