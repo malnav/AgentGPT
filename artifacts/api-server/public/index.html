@@ -470,11 +470,19 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <div id="workspace-panel" class="side-panel left-panel" style="z-index: 158;">
     <div class="panel-header" style="padding:8px 14px;">
         <div class="sub-tabs" style="margin:0; flex:1; border:none; background:transparent; padding:0; gap:2px;">
-            <div class="sub-tab-btn active" id="wtab-current" onclick="switchWorkspaceTab('current')" style="padding:4px 10px;">💬 Chats</div>
-            <div class="sub-tab-btn" id="wtab-all" onclick="switchWorkspaceTab('all')" style="padding:4px 10px;">📋 All</div>
+            <div class="sub-tab-btn active" id="wtab-current" onclick="switchWorkspaceTab('current')" style="padding:4px 8px;">💬 Chats</div>
+            <div class="sub-tab-btn" id="wtab-all" onclick="switchWorkspaceTab('all')" style="padding:4px 8px;">📋 All</div>
+            <div class="sub-tab-btn" id="wtab-data" onclick="switchWorkspaceTab('data')" style="padding:4px 8px;">🗄️ Data</div>
         </div>
-        <div style="display:flex; gap:8px; align-items:center; margin-left:8px;">
+        <div id="wtab-current-btns" style="display:flex; gap:8px; align-items:center; margin-left:8px;">
             <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession();" title="New Session">+</button>
+            <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
+        </div>
+        <div id="wtab-data-btns" style="display:none; gap:8px; align-items:center; margin-left:8px;">
+            <button class="chip" style="font-size:18px; padding:2px 10px; background:var(--accent); color:#fff; font-weight:bold;" onclick="createNewDataset()" title="New Dataset">+</button>
+            <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
+        </div>
+        <div id="wtab-all-btns" style="display:none; gap:8px; align-items:center; margin-left:8px;">
             <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
     </div>
@@ -484,21 +492,20 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     <div id="wview-all" style="flex:1; overflow-y:auto; padding:12px; display:none; flex-direction:column;">
         <ul id="all-sessions-list" style="list-style:none; padding:0; margin:0;"></ul>
     </div>
+    <div id="wview-data" style="flex:1; overflow-y:auto; padding:12px; display:none; flex-direction:column;">
+        <ul id="datasets-list" style="list-style:none; padding:0; margin:0;"></ul>
+    </div>
 </div>
 
 <div id="vars-slide-panel" class="side-panel">
     <div class="panel-header" style="padding: 8px 14px;">
         <div class="sub-tabs" style="margin:0; flex:1; border:none; background:transparent; padding:0; gap:2px;">
             <div class="sub-tab-btn active" id="vtab-vars" onclick="switchVarsTab('vars')" style="padding:4px 8px;">📊 VARS</div>
-            <div class="sub-tab-btn" id="vtab-datasets" onclick="switchVarsTab('datasets')" style="padding:4px 8px;">🗄️ DATA</div>
             <div class="sub-tab-btn" id="vtab-todos" onclick="switchVarsTab('todos')" style="padding:4px 8px;">✅ TODOS</div>
         </div>
         <div id="vtab-vars-btns" style="display:flex; gap:4px; margin-left:8px;">
             <button class="chip" style="font-size:11px; padding:4px 8px;" onclick="editExtractionRules()" title="Rules">⚙️</button>
             <button class="chip" style="font-size:11px; padding:4px 8px; background:var(--accent); color:#fff;" onclick="autoExtractVariables(true)" title="Extract">✨</button>
-        </div>
-        <div id="vtab-datasets-btns" style="display:none; gap:4px; margin-left:8px;">
-            <button class="chip" style="font-size:18px; padding:2px 10px; background:var(--accent); color:#fff; font-weight:bold;" onclick="createNewDataset()" title="New Dataset">+</button>
         </div>
         <div id="vtab-todos-btns" style="display:none; gap:4px; margin-left:8px;">
             <button class="chip" style="font-size:11px; padding:4px 8px; color:var(--accent);" onclick="aiGenTodos()" title="AI Gen Todos">🪄</button>
@@ -506,7 +513,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
     </div>
     <div id="vview-vars" style="flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column;">
-        <div style="font-size:12px; color:var(--accent); margin-bottom:8px; cursor:pointer; font-weight:700;" onclick="switchVarsTab('datasets')"><span id="active-dataset-title">Data Set</span> ▶</div>
+        <div style="font-size:12px; color:var(--accent); margin-bottom:8px; cursor:pointer; font-weight:700;" onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); switchWorkspaceTab('data'); renderDatasetsList();"><span id="active-dataset-title">Data Set</span> ▶</div>
         <ul id="session-vars-list" style="list-style:none; padding:0; margin:0; background:var(--sec-bg); border-radius:8px;"></ul>
         <hr style="border:none; border-top:1px solid var(--border); margin: 16px 0;">
         <input type="text" id="ai-suggest-prompt" class="pp-input" style="margin-bottom:8px; font-size:14px;" placeholder="Prompt: Needed vars?">
@@ -514,9 +521,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <button class="chip" style="border:1px dashed var(--border);" onclick="addManualVariable()">+ Define</button>
             <button class="chip" style="border:1px dashed var(--border); color:var(--accent);" onclick="suggestVariablesAI()">🪄 AI Gen</button>
         </div>
-    </div>
-    <div id="vview-datasets" class="closed" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column;">
-        <ul id="datasets-list" style="list-style:none; padding:0; margin:0;"></ul>
     </div>
     <div id="vview-todos" class="closed" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:6px;">
         <div id="chat-todo-list" style="display:flex; flex-direction:column; gap:6px;"></div>
@@ -887,7 +891,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 </div>
 
-<div id="confirm-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 9999;"><div class="confirm-box" style="background: var(--bg); padding: 24px; border-radius: 20px; width: 85%; max-width: 300px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"><p id="confirm-msg" style="margin-top:0; font-weight:700; font-size:16px; margin-bottom:20px;">Are you sure?</p><div style="display:flex; gap:12px;"><button class="chip" style="flex:1; background:var(--danger); color:#fff; padding:10px;" id="confirm-yes">Yes</button><button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" onclick="document.getElementById('confirm-overlay').style.display='none'">Cancel</button></div></div></div>
+<div id="confirm-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 9999;"><div class="confirm-box" style="background: var(--bg); padding: 24px; border-radius: 20px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"><p id="confirm-msg" style="margin-top:0; font-weight:700; font-size:16px; margin-bottom:20px; white-space:pre-line;">Are you sure?</p><div style="display:flex; gap:12px;"><button class="chip" style="flex:1; background:var(--danger); color:#fff; padding:10px;" id="confirm-yes">Yes</button><button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" id="confirm-no">Cancel</button></div></div></div>
 <div id="custom-prompt-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 10001;"><div class="confirm-box" style="background: var(--bg); padding: 24px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"><p id="custom-prompt-msg" style="margin-top:0; font-weight:700; font-size:14px; margin-bottom:12px; text-align:left;"></p><textarea id="custom-prompt-input" class="pp-input" style="margin-bottom:20px; height:150px; font-family:inherit; resize:none;"></textarea><div style="display:flex; gap:12px;"><button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:10px;" id="custom-prompt-ok">OK</button><button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" id="custom-prompt-cancel">Cancel</button></div></div></div>
 
 <script>
@@ -999,7 +1003,7 @@ function bindInputEvents() {
 
 function notify(m, c = "#000", dur = 2000) { const t = document.getElementById('toast'); t.innerHTML = m; t.style.background = c; t.style.display = 'block'; setTimeout(() => { t.style.display = 'none'; }, dur); }
 function addLog(type, sub, val) { let vStr = typeof val === 'string' ? val : JSON.stringify(val); if(vStr && vStr.length > 200) vStr = vStr.substring(0,200) + "..."; const entry = `[${new Date().toLocaleTimeString()}] [${type}] ${sub}\n${vStr ? vStr + '\n' : ''}`; APP_LOGS.unshift(entry); if(APP_LOGS.length > 50) APP_LOGS.pop(); const v = document.getElementById('log-viewer'); if(v) v.innerText = APP_LOGS.join('\n'); }
-function openConfirm(msg, onConfirmCallback) { document.getElementById('confirm-msg').innerText = msg; document.getElementById('confirm-yes').onclick = () => { onConfirmCallback(); document.getElementById('confirm-overlay').style.display = 'none'; }; document.getElementById('confirm-overlay').style.display = 'flex'; }
+function openConfirm(msg, onConfirmCallback, onCancelCallback, confirmLabel, cancelLabel) { document.getElementById('confirm-msg').innerText = msg; document.getElementById('confirm-yes').textContent = confirmLabel || 'Yes'; document.getElementById('confirm-no').textContent = cancelLabel || 'Cancel'; document.getElementById('confirm-yes').onclick = () => { document.getElementById('confirm-overlay').style.display = 'none'; onConfirmCallback(); }; document.getElementById('confirm-no').onclick = () => { document.getElementById('confirm-overlay').style.display = 'none'; if(onCancelCallback) onCancelCallback(); }; document.getElementById('confirm-overlay').style.display = 'flex'; }
 function promptUserAsync(message, defaultValue = "") { return new Promise((resolve) => { document.getElementById('custom-prompt-msg').innerText = message; const input = document.getElementById('custom-prompt-input'); input.value = defaultValue; document.getElementById('custom-prompt-overlay').style.display = 'flex'; input.focus(); document.getElementById('custom-prompt-ok').onclick = () => { document.getElementById('custom-prompt-overlay').style.display = 'none'; resolve(input.value); }; document.getElementById('custom-prompt-cancel').onclick = () => { document.getElementById('custom-prompt-overlay').style.display = 'none'; resolve(null); }; }); }
 
 async function getStorageSize() { const str = JSON.stringify(chatHistories); return (str.length / (1024 * 1024)).toFixed(3); }
@@ -1178,9 +1182,9 @@ function insertSelectedContexts() { let boxes = document.querySelectorAll('.ctx-
 function insertContextAtCursor(i) { insertAtCursor(CONTEXT_LINES[i], true, false); closeAllPanels(); }
 async function saveModelEntry() { const l = document.getElementById('mod-l').value, t = document.getElementById('mod-t').value; if(!l || !t) return notify("Fill both label and ID", "#ff3b30"); AI_MODELS.push({ label: l, text: t, profile: "Global" }); document.getElementById('mod-l').value = ""; document.getElementById('mod-t').value = ""; await saveAll(); refreshUI(); renderModelList(); notify("Model Added!", "#34c759"); }
 function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile === activeProfileLabel || t.profile === 'Global'); document.getElementById('tools-view').innerHTML = filtT.map(t => { let tIdx = API_SERVICES.indexOf(t); return `<div class="list-item" style="border-radius:8px; border:1px solid var(--border); margin-bottom:4px;" onclick="triggerApiService(${tIdx}); closeAllPanels();"><div style="flex:1;"><strong>${t.label}</strong></div></div>`; }).join(''); }
-function switchVarsTab(t) { ['vars','datasets','todos'].forEach(k => { document.getElementById('vtab-'+k).classList.toggle('active', t===k); document.getElementById('vview-'+k).classList.toggle('closed', t!==k); document.getElementById('vtab-'+k+'-btns').style.display = t===k ? 'flex' : 'none'; }); if(t === 'datasets') renderDatasetsList(); if(t === 'todos') renderChatTodos(); }
-function renderWorkspaceLists() { renderSessionsList(); renderDatasetsList(); let allActive = document.getElementById('wview-all') && document.getElementById('wview-all').style.display !== 'none'; if(allActive) renderAllSessionsList(); }
-function switchWorkspaceTab(tab) { let isCurrent = tab === 'current'; document.getElementById('wview-current').style.display = isCurrent ? 'flex' : 'none'; document.getElementById('wview-all').style.display = isCurrent ? 'none' : 'flex'; document.getElementById('wtab-current').classList.toggle('active', isCurrent); document.getElementById('wtab-all').classList.toggle('active', !isCurrent); if(!isCurrent) renderAllSessionsList(); }
+function switchVarsTab(t) { ['vars','todos'].forEach(k => { document.getElementById('vtab-'+k).classList.toggle('active', t===k); document.getElementById('vview-'+k).classList.toggle('closed', t!==k); document.getElementById('vtab-'+k+'-btns').style.display = t===k ? 'flex' : 'none'; }); if(t === 'todos') renderChatTodos(); }
+function renderWorkspaceLists() { renderSessionsList(); let cur = document.querySelector('#workspace-panel .sub-tab-btn.active'); let curTab = cur ? (cur.id === 'wtab-all' ? 'all' : cur.id === 'wtab-data' ? 'data' : 'current') : 'current'; if(curTab === 'all') renderAllSessionsList(); if(curTab === 'data') renderDatasetsList(); }
+function switchWorkspaceTab(tab) { ['current','all','data'].forEach(k => { document.getElementById('wview-'+k).style.display = k === tab ? 'flex' : 'none'; document.getElementById('wtab-'+k).classList.toggle('active', k === tab); document.getElementById('wtab-'+k+'-btns').style.display = k === tab ? 'flex' : 'none'; }); if(tab === 'all') renderAllSessionsList(); if(tab === 'data') renderDatasetsList(); }
 function renderAllSessionsList() { let validProfiles = new Set(AI_PROFILES.map(p => p.label)); let allChats = []; Object.entries(chatHistories).forEach(([profLabel, sData]) => { if(!sData || !sData.list || !validProfiles.has(profLabel)) return; sData.list.forEach(chat => { let msgCount = (chat.msgs||[]).filter(m => m.role !== 'developer').length; if(msgCount === 0) return; let isActive = profLabel === activeProfileLabel && String(chat.id) === String(sData.current); let lastMsgTs = parseInt(chat.id) || 0; allChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs }); }); }); allChats.sort((a, b) => { if(a.chat.pinned && !b.chat.pinned) return -1; if(!a.chat.pinned && b.chat.pinned) return 1; return b.lastMsgTs - a.lastMsgTs; }); document.getElementById('all-sessions-list').innerHTML = allChats.length === 0 ? '<li style="color:#888; font-size:13px; padding:12px;">No chats yet.</li>' : allChats.map(({ chat, profLabel, msgCount, isActive }) => `<li class="list-item ${isActive ? 'in-cut' : ''}" onclick="loadSessionFromProfile('${profLabel}','${chat.id}')"><div style="flex:1; min-width:0;"><div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;"><strong style="font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chat.title}</strong><span style="font-size:10px; color:var(--accent); background:var(--sec-bg); border-radius:6px; padding:1px 5px; flex-shrink:0;">${profLabel}</span></div><span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div><div style="display:flex; gap:4px; align-items:center; flex-shrink:0;"><div class="inline-btn" onclick="event.stopPropagation(); togglePinChat('${profLabel}','${chat.id}')" title="${chat.pinned ? 'Unpin' : 'Pin'}" style="font-size:14px;">${chat.pinned ? '📌' : '📍'}</div><div class="inline-btn" onclick="event.stopPropagation(); deleteSessionFromProfile('${profLabel}','${chat.id}')">🗑️</div></div></li>`).join(''); }
 async function loadSessionFromProfile(profLabel, chatId) { if(profLabel !== activeProfileLabel) { activeProfileLabel = profLabel; await dbHelper.set('activeProfile', activeProfileLabel); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(chatId)); if(cur) { sData.current = chatId; chatHistories[activeProfileLabel] = sData; chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; } await saveAll(); closeAllPanels(); await refreshUI(); renderChatHistory(); scrollToLastRequest(); } else { await loadSession(chatId); } }
 async function togglePinChat(profLabel, chatId) { let sData = chatHistories[profLabel]; if(!sData) return; let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat) return; chat.pinned = !chat.pinned; await saveAll(); renderAllSessionsList(); }
@@ -1959,8 +1963,27 @@ async function startRealtimeSync() {
             const data = snap.data();
             if(!syncReady) {
                 syncReady = true;
-                addLog("SYNC", "Listener", "Initial snapshot received — applying cloud data");
-                await applyCloudData(data, db, true);
+                addLog("SYNC", "Listener", "Initial snapshot received");
+                const syncKey = '_agt_synced_' + (CONFIG.fb_project || 'default');
+                const alreadyConfirmed = localStorage.getItem(syncKey);
+                const hasLocalChats = Object.values(chatHistories).some(s => s.list && s.list.some(c => (c.msgs||[]).filter(m => m.role !== 'developer').length > 0));
+                if(!alreadyConfirmed && hasLocalChats) {
+                    const cloudTs = data.config ? (data.config._ts || 0) : 0;
+                    const localTs = CONFIG._ts || 0;
+                    const fmt = ts => ts ? new Date(ts).toLocaleString() : 'unknown';
+                    const msg = `☁️ Cloud data found.\n\nCloud last saved: ${fmt(cloudTs)}\nLocal last saved: ${fmt(localTs)}\n\nUse cloud data? (Cancel = keep local & push to cloud)`;
+                    openConfirm(msg, async () => {
+                        localStorage.setItem(syncKey, '1');
+                        await applyCloudData(data, db, false);
+                    }, async () => {
+                        localStorage.setItem(syncKey, '1');
+                        await pushToFirebase();
+                        notify("Local data kept. Pushed to cloud.", "#34c759", 3000);
+                    }, '☁️ Use Cloud', '📱 Keep Local');
+                } else {
+                    if(!alreadyConfirmed) localStorage.setItem(syncKey, '1');
+                    await applyCloudData(data, db, true);
+                }
                 return;
             }
             if(data.push_token && data.push_token === lastOwnPushToken) { addLog("SYNC", "Skip", "Own push echo — no re-apply needed"); return; }
