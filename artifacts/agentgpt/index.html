@@ -467,15 +467,28 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <div class="pull-indicator global-pull" onclick="toggleVarsPanel()"></div>
 
 <div id="workspace-panel" class="side-panel left-panel" style="z-index: 158;">
-    <div class="panel-header">
-        <span style="font-size:14px; font-weight:800;">💬 Sessions</span>
-        <div style="display:flex; gap:16px; align-items:center;">
-            <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession();" title="New Session">+</button>
-            <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
+    <div class="panel-header" style="padding:8px 14px;">
+        <div class="sub-tabs" style="margin:0; flex:1; border:none; background:transparent; padding:0; gap:2px;">
+            <div class="sub-tab-btn active" id="wtab-chats" onclick="switchWorkspaceTab('chats')" style="padding:4px 8px;">💬 CHATS</div>
+            <div class="sub-tab-btn" id="wtab-todos" onclick="switchWorkspaceTab('todos')" style="padding:4px 8px;">✅ TODOS</div>
         </div>
+        <div id="wtab-chats-btns" style="display:flex; gap:4px; margin-left:8px;">
+            <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession();" title="New Chat">+</button>
+        </div>
+        <div id="wtab-todos-btns" style="display:none; gap:4px; margin-left:8px;">
+            <button class="chip" style="font-size:18px; padding:2px 10px; background:var(--accent); color:#fff; font-weight:bold;" onclick="addTodo()" title="New Todo">+</button>
+        </div>
+        <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px; margin-left:4px;">✕</div>
     </div>
-    <div style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column;">
+    <div id="wview-chats" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column;">
         <ul id="sessions-list" style="list-style:none; padding:0; margin:0;"></ul>
+    </div>
+    <div id="wview-todos" class="closed" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:6px;">
+        <div style="display:flex; gap:6px; margin-bottom:4px;">
+            <button class="chip" id="todo-filter-chat" style="flex:1; font-size:11px; background:var(--accent); color:#fff;" onclick="setTodoFilter('chat')">This Chat</button>
+            <button class="chip" id="todo-filter-all" style="flex:1; font-size:11px;" onclick="setTodoFilter('all')">All Chats</button>
+        </div>
+        <div id="todo-list" style="display:flex; flex-direction:column; gap:6px;"></div>
     </div>
 </div>
 
@@ -825,6 +838,24 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </div>
 
 <div id="var-picker-modal" class="modal" style="z-index: 500;"><div class="modal-header"><h3>Select Variable</h3><div onclick="closeModal('var-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="var-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div>
+
+<div id="var-edit-modal" class="modal" style="z-index: 510;">
+    <div class="modal-header"><h3 id="var-edit-title" style="color:var(--accent);">Edit Variable</h3><div onclick="closeModal('var-edit-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
+    <div style="padding:8px 14px 4px 14px; display:flex; gap:6px; flex-wrap:wrap; border-bottom:0.5px solid var(--border);">
+        <button class="chip" style="font-size:12px; font-weight:700;" onmousedown="event.preventDefault(); document.execCommand('bold')"><b>B</b></button>
+        <button class="chip" style="font-size:12px; font-style:italic;" onmousedown="event.preventDefault(); document.execCommand('italic')"><i>I</i></button>
+        <button class="chip" style="font-size:12px;" onmousedown="event.preventDefault(); document.execCommand('insertUnorderedList')">• List</button>
+        <button class="chip" style="font-size:12px;" onmousedown="event.preventDefault(); document.execCommand('insertOrderedList')">1. List</button>
+        <button class="chip" style="font-size:12px; color:#888;" onmousedown="event.preventDefault(); document.execCommand('removeFormat')">Clear</button>
+    </div>
+    <div class="modal-content" style="padding:14px;">
+        <div id="var-edit-content" contenteditable="true" style="min-height:120px; background:var(--sec-bg); border:0.5px solid var(--border); border-radius:14px; padding:14px; font-size:14px; line-height:1.6; outline:none; word-break:break-word;"></div>
+    </div>
+    <div style="padding:12px 14px; display:flex; gap:10px; border-top:0.5px solid var(--border);">
+        <button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" onclick="closeModal('var-edit-modal')">Cancel</button>
+        <button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:10px;" id="var-edit-save-btn">Save</button>
+    </div>
+</div>
 <div id="confirm-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 9999;"><div class="confirm-box" style="background: var(--bg); padding: 24px; border-radius: 20px; width: 85%; max-width: 300px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"><p id="confirm-msg" style="margin-top:0; font-weight:700; font-size:16px; margin-bottom:20px;">Are you sure?</p><div style="display:flex; gap:12px;"><button class="chip" style="flex:1; background:var(--danger); color:#fff; padding:10px;" id="confirm-yes">Yes</button><button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" onclick="document.getElementById('confirm-overlay').style.display='none'">Cancel</button></div></div></div>
 <div id="custom-prompt-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 10001;"><div class="confirm-box" style="background: var(--bg); padding: 24px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"><p id="custom-prompt-msg" style="margin-top:0; font-weight:700; font-size:14px; margin-bottom:12px; text-align:left;"></p><textarea id="custom-prompt-input" class="pp-input" style="margin-bottom:20px; height:150px; font-family:inherit; resize:none;"></textarea><div style="display:flex; gap:12px;"><button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:10px;" id="custom-prompt-ok">OK</button><button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" id="custom-prompt-cancel">Cancel</button></div></div></div>
 
@@ -877,7 +908,7 @@ let chatHistory = [], historyState = [], redoState = [], APP_LOGS = [], activeSe
 let cutIdx = -1;
 let tplTab = 'all'; let activeTagFilter = ""; let isInputExpanded = false; let activeTargetInput = null; let activePromptIdx = -1;
 let pendingAttachments = [];
-let currentAborter = null; let currentCalDate = new Date(); let lastCursorPos = null; let userScrolledDuringGen = false;
+let currentAborter = null; let currentCalDate = new Date(); let lastCursorPos = null; let userScrolledDuringGen = false; let todoFilter = 'chat';
 const CONTEXT_LINES = DEFAULT_DATA.context;
 
 function sanitizeImport(data, type) {
@@ -1110,9 +1141,22 @@ function insertSelectedContexts() { let boxes = document.querySelectorAll('.ctx-
 function insertContextAtCursor(i) { insertAtCursor(CONTEXT_LINES[i], true, false); closeAllPanels(); }
 async function saveModelEntry() { const l = document.getElementById('mod-l').value, t = document.getElementById('mod-t').value; if(!l || !t) return notify("Fill both label and ID", "#ff3b30"); AI_MODELS.push({ label: l, text: t, profile: "Global" }); document.getElementById('mod-l').value = ""; document.getElementById('mod-t').value = ""; await saveAll(); refreshUI(); renderModelList(); notify("Model Added!", "#34c759"); }
 function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile === activeProfileLabel || t.profile === 'Global'); document.getElementById('tools-view').innerHTML = filtT.map(t => { let tIdx = API_SERVICES.indexOf(t); return `<div class="list-item" style="border-radius:8px; border:1px solid var(--border); margin-bottom:4px;" onclick="triggerApiService(${tIdx}); closeAllPanels();"><div style="flex:1;"><strong>${t.label}</strong></div></div>`; }).join(''); }
-function switchWorkspaceTab(t) { }
 function switchVarsTab(t) { document.getElementById('vtab-vars').classList.toggle('active', t==='vars'); document.getElementById('vtab-datasets').classList.toggle('active', t==='datasets'); document.getElementById('vview-vars').classList.toggle('closed', t!=='vars'); document.getElementById('vview-datasets').classList.toggle('closed', t!=='datasets'); document.getElementById('vtab-vars-btns').style.display = t==='vars' ? 'flex' : 'none'; document.getElementById('vtab-datasets-btns').style.display = t==='datasets' ? 'flex' : 'none'; if(t === 'datasets') renderDatasetsList(); }
-function renderWorkspaceLists() { renderSessionsList(); renderDatasetsList(); }
+function renderWorkspaceLists() { renderSessionsList(); renderDatasetsList(); renderTodoList(); }
+
+function switchWorkspaceTab(tab) { let isChats = tab === 'chats'; document.getElementById('wtab-chats').classList.toggle('active', isChats); document.getElementById('wtab-todos').classList.toggle('active', !isChats); document.getElementById('wview-chats').classList.toggle('closed', !isChats); document.getElementById('wview-todos').classList.toggle('closed', isChats); document.getElementById('wtab-chats-btns').style.display = isChats ? 'flex' : 'none'; document.getElementById('wtab-todos-btns').style.display = isChats ? 'none' : 'flex'; if(!isChats) renderTodoList(); }
+
+function setTodoFilter(f) { todoFilter = f; document.getElementById('todo-filter-chat').style.background = f === 'chat' ? 'var(--accent)' : ''; document.getElementById('todo-filter-chat').style.color = f === 'chat' ? '#fff' : ''; document.getElementById('todo-filter-all').style.background = f === 'all' ? 'var(--accent)' : ''; document.getElementById('todo-filter-all').style.color = f === 'all' ? '#fff' : ''; renderTodoList(); }
+
+function getCurrentChatTodos() { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur) return { todos: [], chatId: null, chatTitle: '' }; if(!cur.todos) cur.todos = []; return { todos: cur.todos, chatId: cur.id, chatTitle: cur.title }; }
+
+function renderTodoList() { let el = document.getElementById('todo-list'); if(!el) return; let items = []; if(todoFilter === 'chat') { let { todos, chatId, chatTitle } = getCurrentChatTodos(); items = todos.map(t => ({ ...t, chatId, chatTitle, profileLabel: activeProfileLabel })); } else { Object.keys(chatHistories).forEach(prof => { let sData = chatHistories[prof]; if(!sData || !sData.list) return; sData.list.forEach(chat => { (chat.todos || []).forEach(t => items.push({ ...t, chatId: chat.id, chatTitle: chat.title, profileLabel: prof })); }); }); } if(items.length === 0) { el.innerHTML = `<div style="font-size:13px; color:#888; text-align:center; padding:20px;">No todos yet. Tap + to add one.</div>`; return; } let doneCount = items.filter(t => t.done).length; let html = `<div style="font-size:11px; color:#888; margin-bottom:4px;">${doneCount}/${items.length} done</div>`; let open = items.filter(t => !t.done); let done = items.filter(t => t.done); let renderItem = t => `<div style="display:flex; align-items:flex-start; gap:10px; background:var(--sec-bg); border-radius:12px; padding:10px 12px; border:0.5px solid var(--border);"><div onclick="toggleTodo('${t.profileLabel}','${t.chatId}','${t.id}')" style="flex-shrink:0; width:22px; height:22px; border-radius:50%; border:2px solid var(--accent); background:${t.done ? 'var(--accent)' : 'transparent'}; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#fff; font-size:13px;">${t.done ? '✓' : ''}</div><div style="flex:1; word-break:break-word;"><div style="font-size:13px; ${t.done ? 'text-decoration:line-through; opacity:0.5;' : ''}">${t.text}</div>${todoFilter === 'all' ? `<div style="font-size:10px; opacity:0.5; margin-top:2px;">${t.profileLabel} · ${t.chatTitle}</div>` : ''}</div><div onclick="deleteTodo('${t.profileLabel}','${t.chatId}','${t.id}')" style="cursor:pointer; opacity:0.4; font-size:16px; flex-shrink:0;">🗑️</div></div>`; html += open.map(renderItem).join('') + (done.length > 0 ? `<div style="font-size:10px; color:#888; margin-top:8px; margin-bottom:4px; font-weight:700;">DONE</div>` + done.map(renderItem).join('') : ''); el.innerHTML = html; }
+
+async function addTodo() { let text = await promptUserAsync("New todo:"); if(!text) return; let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur) return; if(!cur.todos) cur.todos = []; cur.todos.push({ id: Date.now().toString(), text, done: false }); await saveAll(); renderTodoList(); }
+
+async function toggleTodo(prof, chatId, todoId) { let sData = chatHistories[prof]; if(!sData) return; let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat || !chat.todos) return; let t = chat.todos.find(x => String(x.id) === String(todoId)); if(t) t.done = !t.done; await saveAll(); renderTodoList(); }
+
+async function deleteTodo(prof, chatId, todoId) { let sData = chatHistories[prof]; if(!sData) return; let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat || !chat.todos) return; chat.todos = chat.todos.filter(x => String(x.id) !== String(todoId)); await saveAll(); renderTodoList(); }
 async function loadSession(id) { let sData = getSessions(); sData.current = String(id); let cur = sData.list.find(x => String(x.id) === String(id)); if(cur) { chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; addLog("SESSION", "Load Chat", cur.title); closeAllPanels(); await saveAll(); refreshUI(); renderChatHistory(); scrollToLastRequest(); } }
 function renderSessionsList() { let sData = getSessions(); let sortedChats = [...sData.list].sort((a,b) => Number(b.id) - Number(a.id)); document.getElementById('sessions-list').innerHTML = sortedChats.map(s => `<li class="list-item ${String(s.id) === String(sData.current) ? 'in-cut' : ''}" onclick="loadSession('${s.id}')"><div style="flex:1;"><strong>${s.title}</strong> <span style="font-size:10px; color:#888;">${(s.msgs||[]).length} msgs</span></div><div class="inline-btn" onclick="event.stopPropagation(); deleteSession('${s.id}')">🗑️</div></li>`).join(''); }
 
@@ -1168,8 +1212,8 @@ function renderSessionVariables() {
     let vars = getActiveVars(); let keys = p.expected_vars || [];
     keys.sort((a, b) => { let vA = vars[a]; let vB = vars[b]; let hasA = vA && (typeof vA==='object' ? vA.value : vA) !== ""; let hasB = vB && (typeof vB==='object' ? vB.value : vB) !== ""; return (hasA === hasB) ? 0 : hasA ? -1 : 1; });
     let html = keys.map(k => {
-        let vObj = vars[k]; if(typeof vObj === 'string') vObj = { value: vObj, locked: false }; let valDisp = (vObj && vObj.value !== undefined && vObj.value !== "") ? vObj.value : `<span style="opacity:0.4; font-style:italic;">Empty</span>`; let isLocked = vObj && vObj.locked;
-        return `<li style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:10px 0; border-bottom:0.5px solid var(--border);"><div style="cursor:pointer; font-size:18px; padding:0 8px; color:${isLocked ? '#888' : 'var(--accent)'};" onclick="toggleVarLock('${k}')" title="Toggle Auto-Update">${isLocked ? '🔒' : '🔓'}</div><div style="flex:1; word-break:break-all; cursor:pointer;" onclick="editVariableValue('${k}')"><strong>{{${k}}}</strong> = ${valDisp} <span style="font-size:10px; opacity:0.5; margin-left:4px;">✏️</span></div><div style="cursor:pointer; opacity:0.4; padding:0 10px;" onclick="deleteVariable('${k}')">🗑️</div></li>`;
+        let vObj = vars[k]; if(typeof vObj === 'string') vObj = { value: vObj, locked: false }; let rawVal = vObj && vObj.value !== undefined ? vObj.value : ""; let hasVal = rawVal !== ""; let valDisp = hasVal ? `<div style="font-size:12px; line-height:1.5; max-height:56px; overflow:hidden; opacity:0.8; margin-top:3px;">${rawVal}</div>` : `<span style="opacity:0.4; font-style:italic; font-size:12px;">Empty</span>`; let isLocked = vObj && vObj.locked;
+        return `<li style="display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; padding:10px 0; border-bottom:0.5px solid var(--border);"><div style="cursor:pointer; font-size:18px; padding:0 8px; padding-top:2px; color:${isLocked ? '#888' : 'var(--accent)'};" onclick="toggleVarLock('${k}')" title="Toggle Auto-Update">${isLocked ? '🔒' : '🔓'}</div><div style="flex:1; word-break:break-word; cursor:pointer;" onclick="editVariableValue('${k}')"><strong>{{${k}}}</strong> <span style="font-size:10px; opacity:0.5;">✏️</span>${valDisp}</div><div style="cursor:pointer; opacity:0.4; padding:0 10px; padding-top:2px;" onclick="deleteVariable('${k}')">🗑️</div></li>`;
     }).join('');
     if(html === "") html = `<div style="font-size:12px; color:#888; text-align:center; padding:10px;">No variables defined.</div>`; document.getElementById('session-vars-list').innerHTML = `<div style="padding:0 12px;">${html}</div>`;
 }
@@ -1181,17 +1225,19 @@ function openVarPicker(targetId) {
 }
 
 function insertVarToTarget(k) { let str = `{{${k}}}`; if(activeTargetInput === 'note-input') { insertAtCursor(str); } else { let el = document.getElementById(activeTargetInput); if(el) { const start = el.selectionStart || 0, end = el.selectionEnd || 0; el.value = el.value.substring(0, start) + str + el.value.substring(end); el.focus(); } } closeModal('var-picker-modal'); }
-async function editVariableValue(key) { let vars = getActiveVars(); let valObj = vars[key]; let currentVal = (valObj && valObj.value !== undefined) ? valObj.value : (valObj || ""); let newVal = await promptUserAsync(`Edit value for {{${key}}}:`, currentVal); if(newVal === null) return; vars[key] = { value: newVal, locked: valObj ? valObj.locked : false }; await saveAll(); renderSessionVariables(); }
+function editVariableValue(key) { let vars = getActiveVars(); let valObj = vars[key]; let currentVal = (valObj && valObj.value !== undefined) ? valObj.value : (typeof valObj === 'string' ? valObj : ""); document.getElementById('var-edit-title').textContent = `{{${key}}}`; let editor = document.getElementById('var-edit-content'); editor.innerHTML = currentVal; openModal('var-edit-modal'); setTimeout(() => editor.focus(), 100); document.getElementById('var-edit-save-btn').onclick = async () => { let html = editor.innerHTML; vars[key] = { value: html, locked: valObj ? valObj.locked : false }; await saveAll(); renderSessionVariables(); closeModal('var-edit-modal'); }; }
 async function editExtractionRules() { let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let rules = await promptUserAsync("Set add-on auto extraction rules for this profile:", p.extraction_rules || ""); if(rules !== null) { p.extraction_rules = rules; await saveAll(); notify("Rules saved!", "#34c759"); } }
 async function toggleVarLock(key) { let vars = getActiveVars(); if(typeof vars[key] === 'string') vars[key] = { value: vars[key], locked: false }; if(vars[key]) { vars[key].locked = !vars[key].locked; } else { vars[key] = { value: "", locked: true }; } await saveAll(); renderSessionVariables(); }
 async function deleteVariable(key) { openConfirm(`Delete variable {{${key}}} from profile?`, async () => { let p = AI_PROFILES.find(x => x.label === activeProfileLabel); if(p.expected_vars) p.expected_vars = p.expected_vars.filter(v => v !== key); let vars = getActiveVars(); if(vars) delete vars[key]; await saveAll(); renderSessionVariables(); }); }
-async function addManualVariable() { let key = await promptUserAsync("Enter variable name (e.g. order_id):"); if(!key) return; let p = AI_PROFILES.find(x => x.label === activeProfileLabel); if(!p.expected_vars) p.expected_vars = []; if(!p.expected_vars.includes(key)) p.expected_vars.push(key); let val = await promptUserAsync(`Enter value for {{${key}}}:`); if(val === null) return; let vars = getActiveVars(); vars[key] = { value: val, locked: false }; await saveAll(); renderSessionVariables(); }
+function sanitizeVarName(raw) { return raw.trim().replace(/_+([a-zA-Z0-9])/g, (_, c) => c.toUpperCase()).replace(/_/g, '').replace(/[^a-zA-Z0-9]/g, ''); }
+function varValueToText(v) { if(!v) return ""; let tmp = document.createElement('div'); tmp.innerHTML = v; return tmp.innerText || tmp.textContent || ""; }
+async function addManualVariable() { let key = await promptUserAsync("Enter variable name (e.g. orderTotal):"); if(!key) return; key = sanitizeVarName(key); if(!key) return; let p = AI_PROFILES.find(x => x.label === activeProfileLabel); if(!p.expected_vars) p.expected_vars = []; if(!p.expected_vars.includes(key)) p.expected_vars.push(key); await saveAll(); renderSessionVariables(); editVariableValue(key); }
 function getChatModel() { return document.getElementById('chatModel').value; }
 function getTitleModel()   { return CONFIG.title_model   || getChatModel(); }
 function getExtractModel() { return CONFIG.extract_model || getChatModel(); }
 function getSuggestModel() { return CONFIG.suggest_model || getChatModel(); }
 
-async function suggestVariablesAI() { if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30"); notify("Suggesting variables...", "#007aff"); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let extra = document.getElementById('ai-suggest-prompt').value; let sysPrompt = `Based on the profile instructions: "${p.text}", suggest a JSON array of 3 to 5 short variable names (snake_case) that would be useful to extract and track in conversations. Return ONLY a valid JSON array of strings. e.g. ["customer_name", "order_id"]`; if(extra) sysPrompt += `\nUser Context/Requirement: ${extra}`; try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getSuggestModel(), messages: [{role:"user", content: sysPrompt}] }) }); if(!res.ok) throw new Error("API Failure"); const d = await res.json(); let arr = JSON.parse(d.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim()); if(!p.expected_vars) p.expected_vars = []; let added = 0; arr.forEach(v => { if(!p.expected_vars.includes(v)) { p.expected_vars.push(v); added++; } }); await saveAll(); renderSessionVariables(); notify(`Added ${added} new variables!`, "#34c759"); document.getElementById('ai-suggest-prompt').value = ""; } catch(e) { notify("Failed to suggest.", "#ff3b30"); } }
+async function suggestVariablesAI() { if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30"); notify("Suggesting variables...", "#007aff"); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let extra = document.getElementById('ai-suggest-prompt').value; let sysPrompt = `Based on the profile instructions: "${p.text}", suggest a JSON array of 3 to 5 short variable names in camelCase (no underscores, no spaces) that would be useful to extract and track in conversations. Return ONLY a valid JSON array of strings. e.g. ["customerName", "orderId", "totalAmount"]`; if(extra) sysPrompt += `\nUser Context/Requirement: ${extra}`; try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getSuggestModel(), messages: [{role:"user", content: sysPrompt}] }) }); if(!res.ok) throw new Error("API Failure"); const d = await res.json(); let arr = JSON.parse(d.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim()); arr = arr.map(v => sanitizeVarName(v)).filter(v => v.length > 0); if(!p.expected_vars) p.expected_vars = []; let added = 0; arr.forEach(v => { if(!p.expected_vars.includes(v)) { p.expected_vars.push(v); added++; } }); await saveAll(); renderSessionVariables(); notify(`Added ${added} new variables!`, "#34c759"); document.getElementById('ai-suggest-prompt').value = ""; } catch(e) { notify("Failed to suggest.", "#ff3b30"); } }
 
 async function autoExtractVariables(isManual = false) {
     if(!CONFIG.ai_key) return; let p = AI_PROFILES.find(x => x.label === activeProfileLabel);
@@ -1223,7 +1269,7 @@ async function parseServiceVariables(text) {
     if (needed.length === 0) return text;
     let vars = getActiveVars(); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); if(!p.expected_vars) p.expected_vars = []; let resText = text;
     for (let key of needed) {
-        if(typeof vars[key] === 'string') vars[key] = { value: vars[key], locked: false }; let valObj = vars[key]; let val = valObj ? valObj.value : undefined;
+        if(typeof vars[key] === 'string') vars[key] = { value: vars[key], locked: false }; let valObj = vars[key]; let rawVal = valObj ? valObj.value : undefined; let val = rawVal ? varValueToText(rawVal) : rawVal;
         if (val === undefined || val === null || val === "") { val = await promptUserAsync(`Provide value for variable: {{${key}}}`); if (val === null) return null; vars[key] = { value: val, locked: true }; if(!p.expected_vars.includes(key)) p.expected_vars.push(key); }
         resText = resText.split(`{{${key}}}`).join(val);
     }
