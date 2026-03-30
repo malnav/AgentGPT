@@ -1832,6 +1832,7 @@ async function pushToFirebase(manual = false) {
         const histStr = JSON.stringify(chatHistories); const chunks = []; const chunkSize = 300000; for (let i = 0; i < histStr.length; i += chunkSize) { chunks.push(histStr.substring(i, i + chunkSize)); } payload.chunks_count = chunks.length;
         batch.set(doc(db, "quicknote_data", "primary_user"), payload); for(let i=0; i<chunks.length; i++) { batch.set(doc(db, "quicknote_data", "primary_hist_"+i), { data: chunks[i] }); } await batch.commit();
         localChangePending = false;
+        localStorage.setItem('agentgpt_last_push_dev', myDeviceId);
         let chatCount = 0; Object.values(chatHistories).forEach(p => chatCount += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Push", `OK: ${chatCount} chats`);
         if(manual) notify("☁️ Pushed to cloud!", "#34c759");
@@ -1851,56 +1852,71 @@ async function pullFromFirebase(silent = false) {
         if(snap.exists()) {
             const data = snap.data();
 
-            // ── Snapshot local state BEFORE overwriting so we can protect unsaved msgs ──
+            // ── Full snapshot of local state before any overwrite ──
             const localProfileLabel = activeProfileLabel;
             const localSessionId = chatHistories[localProfileLabel]?.current;
-            const localMsgsSnapshot = [...chatHistory]; // current in-memory messages
+            const localMsgsSnapshot = [...chatHistory];
+            const prepull = {
+                profiles: JSON.parse(JSON.stringify(AI_PROFILES)),
+                prompts: JSON.parse(JSON.stringify(PROMPTS)),
+                templates: JSON.parse(JSON.stringify(TEMPLATES)),
+                tools: JSON.parse(JSON.stringify(API_SERVICES)),
+                models: JSON.parse(JSON.stringify(AI_MODELS)),
+                config: JSON.parse(JSON.stringify(CONFIG)),
+                datasets: JSON.parse(JSON.stringify(GLOBAL_DATASETS)),
+                histories: JSON.parse(JSON.stringify(chatHistories)),
+            };
 
-            const prepullHistories = JSON.parse(JSON.stringify(chatHistories));
             if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles'); if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts'); if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates'); if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools'); if(data.models) AI_MODELS = sanitizeImport(data.models, 'models'); if(data.config) CONFIG = data.config; if(data.datasets) GLOBAL_DATASETS = data.datasets;
             if(data.chunks_count > 0) { let fullStr = ""; for(let i=0; i<data.chunks_count; i++) { let chunkSnap = await getDoc(doc(db, "quicknote_data", "primary_hist_"+i)); if(chunkSnap.exists()) fullStr += chunkSnap.data().data; } if(fullStr) chatHistories = JSON.parse(fullStr); } else if(data.histories) { chatHistories = data.histories; }
-            if(localChangePending) { chatHistories = prepullHistories; addLog("SYNC", "Pull Aborted", "Local change during pull — keeping local"); pullInProgress = false; return; }
+
+            if(localChangePending) {
+                AI_PROFILES = prepull.profiles; PROMPTS = prepull.prompts; TEMPLATES = prepull.templates; API_SERVICES = prepull.tools; AI_MODELS = prepull.models; CONFIG = prepull.config; GLOBAL_DATASETS = prepull.datasets; chatHistories = prepull.histories;
+                addLog("SYNC", "Pull Aborted", "Local change during pull — keeping local"); pullInProgress = false; return;
+            }
+
             if(!AI_PROFILES.find(p => p.label === localProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
 
-            // ── Merge: protect local messages that haven't been pushed yet ──
-            const pulledProfile = chatHistories[localProfileLabel];
+            // ── Merge: protect local messages and restore profile if missing from cloud ──
+            let pulledProfile = chatHistories[localProfileLabel];
+            if(!pulledProfile && localProfileLabel && prepull.histories[localProfileLabel]) {
+                chatHistories[localProfileLabel] = prepull.histories[localProfileLabel];
+                pulledProfile = chatHistories[localProfileLabel];
+                addLog("SYNC", "Profile Restored", "Local profile not in cloud — kept local: " + localProfileLabel);
+            }
+
             if(pulledProfile && localSessionId) {
-                const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(localSessionId)) : null;
+                if(!pulledProfile.list) pulledProfile.list = [];
+                const pulledCur = pulledProfile.list.find(x => String(x.id) === String(localSessionId));
                 if(pulledCur) {
                     const cloudMsgs = pulledCur.msgs || [];
-                    if(localMsgsSnapshot.length > cloudMsgs.length) {
-                        chatHistory = localMsgsSnapshot;
-                    } else {
-                        chatHistory = cloudMsgs;
-                    }
+                    chatHistory = localMsgsSnapshot.length > cloudMsgs.length ? localMsgsSnapshot : cloudMsgs;
                     pulledCur.msgs = chatHistory;
                 } else {
-                    // Chat not in cloud at all — restore local session into pulled structure
                     chatHistory = localMsgsSnapshot;
-                    if(!pulledProfile.list) pulledProfile.list = [];
-                    pulledProfile.list.push({ id: localSessionId, title: "Recovered Chat", msgs: localMsgsSnapshot, var_id: localSessionId, todos: [], draft: "" });
-                    pulledProfile.current = localSessionId;
+                    const localChat = prepull.histories[localProfileLabel]?.list?.find(x => String(x.id) === String(localSessionId));
+                    pulledProfile.list.push(localChat ? { ...localChat, msgs: localMsgsSnapshot } : { id: localSessionId, title: "Recovered Chat", msgs: localMsgsSnapshot, var_id: localSessionId, todos: [], draft: "" });
                 }
+                pulledProfile.current = localSessionId;
             } else if(pulledProfile) {
                 const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(pulledProfile.current)) : null;
                 if(pulledCur) chatHistory = pulledCur.msgs || [];
             }
 
+            // ── Update profile system prompt if it changed in cloud ──
+            const activeProf = AI_PROFILES.find(p => p.label === activeProfileLabel);
+            if(activeProf && chatHistory.length > 0 && chatHistory[0].role === 'developer') {
+                chatHistory[0].content = [{ type: "input_text", text: activeProf.text }];
+            }
+
             await dbHelper.setMulti({ 'profiles': AI_PROFILES, 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'models': AI_MODELS, 'config': CONFIG, 'datasets': GLOBAL_DATASETS, 'histories': chatHistories, 'activeProfile': activeProfileLabel });
 
-            // ── Re-render without disturbing scroll position on silent pulls ──
             const scrollEl = document.getElementById('mainScroll');
             const savedScrollTop = scrollEl ? scrollEl.scrollTop : 0;
             await refreshUI(); renderWorkspaceLists();
-            // Skip chat re-render if AI is actively streaming — the live bubble isn't in
-            // chatHistory yet, so rebuilding the DOM would erase it from the screen
             if(!currentAborter) {
                 renderChatHistory();
-                if(silent) {
-                    requestAnimationFrame(() => { if(scrollEl) scrollEl.scrollTop = savedScrollTop; });
-                } else {
-                    scrollToLastRequest();
-                }
+                if(silent) { requestAnimationFrame(() => { if(scrollEl) scrollEl.scrollTop = savedScrollTop; }); } else { scrollToLastRequest(); }
             }
 
             let countChats = 0; Object.values(chatHistories).forEach(p => countChats += (p.list ? p.list.length : 0)); addLog("SYNC", "Cloud Pull", `Loaded ${countChats} Chats.`);
@@ -1924,7 +1940,8 @@ async function startRealtimeSync() {
             if(!snap.exists()) { syncReady = true; return; }
             const data = snap.data();
             syncReady = true;
-            if(data.device_id === myDeviceId) { addLog("SYNC", "Skip Pull", "Own push"); return; }
+            const lastKnownPushDev = localStorage.getItem('agentgpt_last_push_dev');
+            if(data.device_id === myDeviceId || data.device_id === lastKnownPushDev) { addLog("SYNC", "Skip Pull", "Own push (current or prior session)"); return; }
             if(localChangePending || syncTimer !== null) { addLog("SYNC", "Pull Skipped", "Local changes pending"); return; }
             if(!pullInProgress) { addLog("SYNC", "Realtime Pull", "Another device updated"); await pullFromFirebase(true); }
         }, (e) => { addLog("SYNC", "Listener Error", e.message); updateSyncLiveBadge(false); });
