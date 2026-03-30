@@ -1850,29 +1850,30 @@ async function pullFromFirebase(silent = false) {
             const localSessionId = chatHistories[localProfileLabel]?.current;
             const localMsgsSnapshot = [...chatHistory]; // current in-memory messages
 
+            const prepullHistories = JSON.parse(JSON.stringify(chatHistories));
             if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles'); if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts'); if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates'); if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools'); if(data.models) AI_MODELS = sanitizeImport(data.models, 'models'); if(data.config) CONFIG = data.config; if(data.datasets) GLOBAL_DATASETS = data.datasets;
             if(data.chunks_count > 0) { let fullStr = ""; for(let i=0; i<data.chunks_count; i++) { let chunkSnap = await getDoc(doc(db, "quicknote_data", "primary_hist_"+i)); if(chunkSnap.exists()) fullStr += chunkSnap.data().data; } if(fullStr) chatHistories = JSON.parse(fullStr); } else if(data.histories) { chatHistories = data.histories; }
-            if(localChangePending) { addLog("SYNC", "Pull Aborted", "Local change during pull — keeping local"); pullInProgress = false; return; }
+            if(localChangePending) { chatHistories = prepullHistories; addLog("SYNC", "Pull Aborted", "Local change during pull — keeping local"); pullInProgress = false; return; }
             if(!AI_PROFILES.find(p => p.label === localProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
 
             // ── Merge: protect local messages that haven't been pushed yet ──
-            // If local in-memory session has MORE messages than the cloud copy of that same
-            // session, the local messages are newer (push debounce hasn't fired). Keep them.
             const pulledProfile = chatHistories[localProfileLabel];
             if(pulledProfile && localSessionId) {
                 const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(localSessionId)) : null;
                 if(pulledCur) {
                     const cloudMsgs = pulledCur.msgs || [];
-                    // Local is ahead → restore local messages into the pulled structure
                     if(localMsgsSnapshot.length > cloudMsgs.length) {
-                        pulledCur.msgs = localMsgsSnapshot;
                         chatHistory = localMsgsSnapshot;
                     } else {
                         chatHistory = cloudMsgs;
                     }
+                    pulledCur.msgs = chatHistory;
                 } else {
-                    // Session exists locally but not in cloud yet — keep local
+                    // Chat not in cloud at all — restore local session into pulled structure
                     chatHistory = localMsgsSnapshot;
+                    if(!pulledProfile.list) pulledProfile.list = [];
+                    pulledProfile.list.push({ id: localSessionId, title: "Recovered Chat", msgs: localMsgsSnapshot, var_id: localSessionId, todos: [], draft: "" });
+                    pulledProfile.current = localSessionId;
                 }
             } else if(pulledProfile) {
                 const pulledCur = pulledProfile.list ? pulledProfile.list.find(x => String(x.id) === String(pulledProfile.current)) : null;
