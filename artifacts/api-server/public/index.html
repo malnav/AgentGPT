@@ -4,7 +4,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AgentGPT</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
@@ -435,6 +435,158 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .tool-menu-item:last-child { border-bottom: none; }
 .tool-menu-item:active { background: rgba(0,122,255,0.08); }
 @keyframes sync-pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE LAYOUT — TABLET (≥768px) & DESKTOP (≥1100px)
+   ══════════════════════════════════════════════════════════ */
+:root { --sidebar-w: 0px; }
+
+@media (min-width: 768px) {
+  :root { --sidebar-w: 280px; }
+
+  /* Workspace sidebar — pinned, always visible */
+  #workspace-panel {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: var(--sidebar-w) !important;
+    border-radius: 0 !important;
+    border-right: 0.5px solid var(--glass-border);
+    box-shadow: 2px 0 28px rgba(0,0,0,0.07) !important;
+    transition: width 0.3s ease !important;
+  }
+
+  /* Offset all main-area elements from the sidebar */
+  .scroll-area { margin-left: var(--sidebar-w); }
+  .input-zone { left: var(--sidebar-w) !important; }
+  .top-nav { left: var(--sidebar-w) !important; }
+  #scroll-bottom-btn { left: calc(var(--sidebar-w) + 12px) !important; }
+
+  /* Hide mobile-only pull indicator */
+  .global-pull { display: none !important; }
+
+  /* Hide workspace panel's own close buttons (sidebar is always pinned) */
+  #workspace-panel .panel-header div[onclick="closeAllPanels()"] { display: none !important; }
+
+  /* Right-side panels: compact floating glass cards */
+  #vars-slide-panel, #srv-slide-panel {
+    width: 360px !important;
+    top: 10px !important;
+    bottom: 10px !important;
+    border-radius: 20px !important;
+    right: -400px !important;
+    transition: right 0.35s cubic-bezier(0.34,1.4,0.64,1) !important;
+  }
+  #vars-slide-panel.open, #srv-slide-panel.open { right: 10px !important; }
+  .ctx-panel {
+    width: 380px !important;
+    top: 10px !important;
+    bottom: 10px !important;
+    border-radius: 20px !important;
+    right: -420px !important;
+  }
+  .ctx-panel.open { right: 10px !important; }
+
+  /* Chat bubbles — proportionally narrower */
+  .bubble { max-width: 70%; min-width: 40%; }
+  #chat-container { padding: 12px 24px; }
+
+  /* Modal overlay + centered dialog card */
+  .modal.has-sheet {
+    background: rgba(0,0,0,0.42) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .modal-sheet {
+    width: min(580px, 92vw);
+    max-height: min(700px, 90vh);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.45), 0 4px 20px rgba(0,0,0,0.2);
+    flex-shrink: 0;
+  }
+  .modal-sheet .modal-content { flex: 1; overflow-y: auto; min-height: 0; }
+  #master-modal .modal-sheet { width: min(820px, 94vw); max-height: min(720px, 90vh); }
+  #calendar-modal .modal-sheet { width: min(740px, 94vw); max-height: min(680px, 90vh); }
+}
+
+@media (min-width: 1100px) {
+  :root { --sidebar-w: 300px; }
+
+  /* Hide workspace toggle — sidebar is always pinned */
+  #workspace-toggle-btn { display: none !important; }
+
+  /* Narrower, more readable bubbles */
+  .bubble { max-width: 62%; min-width: 30%; }
+  #chat-container { padding: 16px 48px; }
+
+  /* Master modal — 2-column sidebar nav layout */
+  #master-modal .modal-sheet {
+    width: min(960px, 95vw);
+    max-height: min(740px, 90vh);
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    grid-template-rows: auto 1fr;
+    overflow: hidden;
+  }
+  #master-modal .modal-header {
+    grid-column: 1; grid-row: 1;
+    border-bottom: none !important;
+    border-right: 0.5px solid var(--border);
+    border-radius: 20px 0 0 0 !important;
+    background: rgba(128,128,128,0.07) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 20px 14px 8px 16px !important;
+    align-items: flex-start !important;
+  }
+  #master-modal .modal-header h3 {
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    color: #888 !important;
+    letter-spacing: 0.5px !important;
+    text-transform: uppercase !important;
+  }
+  #master-modal .modal-header > div:last-child { display: none !important; }
+  #master-modal .modal-tabs {
+    grid-column: 1; grid-row: 2;
+    flex-direction: column !important;
+    border-bottom: none !important;
+    border-right: 0.5px solid var(--border);
+    border-radius: 0 0 0 20px !important;
+    background: rgba(128,128,128,0.07) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    margin: 0 !important;
+    padding: 6px 10px 16px 10px !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 4px !important;
+    overflow-y: auto;
+    min-height: 0;
+  }
+  #master-modal .tab-btn {
+    text-align: left !important;
+    padding: 10px 14px !important;
+    font-size: 12px !important;
+    border-radius: 12px !important;
+    flex: none !important;
+    white-space: nowrap !important;
+  }
+  #master-modal .modal-content {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    overflow-y: auto;
+    min-height: 0;
+    border-radius: 0 20px 20px 0 !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -447,7 +599,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <div class="top-nav">
     <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
-        <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="cursor:pointer; font-size:18px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow);" title="Workspace">🗂️</div>
+        <div id="workspace-toggle-btn" onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="cursor:pointer; font-size:18px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow);" title="Workspace">🗂️</div>
         <select id="main-profile-sel" class="main-profile-dropdown" onchange="switchProfileSession(this.value)"></select>
     </div>
     <div class="sys-icons">
@@ -610,7 +762,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 </div>
 
-<div id="master-modal" class="modal">
+<div id="master-modal" class="modal has-sheet">
+<div class="modal-sheet">
     <div class="modal-header"><h3>Settings Hub</h3><div onclick="closeModal('master-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
     <div class="modal-tabs">
         <button id="mtab-config" class="tab-btn active" onclick="switchMasterTab('config')">🔧 CONFIG</button>
@@ -710,9 +863,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <ul id="model-list-crud" style="list-style:none; padding:0; margin:0;"></ul>
     </div>
     <div id="mview-logs" class="modal-content closed" style="background:var(--log-bg); color:var(--log-text); font-family:monospace; font-size:11px; padding-top:10px;"><div id="log-viewer" style="white-space:pre-wrap;"></div></div>
-</div>
+</div></div>
 
-<div id="calendar-modal" class="modal">
+<div id="calendar-modal" class="modal has-sheet">
+<div class="modal-sheet">
     <div class="modal-header">
         <button class="chip" style="padding:4px 10px;" onclick="changeMonth(-1)">◀</button>
         <h3 id="cal-month-title" style="font-size:16px;">Month</h3>
@@ -733,7 +887,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <hr style="border:none; border-top:1px solid var(--border); margin:12px 0;">
         <div id="cal-list-content"></div>
     </div>
-</div>
+</div></div>
 
 <div id="dataset-detail-modal" class="modal" style="z-index:250; background:rgba(0,0,0,0.8); align-items:center; justify-content:center;">
     <div style="background:var(--bg); width:90%; max-height:80vh; border-radius:20px; display:flex; flex-direction:column; overflow:hidden;">
@@ -843,9 +997,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 </div>
 
-<div id="var-picker-modal" class="modal" style="z-index: 500;"><div class="modal-header"><h3>Select Variable</h3><div onclick="closeModal('var-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="var-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div>
+<div id="var-picker-modal" class="modal has-sheet" style="z-index: 500;"><div class="modal-sheet"><div class="modal-header"><h3>Select Variable</h3><div onclick="closeModal('var-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="var-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div></div>
 
-<div id="var-edit-modal" class="modal" style="z-index: 510;">
+<div id="var-edit-modal" class="modal has-sheet" style="z-index: 510;">
+<div class="modal-sheet">
     <div class="modal-header"><h3 style="color:var(--accent);">Edit Variable</h3><div onclick="closeModal('var-edit-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
     <div style="padding:8px 14px; border-bottom:0.5px solid var(--border);">
         <input type="text" id="var-edit-name" class="pp-input" placeholder="Variable name..." style="font-weight:700; font-size:14px; font-family:monospace; margin:0;">
@@ -864,8 +1019,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" onclick="closeModal('var-edit-modal')">Cancel</button>
         <button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:10px;" id="var-edit-save-btn">Save</button>
     </div>
-</div>
-<div id="global-todos-modal" class="modal" style="z-index: 520;">
+</div></div>
+<div id="global-todos-modal" class="modal has-sheet" style="z-index: 520;">
+<div class="modal-sheet">
     <div class="modal-header"><h3>✅ All Todos</h3><div onclick="closeModal('global-todos-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
     <div style="padding:8px 14px; display:flex; gap:6px; flex-shrink:0; border-bottom:0.5px solid var(--border);">
         <button class="chip" id="gtodo-filter-all" style="font-size:11px; background:var(--accent); color:#fff;" onclick="setGlobalTodoFilter('all')">All Profiles</button>
@@ -876,9 +1032,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     <div class="modal-content" style="padding:12px 14px;">
         <div id="global-todo-list" style="display:flex; flex-direction:column; gap:6px;"></div>
     </div>
-</div>
+</div></div>
 
-<div id="todo-edit-modal" class="modal" style="z-index: 530;">
+<div id="todo-edit-modal" class="modal has-sheet" style="z-index: 530;">
+<div class="modal-sheet">
     <div class="modal-header"><h3 style="color:var(--accent);">Edit Todo</h3><div onclick="closeModal('todo-edit-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
     <div class="modal-content" style="padding:14px;">
         <textarea id="todo-edit-text" class="pp-input" style="height:80px; resize:none; margin-bottom:10px;" placeholder="Todo text..."></textarea>
@@ -889,7 +1046,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" onclick="closeModal('todo-edit-modal')">Cancel</button>
         <button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:10px;" id="todo-edit-save-btn">Save</button>
     </div>
-</div>
+</div></div>
 
 <div id="confirm-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 9999;"><div class="confirm-box" style="background: var(--bg); padding: 24px; border-radius: 20px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"><p id="confirm-msg" style="margin-top:0; font-weight:700; font-size:16px; margin-bottom:20px; white-space:pre-line;">Are you sure?</p><div style="display:flex; gap:12px;"><button class="chip" style="flex:1; background:var(--danger); color:#fff; padding:10px;" id="confirm-yes">Yes</button><button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" id="confirm-no">Cancel</button></div></div></div>
 <div id="custom-prompt-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 10001;"><div class="confirm-box" style="background: var(--bg); padding: 24px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"><p id="custom-prompt-msg" style="margin-top:0; font-weight:700; font-size:14px; margin-bottom:12px; text-align:left;"></p><textarea id="custom-prompt-input" class="pp-input" style="margin-bottom:20px; height:150px; font-family:inherit; resize:none;"></textarea><div style="display:flex; gap:12px;"><button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:10px;" id="custom-prompt-ok">OK</button><button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" id="custom-prompt-cancel">Cancel</button></div></div></div>
@@ -1117,7 +1274,7 @@ function initGestures() {
     }
     document.querySelectorAll('.side-panel, .ctx-panel, .modal').forEach(lockPanelScroll);
 }
-function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
+function closeAllPanels(except = null) { let keepWs = window.innerWidth >= 768; ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except && !(keepWs && id === 'workspace-panel')) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
 function toggleVarsPanel() { closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); }
 function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
 function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
@@ -1158,6 +1315,7 @@ async function init() {
     if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0].label; }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); refreshUI(); initGestures(); setTimeout(updateInputHeightVar, 100);
+    if(window.innerWidth >= 768) { document.getElementById('workspace-panel').classList.add('open'); renderWorkspaceLists(); }
     startRealtimeSync();
 }
 
@@ -1697,7 +1855,9 @@ function redoStateAction() { const noteIn = document.getElementById('note-input'
 async function openModal(id) { 
     closeAllPanels(); 
     if(id === 'workspace-modal') await autoCleanupEmptyChats();
-    document.getElementById(id).style.display = 'flex'; 
+    let el = document.getElementById(id);
+    el.style.display = 'flex'; 
+    if(el.classList.contains('has-sheet') && window.innerWidth >= 768) { el.onclick = (e) => { if(e.target === el) closeModal(id); }; } else { el.onclick = null; }
     if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); } 
 }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
