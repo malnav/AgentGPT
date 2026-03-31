@@ -532,46 +532,56 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </div>
 
 <div id="ctx-slide-panel" class="ctx-panel">
-    <div class="panel-header">
-        <span style="font-size:14px; font-weight:800; color:var(--accent);">Context Window</span>
-        <div style="display:flex; gap:6px; align-items:center;">
-            <span id="ctx-btn-all" class="chip" style="font-size:11px; padding:6px 10px;" onclick="setContextWithExpand(true)">ALL</span>
-            <span id="ctx-btn-none" class="chip" style="font-size:11px; padding:6px 10px;" onclick="setContextWithExpand(false)">NONE</span>
-            <span class="chip" style="font-size:11px; padding:6px 10px;" onclick="gmailLoadEmails()" title="Load Gmail Emails">📧</span>
+    <div class="panel-header" style="padding:8px 14px; flex-direction:column; gap:0; align-items:stretch;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <span style="font-size:14px; font-weight:800; color:var(--accent);">Context Window</span>
+            <div id="ctx-tab-context-actions" style="display:flex; gap:6px; align-items:center;">
+                <span id="ctx-btn-all" class="chip" style="font-size:11px; padding:5px 9px;" onclick="setContextWithExpand(true)">ALL</span>
+                <span id="ctx-btn-none" class="chip" style="font-size:11px; padding:5px 9px;" onclick="setContextWithExpand(false)">NONE</span>
+            </div>
+            <div id="ctx-tab-gmail-actions" style="display:none; gap:6px; align-items:center;">
+                <span class="chip" id="gmail-add-ctx-btn" style="font-size:10px; padding:5px 10px; background:var(--accent); color:#fff; display:none;" onclick="gmailAddToContext()">+ Add to Context</span>
+                <span class="chip" style="font-size:10px; padding:5px 9px; color:#ff3b30;" onclick="gmailSignOut()">Sign Out</span>
+                <span class="chip" style="font-size:10px; padding:5px 9px;" onclick="gmailLoadEmails()">↻</span>
+            </div>
+        </div>
+        <div class="sub-tabs" style="margin:0; border:none; background:rgba(128,128,128,0.12); padding:3px; border-radius:10px; gap:2px;">
+            <div class="sub-tab-btn active" id="ctx-tab-btn-context" onclick="ctxSwitchTab('context')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📋 Context</div>
+            <div class="sub-tab-btn" id="ctx-tab-btn-gmail" onclick="ctxSwitchTab('gmail')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📧 Gmail</div>
         </div>
     </div>
-    <div style="flex:1; overflow-y:auto; padding:0; display:flex; flex-direction:column; position:relative;">
+
+    <div id="ctx-pane-context" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; position:relative;">
         <ul id="context-list" style="list-style:none; padding:0; margin:0; flex:1; padding-bottom:60px;"></ul>
-        <div id="gmail-emails-section" style="display:none; border-top:0.5px solid var(--border); display:none; flex-direction:column;">
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 14px 4px 14px;">
-                <span style="font-size:11px; font-weight:800; color:#888;">📧 GMAIL</span>
-                <div style="display:flex; gap:6px; align-items:center;">
-                    <span class="chip" id="gmail-add-ctx-btn" style="font-size:10px; padding:4px 10px; background:var(--accent); color:#fff; display:none;" onclick="gmailAddToContext()">+ Add to Context</span>
-                    <span class="chip" style="font-size:10px; padding:4px 8px; color:#ff3b30;" onclick="gmailSignOut()">Sign Out</span>
-                </div>
-            </div>
-            <div style="padding:0 14px 6px 14px;">
-                <input id="gmail-search-box" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:7px 12px;" oninput="gmailOnSearch(this.value)">
-            </div>
-            <ul id="gmail-list" style="list-style:none; padding:0; margin:0;"></ul>
+        <div id="ctx-bulk-btn-wrapper" style="position:sticky; bottom:0; left:0; right:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); padding:10px; border-top:0.5px solid var(--glass-border); display:none;">
+            <button class="chip" style="width:100%; background:var(--accent); color:#fff; font-size:14px; padding:12px;" onclick="insertSelectedContexts()">Insert Selected ⟶</button>
         </div>
+    </div>
+
+    <div id="ctx-pane-gmail" style="flex:1; overflow:hidden; display:none; flex-direction:column; position:relative;">
+        <div style="padding:8px 14px 4px 14px;">
+            <input id="gmail-search-box" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:7px 12px;" oninput="gmailOnSearch(this.value)">
+        </div>
+        <ul id="gmail-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:60px;"></ul>
+
         <div id="gmail-preview-overlay" style="display:none; position:absolute; inset:0; background:var(--bg); z-index:10; flex-direction:column; overflow:hidden;">
             <div style="display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:0.5px solid var(--border);">
-                <span onclick="document.getElementById('gmail-preview-overlay').style.display='none';" style="cursor:pointer; font-size:18px; opacity:0.5;">←</span>
-                <span id="gmail-preview-subject" style="flex:1; font-weight:800; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+                <span onclick="gmailClosePreview()" style="cursor:pointer; font-size:18px; opacity:0.5; padding:2px 6px;">←</span>
+                <span id="gmail-preview-subject" style="flex:1; font-weight:800; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
             </div>
-            <div style="padding:10px 14px; border-bottom:0.5px solid var(--border);">
+            <div style="padding:8px 14px; border-bottom:0.5px solid var(--border);">
                 <div id="gmail-preview-from" style="font-size:12px; color:#888;"></div>
-                <div id="gmail-preview-date" style="font-size:11px; color:#aaa;"></div>
+                <div id="gmail-preview-date" style="font-size:11px; color:#aaa; margin-top:2px;"></div>
+                <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+                    <span class="chip" style="font-size:11px; padding:5px 10px; background:var(--accent); color:#fff;" onclick="gmailAddEmailToContext(false)">+ Add to Context</span>
+                    <span class="chip" style="font-size:11px; padding:5px 10px;" onclick="gmailAddEmailToContext(true)">Split by Line</span>
+                </div>
             </div>
             <div id="gmail-preview-body" style="flex:1; overflow-y:auto; padding:14px; font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-word;"></div>
             <div style="padding:10px 14px; border-top:0.5px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-                <textarea id="gmail-reply-box" placeholder="Write a reply…" style="width:100%; font-size:13px; border:0.5px solid var(--border); border-radius:10px; padding:8px; background:var(--sec-bg); color:var(--text); resize:none; min-height:70px; font-family:inherit;" rows="3"></textarea>
+                <textarea id="gmail-reply-box" placeholder="Write a reply…" style="width:100%; font-size:13px; border:0.5px solid var(--border); border-radius:10px; padding:8px; background:var(--sec-bg); color:var(--text); resize:none; min-height:60px; font-family:inherit;" rows="3"></textarea>
                 <button class="chip" style="background:var(--accent); color:#fff; padding:10px; font-size:13px; font-weight:700;" onclick="gmailSendReply()">Send Reply ↑</button>
             </div>
-        </div>
-        <div id="ctx-bulk-btn-wrapper" style="position:sticky; bottom:0; left:0; right:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); padding:10px; border-top:0.5px solid var(--glass-border); display:none;">
-            <button class="chip" style="width:100%; background:var(--accent); color:#fff; font-size:14px; padding:12px;" onclick="insertSelectedContexts()">Insert Selected ⟶</button>
         </div>
     </div>
 </div>
@@ -1149,7 +1159,18 @@ function initGestures() {
 }
 function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
 function toggleVarsPanel() { closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); }
-function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); const panel = document.getElementById('ctx-slide-panel'); panel.classList.toggle('open'); if(panel.classList.contains('open') && gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box') ? document.getElementById('gmail-search-box').value.trim() || null : null); } }
+function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
+function ctxSwitchTab(tab) {
+    const isGmail = tab === 'gmail';
+    document.getElementById('ctx-pane-context').style.display = isGmail ? 'none' : 'flex';
+    document.getElementById('ctx-pane-gmail').style.display = isGmail ? 'flex' : 'none';
+    document.getElementById('ctx-pane-gmail').style.flexDirection = 'column';
+    document.getElementById('ctx-tab-context-actions').style.display = isGmail ? 'none' : 'flex';
+    document.getElementById('ctx-tab-gmail-actions').style.display = isGmail ? 'flex' : 'none';
+    document.getElementById('ctx-tab-btn-context').classList.toggle('active', !isGmail);
+    document.getElementById('ctx-tab-btn-gmail').classList.toggle('active', isGmail);
+    if(isGmail) { if(gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box').value.trim() || null); } else { gmailLoadEmails(); } }
+}
 function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
 function toggleSrvPanel() { closeAllPanels('srv-slide-panel'); document.getElementById('srv-slide-panel').classList.toggle('open'); }
 function toggleExpandInput(forceExpand = false) { if(forceExpand && isInputExpanded) return; isInputExpanded = forceExpand ? true : !isInputExpanded; const t = document.getElementById('note-input'), b = document.getElementById('expand-btn'); if(isInputExpanded) { t.style.minHeight = '50vh'; t.style.height = '50vh'; t.style.maxHeight = '70vh'; b.innerText = '⤡'; } else { t.style.minHeight = '60px'; t.style.maxHeight = '200px'; b.innerText = '⤢'; sync(); } setTimeout(updateInputHeightVar, 50); }
@@ -2040,7 +2061,7 @@ let gmailEmails = [];
 let gmailCurrentEmail = null;
 let gmailSearchTimer = null;
 
-function gmailShowSection(show) { const s = document.getElementById('gmail-emails-section'); if(s) { s.style.display = show ? 'flex' : 'none'; s.style.flexDirection = 'column'; } }
+function gmailShowSection(show) { }
 
 async function gmailLoadEmails(query) {
     const clientId = CONFIG.google_client_id || "";
@@ -2130,10 +2151,11 @@ function gmailAddToContext() {
     if(!newLines.length) return;
     newLines.forEach(line => { if(!CONTEXT_LINES.includes(line)) CONTEXT_LINES.push(line); });
     cutIdx = CONTEXT_LINES.length - 1;
-    refreshUI();
+    saveAll(); refreshUI();
     checked.forEach(chk => chk.checked = false);
     gmailUpdateAddBtn();
     notify(`${newLines.length} email${newLines.length > 1 ? 's' : ''} added to context`, "#34c759", 2500);
+    ctxSwitchTab('context');
 }
 
 async function gmailPreview(i) {
@@ -2145,7 +2167,7 @@ async function gmailPreview(i) {
     document.getElementById('gmail-preview-body').textContent = "Loading…";
     document.getElementById('gmail-reply-box').value = "";
     const ov = document.getElementById('gmail-preview-overlay');
-    ov.style.display = 'flex'; ov.style.flexDirection = 'column';
+    ov.style.cssText = 'display:flex; flex-direction:column; position:absolute; inset:0; background:var(--bg); z-index:10; overflow:hidden;';
     try {
         const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}?format=full`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
         if(!r.ok) throw new Error("Failed to load");
@@ -2180,12 +2202,38 @@ async function gmailSendReply() {
     } catch(e) { notify("Failed to send: " + e.message, "#ff3b30", 5000); }
 }
 
+function gmailClosePreview() {
+    const ov = document.getElementById('gmail-preview-overlay');
+    ov.style.display = 'none';
+    gmailCurrentEmail = null;
+}
+
+function gmailAddEmailToContext(splitByLine) {
+    const em = gmailCurrentEmail; if(!em) return;
+    const body = document.getElementById('gmail-preview-body').textContent || em.snippet;
+    const fromName = em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || em.from;
+    let newLines = [];
+    if(splitByLine) {
+        const raw = body.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        raw.forEach(l => newLines.push(l));
+    } else {
+        newLines.push(`From: ${fromName} | Subject: ${em.subject}\n${body.slice(0, 800)}`);
+    }
+    if(!newLines.length) return;
+    newLines.forEach(line => { if(!CONTEXT_LINES.includes(line)) CONTEXT_LINES.push(line); });
+    cutIdx = CONTEXT_LINES.length - 1;
+    saveAll(); refreshUI();
+    notify(`${newLines.length} line${newLines.length > 1 ? 's' : ''} added to context`, "#34c759", 2500);
+    gmailClosePreview();
+    ctxSwitchTab('context');
+}
+
 function gmailSignOut() {
     if(gmailAccessToken && typeof google !== 'undefined') { try { google.accounts.oauth2.revoke(gmailAccessToken); } catch(e) {} }
     gmailAccessToken = null; gmailEmails = []; gmailCurrentEmail = null;
-    gmailShowSection(false);
     document.getElementById('gmail-list').innerHTML = '';
     document.getElementById('gmail-preview-overlay').style.display = 'none';
+    document.getElementById('gmail-add-ctx-btn').style.display = 'none';
     notify("Signed out of Gmail", "#34c759", 2000);
 }
 
