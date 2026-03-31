@@ -4,7 +4,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>AgentGPT</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
@@ -1049,7 +1049,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </div></div>
 
 
-<div id="attach-menu" class="tool-menu closed" style="position:fixed; z-index:9999; min-width:180px;">
+<div id="attach-menu" class="tool-menu closed" style="position:fixed; z-index:9999; min-width:160px;">
     <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); closeAttachMenu();">📷 Camera</div>
     <div class="tool-menu-item" onclick="document.getElementById('attach-img').click(); closeAttachMenu();">🖼️ Photo Library</div>
     <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); closeAttachMenu();">📁 Files</div>
@@ -1350,7 +1350,7 @@ async function refreshUI() {
 function updateCtxSelection() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let btn = document.getElementById('ctx-bulk-btn-wrapper'); if(boxes.length > 0) { btn.style.display = 'block'; btn.querySelector('button').innerText = `Insert ${boxes.length} Selected ⟶`; } else { btn.style.display = 'none'; } }
 function insertSelectedContexts() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let combined = Array.from(boxes).map(b => CONTEXT_LINES[b.value]).join('\n'); insertAtCursor(combined, true, false); boxes.forEach(b => b.checked = false); updateCtxSelection(); closeAllPanels(); }
 function insertContextAtCursor(i) { insertAtCursor(CONTEXT_LINES[i], true, false); closeAllPanels(); }
-async function saveModelEntry() { const l = document.getElementById('mod-l').value, t = document.getElementById('mod-t').value; if(!l || !t) return notify("Fill both label and ID", "#ff3b30"); AI_MODELS.push({ label: l, text: t, profile: "Global" }); document.getElementById('mod-l').value = ""; document.getElementById('mod-t').value = ""; await saveAll(); refreshUI(); renderModelList(); notify("Model Added!", "#34c759"); }
+async function saveModelEntry() { const l = document.getElementById('mod-l').value, t = document.getElementById('mod-t').value; if(!l || !t) return notify("Fill both label and ID", "#ff3b30"); AI_MODELS.push({ label: l, text: t, profile: "Global" }); document.getElementById('mod-l').value = ""; document.getElementById('mod-t').value = ""; await saveAll(); triggerSettingsSync(); refreshUI(); renderModelList(); notify("Model Added!", "#34c759"); }
 function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile === activeProfileLabel || t.profile === 'Global'); document.getElementById('tools-view').innerHTML = filtT.map(t => { let tIdx = API_SERVICES.indexOf(t); return `<div class="list-item" style="border-radius:8px; border:1px solid var(--border); margin-bottom:4px;" onclick="triggerApiService(${tIdx}); closeAllPanels();"><div style="flex:1;"><strong>${t.label}</strong></div></div>`; }).join(''); }
 function switchVarsTab(t) { ['vars','todos'].forEach(k => { document.getElementById('vtab-'+k).classList.toggle('active', t===k); document.getElementById('vview-'+k).classList.toggle('closed', t!==k); document.getElementById('vtab-'+k+'-btns').style.display = t===k ? 'flex' : 'none'; }); if(t === 'todos') renderChatTodos(); }
 function renderWorkspaceLists() { renderSessionsList(); let cur = document.querySelector('#workspace-panel .sub-tab-btn.active'); let curTab = cur ? (cur.id === 'wtab-all' ? 'all' : cur.id === 'wtab-data' ? 'data' : 'current') : 'current'; if(curTab === 'all') renderAllSessionsList(); if(curTab === 'data') renderDatasetsList(); }
@@ -1812,7 +1812,7 @@ async function saveMasterConfig() {
     CONFIG.extract_model = document.getElementById('extract-model-f').value;
     CONFIG.suggest_model = document.getElementById('suggest-model-f').value;
     CONFIG.def_ctx = document.getElementById('def-ctx-f').value;
-    await saveAll(); await refreshUI(); notify("Config Saved!", "#34c759");
+    await saveAll(); triggerSettingsSync(); await refreshUI(); notify("Config Saved!", "#34c759");
     const credentialsChanged = CONFIG.fb_api !== prevFbApi || CONFIG.fb_project !== prevFbProject;
     if(credentialsChanged) { fbDb = null; stopRealtimeSync(); }
     startRealtimeSync();
@@ -1925,7 +1925,7 @@ function filterApiModels() {
 async function addApiModel(id, label) {
     if(AI_MODELS.find(m => m.text === id)) return notify("Already added", "#888");
     AI_MODELS.push({ label, text: id });
-    await saveAll(); refreshUI(); renderModelList(); filterApiModels();
+    await saveAll(); triggerSettingsSync(); refreshUI(); renderModelList(); filterApiModels();
     notify(`${label} added!`, "#34c759");
 }
 function renderProfileList() { document.getElementById('profile-list-crud').innerHTML = AI_PROFILES.map((p,i) => `<li class="list-item"><span style="flex:1;"><strong>${p.label}</strong></span> <button class="inline-btn" style="margin-right:8px;" onclick="manageSection('profiles'); editItem(${i})">✏️</button> <button class="inline-btn" onclick="quickDel('profiles', ${i})">🗑️</button></li>`).join(''); }
@@ -2013,7 +2013,7 @@ async function sendToAI() {
 // a random pushToken per-commit so we can skip the redundant re-render.
 // ─────────────────────────────────────────────────────────────────────────────
 let fbDb = null;
-let syncTimer = null;
+let syncTimer = null; let settingsSyncTimer = null;
 let realtimeUnsub = null;
 let syncReady = false;
 let applyInProgress = false;
@@ -2029,6 +2029,42 @@ async function initFirebase() {
         const apps = getApps(); const app = apps.length ? apps[0] : initializeApp({ apiKey: CONFIG.fb_api, projectId: CONFIG.fb_project });
         fbDb = getFirestore(app); return fbDb;
     } catch(e) { addLog("SYNC", "Init Failed", e.message); return null; }
+}
+
+async function pushHistoriesToFirebase() {
+    const db = await initFirebase(); if(!db) return;
+    try {
+        const { doc, writeBatch } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        const pushToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        lastOwnPushToken = pushToken;
+        const batch = writeBatch(db);
+        const histStr = JSON.stringify(chatHistories); const chunks = []; const chunkSize = 300000;
+        for(let i = 0; i < histStr.length; i += chunkSize) chunks.push(histStr.substring(i, i + chunkSize));
+        batch.set(doc(db, "quicknote_data", "primary_user"), { chunks_count: chunks.length, push_token: pushToken, last_sync: Date.now() }, { merge: true });
+        for(let i = 0; i < chunks.length; i++) batch.set(doc(db, "quicknote_data", "primary_hist_" + i), { data: chunks[i] });
+        await batch.commit();
+        let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
+        addLog("SYNC", "Histories Push", `OK — ${n} chats`);
+    } catch(e) { addLog("SYNC", "Histories Push Error", e.message); notify("⚠️ Histories sync failed: " + (e.code || e.message), "#ff3b30", 4000); }
+}
+
+async function pushSettingsToFirebase() {
+    const db = await initFirebase(); if(!db) return;
+    try {
+        const { doc, writeBatch } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        const pushToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        lastOwnPushToken = pushToken;
+        const batch = writeBatch(db);
+        batch.set(doc(db, "quicknote_data", "primary_user"), { profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, push_token: pushToken, last_sync: Date.now() }, { merge: true });
+        await batch.commit();
+        addLog("SYNC", "Settings Push", "OK");
+    } catch(e) { addLog("SYNC", "Settings Push Error", e.message); notify("⚠️ Settings sync failed: " + (e.code || e.message), "#ff3b30", 4000); }
+}
+
+function triggerSettingsSync() {
+    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
+    clearTimeout(settingsSyncTimer);
+    settingsSyncTimer = setTimeout(() => { settingsSyncTimer = null; pushSettingsToFirebase(); }, 2000);
 }
 
 async function pushToFirebase(manual = false) {
@@ -2066,13 +2102,15 @@ async function applyCloudData(data, db, silent = false, forcePush = false) {
         const { merged, hadLocalChanges } = reconcileHistories(chatHistories, cloudHistories);
         addLog("SYNC", "Reconcile", `local offline additions: ${hadLocalChanges}`);
 
-        if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles');
-        if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts');
-        if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates');
-        if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools');
-        if(data.models) AI_MODELS = sanitizeImport(data.models, 'models');
-        if(data.config) { const cloudTs = data.config._ts || 0; const localTs = CONFIG._ts || 0; if(cloudTs >= localTs) CONFIG = data.config; else addLog("SYNC", "Config Kept Local", `local _ts ${localTs} > cloud _ts ${cloudTs}`); }
-        if(data.datasets) GLOBAL_DATASETS = data.datasets;
+        if(!forcePush) {
+            if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles');
+            if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts');
+            if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates');
+            if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools');
+            if(data.models) AI_MODELS = sanitizeImport(data.models, 'models');
+            if(data.config) { const cloudTs = data.config._ts || 0; const localTs = CONFIG._ts || 0; if(cloudTs >= localTs) CONFIG = data.config; else addLog("SYNC", "Config Kept Local", `local _ts ${localTs} > cloud _ts ${cloudTs}`); }
+            if(data.datasets) GLOBAL_DATASETS = data.datasets;
+        }
         chatHistories = merged;
 
         if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
@@ -2102,7 +2140,7 @@ async function applyCloudData(data, db, silent = false, forcePush = false) {
         let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Applied", `${n} chats loaded`);
 
-        if(hadLocalChanges || forcePush) { addLog("SYNC", "Push After Reconcile", `forcePush:${forcePush} hadLocal:${hadLocalChanges}`); await pushToFirebase(); }
+        if(hadLocalChanges || forcePush) { addLog("SYNC", "Push After Reconcile", `forcePush:${forcePush} hadLocal:${hadLocalChanges}`); await pushHistoriesToFirebase(); }
     } catch(e) { addLog("SYNC", "Apply Error", e.message); }
     finally {
         applyInProgress = false;
