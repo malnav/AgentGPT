@@ -1609,7 +1609,22 @@ function importGlobalFile(event) {
             const data = JSON.parse(e.target.result);
             if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles'); if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts'); if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates'); if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools'); if(data.models) AI_MODELS = sanitizeImport(data.models, 'models'); if(data.config) CONFIG = data.config; if(data.histories) chatHistories = data.histories; if(data.datasets) GLOBAL_DATASETS = data.datasets;
             if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : ""; }
-            addLog("DATA", "Global Import File", file.name); await saveAll(true); await init(); notify("Restore Complete!", "#34c759");
+            addLog("DATA", "Global Import File", file.name);
+            stopRealtimeSync();
+            await saveAll(true);
+            await autoCleanupEmptyChats();
+            await switchProfileSession(activeProfileLabel);
+            await refreshUI();
+            notify("Restore Complete!", "#34c759");
+            if(CONFIG.fb_api && CONFIG.fb_project) {
+                openConfirm("Data restored locally.\n\nWhat would you like to do with Firebase?", async () => {
+                    await pushToFirebase(true);
+                    startRealtimeSync();
+                    notify("Pushed to cloud!", "#34c759", 3000);
+                }, async () => {
+                    startRealtimeSync();
+                }, "☁️ Push to Cloud", "↓ Pull from Cloud");
+            }
         } catch(err) { notify("Invalid File", "#ff3b30"); }
     }; reader.readAsText(file);
 }
