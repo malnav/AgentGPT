@@ -230,7 +230,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   left: 0;
   right: 0;
   padding: 4px 12px env(safe-area-inset-bottom, 0px) 12px;
-  z-index: 200;
+  z-index: 50;
   display: flex;
   flex-direction: column;
   background: transparent;
@@ -258,12 +258,12 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #expand-btn:active { opacity: 0.8; }
 
 /* ── FLOATING ACTIONS ── */
-#floating-actions { position: absolute; bottom: calc(var(--input-h) + 12px); right: 12px; display: flex; flex-direction: column; align-items: center; gap: 12px; z-index: 210; transition: bottom 0.2s ease; }
+#floating-actions { position: absolute; bottom: calc(var(--input-h) + 12px); right: 12px; display: flex; flex-direction: column; align-items: center; gap: 12px; z-index: 40; transition: bottom 0.2s ease; }
 .float-btn { font-size: 12px; font-weight: 800; color: var(--text); background: transparent; border: none; cursor: pointer; box-shadow: none; opacity: 0.9; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
 .float-btn:active { opacity: 1; transform: scale(0.95); }
 
 /* ── SCROLL-TO-BOTTOM ── */
-#scroll-bottom-btn { position: absolute; left: 14px; bottom: calc(var(--input-h) + 12px); font-size: 22px; z-index: 210; cursor: pointer; display: none; opacity: 0.6; transition: bottom 0.2s ease, opacity 0.2s; }
+#scroll-bottom-btn { position: absolute; left: 14px; bottom: calc(var(--input-h) + 12px); font-size: 22px; z-index: 40; cursor: pointer; display: none; opacity: 0.6; transition: bottom 0.2s ease, opacity 0.2s; }
 #scroll-bottom-btn:active { opacity: 1; transform: scale(0.9); }
 
 /* ── INPUT BOTTOM BAR ── */
@@ -418,68 +418,23 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   right: 0;
   top: 100%;
   margin-top: 6px;
-  background: rgba(250,250,252,0.98);
+  background: var(--glass);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
-  border: 0.5px solid rgba(0,0,0,0.12);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12);
+  border: 0.5px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-lg);
   border-radius: 18px;
   display: flex;
   flex-direction: column;
   z-index: 9999;
   overflow: hidden;
-  min-width: 170px;
+  min-width: 160px;
 }
-@media (prefers-color-scheme: dark) { .tool-menu { background: rgba(28,28,40,0.98); border-color: rgba(255,255,255,0.14); } }
 .tool-menu.closed { display: none; }
 .tool-menu-item { padding: 13px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 0.5px solid var(--border); color: var(--text); text-align: left; transition: background 0.15s; }
 .tool-menu-item:last-child { border-bottom: none; }
 .tool-menu-item:active { background: rgba(0,122,255,0.08); }
 @keyframes sync-pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
-
-/* ── SWIPE-TO-REVEAL LIST ITEMS ── */
-.swipe-row { position: relative; }
-.swipe-main { display: flex; align-items: center; flex: 1; min-width: 0; }
-.swipe-btns { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-@media (max-width: 767px) {
-  .swipe-row { overflow: hidden; }
-  .swipe-main { transition: transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94); will-change: transform; }
-  .swipe-btns {
-    position: absolute; right: 0; top: 0; bottom: 0;
-    padding: 0 10px; gap: 6px;
-    background: linear-gradient(to right, transparent, var(--bg) 28%);
-    transform: translateX(110%);
-    transition: transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94);
-    will-change: transform;
-  }
-  .swipe-row.swiped .swipe-main { transform: translateX(-94px); }
-  .swipe-row.swiped .swipe-btns { transform: translateX(0); }
-}
-@media (max-width: 767px) and (prefers-color-scheme: dark) { .swipe-btns { background: linear-gradient(to right, transparent, #07070f 28%); } }
-
-/* ── CLOUD SYNC INDICATOR ── */
-#sync-indicator {
-  position: fixed;
-  bottom: calc(var(--input-h, 130px) + 6px);
-  left: calc(var(--sidebar-w, 0px) + 8px);
-  z-index: 600;
-  padding: 5px 13px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 800;
-  background: rgba(255,255,255,0.94);
-  backdrop-filter: var(--blur-sm);
-  -webkit-backdrop-filter: var(--blur-sm);
-  border: 0.5px solid var(--glass-border);
-  box-shadow: var(--glass-shadow-md);
-  display: none;
-  align-items: center;
-  gap: 5px;
-  transition: opacity 0.35s ease;
-  pointer-events: none;
-  letter-spacing: 0.1px;
-}
-@media (prefers-color-scheme: dark) { #sync-indicator { background: rgba(20,20,32,0.96); } }
 
 /* ══════════════════════════════════════════════════════════
    RESPONSIVE LAYOUT — TABLET (≥768px) & DESKTOP (≥1100px)
@@ -661,7 +616,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </div>
 
 <div id="scroll-bottom-btn">↓</div>
-<div id="sync-indicator"></div>
 
 <div class="pull-indicator global-pull" onclick="toggleVarsPanel()"></div>
 
@@ -681,7 +635,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
         <div id="wtab-all-btns" style="display:none; gap:8px; align-items:center; margin-left:8px;">
-            <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels('workspace-panel'); resetCurrentSession().then(() => { switchWorkspaceTab('current'); renderSessionsList(); });" title="New Session">+</button>
             <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
     </div>
@@ -861,6 +814,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <small style="font-weight:800; font-size:11px; color:var(--accent);">🔥 FIREBASE CLOUD SYNC</small>
             <label style="font-size:11px; font-weight:700;"><input type="checkbox" id="fb-auto-f" onchange="saveMasterConfig()"> Auto-Sync</label>
+            <span id="sync-live-badge" style="display:none; font-size:10px; font-weight:800; color:#34c759; margin-left:6px; animation: sync-pulse 2s infinite;">● LIVE</span>
         </div>
         <input type="text" id="fb-project-f" class="pp-input" placeholder="Firebase Project ID (e.g. my-app-123)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
         <input type="password" id="fb-api-f" class="pp-input" placeholder="Firebase Web API Key" onchange="saveMasterConfig()" style="margin-bottom:10px;">
@@ -1340,7 +1294,7 @@ async function saveAll(skipCloud = false) {
         let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) cur.msgs = chatHistory; }
         CONFIG._ts = Date.now();
         await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
-        if(!skipCloud) { setSyncDirty(true); triggerAutoSync(); }
+        if(!skipCloud) triggerAutoSync(); 
     } catch(e) { console.error("DB Save Error:", e); notify("⚠️ DB Error: " + (e.name || "Write Failed"), "#ff3b30", 4000); }
 }
 
@@ -1389,7 +1343,7 @@ function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile ==
 function switchVarsTab(t) { ['vars','todos'].forEach(k => { document.getElementById('vtab-'+k).classList.toggle('active', t===k); document.getElementById('vview-'+k).classList.toggle('closed', t!==k); document.getElementById('vtab-'+k+'-btns').style.display = t===k ? 'flex' : 'none'; }); if(t === 'todos') renderChatTodos(); }
 function renderWorkspaceLists() { renderSessionsList(); let cur = document.querySelector('#workspace-panel .sub-tab-btn.active'); let curTab = cur ? (cur.id === 'wtab-all' ? 'all' : cur.id === 'wtab-data' ? 'data' : 'current') : 'current'; if(curTab === 'all') renderAllSessionsList(); if(curTab === 'data') renderDatasetsList(); }
 function switchWorkspaceTab(tab) { ['current','all','data'].forEach(k => { document.getElementById('wview-'+k).style.display = k === tab ? 'flex' : 'none'; document.getElementById('wtab-'+k).classList.toggle('active', k === tab); document.getElementById('wtab-'+k+'-btns').style.display = k === tab ? 'flex' : 'none'; }); if(tab === 'all') renderAllSessionsList(); if(tab === 'data') renderDatasetsList(); }
-function renderAllSessionsList() { let validProfiles = new Set(AI_PROFILES.map(p => p.label)); let allChats = []; Object.entries(chatHistories).forEach(([profLabel, sData]) => { if(!sData || !sData.list || !validProfiles.has(profLabel)) return; sData.list.forEach(chat => { let msgCount = (chat.msgs||[]).filter(m => m.role !== 'developer').length; if(msgCount === 0) return; let isActive = profLabel === activeProfileLabel && String(chat.id) === String(sData.current); let lastMsgTs = parseInt(chat.id) || 0; allChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs }); }); }); allChats.sort((a, b) => { if(a.chat.pinned && !b.chat.pinned) return -1; if(!a.chat.pinned && b.chat.pinned) return 1; return b.lastMsgTs - a.lastMsgTs; }); const el = document.getElementById('all-sessions-list'); el.innerHTML = allChats.length === 0 ? '<li style="color:#888; font-size:13px; padding:12px;">No chats yet.</li>' : allChats.map(({ chat, profLabel, msgCount, isActive }) => `<li class="list-item swipe-row ${isActive ? 'in-cut' : ''}" onclick="loadSessionFromProfile('${profLabel}','${chat.id}')"><div class="swipe-main"><div style="flex:1; min-width:0; overflow:hidden;"><div style="display:flex; align-items:center; gap:4px; overflow:hidden;"><strong style="font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex-shrink:1;">${chat.title}</strong><span style="font-size:10px; color:var(--accent); background:var(--sec-bg); border-radius:6px; padding:1px 5px; flex-shrink:0;">${profLabel}</span></div><span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div></div><div class="swipe-btns" onclick="event.stopPropagation()"><div class="inline-btn" onclick="togglePinChat('${profLabel}','${chat.id}')" title="${chat.pinned ? 'Unpin' : 'Pin'}" style="font-size:14px;">${chat.pinned ? '📌' : '📍'}</div><div class="inline-btn" onclick="deleteSessionFromProfile('${profLabel}','${chat.id}')">🗑️</div></div></li>`).join(''); initSwipeItems(el); }
+function renderAllSessionsList() { let validProfiles = new Set(AI_PROFILES.map(p => p.label)); let allChats = []; Object.entries(chatHistories).forEach(([profLabel, sData]) => { if(!sData || !sData.list || !validProfiles.has(profLabel)) return; sData.list.forEach(chat => { let msgCount = (chat.msgs||[]).filter(m => m.role !== 'developer').length; if(msgCount === 0) return; let isActive = profLabel === activeProfileLabel && String(chat.id) === String(sData.current); let lastMsgTs = parseInt(chat.id) || 0; allChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs }); }); }); allChats.sort((a, b) => { if(a.chat.pinned && !b.chat.pinned) return -1; if(!a.chat.pinned && b.chat.pinned) return 1; return b.lastMsgTs - a.lastMsgTs; }); document.getElementById('all-sessions-list').innerHTML = allChats.length === 0 ? '<li style="color:#888; font-size:13px; padding:12px;">No chats yet.</li>' : allChats.map(({ chat, profLabel, msgCount, isActive }) => `<li class="list-item ${isActive ? 'in-cut' : ''}" onclick="loadSessionFromProfile('${profLabel}','${chat.id}')"><div style="flex:1; min-width:0;"><div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;"><strong style="font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chat.title}</strong><span style="font-size:10px; color:var(--accent); background:var(--sec-bg); border-radius:6px; padding:1px 5px; flex-shrink:0;">${profLabel}</span></div><span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div><div style="display:flex; gap:4px; align-items:center; flex-shrink:0;"><div class="inline-btn" onclick="event.stopPropagation(); togglePinChat('${profLabel}','${chat.id}')" title="${chat.pinned ? 'Unpin' : 'Pin'}" style="font-size:14px;">${chat.pinned ? '📌' : '📍'}</div><div class="inline-btn" onclick="event.stopPropagation(); deleteSessionFromProfile('${profLabel}','${chat.id}')">🗑️</div></div></li>`).join(''); }
 async function loadSessionFromProfile(profLabel, chatId) { if(profLabel !== activeProfileLabel) { activeProfileLabel = profLabel; await dbHelper.set('activeProfile', activeProfileLabel); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(chatId)); if(cur) { sData.current = chatId; chatHistories[activeProfileLabel] = sData; chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; } await saveAll(); closeAllPanels(); await refreshUI(); renderChatHistory(); scrollToLastRequest(); } else { await loadSession(chatId); } }
 async function togglePinChat(profLabel, chatId) { let sData = chatHistories[profLabel]; if(!sData) return; let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat) return; chat.pinned = !chat.pinned; await saveAll(); renderAllSessionsList(); }
 async function deleteSessionFromProfile(profLabel, chatId) { openConfirm("Delete this chat session?", async () => { let sData = chatHistories[profLabel]; if(!sData || !sData.list) return; sData.list = sData.list.filter(s => String(s.id) !== String(chatId)); if(sData.list.length === 0) { const defId = Date.now().toString() + Math.floor(Math.random()*1000); sData.list.push({ id: defId, title: "Chat", msgs: [], var_id: defId }); sData.current = defId; } if(String(sData.current) === String(chatId)) sData.current = sData.list[0].id; if(profLabel === activeProfileLabel) { chatHistory = sData.list.find(x => String(x.id) === String(sData.current))?.msgs || []; renderChatHistory(); } await saveAll(); renderAllSessionsList(); renderSessionsList(); }); }
@@ -1421,11 +1375,7 @@ async function deleteTodo(prof, chatId, todoId) { let sData = chatHistories[prof
 
 async function aiGenTodos() { if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30"); notify("Generating todos from chat...", "#007aff"); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur) return; let msgs = (cur.msgs || []).filter(m => m.role !== 'developer').map(m => `${m.role}: ${getTextFromContent(m.content)}`).join('\n').substring(0, 3000); if(!msgs) return notify("Chat is empty.", "#888"); let sysPrompt = `Based on this conversation, extract or suggest a concise list of action items or todos. Return ONLY a JSON array of objects with keys "text" (string) and optionally "date" (ISO date string YYYY-MM-DD if a date/deadline is mentioned, otherwise omit). e.g. [{"text":"Follow up with client","date":"2026-04-01"},{"text":"Send invoice"}]`; try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getSuggestModel(), messages: [{ role: "system", content: sysPrompt }, { role: "user", content: msgs }] }) }); if(!res.ok) throw new Error("API error"); const d = await res.json(); let raw = d.choices[0].message.content.replace(/```json/g,'').replace(/```/g,'').trim(); let arr = JSON.parse(raw); if(!cur.todos) cur.todos = []; let added = 0; const existingTexts = new Set((cur.todos||[]).map(t => t.text.toLowerCase().trim())); arr.forEach(item => { if(item.text && !existingTexts.has(item.text.toLowerCase().trim())) { cur.todos.push({ id: Date.now().toString() + added, text: item.text, done: false, date: item.date || null }); existingTexts.add(item.text.toLowerCase().trim()); added++; } }); await saveAll(); renderChatTodos(); renderCalendar(); notify(`Added ${added} todos!`, "#34c759"); } catch(e) { notify("Failed to generate todos.", "#ff3b30"); } }
 async function loadSession(id) { let sData = getSessions(); sData.current = String(id); let cur = sData.list.find(x => String(x.id) === String(id)); if(cur) { chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; addLog("SESSION", "Load Chat", cur.title); closeAllPanels(); await saveAll(); refreshUI(); renderChatHistory(); scrollToLastRequest(); } }
-function renderSessionsList() { let sData = getSessions(); let sortedChats = [...sData.list].sort((a,b) => { if(a.pinned && !b.pinned) return -1; if(!a.pinned && b.pinned) return 1; return Number(b.id) - Number(a.id); }); const el = document.getElementById('sessions-list'); el.innerHTML = sortedChats.map(s => { let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; return `<li class="list-item swipe-row ${String(s.id) === String(sData.current) ? 'in-cut' : ''}" onclick="loadSession('${s.id}')"><div class="swipe-main"><div style="flex:1; min-width:0; overflow:hidden;"><strong style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.title}</strong><span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div></div><div class="swipe-btns" onclick="event.stopPropagation()"><div class="inline-btn" onclick="togglePinCurrentChat('${s.id}')" style="font-size:14px;">${s.pinned ? '📌' : '📍'}</div><div class="inline-btn" onclick="deleteSession('${s.id}')">🗑️</div></div></li>`; }).join(''); initSwipeItems(el); }
-function openSwipeRow(row) { document.querySelectorAll('.swipe-row.swiped').forEach(r => { if(r !== row) closeSwipeRow(r); }); row.classList.add('swiped'); }
-function closeSwipeRow(row) { row.classList.remove('swiped'); const m = row.querySelector('.swipe-main'); if(m) m.style.transform = ''; }
-function initSwipeItems(container) { if(!container || window.innerWidth >= 768) return; container.querySelectorAll('.swipe-row').forEach(row => { if(row._swipeInit) return; row._swipeInit = true; let sx = 0, sy = 0, dragging = false; row.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; dragging = true; }, { passive: true }); row.addEventListener('touchmove', e => { if(!dragging) return; const dx = e.touches[0].clientX - sx; const dy = e.touches[0].clientY - sy; if(Math.abs(dy) > Math.abs(dx) + 4) { dragging = false; return; } e.preventDefault(); const base = row.classList.contains('swiped') ? -94 : 0; const m = row.querySelector('.swipe-main'); if(m) m.style.transform = `translateX(${Math.min(0, Math.max(-110, base + dx))}px)`; }, { passive: false }); row.addEventListener('touchend', e => { if(!dragging) return; dragging = false; const dx = e.changedTouches[0].clientX - sx; if(dx < -40) openSwipeRow(row); else if(dx > 20) closeSwipeRow(row); else if(row.classList.contains('swiped')) openSwipeRow(row); else closeSwipeRow(row); }, { passive: true }); }); }
-document.addEventListener('touchstart', e => { if(!e.target.closest('.swipe-row')) document.querySelectorAll('.swipe-row.swiped').forEach(closeSwipeRow); }, { passive: true });
+function renderSessionsList() { let sData = getSessions(); let sortedChats = [...sData.list].sort((a,b) => { if(a.pinned && !b.pinned) return -1; if(!a.pinned && b.pinned) return 1; return Number(b.id) - Number(a.id); }); document.getElementById('sessions-list').innerHTML = sortedChats.map(s => { let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; return `<li class="list-item ${String(s.id) === String(sData.current) ? 'in-cut' : ''}" onclick="loadSession('${s.id}')"><div style="flex:1;"><strong>${s.title}</strong> <span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div><div style="display:flex; gap:4px; align-items:center;"><div class="inline-btn" onclick="event.stopPropagation(); togglePinCurrentChat('${s.id}')" style="font-size:14px;">${s.pinned ? '📌' : '📍'}</div><div class="inline-btn" onclick="event.stopPropagation(); deleteSession('${s.id}')">🗑️</div></div></li>`; }).join(''); }
 async function togglePinCurrentChat(chatId) { let sData = getSessions(); let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat) return; chat.pinned = !chat.pinned; await saveAll(); renderSessionsList(); }
 
 async function resetCurrentSession() { 
@@ -2085,9 +2035,8 @@ async function pushToFirebase(manual = false) {
         await batch.commit();
         let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Push", `OK — ${n} chats`);
-        setSyncDirty(false);
         if(manual) notify("☁️ Pushed to cloud!", "#34c759");
-    } catch(e) { addLog("SYNC", "Push Error", e.message); setSyncDirty(false, true); notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
+    } catch(e) { addLog("SYNC", "Push Error", e.message); notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
 }
 
 async function applyCloudData(data, db, silent = false) {
@@ -2160,9 +2109,7 @@ function triggerAutoSync() {
     syncTimer = setTimeout(() => { syncTimer = null; pushToFirebase(); }, 1500);
 }
 
-function updateSyncLiveBadge(live) { }
-let _syncDirty = false, _syncFadeTimer = null;
-function setSyncDirty(dirty, error = false) { _syncDirty = dirty; const el = document.getElementById('sync-indicator'); if(!el || !CONFIG.fb_project || !CONFIG.fb_api) { if(el) el.style.display = 'none'; return; } clearTimeout(_syncFadeTimer); el.style.display = 'flex'; el.style.opacity = '1'; if(error) { el.innerHTML = '⚠️ Sync failed'; el.style.color = '#ff3b30'; _syncFadeTimer = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => { el.style.display = 'none'; }, 350); }, 4000); } else if(dirty) { el.innerHTML = '⟳ Saving…'; el.style.color = '#ff9500'; } else { el.innerHTML = '☁️ Synced'; el.style.color = '#34c759'; _syncFadeTimer = setTimeout(() => { if(!_syncDirty) { el.style.opacity = '0'; setTimeout(() => { if(!_syncDirty) el.style.display = 'none'; }, 350); } }, 3000); } }
+function updateSyncLiveBadge(live) { const el = document.getElementById('sync-live-badge'); if(el) el.style.display = live ? 'inline' : 'none'; }
 
 async function startRealtimeSync() {
     stopRealtimeSync();
