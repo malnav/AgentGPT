@@ -1159,7 +1159,6 @@ async function init() {
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); refreshUI(); initGestures(); setTimeout(updateInputHeightVar, 100);
     startRealtimeSync();
-    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) isInitializing = false;
 }
 
 async function refreshUI() {
@@ -1957,8 +1956,9 @@ function updateSyncLiveBadge(live) { const el = document.getElementById('sync-li
 async function startRealtimeSync() {
     stopRealtimeSync();
     syncReady = false;
-    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
-    const db = await initFirebase(); if(!db) return;
+    isInitializing = true;
+    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) { isInitializing = false; return; }
+    const db = await initFirebase(); if(!db) { isInitializing = false; return; }
     try {
         const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
         realtimeUnsub = onSnapshot(doc(db, "quicknote_data", "primary_user"), async (snap) => {
@@ -1993,10 +1993,10 @@ async function startRealtimeSync() {
             if(data.push_token && data.push_token === lastOwnPushToken) { addLog("SYNC", "Skip", "Own push echo — no re-apply needed"); return; }
             addLog("SYNC", "Realtime Update", "External change detected — applying cloud data");
             await applyCloudData(data, db, true);
-        }, (e) => { addLog("SYNC", "Listener Error", e.message); updateSyncLiveBadge(false); });
+        }, (e) => { isInitializing = false; addLog("SYNC", "Listener Error", e.message); updateSyncLiveBadge(false); });
         addLog("SYNC", "Realtime", "Listener connected");
         updateSyncLiveBadge(true);
-    } catch(e) { addLog("SYNC", "Realtime Init Error", e.message); }
+    } catch(e) { isInitializing = false; addLog("SYNC", "Realtime Init Error", e.message); }
 }
 
 function stopRealtimeSync() {
