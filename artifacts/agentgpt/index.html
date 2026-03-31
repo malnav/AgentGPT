@@ -446,16 +446,11 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #attach-menu { background: rgba(28,28,42,0.97) !important; }
 }
 
-/* ── CLOUD SYNC INDICATOR ── */
-#cloud-sync-indicator {
-  bottom: calc(var(--input-h, 130px) + 6px);
-  left: calc(var(--sidebar-w, 0px) + 10px);
-  color: #888;
-}
+/* ── CLOUD SYNC INDICATOR (inline input button) ── */
 #cloud-sync-indicator.csi-synced { color: #34c759; }
 #cloud-sync-indicator.csi-pending { color: #ff9f0a; }
 #cloud-sync-indicator.csi-syncing { color: #34c759; animation: sync-pulse 1.2s infinite; }
-#cloud-sync-indicator.csi-offline { color: #888; }
+#cloud-sync-indicator.csi-offline { color: #8e8e93; }
 
 /* ══════════════════════════════════════════════════════════
    RESPONSIVE LAYOUT — TABLET (≥768px) & DESKTOP (≥1100px)
@@ -777,6 +772,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             </div>
             <div style="display:flex; gap:10px; align-items:center;">
                 <div id="ctx-indicator" onclick="toggleAllContext()" style="cursor:pointer; font-size:14px; width:31px; height:27px; border-radius:12px; display:flex; align-items:center; justify-content:center; border:0.5px solid var(--glass-border); background:var(--glass); backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); box-shadow:var(--glass-shadow);" title="Toggle Context">☁️</div>
+                <div id="cloud-sync-indicator" onclick="pushToFirebase(true)" title="Cloud Sync — tap to push" style="cursor:pointer; display:none; position:relative; width:31px; height:27px; border-radius:12px; align-items:center; justify-content:center; border:0.5px solid var(--glass-border); background:var(--glass); backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); box-shadow:var(--glass-shadow); color:var(--text);"><span id="csi-icon" style="font-size:13px; line-height:1;">☁</span><span id="csi-dot" style="position:absolute; bottom:3px; right:4px; font-size:7px; line-height:1; font-weight:900;">●</span></div>
                 <div onclick="resetCurrentSession()" style="cursor:pointer; font-size:14px; width:31px; height:27px; border-radius:12px; display:flex; align-items:center; justify-content:center; border:0.5px solid var(--glass-border); background:var(--glass); backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); box-shadow:var(--glass-shadow);" title="New Chat">📝</div>
                 <button class="send-btn" id="send-btn-el" onclick="sendToAI()" title="Send">↑</button>
             </div>
@@ -1069,7 +1065,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 </div></div>
 
-<div id="cloud-sync-indicator" style="position:fixed; display:none; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:5px 12px; border-radius:20px; z-index:10000; pointer-events:none; transition: opacity 0.3s ease; background:rgba(20,20,30,0.82); backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); border:0.5px solid rgba(255,255,255,0.12); box-shadow:0 2px 12px rgba(0,0,0,0.25);"><span id="csi-dot" style="font-size:9px; line-height:1;">●</span><span id="csi-text">Synced</span></div>
 
 <div id="confirm-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 9999;"><div class="confirm-box" style="background: var(--bg); padding: 24px; border-radius: 20px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"><p id="confirm-msg" style="margin-top:0; font-weight:700; font-size:16px; margin-bottom:20px; white-space:pre-line;">Are you sure?</p><div style="display:flex; gap:12px;"><button class="chip" style="flex:1; background:var(--danger); color:#fff; padding:10px;" id="confirm-yes">Yes</button><button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" id="confirm-no">Cancel</button></div></div></div>
 <div id="custom-prompt-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 10001;"><div class="confirm-box" style="background: var(--bg); padding: 24px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"><p id="custom-prompt-msg" style="margin-top:0; font-weight:700; font-size:14px; margin-bottom:12px; text-align:left;"></p><textarea id="custom-prompt-input" class="pp-input" style="margin-bottom:20px; height:150px; font-family:inherit; resize:none;"></textarea><div style="display:flex; gap:12px;"><button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:10px;" id="custom-prompt-ok">OK</button><button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" id="custom-prompt-cancel">Cancel</button></div></div></div>
