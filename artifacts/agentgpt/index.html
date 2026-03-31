@@ -4,7 +4,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>AgentGPT</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
@@ -435,170 +435,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .tool-menu-item:last-child { border-bottom: none; }
 .tool-menu-item:active { background: rgba(0,122,255,0.08); }
 @keyframes sync-pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
-
-/* ── ATTACH MENU — body-level fixed, above all panels ── */
-#attach-menu {
-  background: rgba(250,250,255,0.97);
-  box-shadow: 0 -8px 32px rgba(0,0,0,0.22);
-  right: auto !important;
-  width: auto;
-}
-@media (prefers-color-scheme: dark) {
-  #attach-menu { background: rgba(28,28,42,0.97); }
-}
-
-
-/* ══════════════════════════════════════════════════════════
-   RESPONSIVE LAYOUT — TABLET (≥768px) & DESKTOP (≥1100px)
-   ══════════════════════════════════════════════════════════ */
-:root { --sidebar-w: 0px; }
-
-@media (min-width: 768px) {
-  :root { --sidebar-w: 280px; }
-
-  /* Workspace sidebar — pinned, always visible */
-  #workspace-panel {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    width: var(--sidebar-w) !important;
-    border-radius: 0 !important;
-    border-right: 0.5px solid var(--glass-border);
-    box-shadow: 2px 0 28px rgba(0,0,0,0.07) !important;
-    transition: width 0.3s ease !important;
-  }
-
-  /* Offset all main-area elements from the sidebar */
-  .scroll-area { margin-left: var(--sidebar-w); }
-  .input-zone { left: var(--sidebar-w) !important; }
-  .top-nav { left: var(--sidebar-w) !important; }
-  #scroll-bottom-btn { left: calc(var(--sidebar-w) + 12px) !important; }
-
-  /* Hide mobile-only pull indicator */
-  .global-pull { display: none !important; }
-
-  /* Hide workspace panel's own close buttons (sidebar is always pinned) */
-  #workspace-panel .panel-header div[onclick="closeAllPanels()"] { display: none !important; }
-
-  /* Right-side panels: compact floating glass cards */
-  #vars-slide-panel, #srv-slide-panel {
-    width: 360px !important;
-    top: 10px !important;
-    bottom: 10px !important;
-    border-radius: 20px !important;
-    right: -400px !important;
-    transition: right 0.35s cubic-bezier(0.34,1.4,0.64,1) !important;
-  }
-  #vars-slide-panel.open, #srv-slide-panel.open { right: 10px !important; }
-  .ctx-panel {
-    width: 380px !important;
-    top: 10px !important;
-    bottom: 10px !important;
-    border-radius: 20px !important;
-    right: -420px !important;
-  }
-  .ctx-panel.open { right: 10px !important; }
-
-  /* Chat bubbles — proportionally narrower */
-  .bubble { max-width: 70%; min-width: 40%; }
-  #chat-container { padding: 12px 24px; }
-
-  /* Modal overlay + centered dialog card */
-  .modal.has-sheet {
-    background: rgba(0,0,0,0.42) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-  .modal-sheet {
-    width: min(580px, 92vw);
-    max-height: min(700px, 90vh);
-    display: flex;
-    flex-direction: column;
-    background: var(--bg);
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 32px 80px rgba(0,0,0,0.45), 0 4px 20px rgba(0,0,0,0.2);
-    flex-shrink: 0;
-  }
-  .modal-sheet .modal-content { flex: 1; overflow-y: auto; min-height: 0; }
-  #master-modal .modal-sheet { width: min(820px, 94vw); max-height: min(720px, 90vh); }
-  #calendar-modal .modal-sheet { width: min(740px, 94vw); max-height: min(680px, 90vh); }
-}
-
-@media (min-width: 1100px) {
-  :root { --sidebar-w: 300px; }
-
-  /* Hide workspace toggle — sidebar is always pinned */
-  #workspace-toggle-btn { display: none !important; }
-
-  /* Narrower, more readable bubbles */
-  .bubble { max-width: 62%; min-width: 30%; }
-  #chat-container { padding: 16px 48px; }
-
-  /* Master modal — 2-column sidebar nav layout */
-  #master-modal .modal-sheet {
-    width: min(960px, 95vw);
-    max-height: min(740px, 90vh);
-    display: grid;
-    grid-template-columns: 160px 1fr;
-    grid-template-rows: auto 1fr;
-    overflow: hidden;
-  }
-  #master-modal .modal-header {
-    grid-column: 1; grid-row: 1;
-    border-bottom: none !important;
-    border-right: 0.5px solid var(--border);
-    border-radius: 20px 0 0 0 !important;
-    background: rgba(128,128,128,0.07) !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    padding: 20px 14px 8px 16px !important;
-    align-items: flex-start !important;
-  }
-  #master-modal .modal-header h3 {
-    font-size: 11px !important;
-    font-weight: 800 !important;
-    color: #888 !important;
-    letter-spacing: 0.5px !important;
-    text-transform: uppercase !important;
-  }
-  #master-modal .modal-header > div:last-child { display: none !important; }
-  #master-modal .modal-tabs {
-    grid-column: 1; grid-row: 2;
-    flex-direction: column !important;
-    border-bottom: none !important;
-    border-right: 0.5px solid var(--border);
-    border-radius: 0 0 0 20px !important;
-    background: rgba(128,128,128,0.07) !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    margin: 0 !important;
-    padding: 6px 10px 16px 10px !important;
-    align-items: stretch !important;
-    justify-content: flex-start !important;
-    gap: 4px !important;
-    overflow-y: auto;
-    min-height: 0;
-  }
-  #master-modal .tab-btn {
-    text-align: left !important;
-    padding: 10px 14px !important;
-    font-size: 12px !important;
-    border-radius: 12px !important;
-    flex: none !important;
-    white-space: nowrap !important;
-  }
-  #master-modal .modal-content {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    overflow-y: auto;
-    min-height: 0;
-    border-radius: 0 20px 20px 0 !important;
-  }
-}
 </style>
 </head>
 <body>
@@ -611,7 +447,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <div class="top-nav">
     <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
-        <div id="workspace-toggle-btn" onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="cursor:pointer; font-size:18px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow);" title="Workspace">🗂️</div>
+        <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="cursor:pointer; font-size:18px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow);" title="Workspace">🗂️</div>
         <select id="main-profile-sel" class="main-profile-dropdown" onchange="switchProfileSession(this.value)"></select>
     </div>
     <div class="sys-icons">
@@ -647,7 +483,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
         <div id="wtab-all-btns" style="display:none; gap:8px; align-items:center; margin-left:8px;">
-            <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="resetCurrentSession(); switchWorkspaceTab('current');" title="New Chat">+</button>
             <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
     </div>
@@ -749,7 +584,17 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         
         <div class="input-bottom-bar">
             <div style="display:flex; gap:6px; align-items:center;">
-                <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="openAttachMenu(this)">➕</button>
+                <div style="position:relative;">
+                    <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="toggleMenu(document.getElementById('attach-menu'))">➕</button>
+                    <div id="attach-menu" class="tool-menu closed" style="bottom: 100%; top: auto; left: 0; right: auto; margin-bottom: 10px; min-width: 160px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15);">
+                        <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); document.getElementById('attach-menu').classList.add('closed');">📷 Camera</div>
+                        <div class="tool-menu-item" onclick="document.getElementById('attach-img').click(); document.getElementById('attach-menu').classList.add('closed');">🖼️ Photo Library</div>
+                        <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); document.getElementById('attach-menu').classList.add('closed');">📁 Files</div>
+                        <div class="tool-menu-item" onclick="toggleTplPanel(); renderTemplates(); document.getElementById('attach-menu').classList.add('closed');">📄 Templates</div>
+                        <div class="tool-menu-item" onclick="toggleSrvPanel(); renderToolsList(); document.getElementById('attach-menu').classList.add('closed');">🔌 Services</div>
+                        <div class="tool-menu-item" onclick="toggleCtxPanel(); refreshUI(); document.getElementById('attach-menu').classList.add('closed');">📋 Context</div>
+                    </div>
+                </div>
 
                 <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="manageSection('prompts'); closeAllPanels();" title="Manage Prompts">📚</button>
                 <select id="chatModel" class="model-sel"></select>
@@ -765,8 +610,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 </div>
 
-<div id="master-modal" class="modal has-sheet">
-<div class="modal-sheet">
+<div id="master-modal" class="modal">
     <div class="modal-header"><h3>Settings Hub</h3><div onclick="closeModal('master-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
     <div class="modal-tabs">
         <button id="mtab-config" class="tab-btn active" onclick="switchMasterTab('config')">🔧 CONFIG</button>
@@ -817,6 +661,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <small style="font-weight:800; font-size:11px; color:var(--accent);">🔥 FIREBASE CLOUD SYNC</small>
             <label style="font-size:11px; font-weight:700;"><input type="checkbox" id="fb-auto-f" onchange="saveMasterConfig()"> Auto-Sync</label>
+            <span id="sync-live-badge" style="display:none; font-size:10px; font-weight:800; color:#34c759; margin-left:6px; animation: sync-pulse 2s infinite;">● LIVE</span>
         </div>
         <input type="text" id="fb-project-f" class="pp-input" placeholder="Firebase Project ID (e.g. my-app-123)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
         <input type="password" id="fb-api-f" class="pp-input" placeholder="Firebase Web API Key" onchange="saveMasterConfig()" style="margin-bottom:10px;">
@@ -865,10 +710,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <ul id="model-list-crud" style="list-style:none; padding:0; margin:0;"></ul>
     </div>
     <div id="mview-logs" class="modal-content closed" style="background:var(--log-bg); color:var(--log-text); font-family:monospace; font-size:11px; padding-top:10px;"><div id="log-viewer" style="white-space:pre-wrap;"></div></div>
-</div></div>
+</div>
 
-<div id="calendar-modal" class="modal has-sheet">
-<div class="modal-sheet">
+<div id="calendar-modal" class="modal">
     <div class="modal-header">
         <button class="chip" style="padding:4px 10px;" onclick="changeMonth(-1)">◀</button>
         <h3 id="cal-month-title" style="font-size:16px;">Month</h3>
@@ -889,7 +733,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <hr style="border:none; border-top:1px solid var(--border); margin:12px 0;">
         <div id="cal-list-content"></div>
     </div>
-</div></div>
+</div>
 
 <div id="dataset-detail-modal" class="modal" style="z-index:250; background:rgba(0,0,0,0.8); align-items:center; justify-content:center;">
     <div style="background:var(--bg); width:90%; max-height:80vh; border-radius:20px; display:flex; flex-direction:column; overflow:hidden;">
@@ -999,10 +843,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 </div>
 
-<div id="var-picker-modal" class="modal has-sheet" style="z-index: 500;"><div class="modal-sheet"><div class="modal-header"><h3>Select Variable</h3><div onclick="closeModal('var-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="var-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div></div>
+<div id="var-picker-modal" class="modal" style="z-index: 500;"><div class="modal-header"><h3>Select Variable</h3><div onclick="closeModal('var-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="var-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div>
 
-<div id="var-edit-modal" class="modal has-sheet" style="z-index: 510;">
-<div class="modal-sheet">
+<div id="var-edit-modal" class="modal" style="z-index: 510;">
     <div class="modal-header"><h3 style="color:var(--accent);">Edit Variable</h3><div onclick="closeModal('var-edit-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
     <div style="padding:8px 14px; border-bottom:0.5px solid var(--border);">
         <input type="text" id="var-edit-name" class="pp-input" placeholder="Variable name..." style="font-weight:700; font-size:14px; font-family:monospace; margin:0;">
@@ -1021,9 +864,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" onclick="closeModal('var-edit-modal')">Cancel</button>
         <button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:10px;" id="var-edit-save-btn">Save</button>
     </div>
-</div></div>
-<div id="global-todos-modal" class="modal has-sheet" style="z-index: 520;">
-<div class="modal-sheet">
+</div>
+<div id="global-todos-modal" class="modal" style="z-index: 520;">
     <div class="modal-header"><h3>✅ All Todos</h3><div onclick="closeModal('global-todos-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
     <div style="padding:8px 14px; display:flex; gap:6px; flex-shrink:0; border-bottom:0.5px solid var(--border);">
         <button class="chip" id="gtodo-filter-all" style="font-size:11px; background:var(--accent); color:#fff;" onclick="setGlobalTodoFilter('all')">All Profiles</button>
@@ -1034,10 +876,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     <div class="modal-content" style="padding:12px 14px;">
         <div id="global-todo-list" style="display:flex; flex-direction:column; gap:6px;"></div>
     </div>
-</div></div>
+</div>
 
-<div id="todo-edit-modal" class="modal has-sheet" style="z-index: 530;">
-<div class="modal-sheet">
+<div id="todo-edit-modal" class="modal" style="z-index: 530;">
     <div class="modal-header"><h3 style="color:var(--accent);">Edit Todo</h3><div onclick="closeModal('todo-edit-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
     <div class="modal-content" style="padding:14px;">
         <textarea id="todo-edit-text" class="pp-input" style="height:80px; resize:none; margin-bottom:10px;" placeholder="Todo text..."></textarea>
@@ -1048,16 +889,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" onclick="closeModal('todo-edit-modal')">Cancel</button>
         <button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:10px;" id="todo-edit-save-btn">Save</button>
     </div>
-</div></div>
-
-
-<div id="attach-menu" class="tool-menu closed" style="position:fixed; z-index:9999; min-width:160px;">
-    <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); closeAttachMenu();">📷 Camera</div>
-    <div class="tool-menu-item" onclick="document.getElementById('attach-img').click(); closeAttachMenu();">🖼️ Photo Library</div>
-    <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); closeAttachMenu();">📁 Files</div>
-    <div class="tool-menu-item" onclick="toggleTplPanel(); renderTemplates(); closeAttachMenu();">📄 Templates</div>
-    <div class="tool-menu-item" onclick="toggleSrvPanel(); renderToolsList(); closeAttachMenu();">🔌 Services</div>
-    <div class="tool-menu-item" onclick="toggleCtxPanel(); refreshUI(); closeAttachMenu();">📋 Context</div>
 </div>
 
 <div id="confirm-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 9999;"><div class="confirm-box" style="background: var(--bg); padding: 24px; border-radius: 20px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"><p id="confirm-msg" style="margin-top:0; font-weight:700; font-size:16px; margin-bottom:20px; white-space:pre-line;">Are you sure?</p><div style="display:flex; gap:12px;"><button class="chip" style="flex:1; background:var(--danger); color:#fff; padding:10px;" id="confirm-yes">Yes</button><button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" id="confirm-no">Cancel</button></div></div></div>
@@ -1106,8 +937,6 @@ const DEFAULT_DATA = { profiles: [{ label: "Agent", text: "Expert Agent.", expec
 const SCHEMA_HINTS = { profiles: `[ { "label": "Name", "text": "Instructions", "expected_vars": [], "extraction_rules": "" } ]`, prompts: `[ { "label": "Name", "text": "Prompt Data", "model": "", "profile": "Global" } ]`, templates: `[ { "label": "Name", "text": "Data", "tags": "tag1, tag2", "profile": "Global", "fav": false, "lastUsed": 0 } ]`, tools: `[ { "label": "Name", "method": "GET", "text": "URL", "headers": "{}", "body": "", "extract": "", "use_oauth": false, "profile": "Global" } ]`, models: `[ { "label": "Display Name", "text": "model-id" } ]` };
 
 let AI_PROFILES = [], PROMPTS = [], TEMPLATES = [], API_SERVICES = [], AI_MODELS = [], CONFIG = {}, chatHistories = {};
-let DELETED_SESSIONS = new Set(JSON.parse(localStorage.getItem('_del_sess') || '[]'));
-function _persistDeleted() { try { localStorage.setItem('_del_sess', JSON.stringify([...DELETED_SESSIONS])); } catch(e) {} }
 let GLOBAL_DATASETS = {};
 let activeProfileLabel = "Agent";
 let chatHistory = [], historyState = [], redoState = [], APP_LOGS = [], activeSearch = "", editIdx = -1, activeCrud = "";
@@ -1181,15 +1010,8 @@ async function getStorageSize() { const str = JSON.stringify(chatHistories); ret
 
 document.addEventListener('click', (e) => { if(!e.target.closest('.tool-menu') && !e.target.closest('.inline-btn') && !e.target.closest('.chip')) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => m.classList.add('closed')); } });
 function toggleMenu(menuEl) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => { if(m !== menuEl) m.classList.add('closed'); }); menuEl.classList.toggle('closed'); }
-function openAttachMenu(btn) { const menu = document.getElementById('attach-menu'); const r = btn.getBoundingClientRect(); const menuH = 6 * 48; const top = r.top - menuH - 8; menu.style.left = r.left + 'px'; menu.style.top = Math.max(8, top) + 'px'; menu.style.bottom = ''; menu.classList.toggle('closed'); document.querySelectorAll('.tool-menu:not(#attach-menu):not(.closed)').forEach(m => m.classList.add('closed')); }
-function closeAttachMenu() { document.getElementById('attach-menu').classList.add('closed'); }
 function updateInputHeightVar() { const z = document.getElementById('main-input-zone'); if (z) document.documentElement.style.setProperty('--input-h', z.offsetHeight + 'px'); }
 window.addEventListener('resize', updateInputHeightVar);
-document.addEventListener('touchmove', (e) => { if(e.touches.length > 1) e.preventDefault(); }, { passive: false });
-document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
-const _vp = document.querySelector('meta[name=viewport]');
-document.addEventListener('focusin', (e) => { if(e.target.matches('input,textarea,select')) _vp.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover'; });
-document.addEventListener('focusout', (e) => { if(e.target.matches('input,textarea,select')) _vp.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover'; });
 
 const mainScrollEl = document.getElementById('mainScroll'); const scrollBtnEl = document.getElementById('scroll-bottom-btn');
 mainScrollEl.addEventListener('scroll', () => { if (mainScrollEl.scrollHeight - mainScrollEl.scrollTop - mainScrollEl.clientHeight > 150) { scrollBtnEl.style.display = 'block'; } else { scrollBtnEl.style.display = 'none'; } });
@@ -1217,7 +1039,7 @@ function renderAttachmentPreview() {
 
 async function factoryReset() { openConfirm("WIPE DATA?\nThis deletes all profiles, chats, templates, and tools.", async () => { localStorage.clear(); await dbHelper.clear(); notify(`Data wiped. Restarting...`, "#34c759", 3500); setTimeout(() => location.reload(), 2000); }); }
 async function quickDel(type, idx) { activeCrud = type; openConfirm("Delete this item?", async () => { getActiveData().splice(idx, 1); addLog("CRUD", "Delete", `${type} index ${idx}`); await saveAll(); refreshUI(); renderEntryList(); if(type === 'profiles') renderProfileList(); if(type === 'models') renderModelList(); }); }
-async function deleteSession(id) { openConfirm("Delete this chat session?", async () => { let sData = getSessions(); const wasActive = String(sData.current) === String(id); sData.list = sData.list.filter(s => String(s.id) !== String(id)); DELETED_SESSIONS.add(String(id)); _persistDeleted(); addLog("SESSION", "Delete Chat", id); if(sData.list.length === 0) { closeAllPanels(); await resetCurrentSession(); await pushHistoriesToFirebase(); } else { if(wasActive) { const sorted = [...sData.list].sort((a,b) => Number(b.id) - Number(a.id)); sData.current = sorted[0].id; chatHistory = sorted[0].msgs || []; } chatHistories[activeProfileLabel] = sData; await saveAll(true); await pushHistoriesToFirebase(); renderWorkspaceLists(); if(wasActive) await switchProfileSession(activeProfileLabel); } }); }
+async function deleteSession(id) { openConfirm("Delete this chat session?", async () => { let sData = getSessions(); const wasActive = String(sData.current) === String(id); sData.list = sData.list.filter(s => String(s.id) !== String(id)); addLog("SESSION", "Delete Chat", id); if(sData.list.length === 0) { closeAllPanels(); await resetCurrentSession(); } else { if(wasActive) { const sorted = [...sData.list].sort((a,b) => Number(b.id) - Number(a.id)); sData.current = sorted[0].id; chatHistory = sorted[0].msgs || []; } chatHistories[activeProfileLabel] = sData; await saveAll(); renderWorkspaceLists(); if(wasActive) await switchProfileSession(activeProfileLabel); } }); }
 
 async function jumpToSession(profileLabel, sessionId) {
     if(activeProfileLabel !== profileLabel) { await switchProfileSession(profileLabel); }
@@ -1295,7 +1117,7 @@ function initGestures() {
     }
     document.querySelectorAll('.side-panel, .ctx-panel, .modal').forEach(lockPanelScroll);
 }
-function closeAllPanels(except = null) { let keepWs = window.innerWidth >= 768; ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except && !(keepWs && id === 'workspace-panel')) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
+function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
 function toggleVarsPanel() { closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); }
 function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
 function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
@@ -1315,7 +1137,7 @@ async function saveAll(skipCloud = false) {
         let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) cur.msgs = chatHistory; }
         CONFIG._ts = Date.now();
         await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
-        if(!skipCloud) triggerAutoSync();
+        if(!skipCloud) triggerAutoSync(); 
     } catch(e) { console.error("DB Save Error:", e); notify("⚠️ DB Error: " + (e.name || "Write Failed"), "#ff3b30", 4000); }
 }
 
@@ -1336,7 +1158,6 @@ async function init() {
     if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0].label; }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); refreshUI(); initGestures(); setTimeout(updateInputHeightVar, 100);
-    if(window.innerWidth >= 768) { document.getElementById('workspace-panel').classList.add('open'); renderWorkspaceLists(); }
     startRealtimeSync();
 }
 
@@ -1359,7 +1180,7 @@ async function refreshUI() {
 function updateCtxSelection() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let btn = document.getElementById('ctx-bulk-btn-wrapper'); if(boxes.length > 0) { btn.style.display = 'block'; btn.querySelector('button').innerText = `Insert ${boxes.length} Selected ⟶`; } else { btn.style.display = 'none'; } }
 function insertSelectedContexts() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let combined = Array.from(boxes).map(b => CONTEXT_LINES[b.value]).join('\n'); insertAtCursor(combined, true, false); boxes.forEach(b => b.checked = false); updateCtxSelection(); closeAllPanels(); }
 function insertContextAtCursor(i) { insertAtCursor(CONTEXT_LINES[i], true, false); closeAllPanels(); }
-async function saveModelEntry() { const l = document.getElementById('mod-l').value, t = document.getElementById('mod-t').value; if(!l || !t) return notify("Fill both label and ID", "#ff3b30"); AI_MODELS.push({ label: l, text: t, profile: "Global" }); document.getElementById('mod-l').value = ""; document.getElementById('mod-t').value = ""; await saveAll(); triggerSettingsSync(); refreshUI(); renderModelList(); notify("Model Added!", "#34c759"); }
+async function saveModelEntry() { const l = document.getElementById('mod-l').value, t = document.getElementById('mod-t').value; if(!l || !t) return notify("Fill both label and ID", "#ff3b30"); AI_MODELS.push({ label: l, text: t, profile: "Global" }); document.getElementById('mod-l').value = ""; document.getElementById('mod-t').value = ""; await saveAll(); refreshUI(); renderModelList(); notify("Model Added!", "#34c759"); }
 function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile === activeProfileLabel || t.profile === 'Global'); document.getElementById('tools-view').innerHTML = filtT.map(t => { let tIdx = API_SERVICES.indexOf(t); return `<div class="list-item" style="border-radius:8px; border:1px solid var(--border); margin-bottom:4px;" onclick="triggerApiService(${tIdx}); closeAllPanels();"><div style="flex:1;"><strong>${t.label}</strong></div></div>`; }).join(''); }
 function switchVarsTab(t) { ['vars','todos'].forEach(k => { document.getElementById('vtab-'+k).classList.toggle('active', t===k); document.getElementById('vview-'+k).classList.toggle('closed', t!==k); document.getElementById('vtab-'+k+'-btns').style.display = t===k ? 'flex' : 'none'; }); if(t === 'todos') renderChatTodos(); }
 function renderWorkspaceLists() { renderSessionsList(); let cur = document.querySelector('#workspace-panel .sub-tab-btn.active'); let curTab = cur ? (cur.id === 'wtab-all' ? 'all' : cur.id === 'wtab-data' ? 'data' : 'current') : 'current'; if(curTab === 'all') renderAllSessionsList(); if(curTab === 'data') renderDatasetsList(); }
@@ -1367,7 +1188,7 @@ function switchWorkspaceTab(tab) { ['current','all','data'].forEach(k => { docum
 function renderAllSessionsList() { let validProfiles = new Set(AI_PROFILES.map(p => p.label)); let allChats = []; Object.entries(chatHistories).forEach(([profLabel, sData]) => { if(!sData || !sData.list || !validProfiles.has(profLabel)) return; sData.list.forEach(chat => { let msgCount = (chat.msgs||[]).filter(m => m.role !== 'developer').length; if(msgCount === 0) return; let isActive = profLabel === activeProfileLabel && String(chat.id) === String(sData.current); let lastMsgTs = parseInt(chat.id) || 0; allChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs }); }); }); allChats.sort((a, b) => { if(a.chat.pinned && !b.chat.pinned) return -1; if(!a.chat.pinned && b.chat.pinned) return 1; return b.lastMsgTs - a.lastMsgTs; }); document.getElementById('all-sessions-list').innerHTML = allChats.length === 0 ? '<li style="color:#888; font-size:13px; padding:12px;">No chats yet.</li>' : allChats.map(({ chat, profLabel, msgCount, isActive }) => `<li class="list-item ${isActive ? 'in-cut' : ''}" onclick="loadSessionFromProfile('${profLabel}','${chat.id}')"><div style="flex:1; min-width:0;"><div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;"><strong style="font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chat.title}</strong><span style="font-size:10px; color:var(--accent); background:var(--sec-bg); border-radius:6px; padding:1px 5px; flex-shrink:0;">${profLabel}</span></div><span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div><div style="display:flex; gap:4px; align-items:center; flex-shrink:0;"><div class="inline-btn" onclick="event.stopPropagation(); togglePinChat('${profLabel}','${chat.id}')" title="${chat.pinned ? 'Unpin' : 'Pin'}" style="font-size:14px;">${chat.pinned ? '📌' : '📍'}</div><div class="inline-btn" onclick="event.stopPropagation(); deleteSessionFromProfile('${profLabel}','${chat.id}')">🗑️</div></div></li>`).join(''); }
 async function loadSessionFromProfile(profLabel, chatId) { if(profLabel !== activeProfileLabel) { activeProfileLabel = profLabel; await dbHelper.set('activeProfile', activeProfileLabel); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(chatId)); if(cur) { sData.current = chatId; chatHistories[activeProfileLabel] = sData; chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; } await saveAll(); closeAllPanels(); await refreshUI(); renderChatHistory(); scrollToLastRequest(); } else { await loadSession(chatId); } }
 async function togglePinChat(profLabel, chatId) { let sData = chatHistories[profLabel]; if(!sData) return; let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat) return; chat.pinned = !chat.pinned; await saveAll(); renderAllSessionsList(); }
-async function deleteSessionFromProfile(profLabel, chatId) { openConfirm("Delete this chat session?", async () => { let sData = chatHistories[profLabel]; if(!sData || !sData.list) return; sData.list = sData.list.filter(s => String(s.id) !== String(chatId)); DELETED_SESSIONS.add(String(chatId)); _persistDeleted(); if(sData.list.length === 0) { const defId = Date.now().toString() + Math.floor(Math.random()*1000); sData.list.push({ id: defId, title: "Chat", msgs: [], var_id: defId }); sData.current = defId; } if(String(sData.current) === String(chatId)) sData.current = sData.list[0].id; if(profLabel === activeProfileLabel) { chatHistory = sData.list.find(x => String(x.id) === String(sData.current))?.msgs || []; renderChatHistory(); } await saveAll(true); await pushHistoriesToFirebase(); renderAllSessionsList(); renderSessionsList(); }); }
+async function deleteSessionFromProfile(profLabel, chatId) { openConfirm("Delete this chat session?", async () => { let sData = chatHistories[profLabel]; if(!sData || !sData.list) return; sData.list = sData.list.filter(s => String(s.id) !== String(chatId)); if(sData.list.length === 0) { const defId = Date.now().toString() + Math.floor(Math.random()*1000); sData.list.push({ id: defId, title: "Chat", msgs: [], var_id: defId }); sData.current = defId; } if(String(sData.current) === String(chatId)) sData.current = sData.list[0].id; if(profLabel === activeProfileLabel) { chatHistory = sData.list.find(x => String(x.id) === String(sData.current))?.msgs || []; renderChatHistory(); } await saveAll(); renderAllSessionsList(); renderSessionsList(); }); }
 
 let globalTodoFilter = 'all';
 function getCurrentChatTodos() { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur) return { todos: [], chatId: null, chatTitle: '' }; if(!cur.todos) cur.todos = []; return { todos: cur.todos, chatId: cur.id, chatTitle: cur.title }; }
@@ -1821,7 +1642,7 @@ async function saveMasterConfig() {
     CONFIG.extract_model = document.getElementById('extract-model-f').value;
     CONFIG.suggest_model = document.getElementById('suggest-model-f').value;
     CONFIG.def_ctx = document.getElementById('def-ctx-f').value;
-    await saveAll(); triggerSettingsSync(); await refreshUI(); notify("Config Saved!", "#34c759");
+    await saveAll(); await refreshUI(); notify("Config Saved!", "#34c759");
     const credentialsChanged = CONFIG.fb_api !== prevFbApi || CONFIG.fb_project !== prevFbProject;
     if(credentialsChanged) { fbDb = null; stopRealtimeSync(); }
     startRealtimeSync();
@@ -1876,9 +1697,7 @@ function redoStateAction() { const noteIn = document.getElementById('note-input'
 async function openModal(id) { 
     closeAllPanels(); 
     if(id === 'workspace-modal') await autoCleanupEmptyChats();
-    let el = document.getElementById(id);
-    el.style.display = 'flex'; 
-    if(el.classList.contains('has-sheet') && window.innerWidth >= 768) { el.onclick = (e) => { if(e.target === el) closeModal(id); }; } else { el.onclick = null; }
+    document.getElementById(id).style.display = 'flex'; 
     if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); } 
 }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -1934,7 +1753,7 @@ function filterApiModels() {
 async function addApiModel(id, label) {
     if(AI_MODELS.find(m => m.text === id)) return notify("Already added", "#888");
     AI_MODELS.push({ label, text: id });
-    await saveAll(); triggerSettingsSync(); refreshUI(); renderModelList(); filterApiModels();
+    await saveAll(); refreshUI(); renderModelList(); filterApiModels();
     notify(`${label} added!`, "#34c759");
 }
 function renderProfileList() { document.getElementById('profile-list-crud').innerHTML = AI_PROFILES.map((p,i) => `<li class="list-item"><span style="flex:1;"><strong>${p.label}</strong></span> <button class="inline-btn" style="margin-right:8px;" onclick="manageSection('profiles'); editItem(${i})">✏️</button> <button class="inline-btn" onclick="quickDel('profiles', ${i})">🗑️</button></li>`).join(''); }
@@ -2022,7 +1841,7 @@ async function sendToAI() {
 // a random pushToken per-commit so we can skip the redundant re-render.
 // ─────────────────────────────────────────────────────────────────────────────
 let fbDb = null;
-let syncTimer = null; let settingsSyncTimer = null;
+let syncTimer = null;
 let realtimeUnsub = null;
 let syncReady = false;
 let applyInProgress = false;
@@ -2038,42 +1857,6 @@ async function initFirebase() {
         const apps = getApps(); const app = apps.length ? apps[0] : initializeApp({ apiKey: CONFIG.fb_api, projectId: CONFIG.fb_project });
         fbDb = getFirestore(app); return fbDb;
     } catch(e) { addLog("SYNC", "Init Failed", e.message); return null; }
-}
-
-async function pushHistoriesToFirebase() {
-    const db = await initFirebase(); if(!db) return;
-    try {
-        const { doc, writeBatch } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
-        const pushToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
-        lastOwnPushToken = pushToken;
-        const batch = writeBatch(db);
-        const histStr = JSON.stringify(chatHistories); const chunks = []; const chunkSize = 300000;
-        for(let i = 0; i < histStr.length; i += chunkSize) chunks.push(histStr.substring(i, i + chunkSize));
-        batch.set(doc(db, "quicknote_data", "primary_user"), { chunks_count: chunks.length, push_token: pushToken, last_sync: Date.now() }, { merge: true });
-        for(let i = 0; i < chunks.length; i++) batch.set(doc(db, "quicknote_data", "primary_hist_" + i), { data: chunks[i] });
-        await batch.commit();
-        let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
-        addLog("SYNC", "Histories Push", `OK — ${n} chats`);
-    } catch(e) { addLog("SYNC", "Histories Push Error", e.message); notify("⚠️ Histories sync failed: " + (e.code || e.message), "#ff3b30", 4000); }
-}
-
-async function pushSettingsToFirebase() {
-    const db = await initFirebase(); if(!db) return;
-    try {
-        const { doc, writeBatch } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
-        const pushToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
-        lastOwnPushToken = pushToken;
-        const batch = writeBatch(db);
-        batch.set(doc(db, "quicknote_data", "primary_user"), { profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, push_token: pushToken, last_sync: Date.now() }, { merge: true });
-        await batch.commit();
-        addLog("SYNC", "Settings Push", "OK");
-    } catch(e) { addLog("SYNC", "Settings Push Error", e.message); notify("⚠️ Settings sync failed: " + (e.code || e.message), "#ff3b30", 4000); }
-}
-
-function triggerSettingsSync() {
-    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
-    clearTimeout(settingsSyncTimer);
-    settingsSyncTimer = setTimeout(() => { settingsSyncTimer = null; pushSettingsToFirebase(); }, 2000);
 }
 
 async function pushToFirebase(manual = false) {
@@ -2096,31 +1879,26 @@ async function pushToFirebase(manual = false) {
     } catch(e) { addLog("SYNC", "Push Error", e.message); notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
 }
 
-async function applyCloudData(data, db, silent = false, forcePush = false) {
-    if(applyInProgress) { pendingCloudData = { data, db, silent, forcePush }; return; }
+async function applyCloudData(data, db, silent = false) {
+    if(applyInProgress) { pendingCloudData = { data, db, silent }; return; }
     applyInProgress = true;
     try {
         const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
-        let cloudHistories = chatHistories;
+        let newHistories = chatHistories;
         if(data.chunks_count > 0) {
             let fullStr = "";
             for(let i = 0; i < data.chunks_count; i++) { const c = await getDoc(doc(db, "quicknote_data", "primary_hist_" + i)); if(c.exists()) fullStr += c.data().data; }
-            if(fullStr) cloudHistories = JSON.parse(fullStr);
-        } else if(data.histories) { cloudHistories = data.histories; }
+            if(fullStr) newHistories = JSON.parse(fullStr);
+        } else if(data.histories) { newHistories = data.histories; }
 
-        const { merged, hadLocalChanges } = reconcileHistories(chatHistories, cloudHistories);
-        addLog("SYNC", "Reconcile", `local offline additions: ${hadLocalChanges}`);
-
-        if(!forcePush) {
-            if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles');
-            if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts');
-            if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates');
-            if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools');
-            if(data.models) AI_MODELS = sanitizeImport(data.models, 'models');
-            if(data.config) { const cloudTs = data.config._ts || 0; const localTs = CONFIG._ts || 0; if(cloudTs >= localTs) CONFIG = data.config; else addLog("SYNC", "Config Kept Local", `local _ts ${localTs} > cloud _ts ${cloudTs}`); }
-            if(data.datasets) GLOBAL_DATASETS = data.datasets;
-        }
-        chatHistories = merged;
+        if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles');
+        if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts');
+        if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates');
+        if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools');
+        if(data.models) AI_MODELS = sanitizeImport(data.models, 'models');
+        if(data.config) { const cloudTs = data.config._ts || 0; const localTs = CONFIG._ts || 0; if(cloudTs >= localTs) CONFIG = data.config; else addLog("SYNC", "Config Kept Local", `local _ts ${localTs} > cloud _ts ${cloudTs}`); }
+        if(data.datasets) GLOBAL_DATASETS = data.datasets;
+        chatHistories = newHistories;
 
         if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
 
@@ -2148,12 +1926,10 @@ async function applyCloudData(data, db, silent = false, forcePush = false) {
         }
         let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Applied", `${n} chats loaded`);
-
-        if(hadLocalChanges || forcePush) { addLog("SYNC", "Push After Reconcile", `forcePush:${forcePush} hadLocal:${hadLocalChanges}`); await pushHistoriesToFirebase(); DELETED_SESSIONS.clear(); _persistDeleted(); }
     } catch(e) { addLog("SYNC", "Apply Error", e.message); }
     finally {
         applyInProgress = false;
-        if(pendingCloudData) { const next = pendingCloudData; pendingCloudData = null; await applyCloudData(next.data, next.db, next.silent, next.forcePush); }
+        if(pendingCloudData) { const next = pendingCloudData; pendingCloudData = null; await applyCloudData(next.data, next.db, next.silent); }
     }
 }
 
@@ -2167,52 +1943,13 @@ async function pullFromFirebase(silent = false) {
     } catch(e) { addLog("SYNC", "Pull Error", e.message); if(!silent) notify("⚠️ Pull failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
 }
 
-function reconcileHistories(localH, cloudH) {
-    const merged = JSON.parse(JSON.stringify(cloudH));
-    Object.keys(merged).forEach(profLabel => { if(merged[profLabel] && merged[profLabel].list) { merged[profLabel].list = merged[profLabel].list.filter(s => !DELETED_SESSIONS.has(String(s.id))); } });
-    let hadLocalChanges = false;
-    Object.keys(localH).forEach(profLabel => {
-        const localProf = localH[profLabel];
-        if(!localProf || !localProf.list) return;
-        if(!merged[profLabel]) { merged[profLabel] = JSON.parse(JSON.stringify(localProf)); hadLocalChanges = true; return; }
-        const cloudProf = merged[profLabel];
-        localProf.list.forEach(localSess => {
-            const sid = String(localSess.id);
-            const cloudSess = cloudProf.list.find(s => String(s.id) === sid);
-            if(!cloudSess) {
-                const userMsgs = (localSess.msgs || []).filter(m => m.role !== 'developer');
-                if(userMsgs.length > 0) { cloudProf.list.push(JSON.parse(JSON.stringify(localSess))); hadLocalChanges = true; }
-            } else {
-                const localLen = (localSess.msgs || []).length;
-                const cloudLen = (cloudSess.msgs || []).length;
-                if(localLen > cloudLen) {
-                    const extra = localSess.msgs.slice(cloudLen);
-                    cloudSess.msgs.push(...JSON.parse(JSON.stringify(extra)));
-                    if(extra.some(m => m.role !== 'developer')) hadLocalChanges = true;
-                }
-            }
-        });
-    });
-    return { merged, hadLocalChanges };
-}
-
-async function fetchReconcileAndPush() {
-    const db = await initFirebase(); if(!db) { await pushToFirebase(); return; }
-    try {
-        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
-        const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
-        if(snap.exists()) { await applyCloudData(snap.data(), db, true, true); }
-        else { await pushToFirebase(); }
-    } catch(e) { addLog("SYNC", "FetchReconcile Error", e.message); await pushToFirebase(); }
-}
-
 function triggerAutoSync() {
     if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
     clearTimeout(syncTimer);
-    syncTimer = setTimeout(() => { syncTimer = null; pushHistoriesToFirebase(); }, 1500);
+    syncTimer = setTimeout(() => { syncTimer = null; pushToFirebase(); }, 1500);
 }
 
-function updateSyncLiveBadge(live) { }
+function updateSyncLiveBadge(live) { const el = document.getElementById('sync-live-badge'); if(el) el.style.display = live ? 'inline' : 'none'; }
 
 async function startRealtimeSync() {
     stopRealtimeSync();
