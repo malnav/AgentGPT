@@ -230,11 +230,12 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   left: 0;
   right: 0;
   padding: 4px 12px env(safe-area-inset-bottom, 0px) 12px;
-  z-index: 160;
+  z-index: 50;
   display: flex;
   flex-direction: column;
   background: transparent;
 }
+.input-zone.menu-open { z-index: 160; }
 /* chips row: hidden when empty, shown when prompts exist */
 #chips-row { display: none; align-items: center; gap: 8px; margin-bottom: 6px; }
 #chips-row.has-chips { display: flex; }
@@ -1002,8 +1003,8 @@ function promptUserAsync(message, defaultValue = "") { return new Promise((resol
 
 async function getStorageSize() { const str = JSON.stringify(chatHistories); return (str.length / (1024 * 1024)).toFixed(3); }
 
-document.addEventListener('click', (e) => { if(!e.target.closest('.tool-menu') && !e.target.closest('.inline-btn') && !e.target.closest('.chip')) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => m.classList.add('closed')); } });
-function toggleMenu(menuEl) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => { if(m !== menuEl) m.classList.add('closed'); }); menuEl.classList.toggle('closed'); }
+document.addEventListener('click', (e) => { if(!e.target.closest('.tool-menu') && !e.target.closest('.inline-btn') && !e.target.closest('.chip')) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => m.classList.add('closed')); const inputZone = document.getElementById('main-input-zone'); if(inputZone) inputZone.classList.remove('menu-open'); } });
+function toggleMenu(menuEl) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => { if(m !== menuEl) m.classList.add('closed'); }); menuEl.classList.toggle('closed'); const inputZone = document.getElementById('main-input-zone'); if(inputZone) inputZone.classList.toggle('menu-open', menuEl.id === 'attach-menu' && !menuEl.classList.contains('closed')); }
 function updateInputHeightVar() { const z = document.getElementById('main-input-zone'); if (z) document.documentElement.style.setProperty('--input-h', z.offsetHeight + 'px'); }
 window.addEventListener('resize', updateInputHeightVar);
 
