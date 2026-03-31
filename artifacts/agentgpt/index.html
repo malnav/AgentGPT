@@ -230,7 +230,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   left: 0;
   right: 0;
   padding: 4px 12px env(safe-area-inset-bottom, 0px) 12px;
-  z-index: 50;
+  z-index: 160;
   display: flex;
   flex-direction: column;
   background: transparent;
@@ -419,15 +419,18 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   right: 0;
   top: 100%;
   margin-top: 6px;
-  background: var(--bg);
-  border: 0.5px solid var(--glass-border);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+  background: #ffffff;
+  border: 0.5px solid rgba(0,0,0,0.12);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.32);
   border-radius: 18px;
   display: flex;
   flex-direction: column;
   z-index: 9999;
   overflow: hidden;
   min-width: 170px;
+}
+@media (prefers-color-scheme: dark) {
+  .tool-menu { background: #1c1c1e; border-color: rgba(255,255,255,0.1); }
 }
 .tool-menu.closed { display: none; }
 .tool-menu-item { padding: 13px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 0.5px solid var(--border); color: var(--text); text-align: left; transition: background 0.15s; }
