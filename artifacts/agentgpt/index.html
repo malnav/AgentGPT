@@ -1150,7 +1150,7 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {};
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: storedCfg.fb_auto || false, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: storedCfg.fb_auto !== undefined ? storedCfg.fb_auto : true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null };
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
@@ -1174,7 +1174,7 @@ async function refreshUI() {
     updateCtxSelection(); 
     let ctxLabel = cutIdx === -1 ? '☁️' : '🌦️'; document.getElementById('ctx-indicator').innerText = ctxLabel; document.getElementById('ctx-btn-all').classList.toggle('active', cutIdx === CONTEXT_LINES.length - 1); document.getElementById('ctx-btn-none').classList.toggle('active', cutIdx === -1);
     document.getElementById('def-ctx-f').value = CONFIG.def_ctx || "all"; document.getElementById('def-prof-f').innerHTML = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); document.getElementById('def-mod-f').innerHTML = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('def-prof-f').value = CONFIG.def_profile; document.getElementById('def-mod-f').value = CONFIG.def_model;
-    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('fb-auto-f').checked = CONFIG.fb_auto || false; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
+    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('fb-auto-f').checked = CONFIG.fb_auto !== undefined ? CONFIG.fb_auto : true; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
 }
 
 function updateCtxSelection() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let btn = document.getElementById('ctx-bulk-btn-wrapper'); if(boxes.length > 0) { btn.style.display = 'block'; btn.querySelector('button').innerText = `Insert ${boxes.length} Selected ⟶`; } else { btn.style.display = 'none'; } }
@@ -1970,24 +1970,9 @@ async function startRealtimeSync() {
                 addLog("SYNC", "Listener", "Initial snapshot received");
                 const syncKey = '_agt_synced_' + (CONFIG.fb_project || 'default');
                 const alreadyConfirmed = localStorage.getItem(syncKey);
-                const hasLocalChats = Object.values(chatHistories).some(s => s.list && s.list.some(c => (c.msgs||[]).filter(m => m.role !== 'developer').length > 0));
-                if(!alreadyConfirmed && hasLocalChats) {
-                    const cloudTs = data.config ? (data.config._ts || 0) : 0;
-                    const localTs = CONFIG._ts || 0;
-                    const fmt = ts => ts ? new Date(ts).toLocaleString() : 'unknown';
-                    const msg = `☁️ Cloud data found.\n\nCloud last saved: ${fmt(cloudTs)}\nLocal last saved: ${fmt(localTs)}\n\nUse cloud data? (Cancel = keep local & push to cloud)`;
-                    openConfirm(msg, async () => {
-                        localStorage.setItem(syncKey, '1');
-                        await applyCloudData(data, db, false);
-                    }, async () => {
-                        localStorage.setItem(syncKey, '1');
-                        await pushToFirebase();
-                        notify("Local data kept. Pushed to cloud.", "#34c759", 3000);
-                    }, '☁️ Use Cloud', '📱 Keep Local');
-                } else {
-                    if(!alreadyConfirmed) localStorage.setItem(syncKey, '1');
-                    await applyCloudData(data, db, true);
-                }
+                const isFirstSync = !alreadyConfirmed;
+                if(isFirstSync) localStorage.setItem(syncKey, '1');
+                await applyCloudData(data, db, !isFirstSync);
                 return;
             }
             if(data.push_token && data.push_token === lastOwnPushToken) { addLog("SYNC", "Skip", "Own push echo — no re-apply needed"); return; }
