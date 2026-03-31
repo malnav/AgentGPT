@@ -240,6 +240,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #chips-row.has-chips { display: flex; }
 .input-wrapper {
   position: relative;
+  z-index: 200;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -418,17 +419,15 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   right: 0;
   top: 100%;
   margin-top: 6px;
-  background: var(--glass);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
+  background: var(--bg);
   border: 0.5px solid var(--glass-border);
-  box-shadow: var(--glass-shadow-lg);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.28);
   border-radius: 18px;
   display: flex;
   flex-direction: column;
   z-index: 9999;
   overflow: hidden;
-  min-width: 160px;
+  min-width: 170px;
 }
 .tool-menu.closed { display: none; }
 .tool-menu-item { padding: 13px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 0.5px solid var(--border); color: var(--text); text-align: left; transition: background 0.15s; }
@@ -483,6 +482,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
         <div id="wtab-all-btns" style="display:none; gap:8px; align-items:center; margin-left:8px;">
+            <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession();" title="New Session in Current Profile">+</button>
             <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
     </div>
@@ -1159,6 +1159,7 @@ async function init() {
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); refreshUI(); initGestures(); setTimeout(updateInputHeightVar, 100);
     startRealtimeSync();
+    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) isInitializing = false;
 }
 
 async function refreshUI() {
@@ -1844,6 +1845,7 @@ let fbDb = null;
 let syncTimer = null;
 let realtimeUnsub = null;
 let syncReady = false;
+let isInitializing = true;
 let applyInProgress = false;
 let lastOwnPushToken = null;
 let pendingCloudData = null;
@@ -1945,6 +1947,7 @@ async function pullFromFirebase(silent = false) {
 
 function triggerAutoSync() {
     if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
+    if(isInitializing) { addLog("SYNC", "Push Held", "Waiting for initial snapshot before pushing"); return; }
     clearTimeout(syncTimer);
     syncTimer = setTimeout(() => { syncTimer = null; pushToFirebase(); }, 1500);
 }
@@ -1959,10 +1962,11 @@ async function startRealtimeSync() {
     try {
         const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
         realtimeUnsub = onSnapshot(doc(db, "quicknote_data", "primary_user"), async (snap) => {
-            if(!snap.exists()) { syncReady = true; addLog("SYNC", "Listener", "No data in cloud yet"); return; }
+            if(!snap.exists()) { syncReady = true; isInitializing = false; addLog("SYNC", "Listener", "No data in cloud yet"); return; }
             const data = snap.data();
             if(!syncReady) {
                 syncReady = true;
+                isInitializing = false;
                 addLog("SYNC", "Listener", "Initial snapshot received");
                 const syncKey = '_agt_synced_' + (CONFIG.fb_project || 'default');
                 const alreadyConfirmed = localStorage.getItem(syncKey);
