@@ -660,15 +660,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <hr style="border:none; border-top:1px solid var(--border); margin: 24px 0;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <small style="font-weight:800; font-size:11px; color:var(--accent);">🔥 FIREBASE CLOUD SYNC</small>
-            <label style="font-size:11px; font-weight:700;"><input type="checkbox" id="fb-auto-f" onchange="saveMasterConfig()"> Auto-Sync</label>
-            <span id="sync-live-badge" style="display:none; font-size:10px; font-weight:800; color:#34c759; margin-left:6px; animation: sync-pulse 2s infinite;">● LIVE</span>
+            <span id="sync-live-badge" style="display:none; font-size:10px; font-weight:800; color:#34c759; animation: sync-pulse 2s infinite;">● LIVE</span>
         </div>
         <input type="text" id="fb-project-f" class="pp-input" placeholder="Firebase Project ID (e.g. my-app-123)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
         <input type="password" id="fb-api-f" class="pp-input" placeholder="Firebase Web API Key" onchange="saveMasterConfig()" style="margin-bottom:10px;">
-        <div style="display:flex; gap:10px;">
-            <button class="chip" style="flex:1;" onclick="pullFromFirebase()">☁️ Pull</button>
-            <button class="chip" style="flex:1; background:var(--accent); color:#fff;" onclick="pushToFirebase(true)">☁️ Push</button>
-        </div>
 
         <hr style="border:none; border-top:1px solid var(--border); margin: 24px 0;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -1146,7 +1141,7 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {};
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: storedCfg.fb_auto !== undefined ? storedCfg.fb_auto : true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null };
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
@@ -1170,7 +1165,7 @@ async function refreshUI() {
     updateCtxSelection(); 
     let ctxLabel = cutIdx === -1 ? '☁️' : '🌦️'; document.getElementById('ctx-indicator').innerText = ctxLabel; document.getElementById('ctx-btn-all').classList.toggle('active', cutIdx === CONTEXT_LINES.length - 1); document.getElementById('ctx-btn-none').classList.toggle('active', cutIdx === -1);
     document.getElementById('def-ctx-f').value = CONFIG.def_ctx || "all"; document.getElementById('def-prof-f').innerHTML = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); document.getElementById('def-mod-f').innerHTML = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('def-prof-f').value = CONFIG.def_profile; document.getElementById('def-mod-f').value = CONFIG.def_model;
-    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('fb-auto-f').checked = CONFIG.fb_auto !== undefined ? CONFIG.fb_auto : true; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
+    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
 }
 
 function updateCtxSelection() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let btn = document.getElementById('ctx-bulk-btn-wrapper'); if(boxes.length > 0) { btn.style.display = 'block'; btn.querySelector('button').innerText = `Insert ${boxes.length} Selected ⟶`; } else { btn.style.display = 'none'; } }
@@ -1633,7 +1628,7 @@ function importApiKeys(event) {
 async function saveMasterConfig() { 
     const prevFbApi = CONFIG.fb_api, prevFbProject = CONFIG.fb_project;
     CONFIG.ai_key = document.getElementById('ai-key-f').value; CONFIG.def_profile = document.getElementById('def-prof-f').value; CONFIG.def_model = document.getElementById('def-mod-f').value; 
-    CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = document.getElementById('fb-auto-f').checked;
+    CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = true;
     CONFIG.title_model = document.getElementById('title-model-f').value;
     CONFIG.extract_model = document.getElementById('extract-model-f').value;
     CONFIG.suggest_model = document.getElementById('suggest-model-f').value;
@@ -1941,7 +1936,7 @@ async function pullFromFirebase(silent = false) {
 }
 
 function triggerAutoSync() {
-    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
+    if(!CONFIG.fb_api || !CONFIG.fb_project) return;
     if(isInitializing) { addLog("SYNC", "Push Held", "Waiting for initial snapshot before pushing"); return; }
     clearTimeout(syncTimer);
     syncTimer = setTimeout(() => { syncTimer = null; if(isInitializing) { addLog("SYNC","Push Dropped","Still initializing when timer fired"); return; } pushToFirebase(); }, 1500);
@@ -1954,7 +1949,7 @@ async function startRealtimeSync() {
     stopRealtimeSync();
     syncReady = false;
     isInitializing = true;
-    if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) { isInitializing = false; return; }
+    if(!CONFIG.fb_api || !CONFIG.fb_project) { isInitializing = false; return; }
     const db = await initFirebase(); if(!db) { isInitializing = false; return; }
     try {
         const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
