@@ -4,7 +4,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AgentGPT</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
@@ -1181,6 +1181,8 @@ function openAttachMenu(btn) { const menu = document.getElementById('attach-menu
 function closeAttachMenu() { document.getElementById('attach-menu').classList.add('closed'); }
 function updateInputHeightVar() { const z = document.getElementById('main-input-zone'); if (z) document.documentElement.style.setProperty('--input-h', z.offsetHeight + 'px'); }
 window.addEventListener('resize', updateInputHeightVar);
+document.addEventListener('touchmove', (e) => { if(e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
 
 const mainScrollEl = document.getElementById('mainScroll'); const scrollBtnEl = document.getElementById('scroll-bottom-btn');
 mainScrollEl.addEventListener('scroll', () => { if (mainScrollEl.scrollHeight - mainScrollEl.scrollTop - mainScrollEl.clientHeight > 150) { scrollBtnEl.style.display = 'block'; } else { scrollBtnEl.style.display = 'none'; } });
