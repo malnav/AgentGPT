@@ -1948,12 +1948,13 @@ function triggerAutoSync() {
     if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
     if(isInitializing) { addLog("SYNC", "Push Held", "Waiting for initial snapshot before pushing"); return; }
     clearTimeout(syncTimer);
-    syncTimer = setTimeout(() => { syncTimer = null; pushToFirebase(); }, 1500);
+    syncTimer = setTimeout(() => { syncTimer = null; if(isInitializing) { addLog("SYNC","Push Dropped","Still initializing when timer fired"); return; } pushToFirebase(); }, 1500);
 }
 
 function updateSyncLiveBadge(live) { const el = document.getElementById('sync-live-badge'); if(el) el.style.display = live ? 'inline' : 'none'; }
 
 async function startRealtimeSync() {
+    clearTimeout(syncTimer); syncTimer = null;
     stopRealtimeSync();
     syncReady = false;
     isInitializing = true;
