@@ -2051,17 +2051,20 @@ async function pushToFirebase(manual = false) {
     } catch(e) { addLog("SYNC", "Push Error", e.message); notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
 }
 
-async function applyCloudData(data, db, silent = false) {
-    if(applyInProgress) { pendingCloudData = { data, db, silent }; return; }
+async function applyCloudData(data, db, silent = false, forcePush = false) {
+    if(applyInProgress) { pendingCloudData = { data, db, silent, forcePush }; return; }
     applyInProgress = true;
     try {
         const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
-        let newHistories = chatHistories;
+        let cloudHistories = chatHistories;
         if(data.chunks_count > 0) {
             let fullStr = "";
             for(let i = 0; i < data.chunks_count; i++) { const c = await getDoc(doc(db, "quicknote_data", "primary_hist_" + i)); if(c.exists()) fullStr += c.data().data; }
-            if(fullStr) newHistories = JSON.parse(fullStr);
-        } else if(data.histories) { newHistories = data.histories; }
+            if(fullStr) cloudHistories = JSON.parse(fullStr);
+        } else if(data.histories) { cloudHistories = data.histories; }
+
+        const { merged, hadLocalChanges } = reconcileHistories(chatHistories, cloudHistories);
+        addLog("SYNC", "Reconcile", `local offline additions: ${hadLocalChanges}`);
 
         if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles');
         if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts');
@@ -2070,7 +2073,7 @@ async function applyCloudData(data, db, silent = false) {
         if(data.models) AI_MODELS = sanitizeImport(data.models, 'models');
         if(data.config) { const cloudTs = data.config._ts || 0; const localTs = CONFIG._ts || 0; if(cloudTs >= localTs) CONFIG = data.config; else addLog("SYNC", "Config Kept Local", `local _ts ${localTs} > cloud _ts ${cloudTs}`); }
         if(data.datasets) GLOBAL_DATASETS = data.datasets;
-        chatHistories = newHistories;
+        chatHistories = merged;
 
         if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
 
@@ -2098,10 +2101,12 @@ async function applyCloudData(data, db, silent = false) {
         }
         let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Applied", `${n} chats loaded`);
+
+        if(hadLocalChanges || forcePush) { addLog("SYNC", "Push After Reconcile", `forcePush:${forcePush} hadLocal:${hadLocalChanges}`); await pushToFirebase(); }
     } catch(e) { addLog("SYNC", "Apply Error", e.message); }
     finally {
         applyInProgress = false;
-        if(pendingCloudData) { const next = pendingCloudData; pendingCloudData = null; await applyCloudData(next.data, next.db, next.silent); }
+        if(pendingCloudData) { const next = pendingCloudData; pendingCloudData = null; await applyCloudData(next.data, next.db, next.silent, next.forcePush); }
     }
 }
 
@@ -2115,10 +2120,48 @@ async function pullFromFirebase(silent = false) {
     } catch(e) { addLog("SYNC", "Pull Error", e.message); if(!silent) notify("⚠️ Pull failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
 }
 
+function reconcileHistories(localH, cloudH) {
+    const merged = JSON.parse(JSON.stringify(cloudH));
+    let hadLocalChanges = false;
+    Object.keys(localH).forEach(profLabel => {
+        const localProf = localH[profLabel];
+        if(!localProf || !localProf.list) return;
+        if(!merged[profLabel]) { merged[profLabel] = JSON.parse(JSON.stringify(localProf)); hadLocalChanges = true; return; }
+        const cloudProf = merged[profLabel];
+        localProf.list.forEach(localSess => {
+            const sid = String(localSess.id);
+            const cloudSess = cloudProf.list.find(s => String(s.id) === sid);
+            if(!cloudSess) {
+                const userMsgs = (localSess.msgs || []).filter(m => m.role !== 'developer');
+                if(userMsgs.length > 0) { cloudProf.list.push(JSON.parse(JSON.stringify(localSess))); hadLocalChanges = true; }
+            } else {
+                const localLen = (localSess.msgs || []).length;
+                const cloudLen = (cloudSess.msgs || []).length;
+                if(localLen > cloudLen) {
+                    const extra = localSess.msgs.slice(cloudLen);
+                    cloudSess.msgs.push(...JSON.parse(JSON.stringify(extra)));
+                    if(extra.some(m => m.role !== 'developer')) hadLocalChanges = true;
+                }
+            }
+        });
+    });
+    return { merged, hadLocalChanges };
+}
+
+async function fetchReconcileAndPush() {
+    const db = await initFirebase(); if(!db) { await pushToFirebase(); return; }
+    try {
+        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
+        if(snap.exists()) { await applyCloudData(snap.data(), db, true, true); }
+        else { await pushToFirebase(); }
+    } catch(e) { addLog("SYNC", "FetchReconcile Error", e.message); await pushToFirebase(); }
+}
+
 function triggerAutoSync() {
     if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_project) return;
     clearTimeout(syncTimer);
-    syncTimer = setTimeout(() => { syncTimer = null; pushToFirebase(); }, 1500);
+    syncTimer = setTimeout(() => { syncTimer = null; fetchReconcileAndPush(); }, 1500);
 }
 
 function updateSyncLiveBadge(live) { }
