@@ -230,7 +230,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   left: 0;
   right: 0;
   padding: 4px 12px env(safe-area-inset-bottom, 0px) 12px;
-  z-index: 200;
+  z-index: 50;
   display: flex;
   flex-direction: column;
   background: transparent;
@@ -436,14 +436,13 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .tool-menu-item:active { background: rgba(0,122,255,0.08); }
 @keyframes sync-pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 
-/* ── ATTACH MENU — solid, above all panels ── */
+/* ── ATTACH MENU — body-level fixed, above all panels ── */
 #attach-menu {
-  background: rgba(250,250,255,0.97) !important;
-  z-index: 9999 !important;
-  box-shadow: 0 -8px 32px rgba(0,0,0,0.22) !important;
+  background: rgba(250,250,255,0.97);
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.22);
 }
 @media (prefers-color-scheme: dark) {
-  #attach-menu { background: rgba(28,28,42,0.97) !important; }
+  #attach-menu { background: rgba(28,28,42,0.97); }
 }
 
 
@@ -748,17 +747,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         
         <div class="input-bottom-bar">
             <div style="display:flex; gap:6px; align-items:center;">
-                <div style="position:relative;">
-                    <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="toggleMenu(document.getElementById('attach-menu'))">➕</button>
-                    <div id="attach-menu" class="tool-menu closed" style="bottom: 100%; top: auto; left: 0; right: auto; margin-bottom: 10px; min-width: 160px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15);">
-                        <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); document.getElementById('attach-menu').classList.add('closed');">📷 Camera</div>
-                        <div class="tool-menu-item" onclick="document.getElementById('attach-img').click(); document.getElementById('attach-menu').classList.add('closed');">🖼️ Photo Library</div>
-                        <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); document.getElementById('attach-menu').classList.add('closed');">📁 Files</div>
-                        <div class="tool-menu-item" onclick="toggleTplPanel(); renderTemplates(); document.getElementById('attach-menu').classList.add('closed');">📄 Templates</div>
-                        <div class="tool-menu-item" onclick="toggleSrvPanel(); renderToolsList(); document.getElementById('attach-menu').classList.add('closed');">🔌 Services</div>
-                        <div class="tool-menu-item" onclick="toggleCtxPanel(); refreshUI(); document.getElementById('attach-menu').classList.add('closed');">📋 Context</div>
-                    </div>
-                </div>
+                <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="openAttachMenu(this)">➕</button>
 
                 <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="manageSection('prompts'); closeAllPanels();" title="Manage Prompts">📚</button>
                 <select id="chatModel" class="model-sel"></select>
@@ -1060,6 +1049,15 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </div></div>
 
 
+<div id="attach-menu" class="tool-menu closed" style="position:fixed; z-index:9999; min-width:180px;">
+    <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); closeAttachMenu();">📷 Camera</div>
+    <div class="tool-menu-item" onclick="document.getElementById('attach-img').click(); closeAttachMenu();">🖼️ Photo Library</div>
+    <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); closeAttachMenu();">📁 Files</div>
+    <div class="tool-menu-item" onclick="toggleTplPanel(); renderTemplates(); closeAttachMenu();">📄 Templates</div>
+    <div class="tool-menu-item" onclick="toggleSrvPanel(); renderToolsList(); closeAttachMenu();">🔌 Services</div>
+    <div class="tool-menu-item" onclick="toggleCtxPanel(); refreshUI(); closeAttachMenu();">📋 Context</div>
+</div>
+
 <div id="confirm-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 9999;"><div class="confirm-box" style="background: var(--bg); padding: 24px; border-radius: 20px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"><p id="confirm-msg" style="margin-top:0; font-weight:700; font-size:16px; margin-bottom:20px; white-space:pre-line;">Are you sure?</p><div style="display:flex; gap:12px;"><button class="chip" style="flex:1; background:var(--danger); color:#fff; padding:10px;" id="confirm-yes">Yes</button><button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" id="confirm-no">Cancel</button></div></div></div>
 <div id="custom-prompt-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 10001;"><div class="confirm-box" style="background: var(--bg); padding: 24px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"><p id="custom-prompt-msg" style="margin-top:0; font-weight:700; font-size:14px; margin-bottom:12px; text-align:left;"></p><textarea id="custom-prompt-input" class="pp-input" style="margin-bottom:20px; height:150px; font-family:inherit; resize:none;"></textarea><div style="display:flex; gap:12px;"><button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:10px;" id="custom-prompt-ok">OK</button><button class="chip" style="flex:1; background:#888; color:#fff; padding:10px;" id="custom-prompt-cancel">Cancel</button></div></div></div>
 
@@ -1179,6 +1177,8 @@ async function getStorageSize() { const str = JSON.stringify(chatHistories); ret
 
 document.addEventListener('click', (e) => { if(!e.target.closest('.tool-menu') && !e.target.closest('.inline-btn') && !e.target.closest('.chip')) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => m.classList.add('closed')); } });
 function toggleMenu(menuEl) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => { if(m !== menuEl) m.classList.add('closed'); }); menuEl.classList.toggle('closed'); }
+function openAttachMenu(btn) { const menu = document.getElementById('attach-menu'); const r = btn.getBoundingClientRect(); const menuH = 6 * 48; const top = r.top - menuH - 8; menu.style.left = r.left + 'px'; menu.style.top = Math.max(8, top) + 'px'; menu.style.bottom = ''; menu.classList.toggle('closed'); document.querySelectorAll('.tool-menu:not(#attach-menu):not(.closed)').forEach(m => m.classList.add('closed')); }
+function closeAttachMenu() { document.getElementById('attach-menu').classList.add('closed'); }
 function updateInputHeightVar() { const z = document.getElementById('main-input-zone'); if (z) document.documentElement.style.setProperty('--input-h', z.offsetHeight + 'px'); }
 window.addEventListener('resize', updateInputHeightVar);
 
