@@ -660,7 +660,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <hr style="border:none; border-top:1px solid var(--border); margin: 24px 0;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <small style="font-weight:800; font-size:11px; color:var(--accent);">🔥 FIREBASE CLOUD SYNC</small>
-            <span id="sync-live-badge" style="display:none; font-size:10px; font-weight:800; color:#34c759; animation: sync-pulse 2s infinite;">● LIVE</span>
         </div>
         <input type="text" id="fb-project-f" class="pp-input" placeholder="Firebase Project ID (e.g. my-app-123)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
         <input type="password" id="fb-api-f" class="pp-input" placeholder="Firebase Web API Key" onchange="saveMasterConfig()" style="margin-bottom:10px;">
@@ -1172,7 +1171,7 @@ function updateCtxSelection() { let boxes = document.querySelectorAll('.ctx-chec
 function insertSelectedContexts() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let combined = Array.from(boxes).map(b => CONTEXT_LINES[b.value]).join('\n'); insertAtCursor(combined, true, false); boxes.forEach(b => b.checked = false); updateCtxSelection(); closeAllPanels(); }
 function insertContextAtCursor(i) { insertAtCursor(CONTEXT_LINES[i], true, false); closeAllPanels(); }
 async function saveModelEntry() { const l = document.getElementById('mod-l').value, t = document.getElementById('mod-t').value; if(!l || !t) return notify("Fill both label and ID", "#ff3b30"); AI_MODELS.push({ label: l, text: t, profile: "Global" }); document.getElementById('mod-l').value = ""; document.getElementById('mod-t').value = ""; await saveAll(); refreshUI(); renderModelList(); notify("Model Added!", "#34c759"); }
-function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile === activeProfileLabel || t.profile === 'Global'); document.getElementById('tools-view').innerHTML = filtT.map(t => { let tIdx = API_SERVICES.indexOf(t); return `<div class="list-item" style="border-radius:8px; border:1px solid var(--border); margin-bottom:4px;" onclick="triggerApiService(${tIdx}); closeAllPanels();"><div style="flex:1;"><strong>${t.label}</strong></div></div>`; }).join(''); }
+function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile === activeProfileLabel || t.profile === 'Global'); document.getElementById('tools-view').innerHTML = filtT.map(t => { let tIdx = API_SERVICES.indexOf(t); return `<div class="list-item" onclick="triggerApiService(${tIdx}); closeAllPanels();"><div style="flex:1;"><strong>${t.label}</strong></div></div>`; }).join(''); }
 function switchVarsTab(t) { ['vars','todos'].forEach(k => { document.getElementById('vtab-'+k).classList.toggle('active', t===k); document.getElementById('vview-'+k).classList.toggle('closed', t!==k); document.getElementById('vtab-'+k+'-btns').style.display = t===k ? 'flex' : 'none'; }); if(t === 'todos') renderChatTodos(); }
 function renderWorkspaceLists() { renderSessionsList(); let cur = document.querySelector('#workspace-panel .sub-tab-btn.active'); let curTab = cur ? (cur.id === 'wtab-all' ? 'all' : cur.id === 'wtab-data' ? 'data' : 'current') : 'current'; if(curTab === 'all') renderAllSessionsList(); if(curTab === 'data') renderDatasetsList(); }
 function switchWorkspaceTab(tab) { ['current','all','data'].forEach(k => { document.getElementById('wview-'+k).style.display = k === tab ? 'flex' : 'none'; document.getElementById('wtab-'+k).classList.toggle('active', k === tab); document.getElementById('wtab-'+k+'-btns').style.display = k === tab ? 'flex' : 'none'; }); if(tab === 'all') renderAllSessionsList(); if(tab === 'data') renderDatasetsList(); }
@@ -1655,7 +1654,7 @@ function renderTemplates() {
     if (tplTab === 'recent') f.sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0)); else f.sort((a, b) => { if (a.fav !== b.fav) return a.fav ? -1 : 1; return (b.lastUsed || 0) - (a.lastUsed || 0); });
     
     document.getElementById('templates-view').innerHTML = f.map((t) => { 
-        return `<li class="list-item" style="flex-direction: column; align-items: stretch; border:1px solid var(--border); border-radius:8px; margin-bottom:6px; padding:8px 12px;">
+        return `<li class="list-item" style="flex-direction: column; align-items: stretch; padding:8px 12px;">
             <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
                 <div class="item-info" style="flex:1; overflow:hidden;" onclick="useTemplate(${t._origIdx});"><strong><span style="font-size:10px; margin-right:4px;">${t.fav ? '⭐' : ''}</span>${t.label}</strong></div>
                 <div class="inline-btn" style="height:26px; min-width:30px; background:transparent; border:none;" onclick="event.stopPropagation(); toggleMenu(this.parentElement.nextElementSibling)">⋮</div>
@@ -1942,7 +1941,6 @@ function triggerAutoSync() {
     syncTimer = setTimeout(() => { syncTimer = null; if(isInitializing) { addLog("SYNC","Push Dropped","Still initializing when timer fired"); return; } pushToFirebase(); }, 1500);
 }
 
-function updateSyncLiveBadge(live) { const el = document.getElementById('sync-live-badge'); if(el) el.style.display = live ? 'inline' : 'none'; }
 
 async function startRealtimeSync() {
     clearTimeout(syncTimer); syncTimer = null;
@@ -1970,16 +1968,14 @@ async function startRealtimeSync() {
             if(data.push_token && data.push_token === lastOwnPushToken) { addLog("SYNC", "Skip", "Own push echo — no re-apply needed"); return; }
             addLog("SYNC", "Realtime Update", "External change detected — applying cloud data");
             await applyCloudData(data, db, true);
-        }, (e) => { addLog("SYNC", "Listener Error", e.message); updateSyncLiveBadge(false); });
+        }, (e) => { addLog("SYNC", "Listener Error", e.message); });
         addLog("SYNC", "Realtime", "Listener connected");
-        updateSyncLiveBadge(true);
     } catch(e) { isInitializing = false; addLog("SYNC", "Realtime Init Error", e.message); }
 }
 
 function stopRealtimeSync() {
     if(realtimeUnsub) { realtimeUnsub(); realtimeUnsub = null; }
     syncReady = false;
-    updateSyncLiveBadge(false);
 }
 
 // --- CALENDAR LOGIC ---
@@ -2046,7 +2042,6 @@ const BG_THEMES = [
     { name: "Lavender",  preview: "linear-gradient(135deg,#ede7f6,#d1c4e9,#c5cae9,#e8eaf6)", gradient: "linear-gradient(145deg, #ede7f6 0%, #d1c4e9 38%, #c5cae9 68%, #e8eaf6 100%)" },
     { name: "Rose",      preview: "linear-gradient(135deg,#fce4ec,#f8bbd0,#ffccbc,#fff3e0)", gradient: "linear-gradient(145deg, #fce4ec 0%, #f8bbd0 38%, #ffccbc 68%, #fff3e0 100%)" },
     { name: "Monochrome",preview: "#f2f2f7",                                                  gradient: "#f2f2f7" },
-    { name: "Nebula",    preview: "linear-gradient(135deg,#06061a,#10061c,#1a060d,#06100d)",  gradient: "linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)" },
 ];
 function applyBgTheme(idx) {
     const g = BG_THEMES[idx].gradient;
