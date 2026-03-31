@@ -542,15 +542,33 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
     <div style="flex:1; overflow-y:auto; padding:0; display:flex; flex-direction:column; position:relative;">
         <ul id="context-list" style="list-style:none; padding:0; margin:0; flex:1; padding-bottom:60px;"></ul>
-        <div id="gmail-emails-section" style="display:none; border-top:0.5px solid var(--border);">
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 14px;">
+        <div id="gmail-emails-section" style="display:none; border-top:0.5px solid var(--border); display:none; flex-direction:column;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 14px 4px 14px;">
                 <span style="font-size:11px; font-weight:800; color:#888;">📧 GMAIL</span>
-                <div style="display:flex; gap:6px;">
-                    <span class="chip" style="font-size:10px; padding:4px 8px;" id="gmail-insert-all-btn" onclick="gmailInsertSelected()" style="display:none;">Insert Selected</span>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <span class="chip" id="gmail-add-ctx-btn" style="font-size:10px; padding:4px 10px; background:var(--accent); color:#fff; display:none;" onclick="gmailAddToContext()">+ Add to Context</span>
                     <span class="chip" style="font-size:10px; padding:4px 8px; color:#ff3b30;" onclick="gmailSignOut()">Sign Out</span>
                 </div>
             </div>
-            <ul id="gmail-list" style="list-style:none; padding:0; margin:0; padding-bottom:60px;"></ul>
+            <div style="padding:0 14px 6px 14px;">
+                <input id="gmail-search-box" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:7px 12px;" oninput="gmailOnSearch(this.value)">
+            </div>
+            <ul id="gmail-list" style="list-style:none; padding:0; margin:0;"></ul>
+        </div>
+        <div id="gmail-preview-overlay" style="display:none; position:absolute; inset:0; background:var(--bg); z-index:10; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:0.5px solid var(--border);">
+                <span onclick="document.getElementById('gmail-preview-overlay').style.display='none';" style="cursor:pointer; font-size:18px; opacity:0.5;">←</span>
+                <span id="gmail-preview-subject" style="flex:1; font-weight:800; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+            </div>
+            <div style="padding:10px 14px; border-bottom:0.5px solid var(--border);">
+                <div id="gmail-preview-from" style="font-size:12px; color:#888;"></div>
+                <div id="gmail-preview-date" style="font-size:11px; color:#aaa;"></div>
+            </div>
+            <div id="gmail-preview-body" style="flex:1; overflow-y:auto; padding:14px; font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-word;"></div>
+            <div style="padding:10px 14px; border-top:0.5px solid var(--border); display:flex; flex-direction:column; gap:6px;">
+                <textarea id="gmail-reply-box" placeholder="Write a reply…" style="width:100%; font-size:13px; border:0.5px solid var(--border); border-radius:10px; padding:8px; background:var(--sec-bg); color:var(--text); resize:none; min-height:70px; font-family:inherit;" rows="3"></textarea>
+                <button class="chip" style="background:var(--accent); color:#fff; padding:10px; font-size:13px; font-weight:700;" onclick="gmailSendReply()">Send Reply ↑</button>
+            </div>
         </div>
         <div id="ctx-bulk-btn-wrapper" style="position:sticky; bottom:0; left:0; right:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); padding:10px; border-top:0.5px solid var(--glass-border); display:none;">
             <button class="chip" style="width:100%; background:var(--accent); color:#fff; font-size:14px; padding:12px;" onclick="insertSelectedContexts()">Insert Selected ⟶</button>
@@ -1131,7 +1149,7 @@ function initGestures() {
 }
 function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
 function toggleVarsPanel() { closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); }
-function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
+function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); const panel = document.getElementById('ctx-slide-panel'); panel.classList.toggle('open'); if(panel.classList.contains('open') && gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box') ? document.getElementById('gmail-search-box').value.trim() || null : null); } }
 function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
 function toggleSrvPanel() { closeAllPanels('srv-slide-panel'); document.getElementById('srv-slide-panel').classList.toggle('open'); }
 function toggleExpandInput(forceExpand = false) { if(forceExpand && isInputExpanded) return; isInputExpanded = forceExpand ? true : !isInputExpanded; const t = document.getElementById('note-input'), b = document.getElementById('expand-btn'); if(isInputExpanded) { t.style.minHeight = '50vh'; t.style.height = '50vh'; t.style.maxHeight = '70vh'; b.innerText = '⤡'; } else { t.style.minHeight = '60px'; t.style.maxHeight = '200px'; b.innerText = '⤢'; sync(); } setTimeout(updateInputHeightVar, 50); }
@@ -2019,103 +2037,155 @@ function stopRealtimeSync() {
 let gmailTokenClient = null;
 let gmailAccessToken = null;
 let gmailEmails = [];
+let gmailCurrentEmail = null;
+let gmailSearchTimer = null;
 
-function gmailGetClientId() { return CONFIG.google_client_id || ""; }
+function gmailShowSection(show) { const s = document.getElementById('gmail-emails-section'); if(s) { s.style.display = show ? 'flex' : 'none'; s.style.flexDirection = 'column'; } }
 
-async function gmailLoadEmails() {
-    const clientId = gmailGetClientId();
+async function gmailLoadEmails(query) {
+    const clientId = CONFIG.google_client_id || "";
     if(!clientId) { notify("Enter your Google OAuth Client ID in Settings first", "#ff3b30", 5000); return; }
-    if(gmailAccessToken) { await gmailFetchEmails(); return; }
-    const gisScript = document.getElementById('gis-script');
-    if(!gisScript) {
+    if(gmailAccessToken) { await gmailFetchEmails(query); return; }
+    if(!document.getElementById('gis-script')) {
         const s = document.createElement('script'); s.id = 'gis-script'; s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
-        s.onload = () => { gmailInitTokenClient(clientId); };
-        document.head.appendChild(s);
-    } else { gmailInitTokenClient(clientId); }
+        s.onload = () => { gmailInitTokenClient(query); }; document.head.appendChild(s);
+    } else { gmailInitTokenClient(query); }
 }
 
-function gmailInitTokenClient(clientId) {
+function gmailInitTokenClient(query) {
     gmailTokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/gmail.readonly',
+        client_id: CONFIG.google_client_id,
+        scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
         callback: async (resp) => {
             if(resp.error) { notify("Gmail auth failed: " + resp.error, "#ff3b30", 5000); return; }
             gmailAccessToken = resp.access_token;
-            await gmailFetchEmails();
+            await gmailFetchEmails(query);
         }
     });
     gmailTokenClient.requestAccessToken({ prompt: '' });
 }
 
-async function gmailFetchEmails() {
-    notify("Loading emails...", "#007aff", 2000);
+async function gmailFetchEmails(query) {
+    notify("Loading emails...", "#007aff", 1500);
     try {
-        const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20&q=in:inbox`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
-        if(!listRes.ok) { if(listRes.status === 401) { gmailAccessToken = null; gmailLoadEmails(); return; } throw new Error("Failed to list emails"); }
+        const q = query ? encodeURIComponent(query) : 'in%3Ainbox';
+        const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25&q=${q}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+        if(!listRes.ok) { if(listRes.status === 401) { gmailAccessToken = null; await gmailLoadEmails(query); return; } throw new Error("HTTP " + listRes.status); }
         const listData = await listRes.json();
         const msgs = listData.messages || [];
-        const details = await Promise.all(msgs.slice(0, 20).map(async m => {
-            const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+        const details = await Promise.all(msgs.map(async m => {
+            const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
             if(!r.ok) return null;
             const d = await r.json();
-            const headers = d.payload.headers || [];
-            const get = (n) => (headers.find(h => h.name === n) || {}).value || "";
-            return { id: m.id, subject: get("Subject") || "(no subject)", from: get("From"), date: get("Date"), snippet: d.snippet || "" };
+            const hdr = d.payload.headers || [];
+            const get = n => (hdr.find(h => h.name === n) || {}).value || "";
+            return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: (d.labelIds||[]).includes("UNREAD") };
         }));
         gmailEmails = details.filter(Boolean);
         gmailRenderEmails();
-        document.getElementById('gmail-emails-section').style.display = 'block';
-        notify("Gmail loaded!", "#34c759", 2000);
-    } catch(e) { notify("Failed to load Gmail: " + e.message, "#ff3b30", 5000); }
+        gmailShowSection(true);
+    } catch(e) { notify("Gmail error: " + e.message, "#ff3b30", 5000); }
+}
+
+function gmailOnSearch(val) {
+    clearTimeout(gmailSearchTimer);
+    gmailSearchTimer = setTimeout(() => { gmailFetchEmails(val.trim() || null); }, 600);
 }
 
 function gmailRenderEmails() {
     const list = document.getElementById('gmail-list');
+    if(!gmailEmails.length) { list.innerHTML = '<li style="padding:16px 14px; color:#888; font-size:13px;">No emails found.</li>'; gmailUpdateAddBtn(); return; }
     list.innerHTML = gmailEmails.map((em, i) => {
-        const fromName = em.from.replace(/<.*>/, '').replace(/"/g,'').trim() || em.from;
-        return `<li class="list-item" style="flex-direction:column; align-items:stretch; padding:8px 14px; cursor:pointer;" onclick="gmailToggleSelect(${i}, this)">
+        const fromName = em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || em.from;
+        return `<li class="list-item" style="flex-direction:column; align-items:stretch; padding:8px 14px;" onclick="gmailToggleSelect(${i}, this)">
             <div style="display:flex; align-items:center; gap:8px;">
-                <input type="checkbox" class="ctx-checkbox gmail-chk" data-idx="${i}" onclick="event.stopPropagation(); gmailCheckInsertBtn();" style="flex-shrink:0;">
-                <div style="flex:1; min-width:0;">
-                    <div style="font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${em.subject}</div>
+                <input type="checkbox" class="gmail-chk ctx-checkbox" data-idx="${i}" onclick="event.stopPropagation(); gmailUpdateAddBtn();" style="flex-shrink:0;">
+                <div style="flex:1; min-width:0; cursor:pointer;" onclick="event.stopPropagation(); gmailPreview(${i});">
+                    <div style="font-weight:${em.unread ? 800 : 600}; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${em.subject}</div>
                     <div style="font-size:11px; color:#888; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${fromName}</div>
                 </div>
+                <span style="font-size:10px; opacity:0.4; cursor:pointer; padding:4px;" onclick="event.stopPropagation(); gmailPreview(${i});">→</span>
             </div>
-            <div style="font-size:11px; color:#aaa; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-left:26px;">${em.snippet}</div>
+            <div style="font-size:11px; color:#aaa; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-left:26px;">${em.snippet}</div>
         </li>`;
     }).join('');
-    gmailCheckInsertBtn();
+    gmailUpdateAddBtn();
 }
 
-function gmailToggleSelect(i, liEl) {
-    const chk = liEl.querySelector('.gmail-chk');
-    chk.checked = !chk.checked;
-    gmailCheckInsertBtn();
+function gmailToggleSelect(i, liEl) { const chk = liEl.querySelector('.gmail-chk'); if(chk) { chk.checked = !chk.checked; gmailUpdateAddBtn(); } }
+
+function gmailUpdateAddBtn() {
+    const n = document.querySelectorAll('.gmail-chk:checked').length;
+    const btn = document.getElementById('gmail-add-ctx-btn');
+    if(btn) { btn.style.display = n > 0 ? 'inline' : 'none'; btn.textContent = n > 0 ? `+ Add ${n} to Context` : ''; }
 }
 
-function gmailCheckInsertBtn() {
-    const any = document.querySelectorAll('.gmail-chk:checked').length > 0;
-    document.getElementById('gmail-insert-all-btn').style.display = any ? 'inline' : 'none';
-}
-
-function gmailInsertSelected() {
+function gmailAddToContext() {
     const checked = document.querySelectorAll('.gmail-chk:checked');
-    const texts = Array.from(checked).map(chk => {
+    const newLines = Array.from(checked).map(chk => {
         const em = gmailEmails[parseInt(chk.dataset.idx)];
-        return `[Email from ${em.from}]\nSubject: ${em.subject}\n${em.snippet}`;
+        const fromName = em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || em.from;
+        return `From: ${fromName} | Subject: ${em.subject} | ${em.snippet}`;
     });
-    if(texts.length === 0) return;
-    insertAtCursor(texts.join('\n\n---\n\n'), true, false);
+    if(!newLines.length) return;
+    newLines.forEach(line => { if(!CONTEXT_LINES.includes(line)) CONTEXT_LINES.push(line); });
+    cutIdx = CONTEXT_LINES.length - 1;
+    refreshUI();
     checked.forEach(chk => chk.checked = false);
-    gmailCheckInsertBtn();
-    closeAllPanels();
+    gmailUpdateAddBtn();
+    notify(`${newLines.length} email${newLines.length > 1 ? 's' : ''} added to context`, "#34c759", 2500);
+}
+
+async function gmailPreview(i) {
+    const em = gmailEmails[i];
+    gmailCurrentEmail = em;
+    document.getElementById('gmail-preview-subject').textContent = em.subject;
+    document.getElementById('gmail-preview-from').textContent = em.from;
+    document.getElementById('gmail-preview-date').textContent = em.date;
+    document.getElementById('gmail-preview-body').textContent = "Loading…";
+    document.getElementById('gmail-reply-box').value = "";
+    const ov = document.getElementById('gmail-preview-overlay');
+    ov.style.display = 'flex'; ov.style.flexDirection = 'column';
+    try {
+        const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}?format=full`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+        if(!r.ok) throw new Error("Failed to load");
+        const d = await r.json();
+        let body = gmailExtractBody(d.payload);
+        document.getElementById('gmail-preview-body').textContent = body || em.snippet;
+    } catch(e) { document.getElementById('gmail-preview-body').textContent = em.snippet; }
+}
+
+function gmailExtractBody(payload) {
+    if(!payload) return "";
+    if(payload.body && payload.body.data) { try { return atob(payload.body.data.replace(/-/g,'+').replace(/_/g,'/')); } catch(e) {} }
+    if(payload.parts) { for(const p of payload.parts) { if(p.mimeType === 'text/plain' && p.body && p.body.data) { try { return atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/')); } catch(e) {} } } for(const p of payload.parts) { const r = gmailExtractBody(p); if(r) return r; } }
+    return "";
+}
+
+async function gmailSendReply() {
+    const em = gmailCurrentEmail; if(!em) return;
+    const replyText = document.getElementById('gmail-reply-box').value.trim();
+    if(!replyText) { notify("Reply is empty", "#ff3b30"); return; }
+    const toAddr = em.from;
+    const subject = em.subject.startsWith('Re:') ? em.subject : 'Re: ' + em.subject;
+    const rawMsg = [`To: ${toAddr}`, `Subject: ${subject}`, `In-Reply-To: ${em.messageId}`, `References: ${em.messageId}`, `Content-Type: text/plain; charset=utf-8`, ``, replyText].join('\r\n');
+    const encoded = btoa(unescape(encodeURIComponent(rawMsg))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    try {
+        notify("Sending…", "#007aff", 2000);
+        const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/send`, { method: 'POST', headers: { Authorization: `Bearer ${gmailAccessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: encoded, threadId: em.threadId }) });
+        if(!r.ok) throw new Error("Send failed: " + r.status);
+        document.getElementById('gmail-reply-box').value = "";
+        notify("Reply sent!", "#34c759", 3000);
+        document.getElementById('gmail-preview-overlay').style.display = 'none';
+    } catch(e) { notify("Failed to send: " + e.message, "#ff3b30", 5000); }
 }
 
 function gmailSignOut() {
     if(gmailAccessToken && typeof google !== 'undefined') { try { google.accounts.oauth2.revoke(gmailAccessToken); } catch(e) {} }
-    gmailAccessToken = null; gmailEmails = [];
-    document.getElementById('gmail-emails-section').style.display = 'none';
+    gmailAccessToken = null; gmailEmails = []; gmailCurrentEmail = null;
+    gmailShowSection(false);
     document.getElementById('gmail-list').innerHTML = '';
+    document.getElementById('gmail-preview-overlay').style.display = 'none';
     notify("Signed out of Gmail", "#34c759", 2000);
 }
 
