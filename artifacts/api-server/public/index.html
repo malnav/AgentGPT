@@ -455,6 +455,15 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .pbm-arrow { font-size:18px; color:var(--accent); }
 .pbm-empty { padding:16px; font-size:13px; color:#888; text-align:center; }
 .pbm-footer { padding:10px 16px; border-top:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.gmail-thread-hdr { display:flex; align-items:flex-start; gap:8px; padding:10px 14px; cursor:pointer; background:var(--sec-bg); border-bottom:0.5px solid var(--border); transition:background 0.15s; }
+.gmail-thread-hdr:active { background:rgba(0,122,255,0.07); }
+.gmail-thread-body { display:none; padding:0; margin:0; list-style:none; border-bottom:1.5px solid var(--border); }
+.gmail-thread.open .gmail-thread-body { display:block; }
+.gmail-thread.open .gmail-expand-arrow { transform:rotate(90deg); }
+.gmail-expand-arrow { font-size:9px; transition:transform 0.2s; display:inline-block; margin-top:2px; opacity:0.5; }
+.thread-msg-row { display:flex; align-items:center; gap:8px; padding:7px 14px 7px 30px; border-bottom:0.5px solid var(--border); background:var(--bg); }
+.thread-msg-row:last-child { border-bottom:none; }
+.thread-count-badge { font-size:10px; font-weight:800; color:var(--accent); background:rgba(0,122,255,0.1); border-radius:8px; padding:1px 6px; }
 </style>
 </head>
 <body>
@@ -2245,19 +2254,97 @@ function gmailOnSearch(val) {
     gmailSearchTimer = setTimeout(() => { gmailFetchEmails(val.trim() || null); }, 600);
 }
 
-function gmailEmailItemHtml(em, i, src) {
-    const fromName = em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || em.from;
-    return `<li class="list-item" style="flex-direction:column; align-items:stretch; padding:8px 14px;" onclick="gmailToggleSelect(${i}, this)">
-        <div style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" class="gmail-chk ctx-checkbox" data-idx="${i}" onclick="event.stopPropagation(); gmailUpdateAddBtns();" style="flex-shrink:0;">
+function gmailCleanBodyText(text) {
+    if (!text) return '';
+    const sigPatterns = [/^--\s*$/, /^—\s*$/, /^[-_]{3,}$/, /^(best\s+regards?|kind\s+regards?|warm\s+regards?|sincerely|thanks?|cheers?|regards?|br[,.]?|kr[,.]?)\s*$/i, /^(sent from (my |your )?iphone|sent from (my |your )?android|get outlook for|sent via)/i, /^(unsubscribe|this email was sent|privacy policy|you (are )?receiving this)/i];
+    const quotePatterns = [/^>/, /^On .{10,}wrote:/, /^-{3,}\s*(original message|forwarded message)/i, /^_{3,}/, /^From:\s+.+\s+Sent:\s+/i, /^[A-Z][a-z]+,\s+\d{4}\s+at\s+/];
+    const lines = text.split('\n');
+    const cleaned = [];
+    let sigFound = false;
+    let skippingQuote = false;
+    let blanks = 0;
+    for (let i = 0; i < lines.length; i++) {
+        const raw = lines[i];
+        const line = raw.trim();
+        if (sigFound) break;
+        if (sigPatterns.some(p => p.test(line))) { sigFound = true; break; }
+        const isQuote = quotePatterns.some(p => p.test(line));
+        if (isQuote) { skippingQuote = true; continue; }
+        if (skippingQuote && line === '') continue;
+        skippingQuote = false;
+        if (line === '') { blanks++; if (blanks <= 1) cleaned.push(''); continue; }
+        blanks = 0;
+        if (line.length < 3 && !/\w/.test(line)) continue;
+        cleaned.push(line);
+    }
+    return cleaned.join('\n').trim();
+}
+
+function gmailGroupByThread(emails) {
+    const map = new Map();
+    emails.forEach((em, idx) => {
+        if (!map.has(em.threadId)) map.set(em.threadId, []);
+        map.get(em.threadId).push({ em, idx });
+    });
+    return Array.from(map.values());
+}
+
+function gmailThreadHtml(group, src) {
+    const latest = group[group.length - 1].em;
+    const hasUnread = group.some(g => g.em.unread);
+    const senders = [...new Set(group.map(g => g.em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || g.em.from))];
+    const sendersStr = senders.slice(0, 3).join(', ') + (senders.length > 3 ? ` +${senders.length - 3}` : '');
+    const count = group.length;
+    const allIdxs = group.map(g => g.idx);
+    const msgRows = group.map(g => {
+        const em = g.em; const i = g.idx;
+        const name = em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || em.from;
+        return `<li class="thread-msg-row">
+            <input type="checkbox" class="gmail-chk ctx-checkbox" data-idx="${i}" onclick="event.stopPropagation(); gmailUpdateAddBtns(); gmailUpdateThreadChk(this);" style="flex-shrink:0;">
             <div style="flex:1; min-width:0; cursor:pointer;" onclick="event.stopPropagation(); gmailPreview(${i}, '${src}');">
-                <div style="font-weight:${em.unread ? 800 : 600}; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${em.subject}</div>
-                <div style="font-size:11px; color:#888; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${fromName}</div>
+                <div style="font-size:12px; font-weight:${em.unread ? 800 : 500}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</div>
+                <div style="font-size:11px; color:#aaa; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${em.snippet || ''}</div>
             </div>
-            <span style="font-size:11px; opacity:0.35; cursor:pointer; padding:4px;" onclick="event.stopPropagation(); gmailPreview(${i}, '${src}');">→</span>
+            <span style="font-size:11px; color:var(--accent); padding:4px; cursor:pointer; flex-shrink:0;" onclick="event.stopPropagation(); gmailPreview(${i}, '${src}');">→</span>
+        </li>`;
+    }).join('');
+    return `<li class="gmail-thread" data-idxs="${allIdxs.join(',')}">
+        <div class="gmail-thread-hdr" onclick="gmailToggleThread(this.closest('.gmail-thread'))">
+            <input type="checkbox" class="gmail-thread-chk ctx-checkbox" onclick="event.stopPropagation(); gmailThreadChkChange(this);" style="flex-shrink:0; margin-top:3px;">
+            <div style="flex:1; min-width:0;">
+                <div style="font-weight:${hasUnread ? 800 : 600}; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${latest.subject}</div>
+                <div style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${sendersStr}</div>
+                <div style="font-size:11px; color:#aaa; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px;">${latest.snippet || ''}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; padding-left:6px;">${count > 1 ? `<span class="thread-count-badge">${count}</span>` : ''}<span class="gmail-expand-arrow">▶</span></div>
         </div>
-        <div style="font-size:11px; color:#aaa; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-left:26px;">${em.snippet}</div>
+        <ul class="gmail-thread-body">${msgRows}</ul>
     </li>`;
+}
+
+function gmailToggleThread(liEl) {
+    if (!liEl) return;
+    liEl.classList.toggle('open');
+}
+
+function gmailThreadChkChange(chkEl) {
+    const thread = chkEl.closest('.gmail-thread');
+    if (!thread) return;
+    const boxes = thread.querySelectorAll('.gmail-chk');
+    boxes.forEach(b => { b.checked = chkEl.checked; });
+    gmailUpdateAddBtns();
+}
+
+function gmailUpdateThreadChk(msgChkEl) {
+    const thread = msgChkEl.closest('.gmail-thread');
+    if (!thread) return;
+    const boxes = thread.querySelectorAll('.gmail-chk');
+    const all = Array.from(boxes);
+    const checked = all.filter(b => b.checked).length;
+    const hdrChk = thread.querySelector('.gmail-thread-chk');
+    if (!hdrChk) return;
+    hdrChk.checked = checked === all.length;
+    hdrChk.indeterminate = checked > 0 && checked < all.length;
 }
 
 function gmailRenderEmails() {
@@ -2269,15 +2356,21 @@ function gmailRenderEmails() {
         if(modalList) modalList.innerHTML = empty;
         gmailUpdateAddBtns(); return;
     }
-    if(panelList) panelList.innerHTML = gmailEmails.map((em, i) => gmailEmailItemHtml(em, i, 'panel')).join('');
-    if(modalList) modalList.innerHTML = gmailEmails.map((em, i) => gmailEmailItemHtml(em, i, 'modal')).join('');
+    const groups = gmailGroupByThread(gmailEmails);
+    if(panelList) panelList.innerHTML = groups.map(g => gmailThreadHtml(g, 'panel')).join('');
+    if(modalList) modalList.innerHTML = groups.map(g => gmailThreadHtml(g, 'modal')).join('');
     const psa = document.getElementById('gmail-panel-select-all'); if(psa) psa.checked = false;
     const msa = document.getElementById('gmail-modal-select-all'); if(msa) msa.checked = false;
     gmailUpdateAddBtns();
 }
 
 function gmailToggleSelect(i, liEl) { const chk = liEl.querySelector('.gmail-chk'); if(chk) { chk.checked = !chk.checked; gmailUpdateAddBtns(); } }
-function gmailToggleSelectAll(src, checked) { const listId = src === 'modal' ? 'gmail-modal-list' : 'gmail-list'; const boxes = document.querySelectorAll('#' + listId + ' .gmail-chk'); boxes.forEach(cb => { cb.checked = checked; }); gmailUpdateAddBtns(); }
+function gmailToggleSelectAll(src, checked) {
+    const listId = src === 'modal' ? 'gmail-modal-list' : 'gmail-list';
+    document.querySelectorAll('#' + listId + ' .gmail-chk').forEach(cb => { cb.checked = checked; });
+    document.querySelectorAll('#' + listId + ' .gmail-thread-chk').forEach(cb => { cb.checked = checked; cb.indeterminate = false; });
+    gmailUpdateAddBtns();
+}
 
 function gmailUpdateAddBtns() {
     const n = document.querySelectorAll('.gmail-chk:checked').length;
@@ -2308,6 +2401,7 @@ async function gmailAddToContext() {
             }
         } catch(e) {}
         if(!bodyText) bodyText = em.snippet;
+        bodyText = gmailCleanBodyText(bodyText);
         const header = `From: ${fromName} | Subject: ${em.subject}`;
         if(!CONTEXT_LINES.includes(header)) { CONTEXT_LINES.push(header); totalLines++; }
         bodyText.split('\n').map(l => l.trim()).filter(l => l.length > 1).forEach(l => {
@@ -2710,6 +2804,7 @@ async function gmailFetchEmailLines(em) {
         }
     } catch (e) {}
     if (!bodyText) bodyText = em.snippet || '';
+    bodyText = gmailCleanBodyText(bodyText);
     const lines = [];
     lines.push('From: ' + fromName + ' | Subject: ' + (em.subject || '(no subject)'));
     bodyText.split('\n').map(l => l.trim()).filter(l => l.length > 1).forEach(l => lines.push(l));
