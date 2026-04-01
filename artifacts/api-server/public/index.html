@@ -491,6 +491,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <input type="file" id="attach-cam" accept="image/*" capture="environment" style="display:none;" tabindex="-1" onchange="handleAttachments(event)">
 <input type="file" id="attach-img" accept="image/*" multiple style="display:none;" tabindex="-1" onchange="handleAttachments(event)">
 <input type="file" id="attach-file" accept=".pdf,.txt,.md,.csv,.json,.xml,.html,.htm,.js,.ts,.jsx,.tsx,.css,.py,.swift,.kt,.doc,.docx,.xls,.xlsx" multiple style="display:none;" tabindex="-1" onchange="handleAttachments(event)">
+<input type="file" id="wa-zip-input" accept=".zip,.txt" style="display:none;" onchange="importWhatsAppFile(event)">
 
 <div class="top-nav">
     <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
@@ -692,6 +693,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                         <div class="tool-menu-item" onclick="toggleTplPanel(); renderTemplates(); document.getElementById('attach-menu').classList.add('closed');">📄 Templates</div>
                         <div class="tool-menu-item" onclick="toggleSrvPanel(); renderToolsList(); document.getElementById('attach-menu').classList.add('closed');">🔌 Services</div>
                         <div class="tool-menu-item" onclick="toggleCtxPanel(); refreshUI(); document.getElementById('attach-menu').classList.add('closed');">📋 Context</div>
+                        <div class="tool-menu-item" onclick="document.getElementById('wa-zip-input').click(); document.getElementById('attach-menu').classList.add('closed');">📱 WhatsApp Chat</div>
                     </div>
                 </div>
 
@@ -2661,6 +2663,111 @@ async function gmailAddToContext() {
     notify(`${totalLines} line${totalLines !== 1 ? 's' : ''} added to context`, "#34c759", 2500);
 }
 
+let _waImportData = null;
+
+function _parseWhatsAppTxt(text) {
+    const msgs = [];
+    const lines = text.split('\n');
+    const HDR = /^[\u200e\u200f\u202a\u202c]?\[?(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?)\]?\s*[-\u2013]?\s*([^:]+):\s*([\s\S]*)$/;
+    let cur = null;
+    for(const line of lines) {
+        const raw = line.replace(/[\u200e\u200f\u202a\u202c]/g, '').trimEnd();
+        const m = raw.match(HDR);
+        if(m) {
+            if(cur) msgs.push(cur);
+            cur = { date: m[1] + ' ' + m[2], sender: m[3].trim(), text: m[4].trim() };
+        } else if(cur && raw.trim()) {
+            cur.text += ' ' + raw.trim();
+        }
+    }
+    if(cur) msgs.push(cur);
+    return msgs.filter(m => m.text && m.text !== '<Media omitted>' && m.text !== 'image omitted' && m.text !== 'video omitted' && m.text !== 'audio omitted' && m.text !== 'sticker omitted' && !m.text.toLowerCase().includes('end-to-end encrypted') && !m.text.startsWith('Your security code') && m.text.length > 0);
+}
+
+function _showWaModal() {
+    const { msgs, name } = _waImportData;
+    const senders = [...new Set(msgs.map(m => m.sender))];
+    const d0 = msgs[0]?.date || ''; const d1 = msgs[msgs.length-1]?.date || '';
+    const counts = [50,100,200,500].filter(n => n < msgs.length);
+    counts.push(msgs.length);
+    const limitOptions = counts.map(n => `<option value="${n}" ${n===Math.min(200,msgs.length)?'selected':''}>${n === msgs.length ? 'All' : 'Last'} ${n} messages</option>`).join('');
+    document.getElementById('wa-modal-body').innerHTML = `
+        <div style="background:var(--sec-bg); border-radius:14px; padding:13px 16px; margin-bottom:14px;">
+            <div style="font-size:11px; color:#888; font-weight:700; margin-bottom:4px; letter-spacing:0.4px;">CHAT</div>
+            <div style="font-size:14px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</div>
+            <div style="font-size:11px; color:#888; margin-top:3px;">${d0.split(' ')[0]} → ${d1.split(' ')[0]}</div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px;">
+            <div style="background:var(--sec-bg); border-radius:12px; padding:12px; text-align:center;">
+                <div style="font-size:22px; font-weight:800; color:var(--accent);">${msgs.length.toLocaleString()}</div>
+                <div style="font-size:10px; color:#888; margin-top:2px; font-weight:600;">MESSAGES</div>
+            </div>
+            <div style="background:var(--sec-bg); border-radius:12px; padding:12px; text-align:center;">
+                <div style="font-size:22px; font-weight:800; color:var(--accent);">${senders.length}</div>
+                <div style="font-size:10px; color:#888; margin-top:2px; font-weight:600;">PARTICIPANTS</div>
+            </div>
+        </div>
+        <div style="background:var(--sec-bg); border-radius:14px; padding:4px 16px 12px; margin-bottom:14px;">
+            <div style="display:flex; align-items:center; gap:8px; padding:10px 0 8px;">
+                <span style="font-size:11px; font-weight:700; color:var(--accent); letter-spacing:0.4px;">IMPORT</span>
+            </div>
+            <select id="wa-limit-sel" class="pp-input" style="margin-bottom:8px;">${limitOptions}</select>
+            <select id="wa-fmt-sel" class="pp-input" style="margin-bottom:0;">
+                <option value="name">[Name]: message  (compact)</option>
+                <option value="dt_name">[Date] Name: message  (with timestamps)</option>
+            </select>
+        </div>
+        <div style="background:var(--sec-bg); border-radius:14px; padding:12px 16px; margin-bottom:20px; max-height:120px; overflow-y:auto;">
+            <div style="font-size:10px; color:#888; font-weight:700; margin-bottom:8px; letter-spacing:0.4px;">PREVIEW</div>
+            ${msgs.slice(-3).map(m => `<div style="font-size:12px; margin-bottom:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><span style="font-weight:700; color:var(--accent);">${m.sender.split(' ')[0]}</span> <span style="color:#888;">${m.text.slice(0,80)}${m.text.length>80?'…':''}</span></div>`).join('')}
+        </div>
+        <button onclick="waDoImport()" style="width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:0.3px;">Add to Context →</button>
+    `;
+    openModal('wa-import-modal');
+}
+
+async function importWhatsAppFile(event) {
+    const file = event.target.files[0]; if(!file) return;
+    event.target.value = '';
+    notify('Reading file…', '#007aff', 2500);
+    let txt = ''; let fileName = file.name;
+    try {
+        if(file.name.toLowerCase().endsWith('.zip')) {
+            const { default: JSZip } = await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm');
+            const zip = await JSZip.loadAsync(file);
+            const entry = Object.keys(zip.files).sort().find(n => n.endsWith('.txt') && !zip.files[n].dir);
+            if(!entry) return notify('No .txt found in ZIP', '#ff3b30', 3000);
+            txt = await zip.files[entry].async('string');
+            fileName = entry.split('/').pop().replace('_chat.txt','').replace(/WhatsApp Chat with /i,'').replace(/\.txt$/,'').trim() || file.name;
+        } else {
+            txt = await file.text();
+            fileName = file.name.replace(/\.txt$/,'').replace(/WhatsApp Chat with /i,'').replace(/_chat$/,'').trim();
+        }
+    } catch(e) { return notify('Could not read file: ' + e.message, '#ff3b30', 4000); }
+    const msgs = _parseWhatsAppTxt(txt);
+    if(!msgs.length) return notify('No messages found in file', '#ff3b30', 3000);
+    _waImportData = { msgs, name: fileName };
+    _showWaModal();
+}
+
+function waDoImport() {
+    if(!_waImportData) return;
+    const { msgs, name } = _waImportData;
+    const limitVal = document.getElementById('wa-limit-sel').value;
+    const fmt = document.getElementById('wa-fmt-sel').value;
+    const subset = msgs.slice(-parseInt(limitVal));
+    const header = `[WhatsApp: ${name}] ${subset.length} messages`;
+    if(!CONTEXT_LINES.includes(header)) CONTEXT_LINES.push(header);
+    subset.forEach(m => {
+        const line = fmt === 'dt_name' ? `[${m.date}] ${m.sender}: ${m.text}` : `[${m.sender}]: ${m.text}`;
+        if(!CONTEXT_LINES.includes(line)) CONTEXT_LINES.push(line);
+    });
+    cutIdx = CONTEXT_LINES.length - 1;
+    saveAll(); refreshUI();
+    closeModal('wa-import-modal');
+    notify(`${subset.length} messages added to context ✓`, '#34c759', 2500);
+}
+
 async function gmailPreview(i, src) {
     src = src || 'panel';
     const em = gmailEmails[i];
@@ -3288,6 +3395,14 @@ window.onload = init;
 </div>
 
 <div id="profile-bubble-backdrop" style="display:none; position:fixed; inset:0; z-index:459;" onclick="closeProfileBubbleMenu()"></div>
+
+<div id="wa-import-modal" class="modal" style="z-index:9997; display:none;">
+    <div class="modal-header">
+        <h3>📱 WhatsApp Chat</h3>
+        <div onclick="closeModal('wa-import-modal')" style="font-size:22px; cursor:pointer; opacity:0.45;">✕</div>
+    </div>
+    <div class="modal-content" id="wa-modal-body" style="padding-top:4px;"></div>
+</div>
 
 <div id="setup-modal" class="modal" style="z-index:9997; display:none;">
     <div class="modal-header">
