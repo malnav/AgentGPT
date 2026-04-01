@@ -577,6 +577,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div style="padding:8px 14px 4px 14px;">
             <input id="gmail-search-box" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:7px 12px;" oninput="gmailOnSearch(this.value)">
         </div>
+        <div style="display:flex; align-items:center; gap:8px; padding:4px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
+            <input type="checkbox" id="gmail-panel-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('panel',this.checked)">
+            <span style="font-size:11px; color:#888; font-weight:600;">Select All</span>
+        </div>
         <ul id="gmail-list" class="gmail-email-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:60px;"></ul>
 
         <div id="gmail-preview-overlay" style="display:none; position:absolute; inset:0; background:var(--bg); z-index:10; flex-direction:column; overflow:hidden;">
@@ -798,6 +802,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
     </div>
     <div style="flex:1; overflow:hidden; display:flex; flex-direction:column; position:relative;">
+        <div style="display:flex; align-items:center; gap:8px; padding:6px 16px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
+            <input type="checkbox" id="gmail-modal-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('modal',this.checked)">
+            <span style="font-size:12px; color:#888; font-weight:600;">Select All</span>
+        </div>
         <ul id="gmail-modal-list" class="gmail-email-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:80px;"></ul>
         <div id="gmail-modal-preview" style="display:none; position:absolute; inset:0; background:var(--bg); z-index:10; flex-direction:column; overflow:hidden;">
             <div style="display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:0.5px solid var(--border);">
@@ -2246,10 +2254,13 @@ function gmailRenderEmails() {
     }
     if(panelList) panelList.innerHTML = gmailEmails.map((em, i) => gmailEmailItemHtml(em, i, 'panel')).join('');
     if(modalList) modalList.innerHTML = gmailEmails.map((em, i) => gmailEmailItemHtml(em, i, 'modal')).join('');
+    const psa = document.getElementById('gmail-panel-select-all'); if(psa) psa.checked = false;
+    const msa = document.getElementById('gmail-modal-select-all'); if(msa) msa.checked = false;
     gmailUpdateAddBtns();
 }
 
 function gmailToggleSelect(i, liEl) { const chk = liEl.querySelector('.gmail-chk'); if(chk) { chk.checked = !chk.checked; gmailUpdateAddBtns(); } }
+function gmailToggleSelectAll(src, checked) { const listId = src === 'modal' ? 'gmail-modal-list' : 'gmail-list'; const boxes = document.querySelectorAll('#' + listId + ' .gmail-chk'); boxes.forEach(cb => { cb.checked = checked; }); gmailUpdateAddBtns(); }
 
 function gmailUpdateAddBtns() {
     const n = document.querySelectorAll('.gmail-chk:checked').length;
@@ -2613,44 +2624,19 @@ function updateProfileBubble() {
     const b = document.getElementById('profile-bubble');
     const icon = document.getElementById('profile-bubble-icon');
     if (!b || !icon) return;
-    const p = AI_PROFILES.find(x => x.label === activeProfileLabel) || AI_PROFILES[0];
-    if (p) { icon.textContent = p.label.charAt(0).toUpperCase(); b.title = p.label + ' — Tap for quick chat'; }
+    const defLabel = CONFIG.def_profile || activeProfileLabel;
+    const p = AI_PROFILES.find(x => x.label === defLabel) || AI_PROFILES[0];
+    if (p) { icon.textContent = p.label.charAt(0).toUpperCase(); b.title = p.label + ' — Tap to start email chat'; }
 }
 
 function profileBubbleTap(e) {
     if (e && e.stopPropagation) e.stopPropagation();
-    const menu = document.getElementById('profile-bubble-menu');
-    if (menu.style.display !== 'none') { closeProfileBubbleMenu(); return; }
-    openProfileBubbleMenu();
+    const defLabel = CONFIG.def_profile || activeProfileLabel;
+    startEmailChat(defLabel);
 }
 
-function openProfileBubbleMenu() {
-    if (!CONFIG.bubble_profiles) CONFIG.bubble_profiles = AI_PROFILES.map(p => p.label);
-    const profiles = CONFIG.bubble_profiles.map(lbl => AI_PROFILES.find(p => p.label === lbl)).filter(Boolean);
-    const listEl = document.getElementById('pbm-profile-list');
-    const subEl = document.getElementById('pbm-email-count');
-    const selectedEmails = Array.from(document.querySelectorAll('#gmail-list .gmail-chk:checked, #gmail-modal-list .gmail-chk:checked'));
-    const emailCount = selectedEmails.length;
-    if (emailCount > 0) { subEl.textContent = emailCount + ' email' + (emailCount !== 1 ? 's' : '') + ' selected as context'; subEl.style.color = '#34c759'; }
-    else { subEl.textContent = 'No emails selected — opens empty context'; subEl.style.color = '#888'; }
-    if (profiles.length === 0) { listEl.innerHTML = '<div class="pbm-empty">No profiles configured.<br><small>Enable profiles in Settings → Profile Bubble.</small></div>'; }
-    else { listEl.innerHTML = profiles.map(p => `<div class="pbm-profile-row" onclick="startEmailChat('${p.label.replace(/'/g,"\\'")}')"><div class="pbm-avatar">${p.label.charAt(0).toUpperCase()}</div><div class="pbm-profile-name">${p.label}</div><div class="pbm-arrow">→</div></div>`).join(''); }
-    const menu = document.getElementById('profile-bubble-menu');
-    const backdrop = document.getElementById('profile-bubble-backdrop');
-    const bubble = document.getElementById('profile-bubble');
-    const bRect = bubble.getBoundingClientRect();
-    menu.style.display = 'block';
-    const mw = menu.offsetWidth || 240;
-    const mh = menu.offsetHeight || 200;
-    let left = bRect.left - mw - 8;
-    let top = bRect.top + bRect.height / 2 - mh / 2;
-    if (left < 8) left = bRect.right + 8;
-    if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
-    if (top < 8) top = 8;
-    if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
-    menu.style.left = left + 'px'; menu.style.top = top + 'px';
-    backdrop.style.display = 'block';
-}
+function openProfileBubbleMenu() { }
+
 
 function closeProfileBubbleMenu() {
     document.getElementById('profile-bubble-menu').style.display = 'none';
@@ -2664,22 +2650,24 @@ async function startEmailChat(profileLabel) {
     if (checked.length > 0) {
         notify('Fetching ' + checked.length + ' email' + (checked.length !== 1 ? 's' : '') + '…', '#007aff', 2500);
         for (const cb of checked) {
-            const id = cb.dataset.id;
+            const em = gmailEmails[parseInt(cb.dataset.idx)];
+            if (!em) continue;
+            const fromName = em.from ? em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || em.from : '';
+            let bodyText = '';
             try {
-                const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/' + id + '?format=full', { headers: { 'Authorization': 'Bearer ' + gmailAccessToken } });
-                const msg = await resp.json();
-                const subjectHeader = (msg.payload && msg.payload.headers || []).find(h => h.name.toLowerCase() === 'subject');
-                const fromHeader = (msg.payload && msg.payload.headers || []).find(h => h.name.toLowerCase() === 'from');
-                const subject = subjectHeader ? subjectHeader.value : '(no subject)';
-                const from = fromHeader ? fromHeader.value : '';
-                if (from) emailLines.push('From: ' + from);
-                emailLines.push('Subject: ' + subject);
-                emailLines.push('---');
-                const body = gmailExtractBody(msg.payload);
-                const rawText = body.text || body.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-                rawText.split('\n').forEach(line => { const t = line.trim(); if (t) emailLines.push(t); });
-                emailLines.push('');
-            } catch (err) { emailLines.push('(failed to fetch email ' + id + ')'); }
+                const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/' + em.id + '?format=full', { headers: { Authorization: 'Bearer ' + gmailAccessToken } });
+                if (r.ok) {
+                    const d = await r.json();
+                    const { text, html } = gmailExtractBody(d.payload);
+                    if (text) { bodyText = text; }
+                    else if (html) { const tmp = document.createElement('div'); tmp.innerHTML = gmailSanitizeHtml(html); bodyText = tmp.textContent; }
+                }
+            } catch (err) {}
+            if (!bodyText) bodyText = em.snippet || '';
+            const header = 'From: ' + fromName + ' | Subject: ' + (em.subject || '(no subject)');
+            emailLines.push(header);
+            bodyText.split('\n').map(l => l.trim()).filter(l => l.length > 1).forEach(l => emailLines.push(l));
+            emailLines.push('');
         }
     }
     if (emailLines.length > 0) {
