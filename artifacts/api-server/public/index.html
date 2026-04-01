@@ -1870,15 +1870,17 @@ async function saveSetupConfig() {
 function closeSetupModal() { closeModal('setup-modal'); }
 
 async function pushConfigToFirebase() {
-    if(!CONFIG.fb_api || !CONFIG.fb_project || !syncReady) return;
+    if(!CONFIG.fb_api || !CONFIG.fb_project) return;
     const db = await initFirebase(); if(!db) return;
+    showSyncIndicator();
     try {
-        const { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
         const pushToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
         lastOwnPushToken = pushToken;
-        await updateDoc(doc(db, "quicknote_data", "primary_user"), { config: CONFIG, profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, push_token: pushToken, last_sync: Date.now() });
+        await setDoc(doc(db, "quicknote_data", "primary_user"), { config: CONFIG, profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, push_token: pushToken, last_sync: Date.now() }, { merge: true });
         addLog("SYNC", "Config Push", "OK — settings only");
-    } catch(e) { addLog("SYNC", "Config Push Error", e.message); }
+        hideSyncIndicator(true);
+    } catch(e) { addLog("SYNC", "Config Push Error", e.message); hideSyncIndicator(false); }
 }
 
 async function saveMasterConfig() { 
@@ -2127,7 +2129,7 @@ async function pushToFirebase(manual = false) {
     } catch(e) { addLog("SYNC", "Push Error", e.message); hideSyncIndicator(false); notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
 }
 
-async function applyCloudData(data, db, silent = false) {
+async function applyCloudData(data, db, silent = false, forceConfig = false) {
     if(applyInProgress) { pendingCloudData = { data, db, silent }; return; }
     applyInProgress = true;
     try {
@@ -2144,7 +2146,7 @@ async function applyCloudData(data, db, silent = false) {
         if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates');
         if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools');
         if(data.models) AI_MODELS = sanitizeImport(data.models, 'models');
-        if(data.config) { const cloudTs = data.config._ts || 0; const localTs = CONFIG._ts || 0; if(cloudTs >= localTs) CONFIG = data.config; else addLog("SYNC", "Config Kept Local", `local _ts ${localTs} > cloud _ts ${cloudTs}`); }
+        if(data.config) { const cloudTs = data.config._ts || 0; const localTs = CONFIG._ts || 0; if(forceConfig || cloudTs >= localTs) { CONFIG = data.config; addLog("SYNC", "Config Applied", `cloud _ts ${cloudTs} >= local ${localTs}${forceConfig?' (forced)':''}`); } else { addLog("SYNC", "Config Kept Local", `local _ts ${localTs} > cloud _ts ${cloudTs}`); } }
         if(data.datasets) GLOBAL_DATASETS = data.datasets;
         chatHistories = newHistories;
 
@@ -2257,7 +2259,7 @@ async function startRealtimeSync() {
                 const alreadyConfirmed = localStorage.getItem(syncKey);
                 const isFirstSync = !alreadyConfirmed;
                 if(isFirstSync) localStorage.setItem(syncKey, '1');
-                await applyCloudData(data, db, !isFirstSync);
+                await applyCloudData(data, db, !isFirstSync, true);
                 isInitializing = false;
                 hideInitOverlay();
                 return;
