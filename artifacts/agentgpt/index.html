@@ -471,7 +471,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </head>
 <body>
 
-<div id="init-sync-overlay" style="position:fixed; inset:0; z-index:9998; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; background:var(--bg); transition:opacity 0.5s, transform 0.5s;" onclick="_dismissInitOverlay()">
+<div id="init-sync-overlay" style="position:fixed; inset:0; z-index:9998; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; background:var(--bg); transition:opacity 0.5s, transform 0.5s;">
     <div style="font-size:40px; animation:floatCloud 2s ease-in-out infinite;">☁️</div>
     <div style="font-size:14px; font-weight:600; color:var(--text); opacity:0.75;" id="init-overlay-label">Syncing from cloud…</div>
     <div style="width:160px; height:3px; background:var(--sec-bg); border-radius:2px; overflow:hidden;">
@@ -582,17 +582,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <span class="chip" style="font-size:10px; padding:5px 9px;" onclick="gmailLoadEmails()">↻</span>
             </div>
         </div>
-        <div id="ctx-tab-whatsapp-actions" style="display:none; gap:6px; align-items:center;">
-            <span class="chip" id="wa-add-ctx-btn" style="font-size:10px; padding:5px 10px; background:var(--accent); color:#fff; display:none;" onclick="waAddToContext()">+ Add</span>
-            <span class="chip" style="font-size:10px; padding:5px 9px;" onclick="waFetchApiMessages()" title="Fetch new messages">↻</span>
-            <span class="chip" style="font-size:10px; padding:5px 9px;" onclick="document.getElementById('wa-import-file-hdr').click()" title="Import .txt">📂</span>
-            <input type="file" id="wa-import-file-hdr" style="display:none;" accept=".txt" onchange="waImportFile(event)">
-            <span class="chip" style="font-size:10px; padding:5px 9px;" onclick="waShowApiSetup()" title="API Settings">⚙️</span>
-        </div>
         <div class="sub-tabs" style="margin:0; border:none; background:rgba(128,128,128,0.12); padding:3px; border-radius:10px; gap:2px;">
             <div class="sub-tab-btn active" id="ctx-tab-btn-context" onclick="ctxSwitchTab('context')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📋 Context</div>
             <div class="sub-tab-btn" id="ctx-tab-btn-gmail" onclick="ctxSwitchTab('gmail')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📧 Gmail</div>
-            <div class="sub-tab-btn" id="ctx-tab-btn-whatsapp" onclick="ctxSwitchTab('whatsapp')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">💬 WA</div>
         </div>
     </div>
 
@@ -638,63 +630,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 </div>
                 <div id="gmail-reply-box" contenteditable="true" data-ph="Write a reply…" style="min-height:60px; max-height:140px; overflow-y:auto; border:0.5px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
                 <button class="chip" style="background:var(--accent); color:#fff; padding:10px; font-size:13px; font-weight:700;" onclick="gmailSendReply('panel')">Send Reply ↑</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="ctx-pane-whatsapp" style="flex:1; overflow:hidden; display:none; flex-direction:column; position:relative;">
-        <div id="wa-empty-state" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 18px; text-align:center; gap:10px; overflow-y:auto;">
-            <div style="font-size:48px; line-height:1;">💬</div>
-            <div style="font-weight:800; font-size:15px;">WhatsApp Messages</div>
-            <div style="font-size:12px; color:#888; line-height:1.6; margin-bottom:4px;">Choose how to load messages into context</div>
-            <button class="chip" style="background:var(--accent); color:#fff; padding:12px 20px; font-size:13px; font-weight:700; width:100%;" onclick="document.getElementById('wa-import-file').click()">📂 Import Exported Chat (.txt)</button>
-            <input type="file" id="wa-import-file" style="display:none;" accept=".txt" onchange="waImportFile(event)">
-            <div style="font-size:10px; color:#aaa; margin:0 0 2px;">Export: Open Chat → ⋮ → More → Export Chat → Without Media</div>
-            <div style="width:100%; border-top:0.5px solid var(--border); margin:4px 0;"></div>
-            <button class="chip" style="background:var(--sec-bg); border:1.5px solid #25D366; color:#25D366; padding:12px 20px; font-size:13px; font-weight:700; width:100%;" onclick="waShowApiSetup()">🔗 Connect Business API</button>
-            <div style="font-size:10px; color:#aaa;">Receive live messages via WhatsApp Business Platform webhook</div>
-        </div>
-
-        <div id="wa-api-setup" style="display:none; flex:1; overflow-y:auto; flex-direction:column; padding:14px; gap:10px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                <span style="font-size:18px;">🔗</span>
-                <span style="font-weight:800; font-size:14px;">Business API Setup</span>
-                <span style="margin-left:auto; font-size:20px; cursor:pointer; opacity:0.4;" onclick="waHideApiSetup()">✕</span>
-            </div>
-            <div style="background:var(--sec-bg); border-radius:12px; padding:12px 14px;">
-                <div style="font-weight:700; font-size:11px; color:var(--accent); margin-bottom:8px;">CREDENTIALS</div>
-                <input type="text" id="wa-phone-id" class="pp-input" placeholder="Phone Number ID" style="margin-bottom:8px; font-size:13px;">
-                <input type="password" id="wa-access-token" class="pp-input" placeholder="Access Token (EAAxx…)" style="margin-bottom:0; font-size:13px;">
-            </div>
-            <div style="background:var(--sec-bg); border-radius:12px; padding:12px 14px;">
-                <div style="font-weight:700; font-size:11px; color:var(--accent); margin-bottom:6px;">WEBHOOK CONFIG</div>
-                <div style="font-size:11px; color:#888; margin-bottom:8px;">Set these in Meta Developer Console → WhatsApp → Configuration</div>
-                <div style="font-size:11px; color:#888; font-weight:600; margin-bottom:3px;">Callback URL</div>
-                <div id="wa-webhook-url-display" style="background:var(--bg); border:0.5px solid var(--border); border-radius:8px; padding:8px 10px; font-size:11px; font-family:monospace; word-break:break-all; margin-bottom:10px; cursor:pointer;" onclick="waCopyWebhookUrl(this)">Loading…</div>
-                <div style="font-size:11px; color:#888; font-weight:600; margin-bottom:3px;">Verify Token</div>
-                <div style="display:flex; gap:6px; align-items:center;">
-                    <input type="text" id="wa-verify-token" class="pp-input" style="margin-bottom:0; font-size:12px; font-family:monospace; flex:1;" placeholder="agentgpt-wa-token">
-                    <span class="chip" style="font-size:11px; padding:6px 10px; flex-shrink:0;" onclick="waGenVerifyToken()">↻ Gen</span>
-                </div>
-            </div>
-            <button class="chip" style="background:#25D366; color:#fff; padding:13px; font-size:14px; font-weight:800;" onclick="waSaveApiConfig()">Save & Connect ✓</button>
-            <div style="font-size:11px; color:#888; text-align:center; line-height:1.5;">After saving, configure the webhook in <b>Meta Developer Console</b> using the values above. Meta will send a verification request — make sure the server is running.</div>
-        </div>
-
-        <div id="wa-content" style="display:none; flex:1; overflow:hidden; flex-direction:column;">
-            <div style="padding:6px 14px 4px 14px; flex-shrink:0; display:flex; gap:6px; align-items:center;">
-                <input id="wa-search-box" class="pp-input" placeholder="Search messages…" style="font-size:13px; padding:7px 12px; flex:1; margin-bottom:0;">
-                <span id="wa-api-badge" style="display:none; font-size:10px; font-weight:700; color:#25D366; white-space:nowrap;">● LIVE</span>
-            </div>
-            <div id="wa-sender-chips" style="display:flex; gap:5px; padding:2px 14px 6px; overflow-x:auto; flex-shrink:0; -webkit-overflow-scrolling:touch; scrollbar-width:none;"></div>
-            <div style="display:flex; align-items:center; gap:8px; padding:5px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg); flex-shrink:0;">
-                <input type="checkbox" id="wa-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="waToggleSelectAll(this.checked)">
-                <span style="font-size:11px; color:#888; font-weight:600;" id="wa-msg-count">0 messages</span>
-                <span class="chip" style="font-size:10px; padding:3px 8px; margin-left:auto;" onclick="waClearData()">✕ Clear</span>
-            </div>
-            <ul id="wa-msg-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:68px;"></ul>
-            <div style="position:absolute; bottom:0; left:0; right:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); padding:10px; border-top:0.5px solid var(--glass-border); display:none;" id="wa-add-bar">
-                <button class="chip" style="width:100%; background:var(--accent); color:#fff; font-size:14px; padding:12px;" onclick="waAddToContext()">+ Add to Context</button>
             </div>
         </div>
     </div>
@@ -1340,27 +1275,20 @@ function initGestures() {
 }
 function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
 function toggleVarsPanel() { closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); }
-function _dismissInitOverlay() { if(!_initOverlayDone) { _initOverlayDone = true; const ov = document.getElementById('init-sync-overlay'); if(ov) { ov.style.transition = 'none'; ov.style.opacity = '0'; ov.style.pointerEvents = 'none'; ov.style.display = 'none'; } } }
-function toggleCtxPanel() { _dismissInitOverlay(); closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
+function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
 function ctxSwitchTab(tab) {
     const isGmail = tab === 'gmail';
-    const isWA = tab === 'whatsapp';
-    const isCtx = tab === 'context';
-    document.getElementById('ctx-pane-context').style.display = isCtx ? 'flex' : 'none';
+    document.getElementById('ctx-pane-context').style.display = isGmail ? 'none' : 'flex';
     document.getElementById('ctx-pane-gmail').style.display = isGmail ? 'flex' : 'none';
     document.getElementById('ctx-pane-gmail').style.flexDirection = 'column';
-    document.getElementById('ctx-pane-whatsapp').style.display = isWA ? 'flex' : 'none';
-    document.getElementById('ctx-pane-whatsapp').style.flexDirection = 'column';
-    document.getElementById('ctx-tab-context-actions').style.display = isCtx ? 'flex' : 'none';
+    document.getElementById('ctx-tab-context-actions').style.display = isGmail ? 'none' : 'flex';
     document.getElementById('ctx-tab-gmail-actions').style.display = isGmail ? 'flex' : 'none';
-    document.getElementById('ctx-tab-whatsapp-actions').style.display = isWA ? 'flex' : 'none';
-    document.getElementById('ctx-tab-btn-context').classList.toggle('active', isCtx);
+    document.getElementById('ctx-tab-btn-context').classList.toggle('active', !isGmail);
     document.getElementById('ctx-tab-btn-gmail').classList.toggle('active', isGmail);
-    document.getElementById('ctx-tab-btn-whatsapp').classList.toggle('active', isWA);
     if(isGmail) { if(gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box').value.trim() || null); } else { gmailLoadEmails(); } }
 }
-function toggleTplPanel() { _dismissInitOverlay(); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
-function toggleSrvPanel() { _dismissInitOverlay(); closeAllPanels('srv-slide-panel'); document.getElementById('srv-slide-panel').classList.toggle('open'); }
+function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
+function toggleSrvPanel() { closeAllPanels('srv-slide-panel'); document.getElementById('srv-slide-panel').classList.toggle('open'); }
 function toggleExpandInput(forceExpand = false) { if(forceExpand && isInputExpanded) return; isInputExpanded = forceExpand ? true : !isInputExpanded; const t = document.getElementById('note-input'), b = document.getElementById('expand-btn'); if(isInputExpanded) { t.style.minHeight = '50vh'; t.style.height = '50vh'; t.style.maxHeight = '70vh'; b.innerText = '⤡'; } else { t.style.minHeight = '60px'; t.style.maxHeight = '200px'; b.innerText = '⤢'; sync(); } setTimeout(updateInputHeightVar, 50); }
 function toggleAllContext() { cutIdx = (cutIdx === -1) ? CONTEXT_LINES.length - 1 : -1; refreshUI(); }
 function renderInlinePrompts() {
@@ -2014,16 +1942,11 @@ function insertAtCursor(text, step = false, doFocus = true) {
 function setContextWithExpand(on) { cutIdx = on ? CONTEXT_LINES.length - 1 : -1; refreshUI(); }
 function popState() { const noteIn = document.getElementById('note-input'); if(historyState.length > 0) { redoState.push(noteIn.value); noteIn.value = historyState.pop(); sync(); } }
 function redoStateAction() { const noteIn = document.getElementById('note-input'); if(redoState.length > 0) { historyState.push(noteIn.value); noteIn.value = redoState.pop(); sync(); } }
-async function openModal(id) {
-    closeAllPanels();
-    if (!_initOverlayDone) {
-        _initOverlayDone = true;
-        const ov = document.getElementById('init-sync-overlay');
-        if (ov) { ov.style.transition = 'none'; ov.style.opacity = '0'; ov.style.pointerEvents = 'none'; ov.style.display = 'none'; }
-    }
+async function openModal(id) { 
+    closeAllPanels(); 
     if(id === 'workspace-modal') await autoCleanupEmptyChats();
-    document.getElementById(id).style.display = 'flex';
-    if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); }
+    document.getElementById(id).style.display = 'flex'; 
+    if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); } 
 }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 function switchMasterTab(t) { document.getElementById('mtab-config').classList.toggle('active', t==='config'); document.getElementById('mtab-profiles').classList.toggle('active', t==='profiles'); document.getElementById('mtab-models').classList.toggle('active', t==='models'); document.getElementById('mtab-logs').classList.toggle('active', t==='logs'); document.getElementById('mview-config').classList.toggle('closed', t!=='config'); document.getElementById('mview-profiles').classList.toggle('closed', t!=='profiles'); document.getElementById('mview-models').classList.toggle('closed', t!=='models'); document.getElementById('mview-logs').classList.toggle('closed', t!=='logs'); if(t==='models') renderModelList(); if(t==='profiles') renderProfileList(); if(t==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(t==='config') renderBgSwatches(); }
@@ -2835,238 +2758,6 @@ function gmailSignOut() {
     ['gmail-preview-overlay', 'gmail-modal-preview'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
     gmailUpdateAddBtns();
     notify("Signed out of Gmail", "#34c759", 2000);
-}
-
-// --- WHATSAPP IMPORT LOGIC ---
-let waMessages = [];
-let waFilteredMsgs = [];
-let waActiveSender = null;
-let waSearchQuery = '';
-
-function waParseExport(text) {
-    const lines = text.split('\n');
-    const msgs = [];
-    const iosRe = /^\[(\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)\]\s*([^:]+):\s*([\s\S]+)/i;
-    const androidRe = /^(\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)\s*-\s*([^:]+):\s*([\s\S]+)/i;
-    let cur = null;
-    for(let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const m = iosRe.exec(line) || androidRe.exec(line);
-        if(m) {
-            if(cur) msgs.push(cur);
-            cur = { date: m[1], time: m[2], sender: m[3].trim(), text: m[4].trim() };
-        } else if(cur && line.trim()) {
-            cur.text += '\n' + line.trim();
-        }
-    }
-    if(cur) msgs.push(cur);
-    return msgs.filter(msg => msg.text && !msg.text.startsWith('<') && msg.text !== 'null' && msg.text.toLowerCase() !== 'this message was deleted' && !msg.text.startsWith('Messages and calls are end-to-end encrypted'));
-}
-
-function waImportFile(event) {
-    const file = event.target.files[0]; if(!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const parsed = waParseExport(e.target.result);
-        if(!parsed.length) { notify('No messages found — check file format', '#ff3b30', 3000); return; }
-        waMessages = parsed;
-        waActiveSender = null;
-        waSearchQuery = '';
-        document.getElementById('wa-search-box').value = '';
-        document.getElementById('wa-select-all').checked = false;
-        waApplyFilter();
-        document.getElementById('wa-empty-state').style.display = 'none';
-        document.getElementById('wa-content').style.display = 'flex';
-        document.getElementById('wa-content').style.flexDirection = 'column';
-        notify(`Loaded ${parsed.length} messages ✓`, '#34c759', 2500);
-    };
-    reader.readAsText(file, 'UTF-8'); event.target.value = '';
-}
-
-function waGetSenders() {
-    const map = {};
-    waMessages.forEach(m => { map[m.sender] = (map[m.sender] || 0) + 1; });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
-}
-
-function waApplyFilter() {
-    const q = waSearchQuery.toLowerCase();
-    waFilteredMsgs = waMessages.filter(m => {
-        if(waActiveSender && m.sender !== waActiveSender) return false;
-        if(q && !m.text.toLowerCase().includes(q) && !m.sender.toLowerCase().includes(q)) return false;
-        return true;
-    });
-    waRenderSenderChips();
-    waRenderList();
-}
-
-function waRenderSenderChips() {
-    const senders = waGetSenders();
-    const el = document.getElementById('wa-sender-chips');
-    el.innerHTML = [{ name: null, count: waMessages.length }].concat(senders).map(s => {
-        const active = waActiveSender === s.name;
-        const label = s.name === null ? `All (${s.count})` : `${s.name.split(' ')[0]} (${s.count})`;
-        return `<span class="chip ${active ? 'active' : ''}" style="font-size:10px; padding:4px 10px; white-space:nowrap; ${active ? 'background:var(--accent);color:#fff;' : ''}" onclick="waSetSender(${s.name === null ? 'null' : `'${s.name.replace(/'/g,"\\'")}' `})">${label}</span>`;
-    }).join('');
-}
-
-function waSetSender(name) { waActiveSender = name; waApplyFilter(); }
-
-function waOnSearch(val) { waSearchQuery = val; waApplyFilter(); }
-
-function waRenderList() {
-    const list = document.getElementById('wa-msg-list');
-    const count = document.getElementById('wa-msg-count');
-    count.textContent = `${waFilteredMsgs.length} message${waFilteredMsgs.length !== 1 ? 's' : ''}`;
-    if(!waFilteredMsgs.length) { list.innerHTML = `<li style="padding:24px; text-align:center; color:#888; font-size:13px;">No messages match</li>`; waUpdateAddBar(); return; }
-    const senderColors = {};
-    const palette = ['#007aff','#34c759','#ff9500','#af52de','#ff2d55','#5ac8fa','#ffcc00'];
-    let ci = 0;
-    waMessages.forEach(m => { if(!senderColors[m.sender]) senderColors[m.sender] = palette[ci++ % palette.length]; });
-    list.innerHTML = waFilteredMsgs.map((m, i) => {
-        const color = senderColors[m.sender] || '#888';
-        const initials = m.sender.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-        const safeText = m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-        return `<li style="display:flex; align-items:flex-start; gap:10px; padding:10px 14px; border-bottom:0.5px solid var(--border);">
-            <input type="checkbox" class="wa-chk" data-idx="${i}" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;margin-top:3px;" onchange="waOnCheck()">
-            <div style="width:32px;height:32px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;">${initials}</div>
-            <div style="flex:1;min-width:0;">
-                <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px;">
-                    <span style="font-size:12px;font-weight:800;color:${color};">${m.sender}</span>
-                    <span style="font-size:10px;color:#aaa;">${m.date} ${m.time}</span>
-                </div>
-                <div style="font-size:13px;line-height:1.5;color:var(--text);word-break:break-word;">${safeText}</div>
-            </div>
-        </li>`;
-    }).join('');
-    waUpdateAddBar();
-}
-
-function waOnCheck() {
-    const all = document.querySelectorAll('.wa-chk');
-    const checked = document.querySelectorAll('.wa-chk:checked');
-    document.getElementById('wa-select-all').checked = all.length > 0 && checked.length === all.length;
-    document.getElementById('wa-add-ctx-btn').style.display = checked.length ? 'inline-flex' : 'none';
-    waUpdateAddBar();
-}
-
-function waToggleSelectAll(checked) {
-    document.querySelectorAll('.wa-chk').forEach(c => c.checked = checked);
-    document.getElementById('wa-add-ctx-btn').style.display = checked ? 'inline-flex' : 'none';
-    waUpdateAddBar();
-}
-
-function waUpdateAddBar() {
-    const checked = document.querySelectorAll('.wa-chk:checked').length;
-    document.getElementById('wa-add-bar').style.display = checked > 0 ? 'block' : 'none';
-}
-
-function waAddToContext() {
-    const checked = document.querySelectorAll('.wa-chk:checked');
-    if(!checked.length) return;
-    const lines = [];
-    checked.forEach(chk => {
-        const idx = parseInt(chk.dataset.idx);
-        const m = waFilteredMsgs[idx];
-        if(m) lines.push(`[${m.date} ${m.time}] ${m.sender}: ${m.text}`);
-    });
-    lines.forEach(line => { if(!CONTEXT_LINES.includes(line)) CONTEXT_LINES.push(line); });
-    cutIdx = CONTEXT_LINES.length - 1;
-    ctxSwitchTab('context');
-    refreshUI();
-    notify(`Added ${lines.length} message${lines.length !== 1 ? 's' : ''} to context ✓`, '#34c759', 2500);
-}
-
-function waClearData() {
-    waMessages = []; waFilteredMsgs = []; waActiveSender = null; waSearchQuery = '';
-    document.getElementById('wa-empty-state').style.display = 'flex';
-    document.getElementById('wa-empty-state').style.flexDirection = 'column';
-    document.getElementById('wa-content').style.display = 'none';
-    document.getElementById('wa-api-badge').style.display = 'none';
-    if(waApiPollTimer) { clearInterval(waApiPollTimer); waApiPollTimer = null; }
-}
-
-let waApiPollTimer = null;
-let waApiLastFetch = 0;
-let waApiMode = false;
-
-function waShowApiSetup() {
-    document.getElementById('wa-empty-state').style.display = 'none';
-    const setup = document.getElementById('wa-api-setup');
-    setup.style.display = 'flex';
-    setup.style.flexDirection = 'column';
-    const webhookUrl = window.location.origin + '/api/webhook/whatsapp';
-    document.getElementById('wa-webhook-url-display').textContent = webhookUrl;
-    if(CONFIG.wa_phone_id) document.getElementById('wa-phone-id').value = CONFIG.wa_phone_id;
-    if(CONFIG.wa_access_token) document.getElementById('wa-access-token').value = CONFIG.wa_access_token;
-    if(CONFIG.wa_verify_token) document.getElementById('wa-verify-token').value = CONFIG.wa_verify_token;
-    else document.getElementById('wa-verify-token').value = 'agentgpt-wa-token';
-}
-
-function waHideApiSetup() {
-    document.getElementById('wa-api-setup').style.display = 'none';
-    document.getElementById('wa-empty-state').style.display = 'flex';
-    document.getElementById('wa-empty-state').style.flexDirection = 'column';
-}
-
-function waGenVerifyToken() {
-    const token = 'agentgpt-' + Math.random().toString(36).slice(2, 10);
-    document.getElementById('wa-verify-token').value = token;
-}
-
-function waCopyWebhookUrl(el) {
-    const url = el.textContent;
-    navigator.clipboard.writeText(url).then(() => notify('Webhook URL copied!', '#34c759', 2000)).catch(() => {});
-}
-
-async function waSaveApiConfig() {
-    const phoneId = document.getElementById('wa-phone-id').value.trim();
-    const accessToken = document.getElementById('wa-access-token').value.trim();
-    const verifyToken = document.getElementById('wa-verify-token').value.trim() || 'agentgpt-wa-token';
-    if(!phoneId || !accessToken) { notify('Phone Number ID and Access Token are required', '#ff3b30', 3000); return; }
-    CONFIG.wa_phone_id = phoneId;
-    CONFIG.wa_access_token = accessToken;
-    CONFIG.wa_verify_token = verifyToken;
-    await saveAll(true);
-    try {
-        await fetch('/api/whatsapp/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ verifyToken }) });
-    } catch(e) {}
-    document.getElementById('wa-api-setup').style.display = 'none';
-    document.getElementById('wa-content').style.display = 'flex';
-    document.getElementById('wa-content').style.flexDirection = 'column';
-    document.getElementById('wa-api-badge').style.display = 'inline';
-    waApiMode = true;
-    waApiLastFetch = 0;
-    waStartApiPolling();
-    notify('Business API connected ✓ — waiting for messages via webhook', '#25D366', 3500);
-}
-
-function waStartApiPolling() {
-    if(waApiPollTimer) clearInterval(waApiPollTimer);
-    waApiPollTimer = setInterval(waFetchApiMessages, 5000);
-    waFetchApiMessages();
-}
-
-async function waFetchApiMessages() {
-    try {
-        const resp = await fetch('/api/whatsapp/messages?since=' + waApiLastFetch);
-        const data = await resp.json();
-        if(data.messages && data.messages.length > 0) {
-            data.messages.forEach(msg => {
-                const exists = waMessages.find(m => m.id === msg.id);
-                if(!exists) {
-                    waMessages.push({ date: new Date(msg.timestamp * 1000).toLocaleDateString(), time: new Date(msg.timestamp * 1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), sender: msg.sender, text: msg.text, id: msg.id });
-                }
-            });
-            waApiLastFetch = Date.now();
-            waApplyFilter();
-        }
-    } catch(e) {}
-}
-
-async function waClearApiMessages() {
-    try { await fetch('/api/whatsapp/messages', { method: 'DELETE' }); } catch(e) {}
-    waClearData();
 }
 
 // --- CALENDAR LOGIC ---
