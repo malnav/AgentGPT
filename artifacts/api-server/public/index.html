@@ -764,7 +764,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <div id="gmail-modal" class="modal" style="z-index:280;">
     <div class="modal-header" style="flex-direction:column; gap:0; align-items:stretch; padding:0;">
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px 6px 16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:max(14px, env(safe-area-inset-top)) 16px 6px 16px;">
             <span style="font-size:16px; font-weight:800;">📧 Gmail</span>
             <div style="display:flex; gap:8px; align-items:center;">
                 <span class="chip" id="gmail-modal-add-btn" style="font-size:11px; padding:5px 12px; background:var(--accent); color:#fff; display:none;" onclick="gmailAddToContext()">+ Add to Context</span>
@@ -2140,21 +2140,34 @@ async function gmailLoadEmails(query) {
     if(gmailAccessToken) { await gmailFetchEmails(query); return; }
     if(!document.getElementById('gis-script')) {
         const s = document.createElement('script'); s.id = 'gis-script'; s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
-        s.onload = () => { gmailInitTokenClient(query); }; document.head.appendChild(s);
-    } else { gmailInitTokenClient(query); }
+        s.onload = () => { gmailInitTokenClient(query, true); }; document.head.appendChild(s);
+    } else { gmailInitTokenClient(query, true); }
 }
 
-function gmailInitTokenClient(query) {
+function gmailInitTokenClient(query, silent) {
+    const hint = localStorage.getItem('gmail_hint') || "";
     gmailTokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CONFIG.google_client_id,
         scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
+        hint: hint,
         callback: async (resp) => {
-            if(resp.error) { notify("Gmail auth failed: " + resp.error, "#ff3b30", 5000); return; }
+            if(resp.error) {
+                if(silent && (resp.error === 'interaction_required' || resp.error === 'access_denied' || resp.error === 'user_logged_out')) { gmailInitTokenClient(query, false); return; }
+                notify("Gmail sign-in required — tap 📧 again", "#ff9500", 4000); return;
+            }
             gmailAccessToken = resp.access_token;
             await gmailFetchEmails(query);
+            gmailStoreHint();
         }
     });
-    gmailTokenClient.requestAccessToken({ prompt: '' });
+    gmailTokenClient.requestAccessToken({ prompt: silent ? 'none' : '' });
+}
+
+async function gmailStoreHint() {
+    try {
+        const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+        if(r.ok) { const d = await r.json(); if(d.email) localStorage.setItem('gmail_hint', d.email); }
+    } catch(e) {}
 }
 
 async function gmailFetchEmails(query) {
@@ -2225,20 +2238,36 @@ function gmailUpdateAddBtns() {
     });
 }
 
-function gmailAddToContext() {
-    const checked = document.querySelectorAll('.gmail-chk:checked');
-    const newLines = Array.from(checked).map(chk => {
+async function gmailAddToContext() {
+    const checked = Array.from(document.querySelectorAll('.gmail-chk:checked'));
+    if(!checked.length) return;
+    notify(`Fetching ${checked.length} email${checked.length > 1 ? 's' : ''}…`, "#007aff", 3000);
+    let totalLines = 0;
+    for(const chk of checked) {
         const em = gmailEmails[parseInt(chk.dataset.idx)];
         const fromName = em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || em.from;
-        return `From: ${fromName} | Subject: ${em.subject} | ${em.snippet}`;
-    });
-    if(!newLines.length) return;
-    newLines.forEach(line => { if(!CONTEXT_LINES.includes(line)) CONTEXT_LINES.push(line); });
+        let bodyText = "";
+        try {
+            const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}?format=full`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+            if(r.ok) {
+                const d = await r.json();
+                const { text, html } = gmailExtractBody(d.payload);
+                if(text) { bodyText = text; }
+                else if(html) { const tmp = document.createElement('div'); tmp.innerHTML = gmailSanitizeHtml(html); bodyText = tmp.textContent; }
+            }
+        } catch(e) {}
+        if(!bodyText) bodyText = em.snippet;
+        const header = `From: ${fromName} | Subject: ${em.subject}`;
+        if(!CONTEXT_LINES.includes(header)) { CONTEXT_LINES.push(header); totalLines++; }
+        bodyText.split('\n').map(l => l.trim()).filter(l => l.length > 1).forEach(l => {
+            if(!CONTEXT_LINES.includes(l)) { CONTEXT_LINES.push(l); totalLines++; }
+        });
+    }
     cutIdx = CONTEXT_LINES.length - 1;
     saveAll(); refreshUI();
     checked.forEach(chk => chk.checked = false);
     gmailUpdateAddBtns();
-    notify(`${newLines.length} email${newLines.length > 1 ? 's' : ''} added to context`, "#34c759", 2500);
+    notify(`${totalLines} line${totalLines !== 1 ? 's' : ''} added to context`, "#34c759", 2500);
 }
 
 async function gmailPreview(i, src) {
@@ -2392,6 +2421,7 @@ function gmailFindSameAddress(src) {
 function gmailSignOut() {
     if(gmailAccessToken && typeof google !== 'undefined') { try { google.accounts.oauth2.revoke(gmailAccessToken); } catch(e) {} }
     gmailAccessToken = null; gmailEmails = []; gmailCurrentEmail = null;
+    localStorage.removeItem('gmail_hint');
     ['gmail-list', 'gmail-modal-list'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = ''; });
     ['gmail-preview-overlay', 'gmail-modal-preview'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
     gmailUpdateAddBtns();
