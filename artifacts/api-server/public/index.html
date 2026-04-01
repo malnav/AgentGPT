@@ -1568,26 +1568,46 @@ async function deleteDataset(vid) { openConfirm("Delete this Data Set? Chats usi
 async function createNewDataset() { let newVid = Date.now().toString() + Math.floor(Math.random()*1000); GLOBAL_DATASETS[newVid] = { title: "New Data Set", data: {} }; await saveAll(); renderDatasetsList(); }
 
 let _varDragKey = null;
+let _varCollapsed = new Set();
+
+function toggleVarGroup(parentKey) { if(_varCollapsed.has(parentKey)) _varCollapsed.delete(parentKey); else _varCollapsed.add(parentKey); renderSessionVariables(); }
+
+function showVarActionsPopup(k, e) {
+    e.stopPropagation();
+    const vObj = getActiveVars()[k] || {}; const isLocked = vObj.locked;
+    const meta = (AI_PROFILES.find(x => x.label === activeProfileLabel) || {}).var_meta || {};
+    const hasParent = meta[k] && meta[k].parent;
+    const div = document.createElement('div');
+    div.id = 'var-actions-popup';
+    div.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4);';
+    div.innerHTML = `<div style="background:var(--bg); border-radius:16px; padding:16px; width:min(280px, 90%); box-shadow:0 10px 40px rgba(0,0,0,0.3); border:0.5px solid var(--border);"><div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:16px;">Actions for <strong>${k}</strong></div><div style="display:flex; flex-direction:column; gap:8px;"><div style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.05); cursor:pointer;" onclick="event.stopPropagation(); toggleVarLock('${k}'); document.getElementById('var-actions-popup').remove();">${isLocked ? '🔒' : '🔓'} <span>${isLocked ? 'Unlock' : 'Lock'}</span></div><div style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.05); cursor:pointer;" onclick="event.stopPropagation(); openSetVarParent('${k}'); document.getElementById('var-actions-popup').remove();">⤵ <span>${hasParent ? 'Change Parent' : 'Set Parent'}</span></div><div style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.05); cursor:pointer; color:#ff3b30;" onclick="event.stopPropagation(); deleteVariable('${k}'); document.getElementById('var-actions-popup').remove();">🗑️ <span>Delete</span></div></div></div>`;
+    document.body.appendChild(div);
+    div.addEventListener('click', () => div.remove());
+}
 
 function renderSessionVariables() {
     let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current));
     let activeDs = GLOBAL_DATASETS[cur.var_id]; document.getElementById('active-dataset-title').innerText = activeDs ? (activeDs.title || "Data Set") : "Data Set";
     let vars = getActiveVars(); let allKeys = [...(p.expected_vars || [])]; let meta = p.var_meta || {};
     let roots = allKeys.filter(k => !meta[k] || !meta[k].parent || !allKeys.includes(meta[k].parent));
-    let ordered = [];
-    roots.forEach(rk => { ordered.push({ k: rk, indent: false }); allKeys.forEach(ck => { if(meta[ck] && meta[ck].parent === rk) ordered.push({ k: ck, indent: true }); }); });
-    allKeys.filter(k => !ordered.find(o => o.k === k)).forEach(k => ordered.push({ k, indent: false }));
-    let html = ordered.map(({ k, indent }) => {
-        let vObj = vars[k]; if(typeof vObj === 'string') vObj = { value: vObj, locked: false }; let rawVal = vObj && vObj.value !== undefined ? vObj.value : ""; let valDisp = rawVal !== "" ? `<div style="font-size:12px; line-height:1.5; max-height:56px; overflow:hidden; opacity:0.8; margin-top:3px;">${rawVal}</div>` : `<div style="opacity:0.4; font-style:italic; font-size:12px; margin-top:3px;">Empty</div>`; let isLocked = vObj && vObj.locked;
-        let parentKey = meta[k] && meta[k].parent;
-        let capName = k.charAt(0).toUpperCase() + k.slice(1);
+    let html = '';
+    roots.forEach(rk => {
+        let vObj = vars[rk]; if(typeof vObj === 'string') vObj = { value: vObj, locked: false }; let rawVal = vObj && vObj.value !== undefined ? vObj.value : ""; let valDisp = rawVal !== "" ? `<div style="font-size:12px; line-height:1.5; max-height:56px; overflow:hidden; opacity:0.8; margin-top:3px;">${rawVal}</div>` : `<div style="opacity:0.4; font-style:italic; font-size:12px; margin-top:3px;">Empty</div>`; let isLocked = vObj && vObj.locked;
+        let capName = rk.charAt(0).toUpperCase() + rk.slice(1);
+        let children = allKeys.filter(ck => meta[ck] && meta[ck].parent === rk);
+        let hasChildren = children.length > 0;
+        let isCollapsed = _varCollapsed.has(rk);
         let rowBg = isLocked ? 'background:rgba(0,122,255,0.07);' : '';
-        let borderL = isLocked ? 'border-left:3px solid var(--accent);' : indent ? 'border-left:2px solid var(--border);' : '';
-        let pl = (isLocked || indent) ? 'padding-left:9px;' : 'padding-left:12px;';
-        let indentMargin = indent ? 'margin-left:12px;' : '';
-        let parentPad = parentKey ? '12px' : '6px';
-        return `<li data-vk="${k}" style="display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; padding:${parentPad} 0; border-bottom:0.5px solid var(--border); transition:background 0.15s; ${rowBg}${borderL}${pl}${indentMargin}"><div class="var-handle" style="color:#bbb; font-size:15px; padding:2px 8px 0 0; cursor:grab; flex-shrink:0; user-select:none; touch-action:none;">⠿</div><div style="flex:1; word-break:break-word; cursor:pointer; min-width:0;" onclick="editVariableValue('${k}')"><strong style="color:${isLocked ? 'var(--accent)' : 'var(--text)'};">${capName}</strong>${valDisp}</div><div style="display:flex; gap:4px; flex-shrink:0;"><div style="cursor:pointer; font-size:18px; padding:0 4px; padding-top:1px; color:${isLocked ? 'var(--accent)' : '#888'};" onclick="event.stopPropagation(); toggleVarLock('${k}')">${isLocked ? '🔒' : '🔓'}</div><div style="cursor:pointer; opacity:0.45; padding:0 4px; padding-top:2px; font-size:13px;" onclick="event.stopPropagation(); openSetVarParent('${k}')" title="Set parent">⤵</div><div style="cursor:pointer; opacity:0.35; padding:0 4px; padding-top:2px;" onclick="event.stopPropagation(); deleteVariable('${k}')">🗑️</div></div></li>`;
-    }).join('');
+        let borderL = isLocked ? 'border-left:3px solid var(--accent);' : '';
+        html += `<li data-vk="${rk}" style="display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; padding:8px 0; border-bottom:0.5px solid var(--border); transition:background 0.15s; ${rowBg}${borderL}padding-left:12px;"><div class="var-handle" style="color:#bbb; font-size:15px; padding:2px 8px 0 0; cursor:grab; flex-shrink:0; user-select:none; touch-action:none;">⠿</div>${hasChildren ? `<div style="cursor:pointer; padding:0 4px; padding-top:1px; font-size:14px; opacity:0.6;" onclick="event.stopPropagation(); toggleVarGroup('${rk}');">${isCollapsed ? '▶' : '▼'}</div>` : '<div style="padding:0 4px;"></div>'}<div style="flex:1; word-break:break-word; cursor:pointer; min-width:0;" onclick="editVariableValue('${rk}')"><strong style="color:${isLocked ? 'var(--accent)' : 'var(--text)'};">${capName}</strong>${valDisp}</div><div style="cursor:pointer; padding:0 8px; padding-top:2px; font-size:16px; opacity:0.5;" onclick="showVarActionsPopup('${rk}', event);">⋯</div></li>`;
+        if(hasChildren && !isCollapsed) { children.forEach(ck => {
+            let cObj = vars[ck]; if(typeof cObj === 'string') cObj = { value: cObj, locked: false }; let cRaw = cObj && cObj.value !== undefined ? cObj.value : ""; let cDisp = cRaw !== "" ? `<div style="font-size:12px; line-height:1.5; max-height:56px; overflow:hidden; opacity:0.8; margin-top:3px;">${cRaw}</div>` : `<div style="opacity:0.4; font-style:italic; font-size:12px; margin-top:3px;">Empty</div>`; let cLocked = cObj && cObj.locked;
+            let cName = ck.charAt(0).toUpperCase() + ck.slice(1);
+            let cBg = cLocked ? 'background:rgba(0,122,255,0.07);' : '';
+            let cBorder = cLocked ? 'border-left:3px solid var(--accent);' : 'border-left:2px solid var(--border);';
+            html += `<li data-vk="${ck}" style="display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; padding:8px 0; margin-left:16px; border-bottom:0.5px solid var(--border); transition:background 0.15s; ${cBg}${cBorder}padding-left:9px;"><div class="var-handle" style="color:#bbb; font-size:15px; padding:2px 8px 0 0; cursor:grab; flex-shrink:0; user-select:none; touch-action:none;">⠿</div><div style="padding:0 4px;"></div><div style="flex:1; word-break:break-word; cursor:pointer; min-width:0;" onclick="editVariableValue('${ck}')"><strong style="color:${cLocked ? 'var(--accent)' : 'var(--text)'};">${cName}</strong>${cDisp}</div><div style="cursor:pointer; padding:0 8px; padding-top:2px; font-size:16px; opacity:0.5;" onclick="showVarActionsPopup('${ck}', event);">⋯</div></li>`;
+        }); }
+    });
     if(html === "") html = `<div style="font-size:12px; color:#888; text-align:center; padding:10px;">No variables defined.</div>`;
     document.getElementById('session-vars-list').innerHTML = `<ul style="list-style:none; padding:0; margin:0;">${html}</ul>`;
     initVarDragDrop();
