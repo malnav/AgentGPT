@@ -604,7 +604,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 
     <div id="ctx-pane-gmail" style="flex:1; overflow:hidden; display:none; flex-direction:column; position:relative;">
-        <div style="padding:8px 14px 4px 14px;">
+        <div style="padding:6px 14px 4px 14px; display:flex; align-items:center; gap:6px;">
+            <span class="chip" style="font-size:12px; padding:5px 11px;" onclick="gmailToggleSearch('panel')">🔍 Search</span>
+        </div>
+        <div id="gmail-search-row" style="padding:0 14px 6px; display:none;">
             <input id="gmail-search-box" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:7px 12px;" oninput="gmailOnSearch(this.value)">
         </div>
         <div style="display:flex; align-items:center; gap:8px; padding:4px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
@@ -838,7 +841,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div onclick="closeModal('gmail-modal')" style="font-size:22px; cursor:pointer; opacity:0.5; padding:0 4px;">✕</div>
             </div>
         </div>
-        <div style="padding:0 16px 10px 16px;">
+        <div style="padding:4px 16px 6px 16px; display:flex; align-items:center; gap:6px;">
+            <span class="chip" style="font-size:12px; padding:5px 12px;" onclick="gmailToggleSearch('modal')">🔍 Search</span>
+        </div>
+        <div id="gmail-modal-search-row" style="padding:0 16px 8px; display:none;">
             <input id="gmail-modal-search" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:8px 14px;" oninput="gmailOnSearch(this.value)">
         </div>
     </div>
@@ -1376,7 +1382,7 @@ function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile ==
 function switchVarsTab(t) { ['vars','todos'].forEach(k => { document.getElementById('vtab-'+k).classList.toggle('active', t===k); document.getElementById('vview-'+k).classList.toggle('closed', t!==k); document.getElementById('vtab-'+k+'-btns').style.display = t===k ? 'flex' : 'none'; }); if(t === 'todos') renderChatTodos(); }
 function renderWorkspaceLists() { renderSessionsList(); let cur = document.querySelector('#workspace-panel .sub-tab-btn.active'); let curTab = cur ? (cur.id === 'wtab-all' ? 'all' : cur.id === 'wtab-data' ? 'data' : 'current') : 'current'; if(curTab === 'all') renderAllSessionsList(); if(curTab === 'data') renderDatasetsList(); }
 function switchWorkspaceTab(tab) { ['current','all','data'].forEach(k => { document.getElementById('wview-'+k).style.display = k === tab ? 'flex' : 'none'; document.getElementById('wtab-'+k).classList.toggle('active', k === tab); document.getElementById('wtab-'+k+'-btns').style.display = k === tab ? 'flex' : 'none'; }); if(tab === 'all') renderAllSessionsList(); if(tab === 'data') renderDatasetsList(); }
-function renderAllSessionsList() { let validProfiles = new Set(AI_PROFILES.map(p => p.label)); let allChats = []; Object.entries(chatHistories).forEach(([profLabel, sData]) => { if(!sData || !sData.list || !validProfiles.has(profLabel)) return; sData.list.forEach(chat => { let msgCount = (chat.msgs||[]).filter(m => m.role !== 'developer').length; if(msgCount === 0) return; let isActive = profLabel === activeProfileLabel && String(chat.id) === String(sData.current); let lastMsgTs = parseInt(chat.id) || 0; allChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs }); }); }); allChats.sort((a, b) => { if(a.chat.pinned && !b.chat.pinned) return -1; if(!a.chat.pinned && b.chat.pinned) return 1; return b.lastMsgTs - a.lastMsgTs; }); document.getElementById('all-sessions-list').innerHTML = allChats.length === 0 ? '<li style="color:#888; font-size:13px; padding:12px;">No chats yet.</li>' : allChats.map(({ chat, profLabel, msgCount, isActive }) => `<li class="list-item ${isActive ? 'in-cut' : ''}" onclick="loadSessionFromProfile('${profLabel}','${chat.id}')"><div style="flex:1; min-width:0; overflow:hidden;"><div style="display:flex; align-items:center; gap:5px; overflow:hidden;"><span style="font-size:10px; color:var(--accent); font-weight:700; flex-shrink:0; white-space:nowrap;">${profLabel}</span><span style="font-size:11px; color:#888; flex-shrink:0;">${msgCount}m</span><strong style="font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${chat.title}</strong></div></div><div style="display:flex; gap:4px; align-items:center; flex-shrink:0;"><div class="inline-btn" onclick="event.stopPropagation(); togglePinChat('${profLabel}','${chat.id}')" title="${chat.pinned ? 'Unpin' : 'Pin'}" style="font-size:14px;">${chat.pinned ? '📌' : '📍'}</div><div class="inline-btn" onclick="event.stopPropagation(); deleteSessionFromProfile('${profLabel}','${chat.id}')">🗑️</div></div></li>`).join(''); }
+function renderAllSessionsList() { let validProfiles = new Set(AI_PROFILES.map(p => p.label)); let allChats = []; Object.entries(chatHistories).forEach(([profLabel, sData]) => { if(!sData || !sData.list || !validProfiles.has(profLabel)) return; sData.list.forEach(chat => { let msgCount = (chat.msgs||[]).filter(m => m.role !== 'developer').length; if(msgCount === 0) return; let isActive = profLabel === activeProfileLabel && String(chat.id) === String(sData.current); let lastMsgTs = parseInt(chat.id) || 0; allChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs }); }); }); allChats.sort((a, b) => { if(a.chat.pinned && !b.chat.pinned) return -1; if(!a.chat.pinned && b.chat.pinned) return 1; return b.lastMsgTs - a.lastMsgTs; }); document.getElementById('all-sessions-list').innerHTML = allChats.length === 0 ? '<li style="color:#888; font-size:13px; padding:12px;">No chats yet.</li>' : allChats.map(({ chat, profLabel, msgCount, isActive }) => `<li class="list-item ${isActive ? 'in-cut' : ''}" onclick="loadSessionFromProfile('${profLabel}','${chat.id}')"><div style="flex:1; min-width:0;"><strong style="font-size:13px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chat.title}</strong><div style="display:flex; align-items:center; gap:5px; margin-top:2px;"><span style="font-size:10px; color:var(--accent); font-weight:700;">${profLabel}</span><span style="font-size:10px; color:#888;">· ${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div></div><div style="display:flex; gap:4px; align-items:center; flex-shrink:0;"><div class="inline-btn" onclick="event.stopPropagation(); togglePinChat('${profLabel}','${chat.id}')" title="${chat.pinned ? 'Unpin' : 'Pin'}" style="font-size:14px;">${chat.pinned ? '📌' : '📍'}</div><div class="inline-btn" onclick="event.stopPropagation(); deleteSessionFromProfile('${profLabel}','${chat.id}')">🗑️</div></div></li>`).join(''); }
 async function loadSessionFromProfile(profLabel, chatId) { if(profLabel !== activeProfileLabel) { activeProfileLabel = profLabel; await dbHelper.set('activeProfile', activeProfileLabel); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(chatId)); if(cur) { sData.current = chatId; chatHistories[activeProfileLabel] = sData; chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; } await saveAll(); closeAllPanels(); await refreshUI(); renderChatHistory(); scrollToLastRequest(); } else { await loadSession(chatId); } }
 async function togglePinChat(profLabel, chatId) { let sData = chatHistories[profLabel]; if(!sData) return; let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat) return; chat.pinned = !chat.pinned; await saveAll(); renderAllSessionsList(); }
 async function deleteSessionFromProfile(profLabel, chatId) { openConfirm("Delete this chat session?", async () => { let sData = chatHistories[profLabel]; if(!sData || !sData.list) return; sData.list = sData.list.filter(s => String(s.id) !== String(chatId)); if(sData.list.length === 0) { const defId = Date.now().toString() + Math.floor(Math.random()*1000); sData.list.push({ id: defId, title: "Chat", msgs: [], var_id: defId }); sData.current = defId; } if(String(sData.current) === String(chatId)) sData.current = sData.list[0].id; if(profLabel === activeProfileLabel) { chatHistory = sData.list.find(x => String(x.id) === String(sData.current))?.msgs || []; renderChatHistory(); } await saveAll(); renderAllSessionsList(); renderSessionsList(); }); }
@@ -1526,16 +1532,17 @@ async function reorderVar(fromKey, toKey) {
 }
 
 function openSetVarParent(childKey) {
+    const existing = document.getElementById('vpar-modal-ov'); if(existing) existing.remove();
     let p = AI_PROFILES.find(x => x.label === activeProfileLabel);
     let allKeys = (p.expected_vars || []).filter(k => k !== childKey);
     let meta = p.var_meta || {}; let curParent = meta[childKey] && meta[childKey].parent || '';
     let opts = `<option value="">— None (top-level) —</option>` + allKeys.map(k => `<option value="${k}" ${k === curParent ? 'selected' : ''}>${k}</option>`).join('');
-    const sel = `<div style="padding:8px 0;"><label style="font-size:12px; color:#888; display:block; margin-bottom:6px;">Set parent for <strong>{{${childKey}}}</strong></label><select id="vp-sel" class="pp-input" style="margin-bottom:12px;">${opts}</select><button class="chip" style="background:var(--accent); color:#fff; width:100%; padding:10px; font-size:14px; font-weight:700;" onclick="setVarParentTo('${childKey}', document.getElementById('vp-sel').value)">Save</button></div>`;
-    document.getElementById('confirm-title').innerText = 'Set Variable Parent';
-    document.getElementById('confirm-msg').innerHTML = sel;
-    document.getElementById('confirm-ok').style.display = 'none';
-    document.getElementById('confirm-cancel').innerText = 'Cancel';
-    openModal('confirm-modal');
+    const div = document.createElement('div');
+    div.id = 'vpar-modal-ov';
+    div.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; display:flex; align-items:center; justify-content:center;';
+    div.innerHTML = `<div style="background:var(--bg); border-radius:18px; padding:22px 18px; width:84%; max-width:320px; box-shadow:0 10px 40px rgba(0,0,0,0.4);"><div style="font-size:16px; font-weight:800; margin-bottom:6px; color:var(--text);">Set Parent Variable</div><div style="font-size:12px; color:#888; margin-bottom:12px;">Parent of <strong style="color:var(--accent);">{{${childKey}}}</strong></div><select id="vpar-sel" class="pp-input" style="margin-bottom:16px;">${opts}</select><div style="display:flex; gap:10px;"><button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:11px; font-size:14px; font-weight:700;" onclick="setVarParentTo('${childKey}', document.getElementById('vpar-sel').value)">Save</button><button class="chip" style="flex:1; background:var(--sec-bg); padding:11px; font-size:14px;" onclick="document.getElementById('vpar-modal-ov').remove()">Cancel</button></div></div>`;
+    document.body.appendChild(div);
+    div.addEventListener('click', e => { if(e.target === div) div.remove(); });
 }
 
 async function setVarParentTo(childKey, parentKey) {
@@ -1543,8 +1550,8 @@ async function setVarParentTo(childKey, parentKey) {
     if(!p.var_meta) p.var_meta = {};
     if(!p.var_meta[childKey]) p.var_meta[childKey] = {};
     if(parentKey) { p.var_meta[childKey].parent = parentKey; } else { delete p.var_meta[childKey].parent; }
-    await saveAll(); closeModal('confirm-modal');
-    document.getElementById('confirm-ok').style.display = '';
+    await saveAll();
+    const ov = document.getElementById('vpar-modal-ov'); if(ov) ov.remove();
     renderSessionVariables();
 }
 
@@ -2519,6 +2526,17 @@ async function gmailFetchEmails(query) {
     } catch(e) { notify("Gmail error: " + e.message, "#ff3b30", 5000); }
 }
 
+function gmailToggleSearch(src) {
+    const rowId = src === 'modal' ? 'gmail-modal-search-row' : 'gmail-search-row';
+    const inputId = src === 'modal' ? 'gmail-modal-search' : 'gmail-search-box';
+    const row = document.getElementById(rowId); if(!row) return;
+    const open = row.style.display !== 'none';
+    row.style.display = open ? 'none' : 'block';
+    const input = document.getElementById(inputId);
+    if(!open && input) { input.focus(); }
+    if(open && input) { input.value = ''; gmailOnSearch(''); }
+}
+
 function gmailOnSearch(val) {
     clearTimeout(gmailSearchTimer);
     const search = document.getElementById('gmail-search-box'); if(search) search.value = val;
@@ -3014,6 +3032,8 @@ function gmailFindSameAddress(src) {
     const addr = addrMatch ? (addrMatch[1] || addrMatch[0]) : em.from.trim();
     if(!addr) { notify("Could not extract email address", "#ff3b30"); return; }
     const q = `from:${addr} OR to:${addr} OR "${addr}"`;
+    const panelRow = document.getElementById('gmail-search-row'); if(panelRow) panelRow.style.display = 'block';
+    const modalRow = document.getElementById('gmail-modal-search-row'); if(modalRow) modalRow.style.display = 'block';
     const search = document.getElementById('gmail-search-box'); if(search) search.value = q;
     const msearch = document.getElementById('gmail-modal-search'); if(msearch) msearch.value = q;
     gmailClosePreview(src);
