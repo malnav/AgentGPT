@@ -582,9 +582,15 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <span class="chip" style="font-size:10px; padding:5px 9px;" onclick="gmailLoadEmails()">↻</span>
             </div>
         </div>
+        <div id="ctx-tab-whatsapp-actions" style="display:none; gap:6px; align-items:center;">
+            <span class="chip" id="wa-add-ctx-btn" style="font-size:10px; padding:5px 10px; background:var(--accent); color:#fff; display:none;" onclick="waAddToContext()">+ Add to Context</span>
+            <span class="chip" style="font-size:10px; padding:5px 9px;" onclick="document.getElementById('wa-import-file-hdr').click()">📂 Import</span>
+            <input type="file" id="wa-import-file-hdr" style="display:none;" accept=".txt" onchange="waImportFile(event)">
+        </div>
         <div class="sub-tabs" style="margin:0; border:none; background:rgba(128,128,128,0.12); padding:3px; border-radius:10px; gap:2px;">
             <div class="sub-tab-btn active" id="ctx-tab-btn-context" onclick="ctxSwitchTab('context')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📋 Context</div>
             <div class="sub-tab-btn" id="ctx-tab-btn-gmail" onclick="ctxSwitchTab('gmail')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📧 Gmail</div>
+            <div class="sub-tab-btn" id="ctx-tab-btn-whatsapp" onclick="ctxSwitchTab('whatsapp')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">💬 WA</div>
         </div>
     </div>
 
@@ -630,6 +636,30 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 </div>
                 <div id="gmail-reply-box" contenteditable="true" data-ph="Write a reply…" style="min-height:60px; max-height:140px; overflow-y:auto; border:0.5px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
                 <button class="chip" style="background:var(--accent); color:#fff; padding:10px; font-size:13px; font-weight:700;" onclick="gmailSendReply('panel')">Send Reply ↑</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ctx-pane-whatsapp" style="flex:1; overflow:hidden; display:none; flex-direction:column; position:relative;">
+        <div id="wa-empty-state" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:28px 20px; text-align:center; gap:14px;">
+            <div style="font-size:52px; line-height:1;">💬</div>
+            <div style="font-weight:800; font-size:15px;">Load a WhatsApp Chat</div>
+            <div style="font-size:12px; color:#888; line-height:1.6;">Export any chat in WhatsApp:<br><b>Open Chat → ⋮ → More → Export Chat<br>→ Without Media</b><br><br>Then import the <b>.txt</b> file here.</div>
+            <button class="chip" style="background:var(--accent); color:#fff; padding:13px 22px; font-size:13px; font-weight:700;" onclick="document.getElementById('wa-import-file').click()">📂 Import .txt File</button>
+            <input type="file" id="wa-import-file" style="display:none;" accept=".txt" onchange="waImportFile(event)">
+        </div>
+        <div id="wa-content" style="display:none; flex:1; overflow:hidden; flex-direction:column;">
+            <div style="padding:8px 14px 4px 14px; flex-shrink:0;">
+                <input id="wa-search-box" class="pp-input" placeholder="Search messages…" style="font-size:13px; padding:7px 12px;" oninput="waOnSearch(this.value)">
+            </div>
+            <div id="wa-sender-chips" style="display:flex; gap:5px; padding:4px 14px 6px; overflow-x:auto; flex-shrink:0; -webkit-overflow-scrolling:touch; scrollbar-width:none;"></div>
+            <div style="display:flex; align-items:center; gap:8px; padding:5px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg); flex-shrink:0;">
+                <input type="checkbox" id="wa-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="waToggleSelectAll(this.checked)">
+                <span style="font-size:11px; color:#888; font-weight:600;" id="wa-msg-count">0 messages</span>
+            </div>
+            <ul id="wa-msg-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:68px;"></ul>
+            <div style="position:absolute; bottom:0; left:0; right:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); padding:10px; border-top:0.5px solid var(--glass-border); display:none;" id="wa-add-bar">
+                <button class="chip" style="width:100%; background:var(--accent); color:#fff; font-size:14px; padding:12px;" onclick="waAddToContext()">+ Add to Context</button>
             </div>
         </div>
     </div>
@@ -1278,13 +1308,19 @@ function toggleVarsPanel() { closeAllPanels('vars-slide-panel'); document.getEle
 function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
 function ctxSwitchTab(tab) {
     const isGmail = tab === 'gmail';
-    document.getElementById('ctx-pane-context').style.display = isGmail ? 'none' : 'flex';
+    const isWA = tab === 'whatsapp';
+    const isCtx = tab === 'context';
+    document.getElementById('ctx-pane-context').style.display = isCtx ? 'flex' : 'none';
     document.getElementById('ctx-pane-gmail').style.display = isGmail ? 'flex' : 'none';
     document.getElementById('ctx-pane-gmail').style.flexDirection = 'column';
-    document.getElementById('ctx-tab-context-actions').style.display = isGmail ? 'none' : 'flex';
+    document.getElementById('ctx-pane-whatsapp').style.display = isWA ? 'flex' : 'none';
+    document.getElementById('ctx-pane-whatsapp').style.flexDirection = 'column';
+    document.getElementById('ctx-tab-context-actions').style.display = isCtx ? 'flex' : 'none';
     document.getElementById('ctx-tab-gmail-actions').style.display = isGmail ? 'flex' : 'none';
-    document.getElementById('ctx-tab-btn-context').classList.toggle('active', !isGmail);
+    document.getElementById('ctx-tab-whatsapp-actions').style.display = isWA ? 'flex' : 'none';
+    document.getElementById('ctx-tab-btn-context').classList.toggle('active', isCtx);
     document.getElementById('ctx-tab-btn-gmail').classList.toggle('active', isGmail);
+    document.getElementById('ctx-tab-btn-whatsapp').classList.toggle('active', isWA);
     if(isGmail) { if(gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box').value.trim() || null); } else { gmailLoadEmails(); } }
 }
 function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
@@ -2758,6 +2794,152 @@ function gmailSignOut() {
     ['gmail-preview-overlay', 'gmail-modal-preview'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
     gmailUpdateAddBtns();
     notify("Signed out of Gmail", "#34c759", 2000);
+}
+
+// --- WHATSAPP IMPORT LOGIC ---
+let waMessages = [];
+let waFilteredMsgs = [];
+let waActiveSender = null;
+let waSearchQuery = '';
+
+function waParseExport(text) {
+    const lines = text.split('\n');
+    const msgs = [];
+    const iosRe = /^\[(\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)\]\s*([^:]+):\s*([\s\S]+)/i;
+    const androidRe = /^(\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)\s*-\s*([^:]+):\s*([\s\S]+)/i;
+    let cur = null;
+    for(let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const m = iosRe.exec(line) || androidRe.exec(line);
+        if(m) {
+            if(cur) msgs.push(cur);
+            cur = { date: m[1], time: m[2], sender: m[3].trim(), text: m[4].trim() };
+        } else if(cur && line.trim()) {
+            cur.text += '\n' + line.trim();
+        }
+    }
+    if(cur) msgs.push(cur);
+    return msgs.filter(msg => msg.text && !msg.text.startsWith('<') && msg.text !== 'null' && msg.text.toLowerCase() !== 'this message was deleted' && !msg.text.startsWith('Messages and calls are end-to-end encrypted'));
+}
+
+function waImportFile(event) {
+    const file = event.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const parsed = waParseExport(e.target.result);
+        if(!parsed.length) { notify('No messages found — check file format', '#ff3b30', 3000); return; }
+        waMessages = parsed;
+        waActiveSender = null;
+        waSearchQuery = '';
+        document.getElementById('wa-search-box').value = '';
+        document.getElementById('wa-select-all').checked = false;
+        waApplyFilter();
+        document.getElementById('wa-empty-state').style.display = 'none';
+        document.getElementById('wa-content').style.display = 'flex';
+        document.getElementById('wa-content').style.flexDirection = 'column';
+        notify(`Loaded ${parsed.length} messages ✓`, '#34c759', 2500);
+    };
+    reader.readAsText(file, 'UTF-8'); event.target.value = '';
+}
+
+function waGetSenders() {
+    const map = {};
+    waMessages.forEach(m => { map[m.sender] = (map[m.sender] || 0) + 1; });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
+}
+
+function waApplyFilter() {
+    const q = waSearchQuery.toLowerCase();
+    waFilteredMsgs = waMessages.filter(m => {
+        if(waActiveSender && m.sender !== waActiveSender) return false;
+        if(q && !m.text.toLowerCase().includes(q) && !m.sender.toLowerCase().includes(q)) return false;
+        return true;
+    });
+    waRenderSenderChips();
+    waRenderList();
+}
+
+function waRenderSenderChips() {
+    const senders = waGetSenders();
+    const el = document.getElementById('wa-sender-chips');
+    el.innerHTML = [{ name: null, count: waMessages.length }].concat(senders).map(s => {
+        const active = waActiveSender === s.name;
+        const label = s.name === null ? `All (${s.count})` : `${s.name.split(' ')[0]} (${s.count})`;
+        return `<span class="chip ${active ? 'active' : ''}" style="font-size:10px; padding:4px 10px; white-space:nowrap; ${active ? 'background:var(--accent);color:#fff;' : ''}" onclick="waSetSender(${s.name === null ? 'null' : `'${s.name.replace(/'/g,"\\'")}' `})">${label}</span>`;
+    }).join('');
+}
+
+function waSetSender(name) { waActiveSender = name; waApplyFilter(); }
+
+function waOnSearch(val) { waSearchQuery = val; waApplyFilter(); }
+
+function waRenderList() {
+    const list = document.getElementById('wa-msg-list');
+    const count = document.getElementById('wa-msg-count');
+    count.textContent = `${waFilteredMsgs.length} message${waFilteredMsgs.length !== 1 ? 's' : ''}`;
+    if(!waFilteredMsgs.length) { list.innerHTML = `<li style="padding:24px; text-align:center; color:#888; font-size:13px;">No messages match</li>`; waUpdateAddBar(); return; }
+    const senderColors = {};
+    const palette = ['#007aff','#34c759','#ff9500','#af52de','#ff2d55','#5ac8fa','#ffcc00'];
+    let ci = 0;
+    waMessages.forEach(m => { if(!senderColors[m.sender]) senderColors[m.sender] = palette[ci++ % palette.length]; });
+    list.innerHTML = waFilteredMsgs.map((m, i) => {
+        const color = senderColors[m.sender] || '#888';
+        const initials = m.sender.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+        const safeText = m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+        return `<li style="display:flex; align-items:flex-start; gap:10px; padding:10px 14px; border-bottom:0.5px solid var(--border);">
+            <input type="checkbox" class="wa-chk" data-idx="${i}" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;margin-top:3px;" onchange="waOnCheck()">
+            <div style="width:32px;height:32px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;">${initials}</div>
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px;">
+                    <span style="font-size:12px;font-weight:800;color:${color};">${m.sender}</span>
+                    <span style="font-size:10px;color:#aaa;">${m.date} ${m.time}</span>
+                </div>
+                <div style="font-size:13px;line-height:1.5;color:var(--text);word-break:break-word;">${safeText}</div>
+            </div>
+        </li>`;
+    }).join('');
+    waUpdateAddBar();
+}
+
+function waOnCheck() {
+    const all = document.querySelectorAll('.wa-chk');
+    const checked = document.querySelectorAll('.wa-chk:checked');
+    document.getElementById('wa-select-all').checked = all.length > 0 && checked.length === all.length;
+    document.getElementById('wa-add-ctx-btn').style.display = checked.length ? 'inline-flex' : 'none';
+    waUpdateAddBar();
+}
+
+function waToggleSelectAll(checked) {
+    document.querySelectorAll('.wa-chk').forEach(c => c.checked = checked);
+    document.getElementById('wa-add-ctx-btn').style.display = checked ? 'inline-flex' : 'none';
+    waUpdateAddBar();
+}
+
+function waUpdateAddBar() {
+    const checked = document.querySelectorAll('.wa-chk:checked').length;
+    document.getElementById('wa-add-bar').style.display = checked > 0 ? 'block' : 'none';
+}
+
+function waAddToContext() {
+    const checked = document.querySelectorAll('.wa-chk:checked');
+    if(!checked.length) return;
+    const lines = [];
+    checked.forEach(chk => {
+        const idx = parseInt(chk.dataset.idx);
+        const m = waFilteredMsgs[idx];
+        if(m) lines.push(`[${m.date} ${m.time}] ${m.sender}: ${m.text}`);
+    });
+    lines.forEach(line => { if(!CONTEXT_LINES.includes(line)) CONTEXT_LINES.push(line); });
+    cutIdx = CONTEXT_LINES.length - 1;
+    ctxSwitchTab('context');
+    refreshUI();
+    notify(`Added ${lines.length} message${lines.length !== 1 ? 's' : ''} to context ✓`, '#34c759', 2500);
+}
+
+function waClearData() {
+    waMessages = []; waFilteredMsgs = []; waActiveSender = null; waSearchQuery = '';
+    document.getElementById('wa-empty-state').style.display = 'flex';
+    document.getElementById('wa-content').style.display = 'none';
 }
 
 // --- CALENDAR LOGIC ---
