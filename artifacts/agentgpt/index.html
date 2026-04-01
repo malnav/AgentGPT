@@ -474,6 +474,72 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .gmail-thread.open .spark-thread-body { display:block; }
 .spark-msg-row { display:flex; align-items:center; gap:10px; padding:10px 14px 10px 24px; border-bottom:0.5px solid var(--border); }
 .spark-msg-row:last-child { border-bottom:none; }
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE LAYOUT — Tablet ≥ 768px
+   ═══════════════════════════════════════════════ */
+@media (min-width: 768px) {
+  .side-panel, .ctx-panel { width: min(480px, 88%) !important; }
+  .left-panel { right: auto !important; }
+  .left-panel.open { left: 0 !important; right: auto !important; }
+  .bubble { min-width: 32%; max-width: 68%; }
+  #chat-container { padding-left: 28px; padding-right: 28px; max-width: 900px; margin: 0 auto; width: 100%; }
+  .modal-content { max-width: 720px; margin: 0 auto; }
+}
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE LAYOUT — Desktop ≥ 1100px
+   ═══════════════════════════════════════════════ */
+@media (min-width: 1100px) {
+  body { position: relative; }
+
+  /* ── Persistent left sidebar ── */
+  #workspace-panel {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 272px !important;
+    border-radius: 0 14px 14px 0 !important;
+    z-index: 10 !important;
+    display: flex !important;
+    transition: none !important;
+    border-right: 0.5px solid var(--glass-border);
+  }
+
+  /* Hide the hamburger toggle for workspace (always visible) */
+  [title="Workspace"] { display: none !important; }
+
+  /* ── Shift main content to account for sidebar ── */
+  .scroll-area   { padding-left: 272px; }
+  .top-nav       { left: 272px; }
+  .input-zone    { left: 272px !important; transform: none !important; max-width: none !important; }
+  #scroll-bottom-btn { left: calc(272px + 14px); transform: none; }
+  #floating-actions  { right: 14px; }
+  .global-pull       { display: none; }
+  #sync-indicator    { left: 272px; right: auto; bottom: 76px; }
+
+  /* ── Right panels: clean floating overlay, not full-width ── */
+  .ctx-panel, #vars-slide-panel, #tpl-slide-panel, #srv-slide-panel {
+    width: min(380px, 38%) !important;
+    top: 0 !important;
+    border-radius: 14px 0 0 14px !important;
+    bottom: 0 !important;
+  }
+
+  /* ── Chat bubbles: better proportions ── */
+  .bubble { min-width: 28%; max-width: 60%; }
+  #chat-container { max-width: 860px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
+
+  /* ── Modals: inset from sidebar on desktop ── */
+  .modal { left: 272px; }
+
+  /* Hide ✕ close buttons inside the workspace panel (it's a fixed sidebar now) */
+  #workspace-panel .panel-header > div[id$="-btns"] > div[onclick] { display: none !important; }
+
+  /* Profile dropdown — more width available */
+  .main-profile-dropdown { max-width: 220px; }
+}
 </style>
 </head>
 <body>
@@ -1426,12 +1492,14 @@ async function resetCurrentSession() {
 
 function renderDatasetsList() {
     let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current));
+    let existingProfiles = new Set((AI_PROFILES || []).map(p => p.label));
     let sortedVids = Object.keys(GLOBAL_DATASETS).sort((a,b) => { let ua = GLOBAL_DATASETS[a]._updated || Number(a); let ub = GLOBAL_DATASETS[b]._updated || Number(b); return ub - ua; });
     let html = sortedVids.map(vid => {
         let ds = GLOBAL_DATASETS[vid]; let isCurrent = String(vid) === String(cur.var_id);
         let varCount = Object.keys(ds.data || {}).length;
         let linkedChats = []; Object.keys(chatHistories).forEach(pName => { let s = chatHistories[pName]; if(s.list) s.list.forEach(c => { if(String(c.var_id) === String(vid)) { c._profile = pName; linkedChats.push(c); } }); });
         if(!isCurrent && varCount === 0 && linkedChats.length === 0) return '';
+        if(!isCurrent && linkedChats.length > 0 && !linkedChats.some(c => existingProfiles.has(c._profile))) return '';
         
         let chatsHtml = linkedChats.map(c => `<div style="font-size:12px; padding:10px 12px; border-top:0.5px solid var(--border); color:var(--accent); cursor:pointer; background:var(--bg); margin-top:2px;" onclick="event.stopPropagation(); jumpToSession('${c._profile}', '${c.id}')">💬 ${c.title} <span style="color:#888; font-size:10px;">(${c._profile})</span></div>`).join('');
         
