@@ -1534,8 +1534,8 @@ async function openDatasetFirstChat(vid) {
     if(linkedChats.length === 0) { notify("No chats linked to this dataset", "#ff3b30", 2000); return; }
     const first = linkedChats[0];
     closeAllPanels();
-    document.getElementById('workspace-panel').classList.add('open');
     await jumpToSession(first.pName, first.c.id);
+    setTimeout(() => { document.getElementById('vars-slide-panel').classList.add('open'); }, 100);
 }
 
 async function linkToDataset(vid) { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); cur.var_id = vid; await saveAll(); renderDatasetsList(); renderSessionVariables(); notify("Linked to Data Set!", "#34c759"); }
