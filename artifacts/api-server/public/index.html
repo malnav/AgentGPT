@@ -1869,6 +1869,18 @@ async function saveSetupConfig() {
 
 function closeSetupModal() { closeModal('setup-modal'); }
 
+async function pushConfigToFirebase() {
+    if(!CONFIG.fb_api || !CONFIG.fb_project || !syncReady) return;
+    const db = await initFirebase(); if(!db) return;
+    try {
+        const { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        const pushToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        lastOwnPushToken = pushToken;
+        await updateDoc(doc(db, "quicknote_data", "primary_user"), { config: CONFIG, profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, push_token: pushToken, last_sync: Date.now() });
+        addLog("SYNC", "Config Push", "OK — settings only");
+    } catch(e) { addLog("SYNC", "Config Push Error", e.message); }
+}
+
 async function saveMasterConfig() { 
     const prevFbApi = CONFIG.fb_api, prevFbProject = CONFIG.fb_project;
     CONFIG.ai_key = document.getElementById('ai-key-f').value; CONFIG.def_profile = document.getElementById('def-prof-f').value; CONFIG.def_model = document.getElementById('def-mod-f').value; 
@@ -1877,10 +1889,9 @@ async function saveMasterConfig() {
     CONFIG.extract_model = document.getElementById('extract-model-f').value;
     CONFIG.suggest_model = document.getElementById('suggest-model-f').value;
     CONFIG.def_ctx = document.getElementById('def-ctx-f').value;
-    await saveAll(); await refreshUI(); notify("Config Saved!", "#34c759");
+    await saveAll(true); await refreshUI(); notify("Config Saved!", "#34c759");
     const credentialsChanged = CONFIG.fb_api !== prevFbApi || CONFIG.fb_project !== prevFbProject;
-    if(credentialsChanged) { fbDb = null; stopRealtimeSync(); }
-    startRealtimeSync();
+    if(credentialsChanged) { fbDb = null; stopRealtimeSync(); startRealtimeSync(); } else { pushConfigToFirebase(); }
 }
 
 function setTplTab(tab) { tplTab = tab; document.getElementById('tab-tpl-all').classList.toggle('active', tab === 'all'); document.getElementById('tab-tpl-fav').classList.toggle('active', tab === 'fav'); document.getElementById('tab-tpl-recent').classList.toggle('active', tab === 'recent'); renderTemplates(); }
