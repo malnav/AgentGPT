@@ -966,7 +966,13 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <button class="chip" style="font-size:14px; padding:4px 10px;" onclick="document.execCommand('insertOrderedList')">1. List</button>
         </div>
         <div id="edit-ai-input" contenteditable="true" class="pp-input" style="flex:1; overflow-y:auto; background:var(--bg); border:1px solid var(--border); padding:14px; line-height:1.5; margin-bottom:0;"></div>
-        <button class="chip" style="width:100%; background:var(--accent); color:#fff; padding:14px; font-weight:bold; font-size:14px; margin-top:12px; flex-shrink: 0;" id="save-ai-edit-btn">SAVE CHANGES</button>
+        <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px; flex-shrink:0;">
+            <button class="chip" style="width:100%; background:var(--accent); color:#fff; padding:14px; font-weight:bold; font-size:14px;" id="save-ai-edit-btn">SAVE CHANGES</button>
+            <div style="display:flex; gap:8px;">
+                <button class="chip" style="flex:1; font-size:13px; padding:10px 8px;" onclick="openEmailComposeFromEdit('new')">📨 Draft New Email</button>
+                <button class="chip" style="flex:1; font-size:13px; padding:10px 8px;" onclick="openEmailComposeFromEdit('reply')">↩️ Reply to Email</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1508,7 +1514,8 @@ function previewPayload(idx) { const msg = chatHistory[idx]; document.getElement
 async function editChatMsg(idx) { let rawText = getTextFromContent(chatHistory[idx].content); if(rawText.includes("\n\n[CONTEXT]\n")) rawText = rawText.split("\n\n[CONTEXT]\n")[0]; document.getElementById('note-input').value = rawText; chatHistory = chatHistory.slice(0, idx); await saveAll(); renderChatHistory(); document.getElementById('note-input').focus(); sync(); }
 
 function editAIResponse(idx) { 
-    let msg = chatHistory[idx]; let currentText = getTextFromContent(msg.content); 
+    let msg = chatHistory[idx]; let currentText = getTextFromContent(msg.content);
+    window._editAiMsg = msg;
     document.getElementById('edit-ai-input').innerHTML = marked.parse(currentText); openModal('edit-ai-modal');
     document.getElementById('save-ai-edit-btn').onclick = async () => { msg.content = [{ type: "output_text", text: document.getElementById('edit-ai-input').innerHTML }]; await saveAll(); renderChatHistory(); closeModal('edit-ai-modal'); };
 }
@@ -2805,8 +2812,116 @@ async function toggleBubbleProfile(label, enabled) {
     await saveAll();
 }
 
+let _emailComposeMode = 'new';
+let _emailComposeReplyTarget = null;
+
+async function _editAiSave() {
+    const editInput = document.getElementById('edit-ai-input');
+    if (!window._editAiMsg) return;
+    window._editAiMsg.content = [{ type: 'output_text', text: editInput.innerHTML }];
+    await saveAll();
+    renderChatHistory();
+}
+
+async function openEmailComposeFromEdit(mode) {
+    if (!gmailAccessToken) { notify('Sign in to Gmail first — tap 📧 in the nav', '#ff9500', 4000); return; }
+    await _editAiSave();
+    notify('Saved', '#34c759', 1200);
+    _emailComposeMode = mode;
+    _emailComposeReplyTarget = null;
+    const bodyEl = document.getElementById('email-compose-body');
+    const sourceHtml = document.getElementById('edit-ai-input').innerHTML;
+    bodyEl.innerHTML = sourceHtml;
+    if (mode === 'new') {
+        document.getElementById('email-compose-title').textContent = '📨 Draft New Email';
+        document.getElementById('email-compose-to').value = '';
+        document.getElementById('email-compose-subject').value = '';
+        document.getElementById('email-compose-picker').style.display = 'none';
+        document.getElementById('email-compose-form').style.display = 'flex';
+        document.getElementById('email-compose-reply-ref').style.display = 'none';
+        openModal('email-compose-modal');
+    } else {
+        document.getElementById('email-compose-title').textContent = '↩️ Reply to Email';
+        const listEl = document.getElementById('email-compose-pick-list');
+        if (!gmailEmails || gmailEmails.length === 0) {
+            listEl.innerHTML = '<li style="padding:20px; color:#888; font-size:13px; text-align:center;">No emails loaded.<br>Open Gmail first to load emails.</li>';
+        } else {
+            listEl.innerHTML = gmailEmails.map((em, i) => `<li style="display:flex; align-items:flex-start; gap:10px; padding:12px 16px; border-bottom:0.5px solid var(--border); cursor:pointer;" onclick="emailComposePickReply(${i})"><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${em.subject || '(no subject)'}</div><div style="font-size:11px; color:#888; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${em.from || ''}</div></div><div style="font-size:18px; flex-shrink:0; color:var(--accent);">→</div></li>`).join('');
+        }
+        document.getElementById('email-compose-picker').style.display = 'flex';
+        document.getElementById('email-compose-form').style.display = 'none';
+        openModal('email-compose-modal');
+    }
+}
+
+function emailComposePickReply(idx) {
+    const em = gmailEmails[idx];
+    if (!em) return;
+    _emailComposeReplyTarget = em;
+    document.getElementById('email-compose-to').value = em.from || '';
+    document.getElementById('email-compose-subject').value = em.subject.startsWith('Re:') ? em.subject : 'Re: ' + em.subject;
+    const refEl = document.getElementById('email-compose-reply-ref');
+    refEl.style.display = 'block';
+    refEl.textContent = 'Replying to: ' + (em.subject || '(no subject)') + ' — ' + (em.from || '');
+    document.getElementById('email-compose-picker').style.display = 'none';
+    document.getElementById('email-compose-form').style.display = 'flex';
+}
+
+async function sendComposedEmail() {
+    const to = document.getElementById('email-compose-to').value.trim();
+    const subject = document.getElementById('email-compose-subject').value.trim();
+    const bodyEl = document.getElementById('email-compose-body');
+    const bodyHtml = bodyEl.innerHTML.trim();
+    const bodyText = bodyEl.textContent.trim();
+    if (!to) { notify('Enter a recipient', '#ff3b30'); return; }
+    if (!bodyText) { notify('Email body is empty', '#ff3b30'); return; }
+    if (!gmailAccessToken) { notify('Not signed in to Gmail', '#ff3b30'); return; }
+    const boundary = 'boundary_' + Date.now();
+    const lines = [`To: ${to}`, `Subject: ${subject || '(no subject)'}`, 'MIME-Version: 1.0', `Content-Type: multipart/alternative; boundary="${boundary}"`];
+    if (_emailComposeReplyTarget) {
+        if (_emailComposeReplyTarget.messageId) { lines.push(`In-Reply-To: ${_emailComposeReplyTarget.messageId}`); lines.push(`References: ${_emailComposeReplyTarget.messageId}`); }
+    }
+    lines.push('', `--${boundary}`, 'Content-Type: text/plain; charset=utf-8', 'Content-Transfer-Encoding: quoted-printable', '', bodyText, '', `--${boundary}`, 'Content-Type: text/html; charset=utf-8', 'Content-Transfer-Encoding: quoted-printable', '', `<html><body>${bodyHtml}</body></html>`, '', `--${boundary}--`);
+    const rawMsg = lines.join('\r\n');
+    const encoded = btoa(unescape(encodeURIComponent(rawMsg))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const payload = { raw: encoded };
+    if (_emailComposeReplyTarget && _emailComposeReplyTarget.threadId) payload.threadId = _emailComposeReplyTarget.threadId;
+    try {
+        notify('Sending…', '#007aff', 2000);
+        const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', headers: { Authorization: 'Bearer ' + gmailAccessToken, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!r.ok) throw new Error('Send failed: ' + r.status);
+        notify(_emailComposeMode === 'reply' ? 'Reply sent!' : 'Email sent!', '#34c759', 3000);
+        closeModal('email-compose-modal');
+        _emailComposeReplyTarget = null;
+    } catch (e) { notify('Failed to send: ' + e.message, '#ff3b30', 5000); }
+}
+
 window.onload = init;
 </script>
+
+<div id="email-compose-modal" class="modal" style="z-index:520;">
+    <div class="modal-header">
+        <h3 id="email-compose-title" style="color:var(--accent);">📨 Draft New Email</h3>
+        <div onclick="closeModal('email-compose-modal')" style="font-size:24px; cursor:pointer;">✕</div>
+    </div>
+    <div id="email-compose-picker" class="modal-content" style="display:none; padding:0; flex-direction:column;">
+        <div style="padding:12px 16px; font-size:12px; font-weight:800; color:#888; border-bottom:0.5px solid var(--border);">SELECT EMAIL TO REPLY TO</div>
+        <ul id="email-compose-pick-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto;"></ul>
+    </div>
+    <div id="email-compose-form" class="modal-content" style="display:flex; flex-direction:column; padding:14px; gap:10px;">
+        <input id="email-compose-to" class="pp-input" placeholder="To" style="font-size:13px;">
+        <input id="email-compose-subject" class="pp-input" placeholder="Subject" style="font-size:13px;">
+        <div style="display:flex; gap:6px; background:var(--sec-bg); padding:6px 8px; border-radius:10px; flex-wrap:wrap;">
+            <button class="chip" style="font-size:12px; font-weight:900; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('bold')"><b>B</b></button>
+            <button class="chip" style="font-size:12px; font-style:italic; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('italic')"><i>I</i></button>
+            <button class="chip" style="font-size:12px; text-decoration:underline; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('underline')"><u>U</u></button>
+            <button class="chip" style="font-size:12px; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('insertUnorderedList')">• List</button>
+        </div>
+        <div id="email-compose-body" contenteditable="true" data-ph="Email body…" style="flex:1; min-height:160px; max-height:40vh; overflow-y:auto; background:var(--bg); border:0.5px solid var(--border); border-radius:12px; padding:12px; font-size:13px; line-height:1.6; outline:none; word-break:break-word;"></div>
+        <div id="email-compose-reply-ref" style="display:none; font-size:11px; color:#888; padding:6px 10px; background:var(--sec-bg); border-radius:8px; border-left:3px solid var(--accent);"></div>
+        <button class="chip" style="width:100%; background:var(--accent); color:#fff; padding:13px; font-weight:bold; font-size:14px;" onclick="sendComposedEmail()">Send ↑</button>
+    </div>
+</div>
 
 <div id="profile-bubble" style="bottom:110px; right:18px;" title="Profile Chat Bubble" onclick="profileBubbleTap(event)">
     <span id="profile-bubble-icon">?</span>
