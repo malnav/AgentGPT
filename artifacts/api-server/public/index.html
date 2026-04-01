@@ -1498,7 +1498,7 @@ function renderDatasetsList() {
         let ds = GLOBAL_DATASETS[vid]; let isCurrent = String(vid) === String(cur.var_id);
         let varCount = Object.keys(ds.data || {}).length;
         let linkedChats = []; Object.keys(chatHistories).forEach(pName => { let s = chatHistories[pName]; if(s.list) s.list.forEach(c => { if(String(c.var_id) === String(vid)) { c._profile = pName; linkedChats.push(c); } }); });
-        if(!isCurrent && varCount === 0 && linkedChats.length === 0) return '';
+        if(!isCurrent && linkedChats.length === 0) return '';
         if(!isCurrent && linkedChats.length > 0 && !linkedChats.some(c => existingProfiles.has(c._profile))) return '';
         
         let chatsHtml = linkedChats.map(c => `<div style="font-size:12px; padding:10px 12px; border-top:0.5px solid var(--border); color:var(--accent); cursor:pointer; background:var(--bg); margin-top:2px;" onclick="event.stopPropagation(); jumpToSession('${c._profile}', '${c.id}')">💬 ${c.title} <span style="color:#888; font-size:10px;">(${c._profile})</span></div>`).join('');
