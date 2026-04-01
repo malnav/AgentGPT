@@ -739,29 +739,33 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
         
         <hr style="border:none; border-top:1px solid var(--border); margin: 24px 0;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <small style="font-weight:800; font-size:11px; color:var(--accent);">API KEYS BACKUP</small>
+        <div style="background:var(--sec-bg); border-radius:16px; overflow:hidden; margin-bottom:12px;">
+            <div style="padding:12px 14px 8px;">
+                <small style="font-weight:800; font-size:11px; color:var(--accent);">🔑 API KEY</small>
+            </div>
+            <div style="padding:0 14px 14px;">
+                <input type="password" id="ai-key-f" class="pp-input" placeholder="OpenAI Key" onchange="saveMasterConfig()" style="margin-bottom:0;">
+            </div>
+            <div style="border-top:0.5px solid var(--border); padding:12px 14px 8px;">
+                <small style="font-weight:800; font-size:11px; color:var(--accent);">🔥 FIREBASE CLOUD SYNC</small>
+            </div>
+            <div style="padding:0 14px 14px;">
+                <input type="text" id="fb-project-f" class="pp-input" placeholder="Firebase Project ID (e.g. my-app-123)" onchange="saveMasterConfig()" style="margin-bottom:8px;">
+                <input type="password" id="fb-api-f" class="pp-input" placeholder="Firebase Web API Key" onchange="saveMasterConfig()" style="margin-bottom:0;">
+            </div>
+            <div style="border-top:0.5px solid var(--border); padding:12px 14px 8px;">
+                <small style="font-weight:800; font-size:11px; color:var(--accent);">📧 GMAIL INTEGRATION</small>
+            </div>
+            <div style="padding:0 14px 14px;">
+                <input type="text" id="google-client-id-f" class="pp-input" placeholder="Google OAuth Client ID (…googleusercontent.com)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
+                <small style="color:#888; font-size:10px; line-height:1.4; display:block;">Create a project in Google Cloud Console → Enable Gmail API → OAuth 2.0 Client ID (Web App) → add this page's URL to Authorized JS Origins.</small>
+            </div>
         </div>
-        <input type="password" id="ai-key-f" class="pp-input" placeholder="OpenAI Key" onchange="saveMasterConfig()" style="margin-bottom:10px;">
-        <div style="display:flex; gap:10px;">
-            <button class="chip" style="flex:1;" onclick="exportApiKeys()">Export Keys</button>
-            <button class="chip" style="flex:1; background:var(--text); color:var(--bg);" onclick="document.getElementById('import-keys-file').click()">Import Keys</button>
+        <div style="display:flex; gap:10px; margin-bottom:4px;">
+            <button class="chip" style="flex:1;" onclick="exportApiKeys()">📤 Export Keys</button>
+            <button class="chip" style="flex:1; background:var(--text); color:var(--bg);" onclick="document.getElementById('import-keys-file').click()">📥 Import Keys</button>
             <input type="file" id="import-keys-file" style="display:none;" accept=".json" onchange="importApiKeys(event)">
         </div>
-
-        <hr style="border:none; border-top:1px solid var(--border); margin: 24px 0;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <small style="font-weight:800; font-size:11px; color:var(--accent);">🔥 FIREBASE CLOUD SYNC</small>
-        </div>
-        <input type="text" id="fb-project-f" class="pp-input" placeholder="Firebase Project ID (e.g. my-app-123)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
-        <input type="password" id="fb-api-f" class="pp-input" placeholder="Firebase Web API Key" onchange="saveMasterConfig()" style="margin-bottom:10px;">
-
-        <hr style="border:none; border-top:1px solid var(--border); margin: 24px 0;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <small style="font-weight:800; font-size:11px; color:var(--accent);">📧 GMAIL INTEGRATION</small>
-        </div>
-        <input type="text" id="google-client-id-f" class="pp-input" placeholder="Google OAuth Client ID (…googleusercontent.com)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
-        <small style="color:#888; font-size:10px; line-height:1.4; display:block; margin-bottom:10px;">Create a project in Google Cloud Console → Enable Gmail API → OAuth 2.0 Client ID (Web App) → add this page's URL to Authorized JS Origins.</small>
 
         <hr style="border:none; border-top:1px solid var(--border); margin: 24px 0;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
