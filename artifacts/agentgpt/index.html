@@ -2172,11 +2172,19 @@ async function gmailLoadEmails(query) {
     if(gmailAccessToken) { await gmailFetchEmails(query); return; }
     if(!document.getElementById('gis-script')) {
         const s = document.createElement('script'); s.id = 'gis-script'; s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
-        s.onload = () => { gmailInitTokenClient(query, true); }; document.head.appendChild(s);
-    } else { gmailInitTokenClient(query, true); }
+        s.onload = () => { gmailInitTokenClient(query, true); };
+        s.onerror = () => { notify("Failed to load Google sign-in library", "#ff3b30", 4000); };
+        document.head.appendChild(s);
+    } else if (typeof google !== 'undefined' && google.accounts) {
+        gmailInitTokenClient(query, true);
+    } else {
+        const existing = document.getElementById('gis-script');
+        existing.addEventListener('load', () => { gmailInitTokenClient(query, true); }, { once: true });
+    }
 }
 
 function gmailInitTokenClient(query, silent) {
+    if (typeof google === 'undefined' || !google.accounts) { notify("Google sign-in not ready — try again", "#ff9500", 3000); return; }
     const hint = localStorage.getItem('gmail_hint') || "";
     gmailTokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CONFIG.google_client_id,
