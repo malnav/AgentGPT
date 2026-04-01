@@ -2256,25 +2256,42 @@ function gmailOnSearch(val) {
 
 function gmailCleanBodyText(text) {
     if (!text) return '';
-    const sigPatterns = [/^--\s*$/, /^—\s*$/, /^[-_]{3,}$/, /^(best\s+regards?|kind\s+regards?|warm\s+regards?|sincerely|thanks?|cheers?|regards?|br[,.]?|kr[,.]?)\s*$/i, /^(sent from (my |your )?iphone|sent from (my |your )?android|get outlook for|sent via)/i, /^(unsubscribe|this email was sent|privacy policy|you (are )?receiving this)/i];
-    const quotePatterns = [/^>/, /^On .{10,}wrote:/, /^-{3,}\s*(original message|forwarded message)/i, /^_{3,}/, /^From:\s+.+\s+Sent:\s+/i, /^[A-Z][a-z]+,\s+\d{4}\s+at\s+/];
+    const SIG = [
+        /^--\s*$/, /^—+\s*$/, /^[*]{3,}$/,
+        /^(best\s+regards?|kind\s+regards?|warm\s+regards?|sincerely|thanks?|cheers?|regards?|br[,.]?|kr[,.]?)\s*[,.]?\s*$/i,
+        /^(sent from (my |your )?(iphone|android|galaxy|pixel)|get outlook|sent via\s+\w)/i,
+        /^(unsubscribe|this email was sent to|privacy policy|you (are )?receiving this|©\s*\d{4})/i,
+        /^(tel|ph|mobile|cell|fax)\s*[:\-–]\s*[+\d\s\(\)]+$/i,
+        /^(www\.|http)[^\s]+$/i,
+        /^\[.*\]\s*$/, /^#{3,}/
+    ];
+    const QUOTE_BREAK = [
+        /^On .{8,}wrote\s*:?\s*$/i,
+        /^Le .{8,}[eé]crit\s*:\s*$/i,
+        /^Am .{8,}schrieb\s/i,
+        /^El .{8,}escribi/i,
+        /^En .{8,}[eé]crit/i,
+        /^-----\s*(original|forwarded)\s+message/i,
+        /^_{5,}$/,
+        /^-{5,}$/,
+        /^From:\s+.+\s+Sent:\s+/i,
+        /^From:\s+.+\[mailto:/i,
+        /^>+\s+/
+    ];
     const lines = text.split('\n');
     const cleaned = [];
-    let sigFound = false;
-    let skippingQuote = false;
     let blanks = 0;
+    let prevLine = '';
     for (let i = 0; i < lines.length; i++) {
-        const raw = lines[i];
-        const line = raw.trim();
-        if (sigFound) break;
-        if (sigPatterns.some(p => p.test(line))) { sigFound = true; break; }
-        const isQuote = quotePatterns.some(p => p.test(line));
-        if (isQuote) { skippingQuote = true; continue; }
-        if (skippingQuote && line === '') continue;
-        skippingQuote = false;
+        const line = lines[i].trim();
+        if (SIG.some(p => p.test(line))) break;
+        if (QUOTE_BREAK.some(p => p.test(line))) break;
+        if (/^On .{5,}$/.test(line) && i + 1 < lines.length && /wrote\s*:?\s*$/.test(lines[i + 1].trim())) break;
         if (line === '') { blanks++; if (blanks <= 1) cleaned.push(''); continue; }
         blanks = 0;
         if (line.length < 3 && !/\w/.test(line)) continue;
+        if (line === prevLine) continue;
+        prevLine = line;
         cleaned.push(line);
     }
     return cleaned.join('\n').trim();
@@ -2761,7 +2778,7 @@ function openProfileBubbleMenu() {
     const subEl = document.getElementById('pbm-email-count');
     subEl.textContent = n + ' email' + (n !== 1 ? 's' : '') + ' selected';
     subEl.style.color = '#007aff';
-    listEl.innerHTML = `<div class="pbm-profile-row" onclick="closeProfileBubbleMenu(); startEmailChatSelected()"><div class="pbm-avatar" style="font-size:18px;">📧</div><div style="flex:1;"><div class="pbm-profile-name">Selected emails only</div><div style="font-size:11px;color:#888;">${n} email${n!==1?'s':''}, split line by line</div></div><div class="pbm-arrow">→</div></div><div class="pbm-profile-row" onclick="closeProfileBubbleMenu(); startEmailChatAll()"><div class="pbm-avatar" style="font-size:18px;">📬</div><div style="flex:1;"><div class="pbm-profile-name">All from same senders</div><div style="font-size:11px;color:#888;">Search all emails from these addresses</div></div><div class="pbm-arrow">→</div></div>`;
+    listEl.innerHTML = `<div class="pbm-profile-row" onclick="closeProfileBubbleMenu(); startEmailChatSelected()"><div class="pbm-avatar" style="font-size:18px;">📧</div><div style="flex:1;"><div class="pbm-profile-name">Selected emails only</div><div style="font-size:11px;color:#888;">${n} email${n!==1?'s':''}, split line by line</div></div><div class="pbm-arrow">→</div></div><div class="pbm-profile-row" onclick="closeProfileBubbleMenu(); startEmailChatAll()"><div class="pbm-avatar" style="font-size:18px;">📬</div><div style="flex:1;"><div class="pbm-profile-name">All from same senders</div><div style="font-size:11px;color:#888;">Emails from, to, or mentioning these addresses</div></div><div class="pbm-arrow">→</div></div>`;
     const menu = document.getElementById('profile-bubble-menu');
     const backdrop = document.getElementById('profile-bubble-backdrop');
     const bubble = document.getElementById('profile-bubble');
@@ -2823,7 +2840,7 @@ async function startEmailChatAll() {
     const addrs = [...new Set(checked.map(cb => { const em = gmailEmails[parseInt(cb.dataset.idx)]; return em ? gmailExtractAddr(em.from) : ''; }).filter(Boolean))];
     if (!addrs.length) { startEmailChat(defLabel, 'selected'); return; }
     notify('Searching all emails from ' + addrs.length + ' address' + (addrs.length !== 1 ? 'es' : '') + '…', '#007aff', 3000);
-    const query = addrs.map(a => 'from:' + a).join(' OR ');
+    const query = addrs.map(a => `from:${a} OR to:${a} OR "${a}"`).join(' OR ');
     let allMsgIds = [];
     try {
         const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=50&q=' + encodeURIComponent(query), { headers: { Authorization: 'Bearer ' + gmailAccessToken } });
