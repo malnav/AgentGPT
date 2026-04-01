@@ -1504,7 +1504,7 @@ function renderDatasetsList() {
         let chatsHtml = linkedChats.map(c => `<div style="font-size:12px; padding:10px 12px; border-top:0.5px solid var(--border); color:var(--accent); cursor:pointer; background:var(--bg); margin-top:2px;" onclick="event.stopPropagation(); jumpToSession('${c._profile}', '${c.id}')">💬 ${c.title} <span style="color:#888; font-size:10px;">(${c._profile})</span></div>`).join('');
         
         return `<li class="list-item" style="flex-direction:column; align-items:stretch;">
-            <div style="display:flex; justify-content:space-between; align-items:center; width:100%;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%;" onclick="openDatasetFirstChat('${vid}')" oncontextmenu="event.preventDefault(); this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; return false;">
                 <div style="flex:1;">
                     <strong>${ds.title || 'Untitled Dataset'}</strong> ${isCurrent ? '<span style="font-size:10px; color:var(--accent);">(Active)</span>' : ''}
                     <div style="font-size:10px; color:#888; margin-top:4px;">${varCount} vars | ${linkedChats.length} chats linked <span>▼</span></div>
@@ -1521,6 +1521,21 @@ function renderDatasetsList() {
         </li>`;
     }).join('');
     document.getElementById('datasets-list').innerHTML = html;
+}
+
+async function openDatasetFirstChat(vid) {
+    let linkedChats = [];
+    Object.keys(chatHistories).forEach(pName => {
+        let s = chatHistories[pName];
+        if(s.list) s.list.forEach(c => {
+            if(String(c.var_id) === String(vid)) linkedChats.push({ c, pName });
+        });
+    });
+    if(linkedChats.length === 0) { notify("No chats linked to this dataset", "#ff3b30", 2000); return; }
+    const first = linkedChats[0];
+    closeAllPanels();
+    document.getElementById('workspace-panel').classList.add('open');
+    await jumpToSession(first.pName, first.c.id);
 }
 
 async function linkToDataset(vid) { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); cur.var_id = vid; await saveAll(); renderDatasetsList(); renderSessionVariables(); notify("Linked to Data Set!", "#34c759"); }
