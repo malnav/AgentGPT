@@ -519,23 +519,46 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   .global-pull       { display: none; }
   #sync-indicator    { left: 272px; right: auto; bottom: 76px; }
 
-  /* ── Right panels: clean floating overlay, not full-width ── */
-  .ctx-panel, #vars-slide-panel, #tpl-slide-panel, #srv-slide-panel {
+  /* ── Right panels: variables panel always visible, others as overlay ── */
+  .ctx-panel, #tpl-slide-panel, #srv-slide-panel {
     width: min(380px, 38%) !important;
     top: 0 !important;
     border-radius: 14px 0 0 14px !important;
     bottom: 0 !important;
   }
 
+  /* Variables panel: persistent, always visible, no overlay ── */
+  #vars-slide-panel {
+    position: fixed !important;
+    right: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 320px !important;
+    z-index: 11 !important;
+    border-radius: 14px 0 0 14px !important;
+    display: flex !important;
+    transform: none !important;
+    transition: none !important;
+    border-left: 0.5px solid var(--glass-border);
+  }
+
+  /* Adjust main content to account for right vars panel ── */
+  .scroll-area { padding-right: 320px; }
+  .input-zone { right: 320px !important; }
+  #floating-actions { right: 334px; }
+
   /* ── Chat bubbles: better proportions ── */
   .bubble { min-width: 28%; max-width: 60%; }
-  #chat-container { max-width: 860px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
+  #chat-container { max-width: 820px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 
   /* ── Modals: inset from sidebar on desktop ── */
   .modal { left: 272px; }
 
   /* Hide ✕ close buttons inside the workspace panel (it's a fixed sidebar now) */
   #workspace-panel .panel-header > div[id$="-btns"] > div[onclick] { display: none !important; }
+
+  /* Hide pull indicator on desktop (sidebar always visible) ── */
+  .pull-indicator { display: none !important; }
 
   /* Profile dropdown — more width available */
   .main-profile-dropdown { max-width: 220px; }
