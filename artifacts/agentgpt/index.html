@@ -455,18 +455,25 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .pbm-arrow { font-size:18px; color:var(--accent); }
 .pbm-empty { padding:16px; font-size:13px; color:#888; text-align:center; }
 .pbm-footer { padding:10px 16px; border-top:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-.gmail-thread-hdr { display:flex; align-items:flex-start; gap:8px; padding:10px 14px; cursor:pointer; background:var(--sec-bg); border-bottom:0.5px solid var(--border); transition:background 0.15s; }
-.gmail-thread-hdr:active { background:rgba(0,122,255,0.07); }
-.gmail-thread-body { display:none; padding:0; margin:0; list-style:none; border-bottom:1.5px solid var(--border); }
-.gmail-thread.open .gmail-thread-body { display:block; }
-.gmail-thread.open .gmail-expand-arrow { transform:rotate(90deg); }
 @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
 @keyframes floatCloud { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
 @keyframes initBarAnim { 0% { width:0%; } 40% { width:65%; } 80% { width:88%; } 100% { width:92%; } }
-.gmail-expand-arrow { font-size:9px; transition:transform 0.2s; display:inline-block; margin-top:2px; opacity:0.5; }
-.thread-msg-row { display:flex; align-items:center; gap:8px; padding:7px 14px 7px 30px; border-bottom:0.5px solid var(--border); background:var(--bg); }
-.thread-msg-row:last-child { border-bottom:none; }
-.thread-count-badge { font-size:10px; font-weight:800; color:var(--accent); background:rgba(0,122,255,0.1); border-radius:8px; padding:1px 6px; }
+.spark-email-row { border-bottom:0.5px solid var(--border); list-style:none; }
+.spark-row-hdr { display:flex; align-items:center; gap:10px; padding:11px 14px 11px 12px; cursor:pointer; transition:background 0.12s; position:relative; }
+.spark-row-hdr:active { background:rgba(0,122,255,0.06); }
+.spark-from { font-size:14px; font-weight:500; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+.spark-from.unread { font-weight:700; }
+.spark-time { font-size:11px; color:#aaa; white-space:nowrap; }
+.spark-subject { font-size:13px; font-weight:400; color:var(--text); opacity:0.7; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px; }
+.spark-subject.unread { font-weight:600; opacity:1; }
+.spark-snippet { font-size:12px; color:#aaa; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px; }
+.spark-count-badge { font-size:10px; font-weight:700; color:var(--accent); background:rgba(0,122,255,0.12); border-radius:10px; padding:2px 7px; white-space:nowrap; }
+.spark-expand-icon { font-size:20px; line-height:1; color:var(--text); opacity:0.2; transition:transform 0.2s; flex-shrink:0; margin-left:2px; }
+.gmail-thread.open .spark-expand-icon { transform:rotate(90deg); opacity:0.35; }
+.spark-thread-body { display:none; list-style:none; padding:0; margin:0; background:var(--sec-bg); border-top:0.5px solid var(--border); }
+.gmail-thread.open .spark-thread-body { display:block; }
+.spark-msg-row { display:flex; align-items:center; gap:10px; padding:10px 14px 10px 24px; border-bottom:0.5px solid var(--border); }
+.spark-msg-row:last-child { border-bottom:none; }
 </style>
 </head>
 <body>
@@ -2476,36 +2483,88 @@ function gmailGroupByThread(emails) {
     return Array.from(map.values());
 }
 
+function gmailSenderColor(name) {
+    const palette = ['#FF6B6B','#FF9F43','#FECA57','#1DD1A1','#48DBFB','#54A0FF','#5F27CD','#FF9FF3','#00D2D3','#C8D6E5','#FF6348','#2ED573'];
+    let h = 0; for(let i=0; i<(name||'').length; i++) h = (name||'').charCodeAt(i)+((h<<5)-h);
+    return palette[Math.abs(h) % palette.length];
+}
+
+function gmailRelTime(dateStr) {
+    if(!dateStr) return '';
+    const d = new Date(dateStr); if(isNaN(d.getTime())) return '';
+    const diff = Date.now() - d; const s = Math.floor(diff/1000);
+    if(s < 60) return 'now';
+    const m = Math.floor(s/60); if(m < 60) return m+'m';
+    const h = Math.floor(m/60); if(h < 24) return h+'h';
+    const days = Math.floor(h/24); if(days < 7) return days+'d';
+    if(days < 365) return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+    return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'2-digit'});
+}
+
 function gmailThreadHtml(group, src) {
     const latest = group[group.length - 1].em;
     const hasUnread = group.some(g => g.em.unread);
-    const senders = [...new Set(group.map(g => g.em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || g.em.from))];
-    const sendersStr = senders.slice(0, 3).join(', ') + (senders.length > 3 ? ` +${senders.length - 3}` : '');
     const count = group.length;
     const allIdxs = group.map(g => g.idx);
+
+    const fullNames = group.map(g => g.em.from.replace(/<[^>]+>/,'').replace(/^"|"$/g,'').trim() || g.em.from);
+    const firstNames = fullNames.map(n => n.split(/\s+/)[0]);
+    const uniqueFirst = [...new Set(firstNames)];
+    const sendersLabel = uniqueFirst.slice(0,3).join(', ') + (uniqueFirst.length > 3 ? ` +${uniqueFirst.length-3}` : '');
+    const uniqueFull = [...new Set(fullNames)];
+
+    const AVG = 40; const OVL = 18;
+    const avCount = count > 1 ? Math.min(2, uniqueFull.length) : 1;
+    const stackW = AVG + (avCount - 1) * OVL;
+    const avatarHtml = uniqueFull.slice(0, avCount).map((name, si) => {
+        const color = gmailSenderColor(name);
+        const init = (name||'?')[0].toUpperCase();
+        return `<div style="position:absolute;left:${si*OVL}px;top:0;width:${AVG}px;height:${AVG}px;border-radius:50%;background:${color};border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;z-index:${avCount-si};">${init}</div>`;
+    }).join('');
+
     const msgRows = group.map(g => {
         const em = g.em; const i = g.idx;
-        const name = em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || em.from;
-        return `<li class="thread-msg-row">
-            <input type="checkbox" class="gmail-chk ctx-checkbox" data-idx="${i}" onclick="event.stopPropagation(); gmailUpdateAddBtns(); gmailUpdateThreadChk(this);" style="flex-shrink:0;">
-            <div style="flex:1; min-width:0; cursor:pointer;" onclick="event.stopPropagation(); gmailPreview(${i}, '${src}');">
-                <div style="font-size:12px; font-weight:${em.unread ? 800 : 500}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</div>
-                <div style="font-size:11px; color:#aaa; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${em.snippet || ''}</div>
+        const name = em.from.replace(/<[^>]+>/,'').replace(/^"|"$/g,'').trim() || em.from;
+        const color = gmailSenderColor(name);
+        return `<li class="spark-msg-row">
+            <input type="checkbox" class="gmail-chk ctx-checkbox" data-idx="${i}" onclick="event.stopPropagation();gmailUpdateAddBtns();gmailUpdateThreadChk(this);" style="flex-shrink:0;width:15px;height:15px;accent-color:var(--accent);">
+            <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;">${(name||'?')[0].toUpperCase()}</div>
+            <div style="flex:1;min-width:0;cursor:pointer;" onclick="event.stopPropagation();gmailPreview(${i},'${src}');">
+                <div style="font-size:13px;font-weight:${em.unread?700:500};color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
+                <div style="font-size:12px;color:#aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;">${em.snippet||''}</div>
             </div>
-            <span style="font-size:11px; color:var(--accent); padding:4px; cursor:pointer; flex-shrink:0;" onclick="event.stopPropagation(); gmailPreview(${i}, '${src}');">→</span>
+            <span style="font-size:11px;color:#aaa;flex-shrink:0;padding-left:6px;">${gmailRelTime(em.date)}</span>
         </li>`;
     }).join('');
-    return `<li class="gmail-thread" data-idxs="${allIdxs.join(',')}">
-        <div class="gmail-thread-hdr" onclick="gmailToggleThread(this.closest('.gmail-thread'))">
-            <input type="checkbox" class="gmail-thread-chk ctx-checkbox" onclick="event.stopPropagation(); gmailThreadChkChange(this);" style="flex-shrink:0; margin-top:3px;">
-            <div style="flex:1; min-width:0;">
-                <div style="font-weight:${hasUnread ? 800 : 600}; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${latest.subject}</div>
-                <div style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${sendersStr}</div>
-                <div style="font-size:11px; color:#aaa; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px;">${latest.snippet || ''}</div>
+
+    const chkHtml = count === 1
+        ? `<input type="checkbox" class="gmail-chk ctx-checkbox" data-idx="${group[0].idx}" onclick="event.stopPropagation();gmailUpdateAddBtns();" style="width:15px;height:15px;accent-color:var(--accent);flex-shrink:0;">`
+        : `<input type="checkbox" class="gmail-thread-chk ctx-checkbox" onclick="event.stopPropagation();gmailThreadChkChange(this);" style="width:15px;height:15px;accent-color:var(--accent);flex-shrink:0;">`;
+
+    const onclickHdr = count === 1
+        ? `gmailPreview(${group[0].idx},'${src}')`
+        : `gmailToggleThread(this.closest('.gmail-thread'))`;
+
+    const unreadBar = hasUnread ? `style="border-left:3px solid var(--accent);padding-left:9px;"` : `style="padding-left:12px;"`;
+
+    return `<li class="gmail-thread spark-email-row" data-idxs="${allIdxs.join(',')}">
+        <div class="spark-row-hdr" onclick="${onclickHdr}" ${unreadBar}>
+            ${chkHtml}
+            <div style="position:relative;width:${stackW}px;height:${AVG}px;flex-shrink:0;">${avatarHtml}</div>
+            <div style="flex:1;min-width:0;${avCount>1?'margin-left:4px;':''}">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">
+                    <span class="spark-from${hasUnread?' unread':''}">${sendersLabel}</span>
+                    <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
+                        <span class="spark-time">${gmailRelTime(latest.date)}</span>
+                        ${count>1?`<span class="spark-count-badge">${count}</span>`:''}
+                    </div>
+                </div>
+                <div class="spark-subject${hasUnread?' unread':''}">${latest.subject||'(no subject)'}</div>
+                <div class="spark-snippet">${latest.snippet||''}</div>
             </div>
-            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; padding-left:6px;">${count > 1 ? `<span class="thread-count-badge">${count}</span>` : ''}<span class="gmail-expand-arrow">▶</span></div>
+            ${count>1?`<span class="spark-expand-icon">›</span>`:''}
         </div>
-        <ul class="gmail-thread-body">${msgRows}</ul>
+        ${count>1?`<ul class="spark-thread-body">${msgRows}</ul>`:''}
     </li>`;
 }
 
