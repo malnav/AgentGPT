@@ -589,10 +589,15 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <span class="chip" style="font-size:10px; padding:5px 9px; color:#ff3b30;" onclick="gmailSignOut()">Sign Out</span>
                 <span class="chip" style="font-size:10px; padding:5px 9px;" onclick="gmailLoadEmails()">↻</span>
             </div>
+            <div id="ctx-tab-wabiz-actions" style="display:none; gap:6px; align-items:center;">
+                <span class="chip" style="font-size:10px; padding:5px 10px; background:var(--accent); color:#fff;" onclick="waBizAddAllToContext()">+ All to Context</span>
+                <span class="chip" style="font-size:10px; padding:5px 9px;" onclick="waBizFetchTemplates()">↻</span>
+            </div>
         </div>
         <div class="sub-tabs" style="margin:0; border:none; background:rgba(128,128,128,0.12); padding:3px; border-radius:10px; gap:2px;">
-            <div class="sub-tab-btn active" id="ctx-tab-btn-context" onclick="ctxSwitchTab('context')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📋 Context</div>
-            <div class="sub-tab-btn" id="ctx-tab-btn-gmail" onclick="ctxSwitchTab('gmail')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📧 Gmail</div>
+            <div class="sub-tab-btn active" id="ctx-tab-btn-context" onclick="ctxSwitchTab('context')" style="padding:4px 0; flex:1; text-align:center; font-size:11px;">📋 Context</div>
+            <div class="sub-tab-btn" id="ctx-tab-btn-gmail" onclick="ctxSwitchTab('gmail')" style="padding:4px 0; flex:1; text-align:center; font-size:11px;">📧 Gmail</div>
+            <div class="sub-tab-btn" id="ctx-tab-btn-wabiz" onclick="ctxSwitchTab('wabiz')" style="padding:4px 0; flex:1; text-align:center; font-size:11px;">💬 WA Biz</div>
         </div>
     </div>
 
@@ -640,6 +645,17 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <button class="chip" style="background:var(--accent); color:#fff; padding:10px; font-size:13px; font-weight:700;" onclick="gmailSendReply('panel')">Send Reply ↑</button>
             </div>
         </div>
+    </div>
+
+    <div id="ctx-pane-wabiz" style="flex:1; overflow:hidden; display:none; flex-direction:column; position:relative;">
+        <div style="padding:8px 14px 6px 14px;">
+            <input id="wabiz-search-box" class="pp-input" placeholder="Search templates…" style="font-size:13px; padding:7px 12px;" oninput="waBizFilterTemplates(this.value)">
+        </div>
+        <div id="wabiz-status-bar" style="padding:4px 14px 6px; display:flex; align-items:center; gap:8px;">
+            <span id="wabiz-status-dot" style="width:8px; height:8px; border-radius:50%; background:#ccc; flex-shrink:0;"></span>
+            <span id="wabiz-status-label" style="font-size:11px; color:#888;">Not connected — add token in Settings</span>
+        </div>
+        <ul id="wabiz-template-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:60px;"></ul>
     </div>
 </div>
 
@@ -768,6 +784,14 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div style="padding:0 14px 14px;">
                 <input type="text" id="google-client-id-f" class="pp-input" placeholder="Google OAuth Client ID (…googleusercontent.com)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
                 <small style="color:#888; font-size:10px; line-height:1.4; display:block;">Create a project in Google Cloud Console → Enable Gmail API → OAuth 2.0 Client ID (Web App) → add this page's URL to Authorized JS Origins.</small>
+            </div>
+            <div style="border-top:0.5px solid var(--border); padding:12px 14px 8px;">
+                <small style="font-weight:800; font-size:11px; color:var(--accent);">💬 WHATSAPP BUSINESS</small>
+            </div>
+            <div style="padding:0 14px 14px;">
+                <input type="password" id="wa-biz-token-f" class="pp-input" placeholder="Meta Access Token  (EAAG…)" onchange="saveMasterConfig()" style="margin-bottom:8px;">
+                <input type="text" id="wa-biz-waba-f" class="pp-input" placeholder="WhatsApp Business Account ID" onchange="saveMasterConfig()" style="margin-bottom:6px;">
+                <small style="color:#888; font-size:10px; line-height:1.4; display:block;">Meta Business Suite → WhatsApp → API Setup → copy the Access Token and WABA ID.</small>
             </div>
         </div>
         <div style="display:flex; gap:10px; margin-bottom:4px;">
@@ -1286,15 +1310,20 @@ function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel',
 function toggleVarsPanel() { closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); }
 function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
 function ctxSwitchTab(tab) {
-    const isGmail = tab === 'gmail';
-    document.getElementById('ctx-pane-context').style.display = isGmail ? 'none' : 'flex';
+    const isGmail = tab === 'gmail'; const isWabiz = tab === 'wabiz'; const isCtx = !isGmail && !isWabiz;
+    document.getElementById('ctx-pane-context').style.display = isCtx ? 'flex' : 'none';
     document.getElementById('ctx-pane-gmail').style.display = isGmail ? 'flex' : 'none';
     document.getElementById('ctx-pane-gmail').style.flexDirection = 'column';
-    document.getElementById('ctx-tab-context-actions').style.display = isGmail ? 'none' : 'flex';
+    document.getElementById('ctx-pane-wabiz').style.display = isWabiz ? 'flex' : 'none';
+    document.getElementById('ctx-pane-wabiz').style.flexDirection = 'column';
+    document.getElementById('ctx-tab-context-actions').style.display = isCtx ? 'flex' : 'none';
     document.getElementById('ctx-tab-gmail-actions').style.display = isGmail ? 'flex' : 'none';
-    document.getElementById('ctx-tab-btn-context').classList.toggle('active', !isGmail);
+    document.getElementById('ctx-tab-wabiz-actions').style.display = isWabiz ? 'flex' : 'none';
+    document.getElementById('ctx-tab-btn-context').classList.toggle('active', isCtx);
     document.getElementById('ctx-tab-btn-gmail').classList.toggle('active', isGmail);
+    document.getElementById('ctx-tab-btn-wabiz').classList.toggle('active', isWabiz);
     if(isGmail) { if(gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box').value.trim() || null); } else { gmailLoadEmails(); } }
+    if(isWabiz) { waBizFetchTemplates(); }
 }
 function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
 function toggleSrvPanel() { closeAllPanels('srv-slide-panel'); document.getElementById('srv-slide-panel').classList.toggle('open'); }
@@ -1326,7 +1355,7 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {};
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", bubble_profiles: storedCfg.bubble_profiles || null };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", bubble_profiles: storedCfg.bubble_profiles || null, wa_biz_token: storedCfg.wa_biz_token || "", wa_biz_waba_id: storedCfg.wa_biz_waba_id || "" };
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
@@ -1352,7 +1381,7 @@ async function refreshUI() {
     updateCtxSelection(); 
     let ctxLabel = cutIdx === -1 ? '☁️' : '🌦️'; document.getElementById('ctx-indicator').innerText = ctxLabel; document.getElementById('ctx-btn-all').classList.toggle('active', cutIdx === CONTEXT_LINES.length - 1); document.getElementById('ctx-btn-none').classList.toggle('active', cutIdx === -1);
     document.getElementById('def-ctx-f').value = CONFIG.def_ctx || "all"; document.getElementById('def-prof-f').innerHTML = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); document.getElementById('def-mod-f').innerHTML = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('def-prof-f').value = CONFIG.def_profile; document.getElementById('def-mod-f').value = CONFIG.def_model;
-    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('google-client-id-f').value = CONFIG.google_client_id || ""; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
+    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('google-client-id-f').value = CONFIG.google_client_id || ""; document.getElementById('wa-biz-token-f').value = CONFIG.wa_biz_token || ""; document.getElementById('wa-biz-waba-f').value = CONFIG.wa_biz_waba_id || ""; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
     updateProfileBubble(); renderBubbleProfilesChecklist();
 }
 
@@ -1817,7 +1846,7 @@ function importGlobalFile(event) {
 }
 
 async function exportApiKeys() {
-    const keys = { ai_key: CONFIG.ai_key, fb_api: CONFIG.fb_api, fb_project: CONFIG.fb_project, google_client_id: CONFIG.google_client_id, _app: 'agentgpt', _v: 1 };
+    const keys = { ai_key: CONFIG.ai_key, fb_api: CONFIG.fb_api, fb_project: CONFIG.fb_project, google_client_id: CONFIG.google_client_id, wa_biz_token: CONFIG.wa_biz_token, wa_biz_waba_id: CONFIG.wa_biz_waba_id, _app: 'agentgpt', _v: 1 };
     const jsonStr = JSON.stringify(keys, null, 2); const fileName = `agentgpt_keys_${Date.now()}.json`; addLog("DATA", "Export Keys", fileName);
     if (navigator.share) { try { const file = new File([jsonStr], fileName, { type: "application/json" }); await navigator.share({ files: [file], title: fileName }); return notify("Keys exported!", "#34c759"); } catch(e) {} }
     try { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr); const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", fileName); document.body.appendChild(dl); dl.click(); document.body.removeChild(dl); notify("Keys downloaded!", "#34c759"); } catch(e) {}
@@ -1828,6 +1857,8 @@ function _applyKeysToSettingsForm(data) {
     if (data.fb_api) document.getElementById('fb-api-f').value = data.fb_api;
     if (data.fb_project) document.getElementById('fb-project-f').value = data.fb_project;
     if (data.google_client_id) document.getElementById('google-client-id-f').value = data.google_client_id;
+    if (data.wa_biz_token) document.getElementById('wa-biz-token-f').value = data.wa_biz_token;
+    if (data.wa_biz_waba_id) document.getElementById('wa-biz-waba-f').value = data.wa_biz_waba_id;
 }
 
 function importApiKeys(event) {
@@ -1895,7 +1926,7 @@ async function pushConfigToFirebase() {
 async function saveMasterConfig() { 
     const prevFbApi = CONFIG.fb_api, prevFbProject = CONFIG.fb_project;
     CONFIG.ai_key = document.getElementById('ai-key-f').value; CONFIG.def_profile = document.getElementById('def-prof-f').value; CONFIG.def_model = document.getElementById('def-mod-f').value; 
-    CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = true; CONFIG.google_client_id = document.getElementById('google-client-id-f').value.trim();
+    CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = true; CONFIG.google_client_id = document.getElementById('google-client-id-f').value.trim(); CONFIG.wa_biz_token = document.getElementById('wa-biz-token-f').value.trim(); CONFIG.wa_biz_waba_id = document.getElementById('wa-biz-waba-f').value.trim();
     CONFIG.title_model = document.getElementById('title-model-f').value;
     CONFIG.extract_model = document.getElementById('extract-model-f').value;
     CONFIG.suggest_model = document.getElementById('suggest-model-f').value;
