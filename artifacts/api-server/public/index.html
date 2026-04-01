@@ -2248,6 +2248,30 @@ function gmailSilentAuth() {
     });
 }
 
+function gmailEnsureAuth(onAuthed) {
+    const clientId = CONFIG.google_client_id || "";
+    if (!clientId) { notify("Enter your Google OAuth Client ID in Settings first", "#ff3b30", 5000); return; }
+    if (gmailAccessToken) { onAuthed(); return; }
+    gmailEnsureScript(() => {
+        if (typeof google === 'undefined' || !google.accounts) { notify("Google sign-in not ready — try again", "#ff9500", 3000); return; }
+        const hint = localStorage.getItem('gmail_hint') || "";
+        const tc = google.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
+            hint,
+            callback: async (resp) => {
+                if (resp.error) { notify("Gmail sign-in failed — try again", "#ff3b30", 4000); return; }
+                gmailAccessToken = resp.access_token;
+                gmailStoreHint();
+                updateProfileBubble();
+                onAuthed();
+            }
+        });
+        notify("Connecting Gmail…", "#007aff", 2000);
+        tc.requestAccessToken({ prompt: '' });
+    });
+}
+
 async function gmailLoadEmails(query) {
     const clientId = CONFIG.google_client_id || "";
     if(!clientId) { notify("Enter your Google OAuth Client ID in Settings first", "#ff3b30", 5000); return; }
@@ -2991,8 +3015,7 @@ async function _editAiSave() {
     renderChatHistory();
 }
 
-async function openEmailComposeFromEdit(mode) {
-    if (!gmailAccessToken) { notify('Sign in to Gmail first — tap 📧 in the nav', '#ff9500', 4000); return; }
+async function _doOpenComposeModal(mode) {
     await _editAiSave();
     notify('Saved', '#34c759', 1200);
     _emailComposeMode = mode;
@@ -3020,6 +3043,10 @@ async function openEmailComposeFromEdit(mode) {
         document.getElementById('email-compose-form').style.display = 'none';
         openModal('email-compose-modal');
     }
+}
+
+function openEmailComposeFromEdit(mode) {
+    gmailEnsureAuth(() => { _doOpenComposeModal(mode); });
 }
 
 function emailComposePickReply(idx) {
