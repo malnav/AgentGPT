@@ -604,15 +604,13 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 
     <div id="ctx-pane-gmail" style="flex:1; overflow:hidden; display:none; flex-direction:column; position:relative;">
-        <div style="padding:6px 14px 4px 14px; display:flex; align-items:center; gap:6px;">
-            <span class="chip" style="font-size:12px; padding:5px 11px;" onclick="gmailToggleSearch('panel')">🔍 Search</span>
-        </div>
-        <div id="gmail-search-row" style="padding:0 14px 6px; display:none;">
-            <input id="gmail-search-box" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:7px 12px;" oninput="gmailOnSearch(this.value)">
-        </div>
         <div style="display:flex; align-items:center; gap:8px; padding:4px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
             <input type="checkbox" id="gmail-panel-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('panel',this.checked)">
-            <span style="font-size:11px; color:#888; font-weight:600;">Select All</span>
+            <span style="flex:1; font-size:11px; color:#888; font-weight:600;">Select All</span>
+            <span class="chip" style="font-size:11px; padding:3px 9px;" onclick="gmailToggleSearch('panel')">🔍</span>
+        </div>
+        <div id="gmail-search-row" style="padding:6px 14px; display:none; border-bottom:0.5px solid var(--border);">
+            <input id="gmail-search-box" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:7px 12px;" oninput="gmailOnSearch(this.value)">
         </div>
         <ul id="gmail-list" class="gmail-email-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:60px;"></ul>
 
@@ -841,17 +839,15 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div onclick="closeModal('gmail-modal')" style="font-size:22px; cursor:pointer; opacity:0.5; padding:0 4px;">✕</div>
             </div>
         </div>
-        <div style="padding:4px 16px 6px 16px; display:flex; align-items:center; gap:6px;">
-            <span class="chip" style="font-size:12px; padding:5px 12px;" onclick="gmailToggleSearch('modal')">🔍 Search</span>
-        </div>
-        <div id="gmail-modal-search-row" style="padding:0 16px 8px; display:none;">
-            <input id="gmail-modal-search" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:8px 14px;" oninput="gmailOnSearch(this.value)">
-        </div>
     </div>
     <div style="flex:1; overflow:hidden; display:flex; flex-direction:column; position:relative;">
-        <div style="display:flex; align-items:center; gap:8px; padding:6px 16px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
+        <div style="display:flex; align-items:center; gap:8px; padding:5px 16px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
             <input type="checkbox" id="gmail-modal-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('modal',this.checked)">
-            <span style="font-size:12px; color:#888; font-weight:600;">Select All</span>
+            <span style="flex:1; font-size:12px; color:#888; font-weight:600;">Select All</span>
+            <span class="chip" style="font-size:11px; padding:3px 10px;" onclick="gmailToggleSearch('modal')">🔍</span>
+        </div>
+        <div id="gmail-modal-search-row" style="padding:6px 16px; display:none; border-bottom:0.5px solid var(--border);">
+            <input id="gmail-modal-search" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:8px 14px;" oninput="gmailOnSearch(this.value)">
         </div>
         <ul id="gmail-modal-list" class="gmail-email-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:80px;"></ul>
         <div id="gmail-modal-preview" style="display:none; position:absolute; inset:0; background:var(--bg); z-index:10; flex-direction:column; overflow:hidden;">
@@ -1489,7 +1485,8 @@ function renderSessionVariables() {
 
 function initVarDragDrop() {
     const list = document.querySelector('#session-vars-list ul'); if(!list) return;
-    let fromKey = null, dragging = null;
+    let fromKey = null, dragging = null, dropMode = null;
+    const clearHighlights = () => { list.querySelectorAll('li[data-vk]').forEach(el => { el.style.outline = ''; el.style.background = ''; }); };
     const onDown = e => {
         if(!e.target.closest('.var-handle')) return;
         e.preventDefault();
@@ -1501,23 +1498,56 @@ function initVarDragDrop() {
     const onMove = e => {
         if(!dragging) return;
         e.preventDefault();
-        list.querySelectorAll('li[data-vk]').forEach(el => { el.style.outline = ''; });
-        const els = list.querySelectorAll('li[data-vk]');
-        for(const el of els) { if(el === dragging) continue; const r = el.getBoundingClientRect(); if(e.clientY >= r.top && e.clientY <= r.bottom) { el.style.outline = '2px solid var(--accent)'; break; } }
+        clearHighlights();
+        dropMode = null;
+        for(const el of list.querySelectorAll('li[data-vk]')) {
+            if(el === dragging) continue;
+            const r = el.getBoundingClientRect();
+            if(e.clientY >= r.top && e.clientY <= r.bottom) {
+                const rel = (e.clientY - r.top) / r.height;
+                if(rel > 0.3 && rel < 0.7) {
+                    el.style.outline = '2px solid #34c759';
+                    el.style.background = 'rgba(52,199,89,0.12)';
+                    dropMode = 'child';
+                } else {
+                    el.style.outline = '2px solid var(--accent)';
+                    dropMode = 'reorder';
+                }
+                break;
+            }
+        }
     };
     const onUp = e => {
         if(!dragging) return;
         dragging.style.opacity = '1';
-        list.querySelectorAll('li[data-vk]').forEach(el => { el.style.outline = ''; });
-        const els = list.querySelectorAll('li[data-vk]');
-        for(const el of els) { if(el === dragging) continue; const r = el.getBoundingClientRect(); if(e.clientY >= r.top && e.clientY <= r.bottom) { if(fromKey && el.dataset.vk !== fromKey) reorderVar(fromKey, el.dataset.vk); break; } }
-        dragging = null; fromKey = null;
+        clearHighlights();
+        for(const el of list.querySelectorAll('li[data-vk]')) {
+            if(el === dragging) continue;
+            const r = el.getBoundingClientRect();
+            if(e.clientY >= r.top && e.clientY <= r.bottom) {
+                if(fromKey && el.dataset.vk !== fromKey) {
+                    if(dropMode === 'child') { setVarParentDirect(fromKey, el.dataset.vk); }
+                    else { reorderVar(fromKey, el.dataset.vk); }
+                }
+                break;
+            }
+        }
+        dragging = null; fromKey = null; dropMode = null;
     };
     if(list._vdInit) { list.removeEventListener('pointerdown', list._vdPD); list.removeEventListener('pointermove', list._vdPM); list.removeEventListener('pointerup', list._vdPU); }
     list._vdInit = true; list._vdPD = onDown; list._vdPM = onMove; list._vdPU = onUp;
     list.addEventListener('pointerdown', onDown, { passive: false });
     list.addEventListener('pointermove', onMove, { passive: false });
     list.addEventListener('pointerup', onUp);
+}
+
+async function setVarParentDirect(childKey, parentKey) {
+    let p = AI_PROFILES.find(x => x.label === activeProfileLabel);
+    if(!p.var_meta) p.var_meta = {};
+    if(!p.var_meta[childKey]) p.var_meta[childKey] = {};
+    if(parentKey) { p.var_meta[childKey].parent = parentKey; } else { delete p.var_meta[childKey].parent; }
+    await saveAll(); renderSessionVariables();
+    notify(`{{${childKey}}} → child of {{${parentKey}}}`, '#34c759', 2000);
 }
 
 async function reorderVar(fromKey, toKey) {
@@ -1536,11 +1566,16 @@ function openSetVarParent(childKey) {
     let p = AI_PROFILES.find(x => x.label === activeProfileLabel);
     let allKeys = (p.expected_vars || []).filter(k => k !== childKey);
     let meta = p.var_meta || {}; let curParent = meta[childKey] && meta[childKey].parent || '';
+    if(!curParent) {
+        const lis = Array.from(document.querySelectorAll('#session-vars-list li[data-vk]'));
+        const idx = lis.findIndex(li => li.dataset.vk === childKey);
+        if(idx > 0) curParent = lis[idx - 1].dataset.vk;
+    }
     let opts = `<option value="">— None (top-level) —</option>` + allKeys.map(k => `<option value="${k}" ${k === curParent ? 'selected' : ''}>${k}</option>`).join('');
     const div = document.createElement('div');
     div.id = 'vpar-modal-ov';
     div.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; display:flex; align-items:center; justify-content:center;';
-    div.innerHTML = `<div style="background:var(--bg); border-radius:18px; padding:22px 18px; width:84%; max-width:320px; box-shadow:0 10px 40px rgba(0,0,0,0.4);"><div style="font-size:16px; font-weight:800; margin-bottom:6px; color:var(--text);">Set Parent Variable</div><div style="font-size:12px; color:#888; margin-bottom:12px;">Parent of <strong style="color:var(--accent);">{{${childKey}}}</strong></div><select id="vpar-sel" class="pp-input" style="margin-bottom:16px;">${opts}</select><div style="display:flex; gap:10px;"><button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:11px; font-size:14px; font-weight:700;" onclick="setVarParentTo('${childKey}', document.getElementById('vpar-sel').value)">Save</button><button class="chip" style="flex:1; background:var(--sec-bg); padding:11px; font-size:14px;" onclick="document.getElementById('vpar-modal-ov').remove()">Cancel</button></div></div>`;
+    div.innerHTML = `<div style="background:var(--bg); border-radius:18px; padding:22px 18px; width:84%; max-width:320px; box-shadow:0 10px 40px rgba(0,0,0,0.4);"><div style="font-size:16px; font-weight:800; margin-bottom:6px; color:var(--text);">Set Parent Variable</div><div style="font-size:12px; color:#888; margin-bottom:12px;">Child: <strong style="color:var(--accent);">{{${childKey}}}</strong></div><div style="font-size:11px; color:#888; margin-bottom:4px;">Parent variable (var above is pre-selected):</div><select id="vpar-sel" class="pp-input" style="margin-bottom:16px;">${opts}</select><div style="display:flex; gap:10px;"><button class="chip" style="flex:1; background:var(--accent); color:#fff; padding:11px; font-size:14px; font-weight:700;" onclick="setVarParentTo('${childKey}', document.getElementById('vpar-sel').value)">Save</button><button class="chip" style="flex:1; background:var(--sec-bg); padding:11px; font-size:14px;" onclick="document.getElementById('vpar-modal-ov').remove()">Cancel</button></div></div>`;
     document.body.appendChild(div);
     div.addEventListener('click', e => { if(e.target === div) div.remove(); });
 }
