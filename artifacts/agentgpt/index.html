@@ -439,6 +439,20 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .tool-menu-item:last-child { border-bottom: none; }
 .tool-menu-item:active { background: rgba(0,122,255,0.08); }
 @keyframes sync-pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+#profile-bubble { position:fixed; width:54px; height:54px; border-radius:27px; background:var(--accent); color:#fff; font-size:21px; font-weight:800; display:flex; align-items:center; justify-content:center; z-index:450; cursor:pointer; box-shadow:0 4px 24px rgba(0,122,255,0.45); user-select:none; -webkit-user-select:none; touch-action:none; transition:box-shadow 0.2s, transform 0.1s; }
+#profile-bubble:active { transform:scale(0.93); }
+#profile-bubble-menu { position:fixed; z-index:460; min-width:230px; max-width:88vw; background:var(--glass); border:0.5px solid var(--glass-border); border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,0.28); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; }
+.pbm-header { padding:14px 16px 10px; border-bottom:0.5px solid var(--border); }
+.pbm-title { font-size:12px; font-weight:800; color:var(--accent); letter-spacing:0.4px; }
+.pbm-sub { font-size:11px; color:#888; margin-top:2px; }
+.pbm-profile-row { display:flex; align-items:center; gap:10px; padding:11px 16px; border-bottom:0.5px solid var(--border); cursor:pointer; transition:background 0.15s; }
+.pbm-profile-row:last-child { border-bottom:none; }
+.pbm-profile-row:active { background:rgba(0,122,255,0.08); }
+.pbm-avatar { width:34px; height:34px; border-radius:17px; background:var(--accent); color:#fff; font-size:15px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.pbm-profile-name { flex:1; font-size:14px; font-weight:600; color:var(--text); }
+.pbm-arrow { font-size:18px; color:var(--accent); }
+.pbm-empty { padding:16px; font-size:13px; color:#888; text-align:center; }
+.pbm-footer { padding:10px 16px; border-top:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
 </style>
 </head>
 <body>
@@ -722,6 +736,13 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
         <input type="text" id="google-client-id-f" class="pp-input" placeholder="Google OAuth Client ID (…googleusercontent.com)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
         <small style="color:#888; font-size:10px; line-height:1.4; display:block; margin-bottom:10px;">Create a project in Google Cloud Console → Enable Gmail API → OAuth 2.0 Client ID (Web App) → add this page's URL to Authorized JS Origins.</small>
+
+        <hr style="border:none; border-top:1px solid var(--border); margin: 24px 0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <small style="font-weight:800; font-size:11px; color:var(--accent);">🤖 PROFILE BUBBLE</small>
+        </div>
+        <small style="color:#888; font-size:10px; line-height:1.4; display:block; margin-bottom:10px;">Choose which profiles appear when you tap the floating bubble on the email screen.</small>
+        <div id="bubble-profiles-checklist" style="display:flex; flex-direction:column; gap:6px; margin-bottom:4px;"></div>
 
         <hr style="border:none; border-top:1px solid var(--border); margin: 24px 0;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -1256,14 +1277,14 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {};
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "" };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", bubble_profiles: storedCfg.bubble_profiles || null };
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
     activeProfileLabel = await dbHelper.get('activeProfile') || (AI_PROFILES[0] ? AI_PROFILES[0].label : "Agent");
     if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0].label; }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
-    await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); refreshUI(); initGestures(); setTimeout(updateInputHeightVar, 100);
+    await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); refreshUI(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
     startRealtimeSync();
 }
 
@@ -1281,6 +1302,7 @@ async function refreshUI() {
     let ctxLabel = cutIdx === -1 ? '☁️' : '🌦️'; document.getElementById('ctx-indicator').innerText = ctxLabel; document.getElementById('ctx-btn-all').classList.toggle('active', cutIdx === CONTEXT_LINES.length - 1); document.getElementById('ctx-btn-none').classList.toggle('active', cutIdx === -1);
     document.getElementById('def-ctx-f').value = CONFIG.def_ctx || "all"; document.getElementById('def-prof-f').innerHTML = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); document.getElementById('def-mod-f').innerHTML = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('def-prof-f').value = CONFIG.def_profile; document.getElementById('def-mod-f').value = CONFIG.def_model;
     document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('google-client-id-f').value = CONFIG.google_client_id || ""; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
+    updateProfileBubble(); renderBubbleProfilesChecklist();
 }
 
 function updateCtxSelection() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let btn = document.getElementById('ctx-bulk-btn-wrapper'); if(boxes.length > 0) { btn.style.display = 'block'; btn.querySelector('button').innerText = `Insert ${boxes.length} Selected ⟶`; } else { btn.style.display = 'none'; } }
@@ -2516,7 +2538,215 @@ function renderBgSwatches() {
 }
 loadBgTheme();
 
+let _bubbleDragging = false;
+let _bubbleDragStartX = 0, _bubbleDragStartY = 0;
+let _bubbleMoved = false;
+
+function initProfileBubble() {
+    const b = document.getElementById('profile-bubble');
+    if (!b) return;
+    const saved = JSON.parse(localStorage.getItem('bubble_pos') || 'null');
+    if (saved && saved.x !== undefined && saved.y !== undefined) {
+        b.style.right = 'auto'; b.style.bottom = 'auto';
+        b.style.left = Math.max(0, Math.min(saved.x, window.innerWidth - 60)) + 'px';
+        b.style.top = Math.max(0, Math.min(saved.y, window.innerHeight - 60)) + 'px';
+    }
+    b.addEventListener('touchstart', _bTouchStart, { passive: false });
+    b.addEventListener('touchmove', _bTouchMove, { passive: false });
+    b.addEventListener('touchend', _bTouchEnd, { passive: false });
+    b.addEventListener('mousedown', _bMouseDown);
+    updateProfileBubble();
+}
+
+function _bSavePos() {
+    const b = document.getElementById('profile-bubble');
+    const rect = b.getBoundingClientRect();
+    localStorage.setItem('bubble_pos', JSON.stringify({ x: rect.left, y: rect.top }));
+}
+
+function _bMoveTo(x, y) {
+    const b = document.getElementById('profile-bubble');
+    const clamped_x = Math.max(0, Math.min(x, window.innerWidth - 60));
+    const clamped_y = Math.max(0, Math.min(y, window.innerHeight - 60));
+    b.style.right = 'auto'; b.style.bottom = 'auto';
+    b.style.left = clamped_x + 'px'; b.style.top = clamped_y + 'px';
+}
+
+function _bTouchStart(e) {
+    _bubbleDragging = true; _bubbleMoved = false;
+    const t = e.touches[0];
+    const rect = this.getBoundingClientRect();
+    _bubbleDragStartX = t.clientX - rect.left; _bubbleDragStartY = t.clientY - rect.top;
+    e.preventDefault();
+}
+
+function _bTouchMove(e) {
+    if (!_bubbleDragging) return;
+    const t = e.touches[0];
+    const nx = t.clientX - _bubbleDragStartX;
+    const ny = t.clientY - _bubbleDragStartY;
+    const dx = Math.abs(nx - (parseInt(document.getElementById('profile-bubble').style.left) || 0));
+    const dy = Math.abs(ny - (parseInt(document.getElementById('profile-bubble').style.top) || 0));
+    if (dx > 4 || dy > 4) _bubbleMoved = true;
+    _bMoveTo(nx, ny);
+    e.preventDefault();
+}
+
+function _bTouchEnd(e) {
+    if (!_bubbleDragging) return;
+    _bubbleDragging = false;
+    if (_bubbleMoved) { _bSavePos(); } else { profileBubbleTap(e); }
+}
+
+function _bMouseDown(e) {
+    _bubbleDragging = true; _bubbleMoved = false;
+    const rect = this.getBoundingClientRect();
+    _bubbleDragStartX = e.clientX - rect.left; _bubbleDragStartY = e.clientY - rect.top;
+    const mm = (ev) => { const nx = ev.clientX - _bubbleDragStartX; const ny = ev.clientY - _bubbleDragStartY; const dx = Math.abs(nx - (parseInt(document.getElementById('profile-bubble').style.left)||0)); const dy = Math.abs(ny - (parseInt(document.getElementById('profile-bubble').style.top)||0)); if(dx>4||dy>4) _bubbleMoved = true; _bMoveTo(nx, ny); };
+    const mu = (ev) => { _bubbleDragging = false; document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); if (_bubbleMoved) { _bSavePos(); } else { profileBubbleTap(ev); } };
+    document.addEventListener('mousemove', mm);
+    document.addEventListener('mouseup', mu);
+    e.preventDefault();
+}
+
+function updateProfileBubble() {
+    const b = document.getElementById('profile-bubble');
+    const icon = document.getElementById('profile-bubble-icon');
+    if (!b || !icon) return;
+    const p = AI_PROFILES.find(x => x.label === activeProfileLabel) || AI_PROFILES[0];
+    if (p) { icon.textContent = p.label.charAt(0).toUpperCase(); b.title = p.label + ' — Tap for quick chat'; }
+}
+
+function profileBubbleTap(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const menu = document.getElementById('profile-bubble-menu');
+    if (menu.style.display !== 'none') { closeProfileBubbleMenu(); return; }
+    openProfileBubbleMenu();
+}
+
+function openProfileBubbleMenu() {
+    if (!CONFIG.bubble_profiles) CONFIG.bubble_profiles = AI_PROFILES.map(p => p.label);
+    const profiles = CONFIG.bubble_profiles.map(lbl => AI_PROFILES.find(p => p.label === lbl)).filter(Boolean);
+    const listEl = document.getElementById('pbm-profile-list');
+    const subEl = document.getElementById('pbm-email-count');
+    const selectedEmails = Array.from(document.querySelectorAll('#gmail-list .gmail-chk:checked, #gmail-modal-list .gmail-chk:checked'));
+    const emailCount = selectedEmails.length;
+    if (emailCount > 0) { subEl.textContent = emailCount + ' email' + (emailCount !== 1 ? 's' : '') + ' selected as context'; subEl.style.color = '#34c759'; }
+    else { subEl.textContent = 'No emails selected — opens empty context'; subEl.style.color = '#888'; }
+    if (profiles.length === 0) { listEl.innerHTML = '<div class="pbm-empty">No profiles configured.<br><small>Enable profiles in Settings → Profile Bubble.</small></div>'; }
+    else { listEl.innerHTML = profiles.map(p => `<div class="pbm-profile-row" onclick="startEmailChat('${p.label.replace(/'/g,"\\'")}')"><div class="pbm-avatar">${p.label.charAt(0).toUpperCase()}</div><div class="pbm-profile-name">${p.label}</div><div class="pbm-arrow">→</div></div>`).join(''); }
+    const menu = document.getElementById('profile-bubble-menu');
+    const backdrop = document.getElementById('profile-bubble-backdrop');
+    const bubble = document.getElementById('profile-bubble');
+    const bRect = bubble.getBoundingClientRect();
+    menu.style.display = 'block';
+    const mw = menu.offsetWidth || 240;
+    const mh = menu.offsetHeight || 200;
+    let left = bRect.left - mw - 8;
+    let top = bRect.top + bRect.height / 2 - mh / 2;
+    if (left < 8) left = bRect.right + 8;
+    if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+    if (top < 8) top = 8;
+    if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
+    menu.style.left = left + 'px'; menu.style.top = top + 'px';
+    backdrop.style.display = 'block';
+}
+
+function closeProfileBubbleMenu() {
+    document.getElementById('profile-bubble-menu').style.display = 'none';
+    document.getElementById('profile-bubble-backdrop').style.display = 'none';
+}
+
+async function startEmailChat(profileLabel) {
+    closeProfileBubbleMenu();
+    const checked = Array.from(document.querySelectorAll('#gmail-list .gmail-chk:checked, #gmail-modal-list .gmail-chk:checked'));
+    let emailLines = [];
+    if (checked.length > 0) {
+        notify('Fetching ' + checked.length + ' email' + (checked.length !== 1 ? 's' : '') + '…', '#007aff', 2500);
+        for (const cb of checked) {
+            const id = cb.dataset.id;
+            try {
+                const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/' + id + '?format=full', { headers: { 'Authorization': 'Bearer ' + gmailAccessToken } });
+                const msg = await resp.json();
+                const subjectHeader = (msg.payload && msg.payload.headers || []).find(h => h.name.toLowerCase() === 'subject');
+                const fromHeader = (msg.payload && msg.payload.headers || []).find(h => h.name.toLowerCase() === 'from');
+                const subject = subjectHeader ? subjectHeader.value : '(no subject)';
+                const from = fromHeader ? fromHeader.value : '';
+                if (from) emailLines.push('From: ' + from);
+                emailLines.push('Subject: ' + subject);
+                emailLines.push('---');
+                const body = gmailExtractBody(msg.payload);
+                const rawText = body.text || body.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                rawText.split('\n').forEach(line => { const t = line.trim(); if (t) emailLines.push(t); });
+                emailLines.push('');
+            } catch (err) { emailLines.push('(failed to fetch email ' + id + ')'); }
+        }
+    }
+    if (emailLines.length > 0) {
+        emailLines.forEach(line => { CONTEXT_LINES.push(line); });
+        cutIdx = CONTEXT_LINES.length - 1;
+    }
+    if (activeProfileLabel !== profileLabel) { await switchProfileSession(profileLabel); }
+    const p = AI_PROFILES.find(x => x.label === profileLabel) || AI_PROFILES[0];
+    const newId = Date.now().toString();
+    const newMsgs = [];
+    if (p) newMsgs.push({ role: 'developer', content: [{ type: 'input_text', text: p.text }] });
+    const sData = getSessions();
+    sData.list.push({ id: newId, title: 'Email Chat ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), msgs: newMsgs, var_id: newId, draft: '' });
+    sData.current = newId;
+    GLOBAL_DATASETS[newId] = { title: 'Data Set ' + newId.substring(newId.length - 4), data: {} };
+    chatHistory = newMsgs;
+    chatHistories[profileLabel] = sData;
+    document.getElementById('note-input').value = '';
+    lastCursorPos = null;
+    const modalEl = document.getElementById('gmail-modal');
+    if (modalEl && modalEl.style.display !== 'none') modalEl.style.display = 'none';
+    closeAllPanels();
+    await saveAll();
+    refreshUI();
+    renderChatHistory();
+    scrollToLastRequest();
+    addLog('SESSION', 'Email Chat', profileLabel);
+    notify('New chat started for ' + profileLabel + (emailLines.length > 0 ? ' with email context' : ''), '#34c759', 2500);
+    setTimeout(() => document.getElementById('note-input').focus(), 200);
+}
+
+function renderBubbleProfilesChecklist() {
+    const el = document.getElementById('bubble-profiles-checklist');
+    if (!el) return;
+    if (!CONFIG.bubble_profiles) CONFIG.bubble_profiles = AI_PROFILES.map(p => p.label);
+    el.innerHTML = AI_PROFILES.map(p => {
+        const checked = CONFIG.bubble_profiles.includes(p.label) ? 'checked' : '';
+        return `<label style="display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--sec-bg); border-radius:10px; cursor:pointer; font-size:13px; font-weight:600;"><input type="checkbox" ${checked} onchange="toggleBubbleProfile('${p.label.replace(/'/g,"\\'")}', this.checked)" style="width:16px;height:16px;accent-color:var(--accent);"><span>${p.label}</span></label>`;
+    }).join('');
+}
+
+async function toggleBubbleProfile(label, enabled) {
+    if (!CONFIG.bubble_profiles) CONFIG.bubble_profiles = AI_PROFILES.map(p => p.label);
+    if (enabled) { if (!CONFIG.bubble_profiles.includes(label)) CONFIG.bubble_profiles.push(label); }
+    else { CONFIG.bubble_profiles = CONFIG.bubble_profiles.filter(x => x !== label); }
+    await saveAll();
+}
+
 window.onload = init;
 </script>
+
+<div id="profile-bubble" style="bottom:110px; right:18px;" title="Profile Chat Bubble" onclick="profileBubbleTap(event)">
+    <span id="profile-bubble-icon">?</span>
+</div>
+
+<div id="profile-bubble-menu" style="display:none;">
+    <div class="pbm-header">
+        <div class="pbm-title">🤖 START NEW CHAT</div>
+        <div class="pbm-sub" id="pbm-email-count">Select emails first for context</div>
+    </div>
+    <div id="pbm-profile-list"></div>
+    <div class="pbm-footer">
+        <small style="color:#888; font-size:10px;">Selected emails become chat context</small>
+        <div class="inline-btn" onclick="closeProfileBubbleMenu()" style="font-size:18px; color:#888;">✕</div>
+    </div>
+</div>
+
+<div id="profile-bubble-backdrop" style="display:none; position:fixed; inset:0; z-index:459;" onclick="closeProfileBubbleMenu()"></div>
 </body>
 </html>
