@@ -545,7 +545,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   /* Adjust main content to account for right vars panel ── */
   .scroll-area { padding-right: 320px; }
   .input-zone { right: 320px !important; }
-  #floating-actions { right: 334px; }
+  #floating-actions { right: 360px; }
 
   /* ── Chat bubbles: better proportions ── */
   .bubble { min-width: 28%; max-width: 60%; }
@@ -1583,7 +1583,7 @@ function renderSessionVariables() {
         let rowBg = isLocked ? 'background:rgba(0,122,255,0.07);' : '';
         let borderL = isLocked ? 'border-left:3px solid var(--accent);' : indent ? 'border-left:2px solid var(--border);' : '';
         let pl = (isLocked || indent) ? 'padding-left:9px;' : 'padding-left:12px;';
-        return `<li data-vk="${k}" style="display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; padding:10px 0; border-bottom:0.5px solid var(--border); transition:background 0.15s; ${rowBg}${borderL}${pl}${indent ? 'margin-left:12px;' : ''}"><div class="var-handle" style="color:#bbb; font-size:15px; padding:2px 8px 0 0; cursor:grab; flex-shrink:0; user-select:none; touch-action:none;">⠿</div><div style="cursor:pointer; font-size:18px; padding:0 6px; padding-top:1px; color:${isLocked ? 'var(--accent)' : '#888'};" onclick="toggleVarLock('${k}')">${isLocked ? '🔒' : '🔓'}</div><div style="flex:1; word-break:break-word; cursor:pointer; min-width:0;" onclick="editVariableValue('${k}')"><strong style="color:${isLocked ? 'var(--accent)' : 'var(--text)'};">{{${k}}}</strong>${parentLabel} <span style="font-size:10px; opacity:0.4;">✏️</span>${valDisp}</div><div style="cursor:pointer; opacity:0.45; padding:0 4px; padding-top:2px; font-size:13px;" onclick="openSetVarParent('${k}')" title="Set parent">⤵</div><div style="cursor:pointer; opacity:0.35; padding:0 8px; padding-top:2px;" onclick="deleteVariable('${k}')">🗑️</div></li>`;
+        return `<li data-vk="${k}" style="display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; padding:10px 0; border-bottom:0.5px solid var(--border); transition:background 0.15s; ${rowBg}${borderL}${pl}${indent ? 'margin-left:12px;' : ''}"><div class="var-handle" style="color:#bbb; font-size:15px; padding:2px 8px 0 0; cursor:grab; flex-shrink:0; user-select:none; touch-action:none;">⠿</div><div style="cursor:pointer; font-size:18px; padding:0 6px; padding-top:1px; color:${isLocked ? 'var(--accent)' : '#888'};" onclick="toggleVarLock('${k}')">${isLocked ? '🔒' : '🔓'}</div><div style="flex:1; word-break:break-word; cursor:pointer; min-width:0;" onclick="editVariableValue('${k}')"><strong style="color:${isLocked ? 'var(--accent)' : 'var(--text)'};">${k}</strong>${parentLabel} <span style="font-size:10px; opacity:0.4;">✏️</span>${valDisp}</div><div style="cursor:pointer; opacity:0.45; padding:0 4px; padding-top:2px; font-size:13px;" onclick="openSetVarParent('${k}')" title="Set parent">⤵</div><div style="cursor:pointer; opacity:0.35; padding:0 8px; padding-top:2px;" onclick="deleteVariable('${k}')">🗑️</div></li>`;
     }).join('');
     if(html === "") html = `<div style="font-size:12px; color:#888; text-align:center; padding:10px;">No variables defined.</div>`;
     document.getElementById('session-vars-list').innerHTML = `<ul style="list-style:none; padding:0; margin:0;">${html}</ul>`;
