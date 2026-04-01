@@ -1322,7 +1322,7 @@ function renderInlinePrompts() {
 
 async function saveAll(skipCloud = false) { 
     try {
-        let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) cur.msgs = chatHistory; }
+        let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { cur.msgs = chatHistory; if(GLOBAL_DATASETS[cur.var_id]) GLOBAL_DATASETS[cur.var_id]._updated = Date.now(); } }
         CONFIG._ts = Date.now();
         await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
         if(!skipCloud) triggerAutoSync(); 
@@ -1376,7 +1376,7 @@ function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile ==
 function switchVarsTab(t) { ['vars','todos'].forEach(k => { document.getElementById('vtab-'+k).classList.toggle('active', t===k); document.getElementById('vview-'+k).classList.toggle('closed', t!==k); document.getElementById('vtab-'+k+'-btns').style.display = t===k ? 'flex' : 'none'; }); if(t === 'todos') renderChatTodos(); }
 function renderWorkspaceLists() { renderSessionsList(); let cur = document.querySelector('#workspace-panel .sub-tab-btn.active'); let curTab = cur ? (cur.id === 'wtab-all' ? 'all' : cur.id === 'wtab-data' ? 'data' : 'current') : 'current'; if(curTab === 'all') renderAllSessionsList(); if(curTab === 'data') renderDatasetsList(); }
 function switchWorkspaceTab(tab) { ['current','all','data'].forEach(k => { document.getElementById('wview-'+k).style.display = k === tab ? 'flex' : 'none'; document.getElementById('wtab-'+k).classList.toggle('active', k === tab); document.getElementById('wtab-'+k+'-btns').style.display = k === tab ? 'flex' : 'none'; }); if(tab === 'all') renderAllSessionsList(); if(tab === 'data') renderDatasetsList(); }
-function renderAllSessionsList() { let validProfiles = new Set(AI_PROFILES.map(p => p.label)); let allChats = []; Object.entries(chatHistories).forEach(([profLabel, sData]) => { if(!sData || !sData.list || !validProfiles.has(profLabel)) return; sData.list.forEach(chat => { let msgCount = (chat.msgs||[]).filter(m => m.role !== 'developer').length; if(msgCount === 0) return; let isActive = profLabel === activeProfileLabel && String(chat.id) === String(sData.current); let lastMsgTs = parseInt(chat.id) || 0; allChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs }); }); }); allChats.sort((a, b) => { if(a.chat.pinned && !b.chat.pinned) return -1; if(!a.chat.pinned && b.chat.pinned) return 1; return b.lastMsgTs - a.lastMsgTs; }); document.getElementById('all-sessions-list').innerHTML = allChats.length === 0 ? '<li style="color:#888; font-size:13px; padding:12px;">No chats yet.</li>' : allChats.map(({ chat, profLabel, msgCount, isActive }) => `<li class="list-item ${isActive ? 'in-cut' : ''}" onclick="loadSessionFromProfile('${profLabel}','${chat.id}')"><div style="flex:1; min-width:0;"><div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;"><strong style="font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chat.title}</strong><span style="font-size:10px; color:var(--accent); background:var(--sec-bg); border-radius:6px; padding:1px 5px; flex-shrink:0;">${profLabel}</span></div><span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div><div style="display:flex; gap:4px; align-items:center; flex-shrink:0;"><div class="inline-btn" onclick="event.stopPropagation(); togglePinChat('${profLabel}','${chat.id}')" title="${chat.pinned ? 'Unpin' : 'Pin'}" style="font-size:14px;">${chat.pinned ? '📌' : '📍'}</div><div class="inline-btn" onclick="event.stopPropagation(); deleteSessionFromProfile('${profLabel}','${chat.id}')">🗑️</div></div></li>`).join(''); }
+function renderAllSessionsList() { let validProfiles = new Set(AI_PROFILES.map(p => p.label)); let allChats = []; Object.entries(chatHistories).forEach(([profLabel, sData]) => { if(!sData || !sData.list || !validProfiles.has(profLabel)) return; sData.list.forEach(chat => { let msgCount = (chat.msgs||[]).filter(m => m.role !== 'developer').length; if(msgCount === 0) return; let isActive = profLabel === activeProfileLabel && String(chat.id) === String(sData.current); let lastMsgTs = parseInt(chat.id) || 0; allChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs }); }); }); allChats.sort((a, b) => { if(a.chat.pinned && !b.chat.pinned) return -1; if(!a.chat.pinned && b.chat.pinned) return 1; return b.lastMsgTs - a.lastMsgTs; }); document.getElementById('all-sessions-list').innerHTML = allChats.length === 0 ? '<li style="color:#888; font-size:13px; padding:12px;">No chats yet.</li>' : allChats.map(({ chat, profLabel, msgCount, isActive }) => `<li class="list-item ${isActive ? 'in-cut' : ''}" onclick="loadSessionFromProfile('${profLabel}','${chat.id}')"><div style="flex:1; min-width:0; overflow:hidden;"><div style="display:flex; align-items:center; gap:5px; overflow:hidden;"><span style="font-size:10px; color:var(--accent); font-weight:700; flex-shrink:0; white-space:nowrap;">${profLabel}</span><span style="font-size:11px; color:#888; flex-shrink:0;">${msgCount}m</span><strong style="font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${chat.title}</strong></div></div><div style="display:flex; gap:4px; align-items:center; flex-shrink:0;"><div class="inline-btn" onclick="event.stopPropagation(); togglePinChat('${profLabel}','${chat.id}')" title="${chat.pinned ? 'Unpin' : 'Pin'}" style="font-size:14px;">${chat.pinned ? '📌' : '📍'}</div><div class="inline-btn" onclick="event.stopPropagation(); deleteSessionFromProfile('${profLabel}','${chat.id}')">🗑️</div></div></li>`).join(''); }
 async function loadSessionFromProfile(profLabel, chatId) { if(profLabel !== activeProfileLabel) { activeProfileLabel = profLabel; await dbHelper.set('activeProfile', activeProfileLabel); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(chatId)); if(cur) { sData.current = chatId; chatHistories[activeProfileLabel] = sData; chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; } await saveAll(); closeAllPanels(); await refreshUI(); renderChatHistory(); scrollToLastRequest(); } else { await loadSession(chatId); } }
 async function togglePinChat(profLabel, chatId) { let sData = chatHistories[profLabel]; if(!sData) return; let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat) return; chat.pinned = !chat.pinned; await saveAll(); renderAllSessionsList(); }
 async function deleteSessionFromProfile(profLabel, chatId) { openConfirm("Delete this chat session?", async () => { let sData = chatHistories[profLabel]; if(!sData || !sData.list) return; sData.list = sData.list.filter(s => String(s.id) !== String(chatId)); if(sData.list.length === 0) { const defId = Date.now().toString() + Math.floor(Math.random()*1000); sData.list.push({ id: defId, title: "Chat", msgs: [], var_id: defId }); sData.current = defId; } if(String(sData.current) === String(chatId)) sData.current = sData.list[0].id; if(profLabel === activeProfileLabel) { chatHistory = sData.list.find(x => String(x.id) === String(sData.current))?.msgs || []; renderChatHistory(); } await saveAll(); renderAllSessionsList(); renderSessionsList(); }); }
@@ -1408,7 +1408,7 @@ async function deleteTodo(prof, chatId, todoId) { let sData = chatHistories[prof
 
 async function aiGenTodos() { if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30"); notify("Generating todos from chat...", "#007aff"); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur) return; let msgs = (cur.msgs || []).filter(m => m.role !== 'developer').map(m => `${m.role}: ${getTextFromContent(m.content)}`).join('\n').substring(0, 3000); if(!msgs) return notify("Chat is empty.", "#888"); let sysPrompt = `Based on this conversation, extract or suggest a concise list of action items or todos. Return ONLY a JSON array of objects with keys "text" (string) and optionally "date" (ISO date string YYYY-MM-DD if a date/deadline is mentioned, otherwise omit). e.g. [{"text":"Follow up with client","date":"2026-04-01"},{"text":"Send invoice"}]`; try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getSuggestModel(), messages: [{ role: "system", content: sysPrompt }, { role: "user", content: msgs }] }) }); if(!res.ok) throw new Error("API error"); const d = await res.json(); let raw = d.choices[0].message.content.replace(/```json/g,'').replace(/```/g,'').trim(); let arr = JSON.parse(raw); if(!cur.todos) cur.todos = []; let added = 0; const existingTexts = new Set((cur.todos||[]).map(t => t.text.toLowerCase().trim())); arr.forEach(item => { if(item.text && !existingTexts.has(item.text.toLowerCase().trim())) { cur.todos.push({ id: Date.now().toString() + added, text: item.text, done: false, date: item.date || null }); existingTexts.add(item.text.toLowerCase().trim()); added++; } }); await saveAll(); renderChatTodos(); renderCalendar(); notify(`Added ${added} todos!`, "#34c759"); } catch(e) { notify("Failed to generate todos.", "#ff3b30"); } }
 async function loadSession(id) { let sData = getSessions(); sData.current = String(id); let cur = sData.list.find(x => String(x.id) === String(id)); if(cur) { chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; addLog("SESSION", "Load Chat", cur.title); closeAllPanels(); await saveAll(); refreshUI(); renderChatHistory(); scrollToLastRequest(); } }
-function renderSessionsList() { let sData = getSessions(); let sortedChats = [...sData.list].sort((a,b) => { if(a.pinned && !b.pinned) return -1; if(!a.pinned && b.pinned) return 1; return Number(b.id) - Number(a.id); }); document.getElementById('sessions-list').innerHTML = sortedChats.map(s => { let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; return `<li class="list-item ${String(s.id) === String(sData.current) ? 'in-cut' : ''}" onclick="loadSession('${s.id}')"><div style="flex:1;"><strong>${s.title}</strong> <span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div><div style="display:flex; gap:4px; align-items:center;"><div class="inline-btn" onclick="event.stopPropagation(); togglePinCurrentChat('${s.id}')" style="font-size:14px;">${s.pinned ? '📌' : '📍'}</div><div class="inline-btn" onclick="event.stopPropagation(); deleteSession('${s.id}')">🗑️</div></div></li>`; }).join(''); }
+function renderSessionsList() { let sData = getSessions(); let sortedChats = [...sData.list].sort((a,b) => { if(a.pinned && !b.pinned) return -1; if(!a.pinned && b.pinned) return 1; return Number(b.id) - Number(a.id); }); let visible = sortedChats.filter(s => { let isCurrent = String(s.id) === String(sData.current); let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; return isCurrent || msgCount > 0; }); document.getElementById('sessions-list').innerHTML = visible.map(s => { let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; return `<li class="list-item ${String(s.id) === String(sData.current) ? 'in-cut' : ''}" onclick="loadSession('${s.id}')"><div style="flex:1;"><strong>${s.title}</strong> <span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div><div style="display:flex; gap:4px; align-items:center;"><div class="inline-btn" onclick="event.stopPropagation(); togglePinCurrentChat('${s.id}')" style="font-size:14px;">${s.pinned ? '📌' : '📍'}</div><div class="inline-btn" onclick="event.stopPropagation(); deleteSession('${s.id}')">🗑️</div></div></li>`; }).join(''); }
 async function togglePinCurrentChat(chatId) { let sData = getSessions(); let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat) return; chat.pinned = !chat.pinned; await saveAll(); renderSessionsList(); }
 
 async function resetCurrentSession() { 
@@ -1424,11 +1424,12 @@ async function resetCurrentSession() {
 
 function renderDatasetsList() {
     let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current));
-    let sortedVids = Object.keys(GLOBAL_DATASETS).sort((a,b) => Number(b) - Number(a));
+    let sortedVids = Object.keys(GLOBAL_DATASETS).sort((a,b) => { let ua = GLOBAL_DATASETS[a]._updated || Number(a); let ub = GLOBAL_DATASETS[b]._updated || Number(b); return ub - ua; });
     let html = sortedVids.map(vid => {
         let ds = GLOBAL_DATASETS[vid]; let isCurrent = String(vid) === String(cur.var_id);
-        let linkedChats = []; Object.keys(chatHistories).forEach(pName => { let s = chatHistories[pName]; if(s.list) s.list.forEach(c => { if(String(c.var_id) === String(vid)) { c._profile = pName; linkedChats.push(c); } }); });
         let varCount = Object.keys(ds.data || {}).length;
+        let linkedChats = []; Object.keys(chatHistories).forEach(pName => { let s = chatHistories[pName]; if(s.list) s.list.forEach(c => { if(String(c.var_id) === String(vid)) { c._profile = pName; linkedChats.push(c); } }); });
+        if(!isCurrent && varCount === 0 && linkedChats.length === 0) return '';
         
         let chatsHtml = linkedChats.map(c => `<div style="font-size:12px; padding:10px 12px; border-top:0.5px solid var(--border); color:var(--accent); cursor:pointer; background:var(--bg); margin-top:2px;" onclick="event.stopPropagation(); jumpToSession('${c._profile}', '${c.id}')">💬 ${c.title} <span style="color:#888; font-size:10px;">(${c._profile})</span></div>`).join('');
         
@@ -1462,14 +1463,55 @@ let _varDragKey = null;
 function renderSessionVariables() {
     let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current));
     let activeDs = GLOBAL_DATASETS[cur.var_id]; document.getElementById('active-dataset-title').innerText = activeDs ? (activeDs.title || "Data Set") : "Data Set";
-    let vars = getActiveVars(); let keys = [...(p.expected_vars || [])];
-    let html = keys.map(k => {
+    let vars = getActiveVars(); let allKeys = [...(p.expected_vars || [])]; let meta = p.var_meta || {};
+    let roots = allKeys.filter(k => !meta[k] || !meta[k].parent || !allKeys.includes(meta[k].parent));
+    let ordered = [];
+    roots.forEach(rk => { ordered.push({ k: rk, indent: false }); allKeys.forEach(ck => { if(meta[ck] && meta[ck].parent === rk) ordered.push({ k: ck, indent: true }); }); });
+    allKeys.filter(k => !ordered.find(o => o.k === k)).forEach(k => ordered.push({ k, indent: false }));
+    let html = ordered.map(({ k, indent }) => {
         let vObj = vars[k]; if(typeof vObj === 'string') vObj = { value: vObj, locked: false }; let rawVal = vObj && vObj.value !== undefined ? vObj.value : ""; let valDisp = rawVal !== "" ? `<div style="font-size:12px; line-height:1.5; max-height:56px; overflow:hidden; opacity:0.8; margin-top:3px;">${rawVal}</div>` : `<span style="opacity:0.4; font-style:italic; font-size:12px;">Empty</span>`; let isLocked = vObj && vObj.locked;
-        let rowStyle = isLocked ? `border-left:3px solid var(--accent); background:rgba(0,122,255,0.07); padding-left:9px;` : `padding-left:12px;`;
-        return `<li draggable="true" data-vk="${k}" ondragstart="_varDragKey=this.dataset.vk; this.style.opacity='0.4'" ondragend="this.style.opacity='1'" ondragover="event.preventDefault(); this.style.background='rgba(0,122,255,0.13)'" ondragleave="this.style.background=''" ondrop="event.preventDefault(); this.style.background=''; reorderVar(_varDragKey,this.dataset.vk)" style="display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; padding:10px 0 10px 0; border-bottom:0.5px solid var(--border); transition:background 0.15s; ${rowStyle}"><div style="color:#bbb; font-size:15px; padding:2px 8px 0 0; cursor:grab; flex-shrink:0; user-select:none;">⠿</div><div style="cursor:pointer; font-size:18px; padding:0 8px; padding-top:1px; color:${isLocked ? 'var(--accent)' : '#888'};" onclick="toggleVarLock('${k}')" title="Toggle lock">${isLocked ? '🔒' : '🔓'}</div><div style="flex:1; word-break:break-word; cursor:pointer;" onclick="editVariableValue('${k}')"><strong style="color:${isLocked ? 'var(--accent)' : 'var(--text)'};">{{${k}}}</strong> <span style="font-size:10px; opacity:0.4;">✏️</span>${valDisp}</div><div style="cursor:pointer; opacity:0.35; padding:0 10px; padding-top:2px;" onclick="deleteVariable('${k}')">🗑️</div></li>`;
+        let parentKey = meta[k] && meta[k].parent; let parentLabel = parentKey ? `<span style="font-size:10px; color:#888; margin-left:4px; opacity:0.7;">↳ ${parentKey}</span>` : '';
+        let rowBg = isLocked ? 'background:rgba(0,122,255,0.07);' : '';
+        let borderL = isLocked ? 'border-left:3px solid var(--accent);' : indent ? 'border-left:2px solid var(--border);' : '';
+        let pl = (isLocked || indent) ? 'padding-left:9px;' : 'padding-left:12px;';
+        return `<li data-vk="${k}" style="display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; padding:10px 0; border-bottom:0.5px solid var(--border); transition:background 0.15s; ${rowBg}${borderL}${pl}${indent ? 'margin-left:12px;' : ''}"><div class="var-handle" style="color:#bbb; font-size:15px; padding:2px 8px 0 0; cursor:grab; flex-shrink:0; user-select:none; touch-action:none;">⠿</div><div style="cursor:pointer; font-size:18px; padding:0 6px; padding-top:1px; color:${isLocked ? 'var(--accent)' : '#888'};" onclick="toggleVarLock('${k}')">${isLocked ? '🔒' : '🔓'}</div><div style="flex:1; word-break:break-word; cursor:pointer; min-width:0;" onclick="editVariableValue('${k}')"><strong style="color:${isLocked ? 'var(--accent)' : 'var(--text)'};">{{${k}}}</strong>${parentLabel} <span style="font-size:10px; opacity:0.4;">✏️</span>${valDisp}</div><div style="cursor:pointer; opacity:0.45; padding:0 4px; padding-top:2px; font-size:13px;" onclick="openSetVarParent('${k}')" title="Set parent">⤵</div><div style="cursor:pointer; opacity:0.35; padding:0 8px; padding-top:2px;" onclick="deleteVariable('${k}')">🗑️</div></li>`;
     }).join('');
     if(html === "") html = `<div style="font-size:12px; color:#888; text-align:center; padding:10px;">No variables defined.</div>`;
     document.getElementById('session-vars-list').innerHTML = `<ul style="list-style:none; padding:0; margin:0;">${html}</ul>`;
+    initVarDragDrop();
+}
+
+function initVarDragDrop() {
+    const list = document.querySelector('#session-vars-list ul'); if(!list) return;
+    let fromKey = null, dragging = null;
+    const onDown = e => {
+        if(!e.target.closest('.var-handle')) return;
+        e.preventDefault();
+        const li = e.target.closest('li[data-vk]'); if(!li) return;
+        fromKey = li.dataset.vk; dragging = li;
+        li.style.opacity = '0.35';
+        try { list.setPointerCapture(e.pointerId); } catch(ex) {}
+    };
+    const onMove = e => {
+        if(!dragging) return;
+        e.preventDefault();
+        list.querySelectorAll('li[data-vk]').forEach(el => { el.style.outline = ''; });
+        const els = list.querySelectorAll('li[data-vk]');
+        for(const el of els) { if(el === dragging) continue; const r = el.getBoundingClientRect(); if(e.clientY >= r.top && e.clientY <= r.bottom) { el.style.outline = '2px solid var(--accent)'; break; } }
+    };
+    const onUp = e => {
+        if(!dragging) return;
+        dragging.style.opacity = '1';
+        list.querySelectorAll('li[data-vk]').forEach(el => { el.style.outline = ''; });
+        const els = list.querySelectorAll('li[data-vk]');
+        for(const el of els) { if(el === dragging) continue; const r = el.getBoundingClientRect(); if(e.clientY >= r.top && e.clientY <= r.bottom) { if(fromKey && el.dataset.vk !== fromKey) reorderVar(fromKey, el.dataset.vk); break; } }
+        dragging = null; fromKey = null;
+    };
+    if(list._vdInit) { list.removeEventListener('pointerdown', list._vdPD); list.removeEventListener('pointermove', list._vdPM); list.removeEventListener('pointerup', list._vdPU); }
+    list._vdInit = true; list._vdPD = onDown; list._vdPM = onMove; list._vdPU = onUp;
+    list.addEventListener('pointerdown', onDown, { passive: false });
+    list.addEventListener('pointermove', onMove, { passive: false });
+    list.addEventListener('pointerup', onUp);
 }
 
 async function reorderVar(fromKey, toKey) {
@@ -1480,7 +1522,29 @@ async function reorderVar(fromKey, toKey) {
     if(fi < 0 || ti < 0) return;
     keys.splice(fi, 1); keys.splice(ti, 0, fromKey);
     p.expected_vars = keys;
-    await saveAll();
+    await saveAll(); renderSessionVariables();
+}
+
+function openSetVarParent(childKey) {
+    let p = AI_PROFILES.find(x => x.label === activeProfileLabel);
+    let allKeys = (p.expected_vars || []).filter(k => k !== childKey);
+    let meta = p.var_meta || {}; let curParent = meta[childKey] && meta[childKey].parent || '';
+    let opts = `<option value="">— None (top-level) —</option>` + allKeys.map(k => `<option value="${k}" ${k === curParent ? 'selected' : ''}>${k}</option>`).join('');
+    const sel = `<div style="padding:8px 0;"><label style="font-size:12px; color:#888; display:block; margin-bottom:6px;">Set parent for <strong>{{${childKey}}}</strong></label><select id="vp-sel" class="pp-input" style="margin-bottom:12px;">${opts}</select><button class="chip" style="background:var(--accent); color:#fff; width:100%; padding:10px; font-size:14px; font-weight:700;" onclick="setVarParentTo('${childKey}', document.getElementById('vp-sel').value)">Save</button></div>`;
+    document.getElementById('confirm-title').innerText = 'Set Variable Parent';
+    document.getElementById('confirm-msg').innerHTML = sel;
+    document.getElementById('confirm-ok').style.display = 'none';
+    document.getElementById('confirm-cancel').innerText = 'Cancel';
+    openModal('confirm-modal');
+}
+
+async function setVarParentTo(childKey, parentKey) {
+    let p = AI_PROFILES.find(x => x.label === activeProfileLabel);
+    if(!p.var_meta) p.var_meta = {};
+    if(!p.var_meta[childKey]) p.var_meta[childKey] = {};
+    if(parentKey) { p.var_meta[childKey].parent = parentKey; } else { delete p.var_meta[childKey].parent; }
+    await saveAll(); closeModal('confirm-modal');
+    document.getElementById('confirm-ok').style.display = '';
     renderSessionVariables();
 }
 
