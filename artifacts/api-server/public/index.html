@@ -460,6 +460,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .gmail-thread-body { display:none; padding:0; margin:0; list-style:none; border-bottom:1.5px solid var(--border); }
 .gmail-thread.open .gmail-thread-body { display:block; }
 .gmail-thread.open .gmail-expand-arrow { transform:rotate(90deg); }
+@keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
 .gmail-expand-arrow { font-size:9px; transition:transform 0.2s; display:inline-block; margin-top:2px; opacity:0.5; }
 .thread-msg-row { display:flex; align-items:center; gap:8px; padding:7px 14px 7px 30px; border-bottom:0.5px solid var(--border); background:var(--bg); }
 .thread-msg-row:last-child { border-bottom:none; }
@@ -469,6 +470,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <body>
 
 <div id="toast"></div>
+<div id="sync-indicator" style="display:none; position:fixed; right:14px; bottom:76px; z-index:299; align-items:center; gap:6px; background:rgba(30,30,40,0.82); backdrop-filter:blur(14px) saturate(1.8); -webkit-backdrop-filter:blur(14px) saturate(1.8); border:0.5px solid rgba(255,255,255,0.13); border-radius:20px; padding:5px 11px 5px 8px; font-size:11px; color:rgba(255,255,255,0.85); pointer-events:none; box-shadow:0 2px 12px rgba(0,0,0,0.25); transition:opacity 0.4s, transform 0.4s;"><span id="sync-spinner" style="display:inline-block; font-size:12px; animation:spin 1s linear infinite;">↻</span><span id="sync-label">Syncing…</span></div>
 
 <input type="file" id="attach-cam" accept="image/*" capture="environment" style="display:none;" tabindex="-1" onchange="handleAttachments(event)">
 <input type="file" id="attach-img" accept="image/*" multiple style="display:none;" tabindex="-1" onchange="handleAttachments(event)">
@@ -1311,6 +1313,7 @@ async function init() {
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); refreshUI(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
     startRealtimeSync();
+    setTimeout(gmailSilentAuth, 1200);
 }
 
 async function refreshUI() {
@@ -2045,8 +2048,9 @@ async function pushToFirebase(manual = false) {
         await batch.commit();
         let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Push", `OK — ${n} chats`);
+        hideSyncIndicator(true);
         if(manual) notify("☁️ Pushed to cloud!", "#34c759");
-    } catch(e) { addLog("SYNC", "Push Error", e.message); notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
+    } catch(e) { addLog("SYNC", "Push Error", e.message); hideSyncIndicator(false); notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
 }
 
 async function applyCloudData(data, db, silent = false) {
@@ -2113,11 +2117,37 @@ async function pullFromFirebase(silent = false) {
     } catch(e) { addLog("SYNC", "Pull Error", e.message); if(!silent) notify("⚠️ Pull failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
 }
 
+let _syncIndicatorHideTimer = null;
+function showSyncIndicator() {
+    if(!CONFIG.fb_api || !CONFIG.fb_project) return;
+    clearTimeout(_syncIndicatorHideTimer);
+    const el = document.getElementById('sync-indicator');
+    if (!el) return;
+    el.style.display = 'flex';
+    el.style.opacity = '1';
+    el.style.transform = 'translateY(0)';
+    document.getElementById('sync-label').textContent = 'Syncing…';
+    document.getElementById('sync-spinner').style.animation = 'spin 1s linear infinite';
+}
+function hideSyncIndicator(ok) {
+    const el = document.getElementById('sync-indicator');
+    if (!el || el.style.display === 'none') return;
+    document.getElementById('sync-label').textContent = ok ? 'Synced ✓' : 'Sync failed';
+    document.getElementById('sync-spinner').style.animation = 'none';
+    document.getElementById('sync-spinner').textContent = ok ? '☁️' : '⚠️';
+    _syncIndicatorHideTimer = setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(6px)';
+        setTimeout(() => { el.style.display = 'none'; el.style.opacity = '1'; el.style.transform = 'translateY(0)'; document.getElementById('sync-spinner').textContent = '↻'; document.getElementById('sync-spinner').style.animation = 'spin 1s linear infinite'; }, 420);
+    }, 1800);
+}
+
 function triggerAutoSync() {
     if(!CONFIG.fb_api || !CONFIG.fb_project) return;
     if(isInitializing) { addLog("SYNC", "Push Held", "Waiting for initial snapshot before pushing"); return; }
+    showSyncIndicator();
     clearTimeout(syncTimer);
-    syncTimer = setTimeout(() => { syncTimer = null; if(isInitializing) { addLog("SYNC","Push Dropped","Still initializing when timer fired"); return; } pushToFirebase(); }, 1500);
+    syncTimer = setTimeout(() => { syncTimer = null; if(isInitializing) { addLog("SYNC","Push Dropped","Still initializing when timer fired"); hideSyncIndicator(false); return; } pushToFirebase(); }, 1500);
 }
 
 
@@ -2182,21 +2212,47 @@ function openGmailModal() {
     else { gmailLoadEmails(); }
 }
 
+function gmailEnsureScript(onReady) {
+    if (typeof google !== 'undefined' && google.accounts) { onReady(); return; }
+    if (!document.getElementById('gis-script')) {
+        const s = document.createElement('script'); s.id = 'gis-script'; s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
+        s.onload = onReady;
+        s.onerror = () => { notify("Failed to load Google sign-in library", "#ff3b30", 4000); };
+        document.head.appendChild(s);
+    } else {
+        const existing = document.getElementById('gis-script');
+        existing.addEventListener('load', onReady, { once: true });
+    }
+}
+
+function gmailSilentAuth() {
+    const clientId = CONFIG.google_client_id || "";
+    if (!clientId || gmailAccessToken) return;
+    const hint = localStorage.getItem('gmail_hint') || "";
+    if (!hint) return;
+    gmailEnsureScript(() => {
+        if (typeof google === 'undefined' || !google.accounts) return;
+        const tc = google.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
+            hint,
+            callback: async (resp) => {
+                if (resp.error) return;
+                gmailAccessToken = resp.access_token;
+                gmailStoreHint();
+                gmailFetchEmails(null);
+                updateProfileBubble();
+            }
+        });
+        tc.requestAccessToken({ prompt: 'none' });
+    });
+}
+
 async function gmailLoadEmails(query) {
     const clientId = CONFIG.google_client_id || "";
     if(!clientId) { notify("Enter your Google OAuth Client ID in Settings first", "#ff3b30", 5000); return; }
     if(gmailAccessToken) { await gmailFetchEmails(query); return; }
-    if(!document.getElementById('gis-script')) {
-        const s = document.createElement('script'); s.id = 'gis-script'; s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
-        s.onload = () => { gmailInitTokenClient(query, true); };
-        s.onerror = () => { notify("Failed to load Google sign-in library", "#ff3b30", 4000); };
-        document.head.appendChild(s);
-    } else if (typeof google !== 'undefined' && google.accounts) {
-        gmailInitTokenClient(query, true);
-    } else {
-        const existing = document.getElementById('gis-script');
-        existing.addEventListener('load', () => { gmailInitTokenClient(query, true); }, { once: true });
-    }
+    gmailEnsureScript(() => { gmailInitTokenClient(query, true); });
 }
 
 function gmailInitTokenClient(query, silent) {
