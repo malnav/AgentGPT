@@ -16,6 +16,8 @@
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
+    "imapflow": "^1.2.18",
+    "mailparser": "^3.9.6",
     "pino": "^9",
     "pino-http": "^10"
   },

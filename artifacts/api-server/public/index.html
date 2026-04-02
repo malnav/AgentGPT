@@ -693,6 +693,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 
     <div id="ctx-pane-gmail" style="flex:1; overflow:hidden; display:none; flex-direction:column; position:relative;">
+        <div style="display:flex; align-items:center; gap:8px; padding:6px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
+            <span id="email-acct-label-panel" style="flex:1; font-size:13px; font-weight:700; color:var(--text); cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="emailShowAccountPicker('panel')">Gmail <span style="font-size:10px; opacity:0.5;">▼</span></span>
+            <span class="chip" style="font-size:11px; padding:3px 9px; color:var(--accent); font-weight:700;" onclick="emailShowAddImap()">+ IMAP</span>
+        </div>
         <div style="display:flex; align-items:center; gap:8px; padding:4px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
             <input type="checkbox" id="gmail-panel-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('panel',this.checked)">
             <span style="flex:1; font-size:11px; color:#888; font-weight:600;">Select All</span>
@@ -921,12 +925,16 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <div id="gmail-modal" class="modal" style="z-index:280;">
     <div class="modal-header" style="flex-direction:column; gap:0; align-items:stretch; padding:0;">
         <div style="display:flex; align-items:center; justify-content:space-between; padding:max(14px, env(safe-area-inset-top)) 16px 6px 16px;">
-            <span style="font-size:16px; font-weight:800;">📧 Gmail</span>
+            <span style="font-size:16px; font-weight:800;">📧 Email</span>
             <div style="display:flex; gap:8px; align-items:center;">
                 <span class="chip" id="gmail-modal-add-btn" style="font-size:11px; padding:5px 12px; background:var(--accent); color:#fff; display:none;" onclick="gmailAddToContext()">+ Add to Context</span>
-                <span class="chip" style="font-size:11px; padding:5px 10px; color:#ff3b30;" onclick="gmailSignOut(); closeModal('gmail-modal');">Sign Out</span>
+                <span class="chip" id="gmail-modal-acct-action" style="font-size:11px; padding:5px 10px; color:#ff3b30;" onclick="emailModalAction()">Sign Out</span>
                 <div onclick="closeModal('gmail-modal')" style="font-size:22px; cursor:pointer; opacity:0.5; padding:0 4px;">✕</div>
             </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; padding:4px 16px 8px; border-bottom:0.5px solid var(--border);">
+            <span id="email-acct-label-modal" style="flex:1; font-size:13px; font-weight:700; color:var(--text); cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="emailShowAccountPicker('modal')">Gmail <span style="font-size:10px; opacity:0.5;">▼</span></span>
+            <span class="chip" style="font-size:11px; padding:3px 9px; color:var(--accent); font-weight:700;" onclick="emailShowAddImap()">+ IMAP</span>
         </div>
     </div>
     <div style="flex:1; overflow:hidden; display:flex; flex-direction:column; position:relative;">
@@ -1429,7 +1437,7 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {};
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", bubble_profiles: storedCfg.bubble_profiles || null };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [] };
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
@@ -2539,6 +2547,75 @@ let gmailNextPageToken = null;
 let gmailCurrentQuery = null;
 let gmailLoadingMore = false;
 let _gmailScrollObs = null;
+let activeEmailAccountId = null;
+
+function emailGetActiveAccount() { if(!activeEmailAccountId) return null; return (CONFIG.imap_accounts||[]).find(a => a.id === activeEmailAccountId) || null; }
+
+function emailFetchEmails(query) { const acct = emailGetActiveAccount(); if(!acct) { if(gmailAccessToken) { gmailFetchEmails(query); } else { gmailLoadEmails(null); } } else { imapFetchEmails(acct, query); } }
+
+function emailSwitchAccount(id) { activeEmailAccountId = id || null; emailRenderAccountSwitcher(); emailFetchEmails(null); }
+
+function emailRenderAccountSwitcher() {
+    const acct = emailGetActiveAccount();
+    const name = acct ? acct.name : 'Gmail';
+    const icon = acct ? '📨' : '📧';
+    const actionBtn = document.getElementById('gmail-modal-acct-action');
+    ['email-acct-label-panel','email-acct-label-modal'].forEach(id => {
+        const el = document.getElementById(id); if(!el) return;
+        el.innerHTML = icon + ' ' + name + ' <span style="font-size:10px; opacity:0.5;">▼</span>';
+    });
+    if(actionBtn) { if(acct) { actionBtn.textContent = 'Edit Account'; actionBtn.style.color = '#888'; } else { actionBtn.textContent = 'Sign Out'; actionBtn.style.color = '#ff3b30'; } }
+}
+
+function emailModalAction() { const acct = emailGetActiveAccount(); if(acct) { emailShowAddImap(acct.id); } else { gmailSignOut(); closeModal('gmail-modal'); } }
+
+function emailShowAccountPicker() {
+    const accounts = CONFIG.imap_accounts || [];
+    let items = `<div onclick="emailSwitchAccount(null); document.getElementById('email-acct-picker').remove();" style="padding:12px 18px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; color:${!activeEmailAccountId?'var(--accent)':'var(--text)'};">📧 Gmail${!activeEmailAccountId?' ✓':''}</div>`;
+    accounts.forEach(a => { items += `<div onclick="emailSwitchAccount('${a.id}'); document.getElementById('email-acct-picker').remove();" style="padding:12px 18px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; color:${activeEmailAccountId===a.id?'var(--accent)':'var(--text)'};">📨 ${a.name}${activeEmailAccountId===a.id?' ✓':''}</div>`; });
+    const html = `<div id="email-acct-picker" style="position:fixed; inset:0; z-index:999; display:flex; align-items:flex-start; justify-content:center;" onclick="document.getElementById('email-acct-picker').remove();"><div style="background:var(--sec-bg); border:0.5px solid var(--glass-border); border-radius:16px; padding:8px 0; min-width:230px; margin-top:140px; box-shadow:var(--glass-shadow); overflow:hidden;" onclick="event.stopPropagation()">${items}<div style="height:0.5px; background:var(--border); margin:4px 0;"></div><div onclick="emailShowAddImap(); document.getElementById('email-acct-picker').remove();" style="padding:12px 18px; font-size:13px; font-weight:600; cursor:pointer; color:var(--accent);">+ Add IMAP Account</div></div></div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function emailShowAddImap(editId) {
+    const existing = editId ? (CONFIG.imap_accounts||[]).find(a => a.id === editId) : null;
+    const delBtn = existing ? `<button class="chip" style="background:#ff3b30; color:#fff; font-size:13px; padding:10px 14px; border:none; border-radius:10px; cursor:pointer; width:100%;" onclick="emailDeleteImap('${editId}')">Delete Account</button>` : '';
+    const html = `<div id="imap-form-overlay" style="position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px);"><div style="background:var(--sec-bg); border:0.5px solid var(--glass-border); border-radius:20px; padding:24px 20px; width:100%; max-width:360px; box-shadow:var(--glass-shadow);"><div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;"><span style="font-size:16px; font-weight:800;">${existing?'Edit':'Add'} IMAP Account</span><div onclick="document.getElementById('imap-form-overlay').remove()" style="cursor:pointer; font-size:22px; opacity:0.5; padding:4px;">✕</div></div><div style="display:flex; flex-direction:column; gap:10px;"><input id="imap-f-name" class="pp-input" placeholder="Display name (e.g. Work Email)" value="${existing?.name||''}"><input id="imap-f-host" class="pp-input" placeholder="IMAP host (e.g. imap.gmail.com)" value="${existing?.host||''}"><div style="display:flex; gap:8px;"><input id="imap-f-port" class="pp-input" placeholder="Port" value="${existing?.port||'993'}" style="flex:0 0 90px;"><label style="display:flex; align-items:center; gap:7px; font-size:13px; cursor:pointer; flex:1; padding:0 6px; background:var(--bg); border:0.5px solid var(--border); border-radius:10px;"><input type="checkbox" id="imap-f-tls" ${(existing?.tls!==false)?'checked':''} style="width:15px;height:15px;accent-color:var(--accent);"> SSL/TLS</label></div><input id="imap-f-user" class="pp-input" placeholder="Username / Email address" value="${existing?.user||''}"><input id="imap-f-pass" class="pp-input" type="password" placeholder="Password or App Password" value="${existing?.pass||''}">${delBtn}<button class="chip" style="background:var(--accent); color:#fff; font-size:14px; font-weight:700; padding:13px; border:none; border-radius:12px; cursor:pointer; width:100%; margin-top:4px;" onclick="emailSaveImap('${editId||''}')">Save Account</button></div></div></div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function emailSaveImap(editId) {
+    const name = document.getElementById('imap-f-name').value.trim();
+    const host = document.getElementById('imap-f-host').value.trim();
+    const port = parseInt(document.getElementById('imap-f-port').value.trim()) || 993;
+    const user = document.getElementById('imap-f-user').value.trim();
+    const pass = document.getElementById('imap-f-pass').value.trim();
+    const tls = document.getElementById('imap-f-tls').checked;
+    if(!name||!host||!user||!pass) return notify("Please fill in all fields", "#ff3b30");
+    if(!CONFIG.imap_accounts) CONFIG.imap_accounts = [];
+    if(editId) { const idx = CONFIG.imap_accounts.findIndex(a => a.id === editId); if(idx >= 0) CONFIG.imap_accounts[idx] = { id: editId, name, host, port, user, pass, tls }; }
+    else { const id = 'imap_' + Date.now(); CONFIG.imap_accounts.push({ id, name, host, port, user, pass, tls }); activeEmailAccountId = id; }
+    saveAll(); document.getElementById('imap-form-overlay').remove(); emailRenderAccountSwitcher(); emailFetchEmails(null); notify("IMAP account saved", "#34c759");
+}
+
+function emailDeleteImap(editId) {
+    CONFIG.imap_accounts = (CONFIG.imap_accounts||[]).filter(a => a.id !== editId);
+    if(activeEmailAccountId === editId) activeEmailAccountId = null;
+    saveAll(); const ov = document.getElementById('imap-form-overlay'); if(ov) ov.remove(); emailRenderAccountSwitcher(); emailFetchEmails(null); notify("Account removed", "#888");
+}
+
+async function imapFetchEmails(account, query) {
+    notify("Loading emails...", "#007aff", 1500);
+    gmailNextPageToken = null; gmailLoadingMore = false;
+    try {
+        const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: account.host, port: account.port, user: account.user, pass: account.pass, tls: account.tls, query: query || null, maxResults: 25 }) });
+        if(!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error || "IMAP error " + res.status); }
+        const data = await res.json();
+        gmailEmails = data.emails || [];
+        gmailRenderEmails();
+        gmailAttachScrollObs();
+    } catch(e) { notify("IMAP error: " + e.message, "#ff3b30", 5000); }
+}
 
 function gmailIds(src) {
     const m = src === 'modal';
@@ -2556,8 +2633,8 @@ function gmailIds(src) {
 
 function openGmailModal() {
     openModal('gmail-modal');
-    if(gmailAccessToken) { gmailFetchEmails(null); }
-    else { gmailLoadEmails(null); }
+    emailRenderAccountSwitcher();
+    emailFetchEmails(null);
 }
 
 function gmailEnsureScript(onReady) {
@@ -2754,7 +2831,7 @@ function gmailOnSearch(val) {
     clearTimeout(gmailSearchTimer);
     const search = document.getElementById('gmail-search-box'); if(search) search.value = val;
     const msearch = document.getElementById('gmail-modal-search'); if(msearch) msearch.value = val;
-    gmailSearchTimer = setTimeout(() => { gmailFetchEmails(val.trim() || null); }, 600);
+    gmailSearchTimer = setTimeout(() => { emailFetchEmails(val.trim() || null); }, 600);
 }
 
 function gmailCleanBodyText(text) {
@@ -3116,17 +3193,27 @@ async function gmailPreview(i, src) {
     const ov = document.getElementById(ids.overlay);
     ov.style.cssText = 'display:flex; flex-direction:column; position:absolute; inset:0; background:var(--bg); z-index:10; overflow:hidden;';
     try {
-        const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}?format=full`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
-        if(!r.ok) throw new Error("Failed to load");
-        const d = await r.json();
-        const hdrs = d.payload && d.payload.headers ? d.payload.headers : [];
-        const toHdr = hdrs.find(h => h.name.toLowerCase() === 'to');
-        if(toEl && toHdr) { const toName = toHdr.value.match(/^([^<]+?)\s*<[^>]+>$/); toEl.textContent = 'To: ' + (toName ? toName[1].trim() : toHdr.value.trim()).split(',')[0]; }
-        const { text, html } = gmailExtractBody(d.payload);
-        const bodyEl = document.getElementById(ids.body);
-        if(text) { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = text; }
-        else if(html) { bodyEl.style.whiteSpace = 'normal'; bodyEl.innerHTML = gmailSanitizeHtml(html); }
-        else { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = em.snippet; }
+        const acct = emailGetActiveAccount();
+        if(acct) {
+            const r = await fetch('/api/imap/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, uid: em.id }) });
+            if(!r.ok) throw new Error("IMAP fetch failed");
+            const d = await r.json();
+            const bodyEl = document.getElementById(ids.body);
+            bodyEl.style.whiteSpace = 'pre-wrap';
+            bodyEl.textContent = d.body || em.snippet;
+        } else {
+            const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}?format=full`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+            if(!r.ok) throw new Error("Failed to load");
+            const d = await r.json();
+            const hdrs = d.payload && d.payload.headers ? d.payload.headers : [];
+            const toHdr = hdrs.find(h => h.name.toLowerCase() === 'to');
+            if(toEl && toHdr) { const toName = toHdr.value.match(/^([^<]+?)\s*<[^>]+>$/); toEl.textContent = 'To: ' + (toName ? toName[1].trim() : toHdr.value.trim()).split(',')[0]; }
+            const { text, html } = gmailExtractBody(d.payload);
+            const bodyEl = document.getElementById(ids.body);
+            if(text) { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = text; }
+            else if(html) { bodyEl.style.whiteSpace = 'normal'; bodyEl.innerHTML = gmailSanitizeHtml(html); }
+            else { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = em.snippet; }
+        }
     } catch(e) { document.getElementById(ids.body).textContent = em.snippet; }
 }
 
