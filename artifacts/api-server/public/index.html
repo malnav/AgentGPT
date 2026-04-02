@@ -3699,10 +3699,16 @@ async function startEmailChatAll() {
     const checked = Array.from(document.querySelectorAll('.gmail-chk:checked'));
     const addrs = [...new Set(checked.map(cb => { const em = gmailEmails[parseInt(cb.dataset.idx)]; return em ? gmailExtractAddr(em.from) : ''; }).filter(Boolean))];
     if (!addrs.length) { startEmailChat(defLabel, 'selected'); return; }
+    const allAccts = emailGetAllAccounts();
+    if (!allAccts.length) { startEmailChat(defLabel, 'selected'); return; }
     notify('Searching all accounts from ' + addrs.length + ' address' + (addrs.length !== 1 ? 'es' : '') + '…', '#007aff', 3000);
     const query = addrs.map(a => `from:${a} OR to:${a}`).join(' OR ');
-    await emailFetchEmails(query);
-    const allEmails = [...gmailEmails];
+    const hasGmail = allAccts.some(a => a.type === 'gmail');
+    if (hasGmail && !gmailAccessToken) { notify('Sign in to Gmail first', '#ff9500', 3000); }
+    const results = await Promise.allSettled(allAccts.map(a => emailFetchFromAccount(a, query)));
+    let allEmails = [];
+    results.forEach(r => { if (r.status === 'fulfilled') allEmails = allEmails.concat(r.value); });
+    allEmails.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
     notify('Fetching ' + allEmails.length + ' email' + (allEmails.length !== 1 ? 's' : '') + '…', '#007aff', 4000);
     CONTEXT_LINES.splice(0);
     let totalLines = 0;
