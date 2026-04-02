@@ -3704,8 +3704,15 @@ async function startEmailChatAll() {
     notify('Searching all accounts from ' + addrs.length + ' address' + (addrs.length !== 1 ? 'es' : '') + '…', '#007aff', 3000);
     const query = addrs.map(a => `from:${a} OR to:${a}`).join(' OR ');
     const hasGmail = allAccts.some(a => a.type === 'gmail');
-    if (hasGmail && !gmailAccessToken) { notify('Sign in to Gmail first', '#ff9500', 3000); }
-    const results = await Promise.allSettled(allAccts.map(a => emailFetchFromAccount(a, query)));
+    if (hasGmail && !gmailAccessToken) {
+        await new Promise(resolve => {
+            const t = setTimeout(resolve, 10000);
+            gmailEnsureAuth(() => { clearTimeout(t); resolve(); });
+        });
+    }
+    const fetchAccts = [...allAccts];
+    if (gmailAccessToken && !fetchAccts.find(a => a.id === 'gmail')) fetchAccts.unshift({ id: 'gmail', type: 'gmail', name: 'Gmail' });
+    const results = await Promise.allSettled(fetchAccts.map(a => emailFetchFromAccount(a, query)));
     let allEmails = [];
     results.forEach(r => { if (r.status === 'fulfilled') allEmails = allEmails.concat(r.value); });
     allEmails.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
