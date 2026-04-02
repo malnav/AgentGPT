@@ -37,9 +37,20 @@ router.post("/imap/fetch", async (req, res) => {
             let searchCriteria: any = { all: true };
             if (query) {
                 const q = query.trim();
-                if (q.startsWith("from:")) searchCriteria = { from: q.slice(5).trim() };
-                else if (q.startsWith("subject:")) searchCriteria = { subject: q.slice(8).trim() };
-                else searchCriteria = { or: [{ subject: q }, { body: q }] };
+                const fromAddrs: string[] = [];
+                const fromRe = /from:([\w.+@\-]+)/gi;
+                let fm: RegExpExecArray | null;
+                while ((fm = fromRe.exec(q)) !== null) fromAddrs.push(fm[1]);
+                if (fromAddrs.length > 0) {
+                    const build = (a: string): any => ({ or: [{ from: a }, { to: a }] });
+                    let crit = build(fromAddrs[0]);
+                    for (let i = 1; i < fromAddrs.length; i++) crit = { or: [crit, build(fromAddrs[i])] };
+                    searchCriteria = crit;
+                } else if (q.startsWith("subject:")) {
+                    searchCriteria = { subject: q.slice(8).trim() };
+                } else {
+                    searchCriteria = { or: [{ subject: q }, { body: q }] };
+                }
             }
             const uids: number[] = await client.search(searchCriteria, { uid: true }) as number[];
             const slice = uids.slice(-Math.max(maxResults, 1)).reverse();

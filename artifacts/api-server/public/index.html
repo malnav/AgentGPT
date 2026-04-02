@@ -3126,6 +3126,28 @@ function gmailUpdateAddBtns() {
     updateProfileBubble();
 }
 
+async function emailFetchBody(em) {
+    const acctId = em._accountId || 'gmail';
+    const imapAcct = acctId !== 'gmail' ? (CONFIG.imap_accounts||[]).find(a => a.id === acctId) : null;
+    if(imapAcct) {
+        try {
+            const r = await fetch('/api/imap/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, uid: em.id }) });
+            if(r.ok) { const d = await r.json(); return d.body || ''; }
+        } catch(_) {}
+        return em.snippet || '';
+    }
+    try {
+        const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}?format=full`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+        if(r.ok) {
+            const d = await r.json();
+            const { text, html } = gmailExtractBody(d.payload);
+            if(text) return text;
+            if(html) { const tmp = document.createElement('div'); tmp.innerHTML = gmailSanitizeHtml(html); return tmp.textContent; }
+        }
+    } catch(_) {}
+    return em.snippet || '';
+}
+
 async function gmailAddToContext() {
     const checked = Array.from(document.querySelectorAll('.gmail-chk:checked'));
     if(!checked.length) return;
@@ -3134,17 +3156,7 @@ async function gmailAddToContext() {
     for(const chk of checked) {
         const em = gmailEmails[parseInt(chk.dataset.idx)];
         const fromName = em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || em.from;
-        let bodyText = "";
-        try {
-            const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}?format=full`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
-            if(r.ok) {
-                const d = await r.json();
-                const { text, html } = gmailExtractBody(d.payload);
-                if(text) { bodyText = text; }
-                else if(html) { const tmp = document.createElement('div'); tmp.innerHTML = gmailSanitizeHtml(html); bodyText = tmp.textContent; }
-            }
-        } catch(e) {}
-        if(!bodyText) bodyText = em.snippet;
+        let bodyText = await emailFetchBody(em);
         bodyText = gmailCleanBodyText(bodyText);
         const header = `From: ${fromName} | Subject: ${em.subject}`;
         if(!CONTEXT_LINES.includes(header)) { CONTEXT_LINES.push(header); totalLines++; }
@@ -3669,18 +3681,7 @@ function gmailExtractAddr(from) {
 
 async function gmailFetchEmailLines(em) {
     const fromName = em.from ? em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || em.from : '';
-    let bodyText = '';
-    try {
-        const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/' + em.id + '?format=full', { headers: { Authorization: 'Bearer ' + gmailAccessToken } });
-        if (r.ok) {
-            const d = await r.json();
-            const { text, html } = gmailExtractBody(d.payload);
-            if (text) { bodyText = text; }
-            else if (html) { const tmp = document.createElement('div'); tmp.innerHTML = gmailSanitizeHtml(html); bodyText = tmp.textContent; }
-        }
-    } catch (e) {}
-    if (!bodyText) bodyText = em.snippet || '';
-    bodyText = gmailCleanBodyText(bodyText);
+    let bodyText = gmailCleanBodyText(await emailFetchBody(em));
     const lines = [];
     lines.push('From: ' + fromName + ' | Subject: ' + (em.subject || '(no subject)'));
     bodyText.split('\n').map(l => l.trim()).filter(l => l.length > 1).forEach(l => lines.push(l));
@@ -3698,15 +3699,11 @@ async function startEmailChatAll() {
     const checked = Array.from(document.querySelectorAll('.gmail-chk:checked'));
     const addrs = [...new Set(checked.map(cb => { const em = gmailEmails[parseInt(cb.dataset.idx)]; return em ? gmailExtractAddr(em.from) : ''; }).filter(Boolean))];
     if (!addrs.length) { startEmailChat(defLabel, 'selected'); return; }
-    notify('Searching all emails from ' + addrs.length + ' address' + (addrs.length !== 1 ? 'es' : '') + '…', '#007aff', 3000);
-    const query = addrs.map(a => `from:${a} OR to:${a} OR "${a}"`).join(' OR ');
-    let allMsgIds = [];
-    try {
-        const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=50&q=' + encodeURIComponent(query), { headers: { Authorization: 'Bearer ' + gmailAccessToken } });
-        if (r.ok) { const d = await r.json(); allMsgIds = (d.messages || []).map(m => m.id); }
-    } catch (e) {}
-    const allEmails = allMsgIds.map(id => ({ id, from: '', subject: '', snippet: '' }));
-    notify('Fetching ' + allEmails.length + ' emails…', '#007aff', 4000);
+    notify('Searching all accounts from ' + addrs.length + ' address' + (addrs.length !== 1 ? 'es' : '') + '…', '#007aff', 3000);
+    const query = addrs.map(a => `from:${a} OR to:${a}`).join(' OR ');
+    await emailFetchEmails(query);
+    const allEmails = [...gmailEmails];
+    notify('Fetching ' + allEmails.length + ' email' + (allEmails.length !== 1 ? 's' : '') + '…', '#007aff', 4000);
     CONTEXT_LINES.splice(0);
     let totalLines = 0;
     for (const em of allEmails) {
