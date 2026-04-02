@@ -2557,7 +2557,7 @@ function gmailIds(src) {
 function openGmailModal() {
     openModal('gmail-modal');
     if(gmailAccessToken) { gmailFetchEmails(null); }
-    else { gmailLoadEmails(); }
+    else { gmailLoadEmails(null); }
 }
 
 function gmailEnsureScript(onReady) {
@@ -2624,7 +2624,8 @@ async function gmailLoadEmails(query) {
     const clientId = CONFIG.google_client_id || "";
     if(!clientId) { notify("Enter your Google OAuth Client ID in Settings first", "#ff3b30", 5000); return; }
     if(gmailAccessToken) { await gmailFetchEmails(query); return; }
-    gmailEnsureScript(() => { gmailInitTokenClient(query, true); });
+    gmailSilentAuth();
+    gmailEnsureScript(() => { gmailInitTokenClient(query, false); });
 }
 
 function gmailInitTokenClient(query, silent) {
