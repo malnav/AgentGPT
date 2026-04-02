@@ -2616,11 +2616,9 @@ async function emailFetchEmails(query) {
     const allAccts = emailGetAllAccounts();
     const selIds = selectedEmailAccountIds.length ? selectedEmailAccountIds : allAccts.map(a => a.id);
     const selAccts = allAccts.filter(a => selIds.includes(a.id));
-    if(!selAccts.length) {
-        if(!allAccts.length) { gmailEmails = []; gmailRenderEmails(); return; }
-        if(!gmailAccessToken) { gmailLoadEmails(null); return; }
-        selAccts.push(...allAccts);
-    }
+    if(!selAccts.length) { gmailEmails = []; gmailRenderEmails(); return; }
+    const hasGmail = selAccts.some(a => a.type === 'gmail');
+    if(hasGmail && !gmailAccessToken) { gmailLoadEmails(query); return; }
     notify("Loading emails...", "#007aff", 1500);
     gmailCurrentQuery = query || null; gmailNextPageToken = null; gmailLoadingMore = false;
     const results = await Promise.allSettled(selAccts.map(a => emailFetchFromAccount(a, query)));
@@ -2634,7 +2632,7 @@ async function emailFetchEmails(query) {
 
 async function emailFetchFromAccount(acct, query) {
     if(acct.type === 'gmail') {
-        if(!gmailAccessToken) { await new Promise(res => { gmailSilentAuth(); setTimeout(res, 1500); }); if(!gmailAccessToken) return []; }
+        if(!gmailAccessToken) return [];
         const q = query ? encodeURIComponent(query) : 'in%3Ainbox';
         try {
             const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25&q=${q}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
@@ -2761,7 +2759,7 @@ function gmailSilentAuth() {
                 if (resp.error) return;
                 gmailAccessToken = resp.access_token;
                 gmailStoreHint();
-                gmailFetchEmails(null);
+                emailFetchEmails(null);
                 updateProfileBubble();
             }
         });
@@ -2796,7 +2794,7 @@ function gmailEnsureAuth(onAuthed) {
 async function gmailLoadEmails(query) {
     const clientId = CONFIG.google_client_id || "";
     if(!clientId) { notify("Enter your Google OAuth Client ID in Settings first", "#ff3b30", 5000); return; }
-    if(gmailAccessToken) { await gmailFetchEmails(query); return; }
+    if(gmailAccessToken) { await emailFetchEmails(query); return; }
     gmailSilentAuth();
     gmailEnsureScript(() => { gmailInitTokenClient(query, false); });
 }
@@ -2814,7 +2812,7 @@ function gmailInitTokenClient(query, silent) {
                 notify("Gmail sign-in required — tap 📧 again", "#ff9500", 4000); return;
             }
             gmailAccessToken = resp.access_token;
-            await gmailFetchEmails(query);
+            await emailFetchEmails(query);
             gmailStoreHint();
         }
     });
@@ -2846,7 +2844,7 @@ async function gmailFetchEmails(query) {
             const d = await r.json();
             const hdr = d.payload.headers || [];
             const get = n => (hdr.find(h => h.name === n) || {}).value || "";
-            return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: (d.labelIds||[]).includes("UNREAD") };
+            return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: (d.labelIds||[]).includes("UNREAD"), _accountId: 'gmail' };
         }));
         gmailEmails = details.filter(Boolean);
         gmailRenderEmails();
