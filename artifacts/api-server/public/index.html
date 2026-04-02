@@ -2759,7 +2759,6 @@ function gmailSilentAuth() {
                 if (resp.error) return;
                 gmailAccessToken = resp.access_token;
                 gmailStoreHint();
-                emailFetchEmails(null);
                 updateProfileBubble();
             }
         });
@@ -3434,7 +3433,7 @@ function gmailFindSameAddress(src) {
     const search = document.getElementById('gmail-search-box'); if(search) search.value = q;
     const msearch = document.getElementById('gmail-modal-search'); if(msearch) msearch.value = q;
     gmailClosePreview(src);
-    gmailFetchEmails(q);
+    emailFetchEmails(q);
     notify(`Searching: ${addr}`, "#007aff", 2000);
 }
 
