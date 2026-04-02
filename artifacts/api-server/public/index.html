@@ -693,13 +693,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 
     <div id="ctx-pane-gmail" style="flex:1; overflow:hidden; display:none; flex-direction:column; position:relative;">
-        <div style="display:flex; align-items:center; gap:8px; padding:6px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
-            <span id="email-acct-label-panel" style="flex:1; font-size:13px; font-weight:700; color:var(--text); cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="emailShowAccountPicker('panel')">Gmail <span style="font-size:10px; opacity:0.5;">▼</span></span>
-            <span class="chip" style="font-size:11px; padding:3px 9px; color:var(--accent); font-weight:700;" onclick="emailShowAddImap()">+ IMAP</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:8px; padding:4px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
+        <div style="display:flex; align-items:center; gap:6px; padding:4px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
             <input type="checkbox" id="gmail-panel-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('panel',this.checked)">
             <span style="flex:1; font-size:11px; color:#888; font-weight:600;">Select All</span>
+            <span id="email-acct-chip-panel" class="chip" style="font-size:11px; padding:3px 9px; font-weight:700;" onclick="emailShowMultiPicker()">All ▾</span>
             <span class="chip" style="font-size:11px; padding:3px 9px;" onclick="gmailToggleSearch('panel')">🔍</span>
         </div>
         <div id="gmail-search-row" style="padding:6px 14px; display:none; border-bottom:0.5px solid var(--border);">
@@ -817,6 +814,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <button id="mtab-config" class="tab-btn active" onclick="switchMasterTab('config')">🔧 CONFIG</button>
         <button id="mtab-profiles" class="tab-btn" onclick="switchMasterTab('profiles')">🤖 PROFILES</button>
         <button id="mtab-models" class="tab-btn" onclick="switchMasterTab('models')">🧠 MODELS</button>
+        <button id="mtab-email" class="tab-btn" onclick="switchMasterTab('email')">📧 EMAIL</button>
         <button id="mtab-logs" class="tab-btn" onclick="switchMasterTab('logs')">📜 LOGS</button>
     </div>
     <div id="mview-config" class="modal-content">
@@ -861,13 +859,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div style="padding:0 14px 14px;">
                 <input type="text" id="fb-project-f" class="pp-input" placeholder="Firebase Project ID (e.g. my-app-123)" onchange="saveMasterConfig()" style="margin-bottom:8px;">
                 <input type="password" id="fb-api-f" class="pp-input" placeholder="Firebase Web API Key" onchange="saveMasterConfig()" style="margin-bottom:0;">
-            </div>
-            <div style="border-top:0.5px solid var(--border); padding:12px 14px 8px;">
-                <small style="font-weight:800; font-size:11px; color:var(--accent);">📧 GMAIL INTEGRATION</small>
-            </div>
-            <div style="padding:0 14px 14px;">
-                <input type="text" id="google-client-id-f" class="pp-input" placeholder="Google OAuth Client ID (…googleusercontent.com)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
-                <small style="color:#888; font-size:10px; line-height:1.4; display:block;">Create a project in Google Cloud Console → Enable Gmail API → OAuth 2.0 Client ID (Web App) → add this page's URL to Authorized JS Origins.</small>
             </div>
         </div>
         <div style="display:flex; gap:10px; margin-bottom:4px;">
@@ -920,27 +911,47 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <ul id="model-list-crud" style="list-style:none; padding:0; margin:0;"></ul>
     </div>
     <div id="mview-logs" class="modal-content closed" style="background:var(--log-bg); color:var(--log-text); font-family:monospace; font-size:11px; padding-top:10px;"><div id="log-viewer" style="white-space:pre-wrap;"></div></div>
+    <div id="mview-email" class="modal-content closed">
+        <div style="background:var(--sec-bg); border-radius:16px; overflow:hidden; margin-bottom:12px;">
+            <div style="padding:12px 14px 8px; display:flex; align-items:center; justify-content:space-between;">
+                <small style="font-weight:800; font-size:11px; color:var(--accent);">📧 GMAIL</small>
+                <div id="email-settings-gmail-btn" style="display:flex; gap:6px;"></div>
+            </div>
+            <div id="email-settings-gmail-status" style="padding:0 14px 10px; font-size:12px; color:#888;"></div>
+            <div style="border-top:0.5px solid var(--border); padding:10px 14px 4px;">
+                <small style="font-weight:700; font-size:10px; color:#888;">GOOGLE OAUTH CLIENT ID</small>
+            </div>
+            <div style="padding:0 14px 14px;">
+                <input type="text" id="google-client-id-f" class="pp-input" placeholder="Google OAuth Client ID (…googleusercontent.com)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
+                <small style="color:#888; font-size:10px; line-height:1.4; display:block;">Google Cloud Console → Enable Gmail API → OAuth 2.0 Client ID (Web App) → add this page URL to Authorized JS Origins.</small>
+            </div>
+        </div>
+        <div style="background:var(--sec-bg); border-radius:16px; overflow:hidden; margin-bottom:12px;">
+            <div style="padding:12px 14px 8px; display:flex; align-items:center; justify-content:space-between;">
+                <small style="font-weight:800; font-size:11px; color:var(--accent);">📨 IMAP ACCOUNTS</small>
+                <span class="chip" style="font-size:11px; padding:4px 12px; color:var(--accent); font-weight:700; cursor:pointer;" onclick="emailShowAddImap()">+ Add</span>
+            </div>
+            <div id="email-settings-imap-list" style="border-top:0.5px solid var(--border);"></div>
+        </div>
+    </div>
 </div>
 
 <div id="gmail-modal" class="modal" style="z-index:280;">
     <div class="modal-header" style="flex-direction:column; gap:0; align-items:stretch; padding:0;">
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:max(14px, env(safe-area-inset-top)) 16px 6px 16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:max(14px, env(safe-area-inset-top)) 16px 8px 16px;">
             <span style="font-size:16px; font-weight:800;">📧 Email</span>
             <div style="display:flex; gap:8px; align-items:center;">
                 <span class="chip" id="gmail-modal-add-btn" style="font-size:11px; padding:5px 12px; background:var(--accent); color:#fff; display:none;" onclick="gmailAddToContext()">+ Add to Context</span>
-                <span class="chip" id="gmail-modal-acct-action" style="font-size:11px; padding:5px 10px; color:#ff3b30;" onclick="emailModalAction()">Sign Out</span>
+                <span class="chip" style="font-size:11px; padding:5px 10px; color:#888;" onclick="openModal('master-modal'); switchMasterTab('email');">⚙️</span>
                 <div onclick="closeModal('gmail-modal')" style="font-size:22px; cursor:pointer; opacity:0.5; padding:0 4px;">✕</div>
             </div>
         </div>
-        <div style="display:flex; align-items:center; gap:8px; padding:4px 16px 8px; border-bottom:0.5px solid var(--border);">
-            <span id="email-acct-label-modal" style="flex:1; font-size:13px; font-weight:700; color:var(--text); cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="emailShowAccountPicker('modal')">Gmail <span style="font-size:10px; opacity:0.5;">▼</span></span>
-            <span class="chip" style="font-size:11px; padding:3px 9px; color:var(--accent); font-weight:700;" onclick="emailShowAddImap()">+ IMAP</span>
-        </div>
     </div>
     <div style="flex:1; overflow:hidden; display:flex; flex-direction:column; position:relative;">
-        <div style="display:flex; align-items:center; gap:8px; padding:5px 16px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
+        <div style="display:flex; align-items:center; gap:6px; padding:5px 16px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
             <input type="checkbox" id="gmail-modal-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('modal',this.checked)">
             <span style="flex:1; font-size:12px; color:#888; font-weight:600;">Select All</span>
+            <span id="email-acct-chip-modal" class="chip" style="font-size:11px; padding:3px 10px; font-weight:700;" onclick="emailShowMultiPicker()">All ▾</span>
             <span class="chip" style="font-size:11px; padding:3px 10px;" onclick="gmailToggleSearch('modal')">🔍</span>
         </div>
         <div id="gmail-modal-search-row" style="padding:6px 16px; display:none; border-bottom:0.5px solid var(--border);">
@@ -2209,7 +2220,7 @@ async function openModal(id) {
     if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); } 
 }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-function switchMasterTab(t) { document.getElementById('mtab-config').classList.toggle('active', t==='config'); document.getElementById('mtab-profiles').classList.toggle('active', t==='profiles'); document.getElementById('mtab-models').classList.toggle('active', t==='models'); document.getElementById('mtab-logs').classList.toggle('active', t==='logs'); document.getElementById('mview-config').classList.toggle('closed', t!=='config'); document.getElementById('mview-profiles').classList.toggle('closed', t!=='profiles'); document.getElementById('mview-models').classList.toggle('closed', t!=='models'); document.getElementById('mview-logs').classList.toggle('closed', t!=='logs'); if(t==='models') renderModelList(); if(t==='profiles') renderProfileList(); if(t==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(t==='config') renderBgSwatches(); }
+function switchMasterTab(t) { ['config','profiles','models','logs','email'].forEach(tab => { const btn = document.getElementById('mtab-'+tab); const view = document.getElementById('mview-'+tab); if(btn) btn.classList.toggle('active', t===tab); if(view) view.classList.toggle('closed', t!==tab); }); if(t==='models') renderModelList(); if(t==='profiles') renderProfileList(); if(t==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(t==='config') renderBgSwatches(); if(t==='email') renderEmailSettingsTab(); }
 function switchModalTab(t) { document.getElementById('tab-editor').classList.toggle('active', t==='editor'); document.getElementById('tab-bulk').classList.toggle('active', t==='bulk'); document.getElementById('view-editor').classList.toggle('closed', t!=='editor'); document.getElementById('view-bulk').classList.toggle('closed', t!=='bulk'); }
 
 function getActiveData() { return (activeCrud==='prompts')?PROMPTS:(activeCrud==='tools')?API_SERVICES:(activeCrud==='profiles')?AI_PROFILES:(activeCrud==='models')?AI_MODELS:TEMPLATES; }
@@ -2547,40 +2558,113 @@ let gmailNextPageToken = null;
 let gmailCurrentQuery = null;
 let gmailLoadingMore = false;
 let _gmailScrollObs = null;
-let activeEmailAccountId = null;
+let selectedEmailAccountIds = [];
 
-function emailGetActiveAccount() { if(!activeEmailAccountId) return null; return (CONFIG.imap_accounts||[]).find(a => a.id === activeEmailAccountId) || null; }
-
-function emailFetchEmails(query) { const acct = emailGetActiveAccount(); if(!acct) { if(gmailAccessToken) { gmailFetchEmails(query); } else { gmailLoadEmails(null); } } else { imapFetchEmails(acct, query); } }
-
-function emailSwitchAccount(id) { activeEmailAccountId = id || null; emailRenderAccountSwitcher(); emailFetchEmails(null); }
-
-function emailRenderAccountSwitcher() {
-    const acct = emailGetActiveAccount();
-    const name = acct ? acct.name : 'Gmail';
-    const icon = acct ? '📨' : '📧';
-    const actionBtn = document.getElementById('gmail-modal-acct-action');
-    ['email-acct-label-panel','email-acct-label-modal'].forEach(id => {
-        const el = document.getElementById(id); if(!el) return;
-        el.innerHTML = icon + ' ' + name + ' <span style="font-size:10px; opacity:0.5;">▼</span>';
-    });
-    if(actionBtn) { if(acct) { actionBtn.textContent = 'Edit Account'; actionBtn.style.color = '#888'; } else { actionBtn.textContent = 'Sign Out'; actionBtn.style.color = '#ff3b30'; } }
+function emailGetAllAccounts() {
+    const list = [];
+    if(CONFIG.google_client_id) list.push({ id: 'gmail', type: 'gmail', name: 'Gmail' });
+    (CONFIG.imap_accounts||[]).forEach(a => list.push({ ...a, type: 'imap' }));
+    return list;
 }
 
-function emailModalAction() { const acct = emailGetActiveAccount(); if(acct) { emailShowAddImap(acct.id); } else { gmailSignOut(); closeModal('gmail-modal'); } }
+function emailRenderAccountChip() {
+    const allAccts = emailGetAllAccounts();
+    const selIds = selectedEmailAccountIds;
+    let label;
+    if(!selIds.length || selIds.length === allAccts.length) { label = 'All ▾'; }
+    else if(selIds.length === 1) { const a = allAccts.find(x => x.id === selIds[0]); label = (a ? a.name : selIds[0]) + ' ▾'; }
+    else { label = selIds.length + ' Accts ▾'; }
+    ['email-acct-chip-panel','email-acct-chip-modal'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = label; });
+}
 
-function emailShowAccountPicker() {
-    const accounts = CONFIG.imap_accounts || [];
-    let items = `<div onclick="emailSwitchAccount(null); document.getElementById('email-acct-picker').remove();" style="padding:12px 18px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; color:${!activeEmailAccountId?'var(--accent)':'var(--text)'};">📧 Gmail${!activeEmailAccountId?' ✓':''}</div>`;
-    accounts.forEach(a => { items += `<div onclick="emailSwitchAccount('${a.id}'); document.getElementById('email-acct-picker').remove();" style="padding:12px 18px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; color:${activeEmailAccountId===a.id?'var(--accent)':'var(--text)'};">📨 ${a.name}${activeEmailAccountId===a.id?' ✓':''}</div>`; });
-    const html = `<div id="email-acct-picker" style="position:fixed; inset:0; z-index:999; display:flex; align-items:flex-start; justify-content:center;" onclick="document.getElementById('email-acct-picker').remove();"><div style="background:var(--sec-bg); border:0.5px solid var(--glass-border); border-radius:16px; padding:8px 0; min-width:230px; margin-top:140px; box-shadow:var(--glass-shadow); overflow:hidden;" onclick="event.stopPropagation()">${items}<div style="height:0.5px; background:var(--border); margin:4px 0;"></div><div onclick="emailShowAddImap(); document.getElementById('email-acct-picker').remove();" style="padding:12px 18px; font-size:13px; font-weight:600; cursor:pointer; color:var(--accent);">+ Add IMAP Account</div></div></div>`;
+function emailShowMultiPicker() {
+    const allAccts = emailGetAllAccounts();
+    const selIds = selectedEmailAccountIds;
+    const isAll = !selIds.length || selIds.length === allAccts.length;
+    let rows = allAccts.map(a => {
+        const checked = isAll || selIds.includes(a.id);
+        const icon = a.type === 'gmail' ? '📧' : '📨';
+        return `<label style="display:flex; align-items:center; gap:10px; padding:11px 18px; cursor:pointer; border-bottom:0.5px solid var(--border);">
+            <input type="checkbox" data-acid="${a.id}" ${checked?'checked':''} style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;">
+            <span style="font-size:13px; font-weight:600;">${icon} ${a.name}</span>
+        </label>`;
+    }).join('');
+    if(!rows) rows = `<div style="padding:14px 18px; color:#888; font-size:13px;">No accounts configured. Go to ⚙️ Email Settings to add accounts.</div>`;
+    const html = `<div id="email-acct-picker" style="position:fixed; inset:0; z-index:999; display:flex; align-items:flex-start; justify-content:center;" onclick="emailApplyMultiPicker(); document.getElementById('email-acct-picker').remove();">
+        <div style="background:var(--sec-bg); border:0.5px solid var(--glass-border); border-radius:18px; min-width:240px; max-width:300px; margin-top:120px; box-shadow:var(--glass-shadow); overflow:hidden;" onclick="event.stopPropagation()">
+            <div style="padding:12px 18px 8px; font-size:12px; font-weight:800; color:#888; letter-spacing:0.5px;">FILTER ACCOUNTS</div>
+            <div style="border-top:0.5px solid var(--border);">${rows}</div>
+            <div style="padding:10px 14px; border-top:0.5px solid var(--border); display:flex; gap:8px;">
+                <button class="chip" style="flex:1; font-size:12px; padding:8px; border:none; cursor:pointer;" onclick="document.querySelectorAll('#email-acct-picker [data-acid]').forEach(c=>c.checked=true);">All</button>
+                <button class="chip" style="flex:1; font-size:12px; padding:8px; background:var(--accent); color:#fff; border:none; cursor:pointer; border-radius:10px; font-weight:700;" onclick="emailApplyMultiPicker(); document.getElementById('email-acct-picker').remove();">Apply</button>
+            </div>
+        </div>
+    </div>`;
     document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function emailApplyMultiPicker() {
+    const checkboxes = document.querySelectorAll('#email-acct-picker [data-acid]');
+    const checked = [...checkboxes].filter(c => c.checked).map(c => c.dataset.acid);
+    const allAccts = emailGetAllAccounts();
+    selectedEmailAccountIds = checked.length === allAccts.length ? [] : checked;
+    emailRenderAccountChip();
+    emailFetchEmails(null);
+}
+
+async function emailFetchEmails(query) {
+    const allAccts = emailGetAllAccounts();
+    const selIds = selectedEmailAccountIds.length ? selectedEmailAccountIds : allAccts.map(a => a.id);
+    const selAccts = allAccts.filter(a => selIds.includes(a.id));
+    if(!selAccts.length) {
+        if(!allAccts.length) { gmailEmails = []; gmailRenderEmails(); return; }
+        if(!gmailAccessToken) { gmailLoadEmails(null); return; }
+        selAccts.push(...allAccts);
+    }
+    notify("Loading emails...", "#007aff", 1500);
+    gmailCurrentQuery = query || null; gmailNextPageToken = null; gmailLoadingMore = false;
+    const results = await Promise.allSettled(selAccts.map(a => emailFetchFromAccount(a, query)));
+    let merged = [];
+    results.forEach(r => { if(r.status === 'fulfilled') merged = merged.concat(r.value); });
+    merged.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
+    gmailEmails = merged;
+    gmailRenderEmails();
+    gmailAttachScrollObs();
+}
+
+async function emailFetchFromAccount(acct, query) {
+    if(acct.type === 'gmail') {
+        if(!gmailAccessToken) { await new Promise(res => { gmailSilentAuth(); setTimeout(res, 1500); }); if(!gmailAccessToken) return []; }
+        const q = query ? encodeURIComponent(query) : 'in%3Ainbox';
+        try {
+            const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25&q=${q}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+            if(!listRes.ok) { if(listRes.status === 401) { gmailAccessToken = null; } return []; }
+            const listData = await listRes.json();
+            const msgs = listData.messages || [];
+            const details = await Promise.all(msgs.map(async m => {
+                const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+                if(!r.ok) return null;
+                const d = await r.json();
+                const hdr = d.payload.headers || [];
+                const get = n => (hdr.find(h => h.name === n) || {}).value || "";
+                return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: (d.labelIds||[]).includes("UNREAD"), _accountId: 'gmail' };
+            }));
+            return details.filter(Boolean);
+        } catch(_) { return []; }
+    } else {
+        try {
+            const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: query || null, maxResults: 25 }) });
+            if(!res.ok) return [];
+            const data = await res.json();
+            return (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name }));
+        } catch(_) { return []; }
+    }
 }
 
 function emailShowAddImap(editId) {
     const existing = editId ? (CONFIG.imap_accounts||[]).find(a => a.id === editId) : null;
     const delBtn = existing ? `<button class="chip" style="background:#ff3b30; color:#fff; font-size:13px; padding:10px 14px; border:none; border-radius:10px; cursor:pointer; width:100%;" onclick="emailDeleteImap('${editId}')">Delete Account</button>` : '';
-    const html = `<div id="imap-form-overlay" style="position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px);"><div style="background:var(--sec-bg); border:0.5px solid var(--glass-border); border-radius:20px; padding:24px 20px; width:100%; max-width:360px; box-shadow:var(--glass-shadow);"><div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;"><span style="font-size:16px; font-weight:800;">${existing?'Edit':'Add'} IMAP Account</span><div onclick="document.getElementById('imap-form-overlay').remove()" style="cursor:pointer; font-size:22px; opacity:0.5; padding:4px;">✕</div></div><div style="display:flex; flex-direction:column; gap:10px;"><input id="imap-f-name" class="pp-input" placeholder="Display name (e.g. Work Email)" value="${existing?.name||''}"><input id="imap-f-host" class="pp-input" placeholder="IMAP host (e.g. imap.gmail.com)" value="${existing?.host||''}"><div style="display:flex; gap:8px;"><input id="imap-f-port" class="pp-input" placeholder="Port" value="${existing?.port||'993'}" style="flex:0 0 90px;"><label style="display:flex; align-items:center; gap:7px; font-size:13px; cursor:pointer; flex:1; padding:0 6px; background:var(--bg); border:0.5px solid var(--border); border-radius:10px;"><input type="checkbox" id="imap-f-tls" ${(existing?.tls!==false)?'checked':''} style="width:15px;height:15px;accent-color:var(--accent);"> SSL/TLS</label></div><input id="imap-f-user" class="pp-input" placeholder="Username / Email address" value="${existing?.user||''}"><input id="imap-f-pass" class="pp-input" type="password" placeholder="Password or App Password" value="${existing?.pass||''}">${delBtn}<button class="chip" style="background:var(--accent); color:#fff; font-size:14px; font-weight:700; padding:13px; border:none; border-radius:12px; cursor:pointer; width:100%; margin-top:4px;" onclick="emailSaveImap('${editId||''}')">Save Account</button></div></div></div>`;
+    const html = `<div id="imap-form-overlay" style="position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px);"><div style="background:var(--sec-bg); border:0.5px solid var(--glass-border); border-radius:20px; padding:24px 20px; width:100%; max-width:360px; box-shadow:var(--glass-shadow);"><div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;"><span style="font-size:16px; font-weight:800;">${existing?'Edit':'Add'} IMAP Account</span><div onclick="document.getElementById('imap-form-overlay').remove()" style="cursor:pointer; font-size:22px; opacity:0.5; padding:4px;">✕</div></div><div style="display:flex; flex-direction:column; gap:10px;"><input id="imap-f-name" class="pp-input" placeholder="Display name (e.g. Work Email)" value="${existing?.name||''}"><input id="imap-f-host" class="pp-input" placeholder="IMAP host (e.g. imap.gmail.com)" value="${existing?.host||''}"><div style="display:flex; gap:8px;"><input id="imap-f-port" class="pp-input" placeholder="Port" value="${existing?.port||'993'}" style="flex:0 0 90px;"><label style="display:flex; align-items:center; gap:7px; font-size:13px; cursor:pointer; flex:1; padding:0 6px; background:var(--bg); border:0.5px solid var(--border); border-radius:10px;"><input type="checkbox" id="imap-f-tls" ${(existing?.tls!==false)?'checked':''} style="width:15px;height:15px;accent-color:var(--accent);"> SSL/TLS</label></div><input id="imap-f-user" class="pp-input" placeholder="Username / Email address" value="${existing?.user||''}"><input id="imap-f-pass" class="pp-input" type="password" placeholder="Password or App Password" value="${existing?.pass||''}">${delBtn}<button class="chip" style="background:var(--accent); color:#fff; font-size:14px; font-weight:700; padding:13px; border:none; border-radius:12px; cursor:pointer; width:100%; margin-top:4px;" onclick="emailSaveImap('${editId||''}')">Save Account</button></div></div></div>`;
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
@@ -2594,28 +2678,40 @@ function emailSaveImap(editId) {
     if(!name||!host||!user||!pass) return notify("Please fill in all fields", "#ff3b30");
     if(!CONFIG.imap_accounts) CONFIG.imap_accounts = [];
     if(editId) { const idx = CONFIG.imap_accounts.findIndex(a => a.id === editId); if(idx >= 0) CONFIG.imap_accounts[idx] = { id: editId, name, host, port, user, pass, tls }; }
-    else { const id = 'imap_' + Date.now(); CONFIG.imap_accounts.push({ id, name, host, port, user, pass, tls }); activeEmailAccountId = id; }
-    saveAll(); document.getElementById('imap-form-overlay').remove(); emailRenderAccountSwitcher(); emailFetchEmails(null); notify("IMAP account saved", "#34c759");
+    else { CONFIG.imap_accounts.push({ id: 'imap_' + Date.now(), name, host, port, user, pass, tls }); }
+    saveAll(); const ov = document.getElementById('imap-form-overlay'); if(ov) ov.remove();
+    emailRenderAccountChip(); renderEmailSettingsTab(); emailFetchEmails(null); notify("IMAP account saved", "#34c759");
 }
 
 function emailDeleteImap(editId) {
     CONFIG.imap_accounts = (CONFIG.imap_accounts||[]).filter(a => a.id !== editId);
-    if(activeEmailAccountId === editId) activeEmailAccountId = null;
-    saveAll(); const ov = document.getElementById('imap-form-overlay'); if(ov) ov.remove(); emailRenderAccountSwitcher(); emailFetchEmails(null); notify("Account removed", "#888");
+    selectedEmailAccountIds = selectedEmailAccountIds.filter(id => id !== editId);
+    saveAll(); const ov = document.getElementById('imap-form-overlay'); if(ov) ov.remove();
+    emailRenderAccountChip(); renderEmailSettingsTab(); emailFetchEmails(null); notify("Account removed", "#888");
 }
 
-async function imapFetchEmails(account, query) {
-    notify("Loading emails...", "#007aff", 1500);
-    gmailNextPageToken = null; gmailLoadingMore = false;
-    try {
-        const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: account.host, port: account.port, user: account.user, pass: account.pass, tls: account.tls, query: query || null, maxResults: 25 }) });
-        if(!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error || "IMAP error " + res.status); }
-        const data = await res.json();
-        gmailEmails = data.emails || [];
-        gmailRenderEmails();
-        gmailAttachScrollObs();
-    } catch(e) { notify("IMAP error: " + e.message, "#ff3b30", 5000); }
+function renderEmailSettingsTab() {
+    const hint = localStorage.getItem('gmail_hint') || '';
+    const connected = !!gmailAccessToken;
+    const statusText = connected ? ('Connected' + (hint ? ' as ' + hint : '')) : (hint ? 'Not signed in' + ' (' + hint + ')' : 'Not connected');
+    const btnEl = document.getElementById('email-settings-gmail-btn');
+    const statEl = document.getElementById('email-settings-gmail-status');
+    const imapEl = document.getElementById('email-settings-imap-list');
+    if(btnEl) btnEl.innerHTML = connected
+        ? `<span class="chip" style="background:#ff3b30; color:#fff; font-size:12px; padding:6px 13px; cursor:pointer;" onclick="gmailSignOut(); renderEmailSettingsTab();">Sign Out</span>`
+        : `<span class="chip" style="background:var(--accent); color:#fff; font-size:12px; padding:6px 13px; cursor:pointer;" onclick="gmailSignInFromSettings();">Sign In</span>`;
+    if(statEl) statEl.textContent = statusText;
+    const gcEl = document.getElementById('google-client-id-f');
+    if(gcEl) gcEl.value = CONFIG.google_client_id || '';
+    if(imapEl) {
+        const accts = CONFIG.imap_accounts || [];
+        imapEl.innerHTML = accts.length
+            ? accts.map(a => `<div style="display:flex; align-items:center; gap:8px; padding:11px 14px; border-bottom:0.5px solid var(--border);"><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${a.name}</div><div style="font-size:11px; color:#888; margin-top:2px;">${a.user} · ${a.host}:${a.port}</div></div><span class="chip" style="font-size:11px; padding:5px 10px; flex-shrink:0; cursor:pointer;" onclick="emailShowAddImap('${a.id}')">Edit</span></div>`).join('')
+            : '<div style="padding:14px; color:#888; font-size:13px; text-align:center;">No IMAP accounts yet.</div>';
+    }
 }
+
+function gmailSignInFromSettings() { closeModal('master-modal'); setTimeout(() => { openGmailModal(); }, 200); }
 
 function gmailIds(src) {
     const m = src === 'modal';
@@ -2633,7 +2729,7 @@ function gmailIds(src) {
 
 function openGmailModal() {
     openModal('gmail-modal');
-    emailRenderAccountSwitcher();
+    emailRenderAccountChip();
     emailFetchEmails(null);
 }
 
@@ -3193,9 +3289,10 @@ async function gmailPreview(i, src) {
     const ov = document.getElementById(ids.overlay);
     ov.style.cssText = 'display:flex; flex-direction:column; position:absolute; inset:0; background:var(--bg); z-index:10; overflow:hidden;';
     try {
-        const acct = emailGetActiveAccount();
-        if(acct) {
-            const r = await fetch('/api/imap/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, uid: em.id }) });
+        const acctId = em._accountId || 'gmail';
+        const imapAcct = acctId !== 'gmail' ? (CONFIG.imap_accounts||[]).find(a => a.id === acctId) : null;
+        if(imapAcct) {
+            const r = await fetch('/api/imap/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, uid: em.id }) });
             if(!r.ok) throw new Error("IMAP fetch failed");
             const d = await r.json();
             const bodyEl = document.getElementById(ids.body);
