@@ -2,7 +2,7 @@ import { Router } from "express";
 
 const router = Router();
 
-router.get('/api/fetch-url', async (req, res) => {
+router.get('/fetch-url', async (req, res) => {
     const { url } = req.query;
     if (!url || typeof url !== 'string') {
         return res.status(400).json({ error: 'url parameter is required' });
