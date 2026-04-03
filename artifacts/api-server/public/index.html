@@ -330,6 +330,28 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   border-radius: 20px;
 }
 .ctx-panel.open { right: 0; }
+.tools-bottom-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--input-h, 130px);
+  max-height: 58vh;
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  z-index: 156;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -6px 30px rgba(0,0,0,0.18);
+  border-top: 0.5px solid var(--glass-border);
+  transform: translateY(110%);
+  transition: transform 0.38s var(--spring);
+  overscroll-behavior: contain;
+  pointer-events: auto;
+}
+.tools-bottom-panel.open { transform: translateY(0); }
 /* Prevent panel inner scrollers from leaking to the page */
 .side-panel > div[style*="overflow-y"], .ctx-panel > div[style*="overflow-y"],
 .side-panel > div > div[style*="overflow-y"], .ctx-panel > div > div[style*="overflow-y"],
@@ -520,11 +542,16 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #sync-indicator    { left: 272px; right: auto; bottom: 76px; }
 
   /* ── Right panels: variables panel always visible, others as overlay ── */
-  .ctx-panel, #tpl-slide-panel, #srv-slide-panel {
+  .ctx-panel {
     width: min(380px, 38%) !important;
     top: 0 !important;
     border-radius: 14px 0 0 14px !important;
     bottom: 0 !important;
+  }
+  #tools-quick-panel {
+    left: 272px !important;
+    right: 320px !important;
+    border-radius: 20px 20px 0 0 !important;
   }
 
   /* Variables panel: persistent, always visible, no overlay ── */
@@ -682,6 +709,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div class="sub-tabs" style="margin:0; border:none; background:rgba(128,128,128,0.12); padding:3px; border-radius:10px; gap:2px;">
             <div class="sub-tab-btn active" id="ctx-tab-btn-context" onclick="ctxSwitchTab('context')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📋 Context</div>
             <div class="sub-tab-btn" id="ctx-tab-btn-gmail" onclick="ctxSwitchTab('gmail')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📧 Gmail</div>
+            <div class="sub-tab-btn" id="ctx-tab-btn-whatsapp" onclick="ctxSwitchTab('whatsapp')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📱 WhatsApp</div>
         </div>
     </div>
 
@@ -738,34 +766,59 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             </div>
         </div>
     </div>
-</div>
 
-<div id="tpl-slide-panel" class="ctx-panel" style="z-index: 156;">
-    <div class="panel-header" style="padding: 8px 14px;">
-        <div class="sub-tabs" style="margin:0; flex:1; border:none; background:transparent; padding:0; gap:2px;">
-            <div class="sub-tab-btn active" id="tab-tpl-all" onclick="setTplTab('all')" style="padding:4px 8px;">ALL</div>
-            <div class="sub-tab-btn" id="tab-tpl-fav" onclick="setTplTab('fav')" style="padding:4px 8px;">FAV</div>
-            <div class="sub-tab-btn" id="tab-tpl-recent" onclick="setTplTab('recent')" style="padding:4px 8px;">REC</div>
-        </div>
-        <div style="display:flex; gap:4px; margin-left:8px;">
-            <button class="chip" style="padding:4px 8px; font-size:12px;" onclick="document.getElementById('tpl-search-box').style.display = document.getElementById('tpl-search-box').style.display === 'none' ? 'block' : 'none';">🔍</button>
-            <button class="chip" style="padding:4px 8px; font-size:12px;" onclick="manageSection('templates'); closeAllPanels();">⚙️</button>
-        </div>
-    </div>
-    <div id="tpl-search-box" style="display:none; padding: 6px 14px;"><input type="text" id="temp-search" class="pp-input" style="margin:0; width:100%; padding:8px 12px; font-size:13px;" placeholder="Search Templates..." oninput="activeSearch=this.value; renderTemplates();"></div>
-    <div id="template-tags-container" class="chip-container" style="padding:6px 14px; display:none; border-bottom: 1px solid var(--border);"></div>
-    <div style="flex:1; overflow-y:auto; padding:0;">
-        <ul id="templates-view" style="list-style:none; padding:0; margin:0"></ul>
+    <div id="ctx-pane-whatsapp" style="flex:1; overflow-y:auto; display:none; flex-direction:column; align-items:center; justify-content:center; padding:28px 20px; gap:18px;">
+        <div style="font-size:48px; line-height:1;">📱</div>
+        <div style="font-size:15px; font-weight:700; color:var(--text); text-align:center;">Import WhatsApp Chat</div>
+        <div style="font-size:12px; color:#888; text-align:center; line-height:1.6;">Export a WhatsApp conversation as a .zip or .txt file, then import it here to add messages to your context.</div>
+        <button class="chip" style="padding:12px 28px; font-size:14px; font-weight:700; background:var(--accent); color:#fff; border-radius:14px;" onclick="document.getElementById('wa-zip-input').click();">📂 Choose File (.zip / .txt)</button>
+        <div id="wa-import-status" style="font-size:12px; color:var(--accent); font-weight:600; text-align:center; display:none;"></div>
     </div>
 </div>
 
-<div id="srv-slide-panel" class="side-panel" style="z-index: 157;">
-    <div class="panel-header" style="padding: 8px 14px;">
-        <span style="font-size:14px; font-weight:800; color:var(--accent);">Services</span>
-        <button class="chip" style="padding:4px 8px; font-size:11px;" onclick="manageSection('tools'); closeAllPanels();">⚙️ Manage</button>
+<div id="tools-quick-panel" class="tools-bottom-panel">
+    <div class="panel-header" style="padding:8px 14px; flex-direction:column; gap:6px; align-items:stretch;">
+        <div style="display:flex; align-items:center; gap:6px;">
+            <div class="sub-tabs" style="margin:0; flex:1; border:none; background:rgba(128,128,128,0.12); padding:3px; border-radius:10px; gap:2px;">
+                <div class="sub-tab-btn active" id="tqtab-tpl" onclick="tqSwitchTab('tpl')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📄 Templates</div>
+                <div class="sub-tab-btn" id="tqtab-srv" onclick="tqSwitchTab('srv')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">🔌 Services</div>
+                <div class="sub-tab-btn" id="tqtab-links" onclick="tqSwitchTab('links')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">🔗 Links</div>
+            </div>
+            <div onclick="closeAllPanels()" style="font-size:20px; cursor:pointer; padding:2px 6px; opacity:0.55; flex-shrink:0;">✕</div>
+        </div>
     </div>
-    <div style="flex:1; overflow-y:auto; padding:12px 14px;">
-        <div id="tools-view" style="display:flex; flex-direction:column; gap:8px;"></div>
+    <div id="tqpane-tpl" style="flex:1; overflow:hidden; display:flex; flex-direction:column;">
+        <div style="padding:5px 14px; border-bottom:0.5px solid var(--border); display:flex; gap:6px; align-items:center; background:rgba(128,128,128,0.05);">
+            <div class="sub-tabs" style="margin:0; flex:1; border:none; background:transparent; padding:0; gap:2px;">
+                <div class="sub-tab-btn active" id="tab-tpl-all" onclick="setTplTab('all')" style="padding:3px 10px; font-size:11px;">ALL</div>
+                <div class="sub-tab-btn" id="tab-tpl-fav" onclick="setTplTab('fav')" style="padding:3px 10px; font-size:11px;">FAV</div>
+                <div class="sub-tab-btn" id="tab-tpl-recent" onclick="setTplTab('recent')" style="padding:3px 10px; font-size:11px;">REC</div>
+            </div>
+            <button class="chip" style="padding:3px 8px; font-size:11px;" onclick="document.getElementById('tpl-search-box').style.display=document.getElementById('tpl-search-box').style.display==='none'?'block':'none';">🔍</button>
+            <button class="chip" style="padding:3px 8px; font-size:11px;" onclick="manageSection('templates'); closeAllPanels();">⚙️</button>
+        </div>
+        <div id="tpl-search-box" style="display:none; padding:5px 14px; border-bottom:0.5px solid var(--border);"><input type="text" id="temp-search" class="pp-input" style="margin:0; width:100%; padding:7px 12px; font-size:13px;" placeholder="Search Templates..." oninput="activeSearch=this.value; renderTemplates();"></div>
+        <div id="template-tags-container" class="chip-container" style="padding:5px 14px; display:none; border-bottom:1px solid var(--border);"></div>
+        <div style="flex:1; overflow-y:auto; padding:0;">
+            <ul id="templates-view" style="list-style:none; padding:0; margin:0;"></ul>
+        </div>
+    </div>
+    <div id="tqpane-srv" style="flex:1; overflow:hidden; display:none; flex-direction:column;">
+        <div style="padding:6px 14px; border-bottom:0.5px solid var(--border); display:flex; justify-content:flex-end; background:rgba(128,128,128,0.05);">
+            <button class="chip" style="padding:3px 8px; font-size:11px;" onclick="manageSection('tools'); closeAllPanels();">⚙️ Manage</button>
+        </div>
+        <div style="flex:1; overflow-y:auto; padding:12px 14px;">
+            <div id="tools-view" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+    </div>
+    <div id="tqpane-links" style="flex:1; overflow:hidden; display:none; flex-direction:column;">
+        <div style="padding:5px 14px; border-bottom:0.5px solid var(--border); display:flex; gap:6px; align-items:center; background:rgba(128,128,128,0.05);">
+            <input id="links-panel-search" class="pp-input" placeholder="Search links…" oninput="renderLinksPanel()" style="flex:1; margin:0; font-size:13px; padding:6px 12px;">
+            <button class="chip" style="padding:3px 8px; font-size:11px; background:var(--accent); color:#fff; font-weight:700;" onclick="manageSection('links'); closeAllPanels();">⚙️</button>
+        </div>
+        <div style="flex:1; overflow-y:auto; padding:8px 14px;">
+            <div id="links-panel-list"></div>
+        </div>
     </div>
 </div>
 
@@ -787,11 +840,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                         <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); document.getElementById('attach-menu').classList.add('closed');">📷 Camera</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-img').click(); document.getElementById('attach-menu').classList.add('closed');">🖼️ Photo Library</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); document.getElementById('attach-menu').classList.add('closed');">📁 Files</div>
-                        <div class="tool-menu-item" onclick="toggleTplPanel(); renderTemplates(); document.getElementById('attach-menu').classList.add('closed');">📄 Templates</div>
-                        <div class="tool-menu-item" onclick="toggleSrvPanel(); renderToolsList(); document.getElementById('attach-menu').classList.add('closed');">🔌 Services</div>
+                        <div class="tool-menu-item" onclick="openToolsPanel('tpl'); document.getElementById('attach-menu').classList.add('closed');">📄 Templates</div>
+                        <div class="tool-menu-item" onclick="openToolsPanel('srv'); document.getElementById('attach-menu').classList.add('closed');">🔌 Services</div>
+                        <div class="tool-menu-item" onclick="openToolsPanel('links'); document.getElementById('attach-menu').classList.add('closed');">🔗 Links</div>
                         <div class="tool-menu-item" onclick="toggleCtxPanel(); refreshUI(); document.getElementById('attach-menu').classList.add('closed');">📋 Context</div>
-                        <div class="tool-menu-item" onclick="manageSection('links'); closeAllPanels(); document.getElementById('attach-menu').classList.add('closed');">🔗 Links</div>
-                        <div class="tool-menu-item" onclick="document.getElementById('wa-zip-input').click(); document.getElementById('attach-menu').classList.add('closed');">📱 WhatsApp Chat</div>
                     </div>
                 </div>
 
@@ -1409,24 +1461,29 @@ function initGestures() {
             e.preventDefault();
         }, { passive: false });
     }
-    document.querySelectorAll('.side-panel, .ctx-panel, .modal').forEach(lockPanelScroll);
+    document.querySelectorAll('.side-panel, .ctx-panel, .tools-bottom-panel, .modal').forEach(lockPanelScroll);
 }
-function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
+function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); const tqp = document.getElementById('tools-quick-panel'); if(tqp && except !== 'tools-quick-panel') tqp.classList.remove('open'); }
 function toggleVarsPanel() { closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); }
 function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
 function ctxSwitchTab(tab) {
-    const isGmail = tab === 'gmail';
-    document.getElementById('ctx-pane-context').style.display = isGmail ? 'none' : 'flex';
+    const isGmail = tab === 'gmail'; const isWA = tab === 'whatsapp'; const isCtx = !isGmail && !isWA;
+    document.getElementById('ctx-pane-context').style.display = isCtx ? 'flex' : 'none';
     document.getElementById('ctx-pane-gmail').style.display = isGmail ? 'flex' : 'none';
     document.getElementById('ctx-pane-gmail').style.flexDirection = 'column';
-    document.getElementById('ctx-tab-context-actions').style.display = isGmail ? 'none' : 'flex';
+    document.getElementById('ctx-pane-whatsapp').style.display = isWA ? 'flex' : 'none';
+    document.getElementById('ctx-tab-context-actions').style.display = isCtx ? 'flex' : 'none';
     document.getElementById('ctx-tab-gmail-actions').style.display = isGmail ? 'flex' : 'none';
-    document.getElementById('ctx-tab-btn-context').classList.toggle('active', !isGmail);
+    document.getElementById('ctx-tab-btn-context').classList.toggle('active', isCtx);
     document.getElementById('ctx-tab-btn-gmail').classList.toggle('active', isGmail);
+    document.getElementById('ctx-tab-btn-whatsapp').classList.toggle('active', isWA);
     if(isGmail) { if(gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box').value.trim() || null); } else { gmailLoadEmails(); } }
 }
-function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
-function toggleSrvPanel() { closeAllPanels('srv-slide-panel'); document.getElementById('srv-slide-panel').classList.toggle('open'); }
+function toggleTplPanel() { openToolsPanel('tpl'); }
+function toggleSrvPanel() { openToolsPanel('srv'); }
+function openToolsPanel(tab) { closeAllPanels('tools-quick-panel'); const p = document.getElementById('tools-quick-panel'); p.classList.add('open'); tqSwitchTab(tab); if(tab === 'tpl') renderTemplates(); if(tab === 'srv') renderToolsList(); if(tab === 'links') renderLinksPanel(); }
+function tqSwitchTab(tab) { ['tpl','srv','links'].forEach(t => { document.getElementById('tqtab-'+t).classList.toggle('active', t === tab); const pane = document.getElementById('tqpane-'+t); if(pane) { pane.style.display = t === tab ? 'flex' : 'none'; pane.style.flexDirection = 'column'; } }); }
+function renderLinksPanel() { const q = (document.getElementById('links-panel-search') || {}).value || ''; const links = (CONFIG.links || []); const filtered = q ? links.filter(l => (l.title+l.url+(l.tags||[]).join('')).toLowerCase().includes(q.toLowerCase())) : links; const el = document.getElementById('links-panel-list'); if(!el) return; if(filtered.length === 0) { el.innerHTML = '<div style="text-align:center; color:#888; padding:24px 0; font-size:13px;">'+(links.length === 0 ? 'No links yet. Tap ⚙️ to add some.' : 'No matches.')+'</div>'; return; } el.innerHTML = filtered.map(l => '<div style="display:flex; align-items:center; gap:8px; padding:9px 2px; border-bottom:0.5px solid var(--border);"><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">'+_escH(l.title||l.url)+'</div><div style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">'+_escH(l.url)+'</div></div><button class="chip" style="padding:5px 12px; font-size:12px; background:var(--accent); color:#fff; font-weight:700; flex-shrink:0;" onclick="linksInsert(\''+l.id+'\')">Insert</button></div>').join(''); }
 function toggleExpandInput(forceExpand = false) { if(forceExpand && isInputExpanded) return; isInputExpanded = forceExpand ? true : !isInputExpanded; const t = document.getElementById('note-input'), b = document.getElementById('expand-btn'); if(isInputExpanded) { t.style.minHeight = '50vh'; t.style.height = '50vh'; t.style.maxHeight = '70vh'; b.innerText = '⤡'; } else { t.style.minHeight = '60px'; t.style.maxHeight = '200px'; b.innerText = '⤢'; sync(); } setTimeout(updateInputHeightVar, 50); }
 function toggleAllContext() { cutIdx = (cutIdx === -1) ? CONTEXT_LINES.length - 1 : -1; refreshUI(); }
 function renderInlinePrompts() {
