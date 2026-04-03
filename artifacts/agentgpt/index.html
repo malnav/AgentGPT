@@ -520,7 +520,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #sync-indicator    { left: 272px; right: auto; bottom: 76px; }
 
   /* ── Right panels: variables panel always visible, others as overlay ── */
-  .ctx-panel, #tpl-slide-panel, #srv-slide-panel {
+  .ctx-panel, #tpl-slide-panel {
     width: min(380px, 38%) !important;
     top: 0 !important;
     border-radius: 14px 0 0 14px !important;
@@ -682,6 +682,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div class="sub-tabs" style="margin:0; border:none; background:rgba(128,128,128,0.12); padding:3px; border-radius:10px; gap:2px;">
             <div class="sub-tab-btn active" id="ctx-tab-btn-context" onclick="ctxSwitchTab('context')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📋 Context</div>
             <div class="sub-tab-btn" id="ctx-tab-btn-gmail" onclick="ctxSwitchTab('gmail')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📧 Gmail</div>
+            <div class="sub-tab-btn" id="ctx-tab-btn-whatsapp" onclick="ctxSwitchTab('whatsapp')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📱 WA</div>
         </div>
     </div>
 
@@ -738,34 +739,73 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             </div>
         </div>
     </div>
+
+    <div id="ctx-pane-whatsapp" style="flex:1; overflow-y:auto; display:none; flex-direction:column; align-items:center; justify-content:center; padding:28px 20px; text-align:center; gap:10px;">
+        <div style="font-size:52px;">📱</div>
+        <div style="font-weight:800; font-size:16px; margin-bottom:4px;">WhatsApp Import</div>
+        <div style="font-size:13px; color:#888; line-height:1.6; margin-bottom:16px;">Export a chat from WhatsApp (Settings → Chat → Export Chat) and upload the .zip or .txt file.</div>
+        <label class="chip" style="background:var(--accent);color:#fff;padding:14px 28px;font-size:14px;font-weight:700;cursor:pointer;" onclick="document.getElementById('wa-zip-input').click()">📤 Upload .zip or .txt</label>
+        <div id="wa-import-status" style="font-size:12px;color:#888;margin-top:6px;min-height:18px;"></div>
+    </div>
 </div>
 
 <div id="tpl-slide-panel" class="ctx-panel" style="z-index: 156;">
-    <div class="panel-header" style="padding: 8px 14px;">
-        <div class="sub-tabs" style="margin:0; flex:1; border:none; background:transparent; padding:0; gap:2px;">
-            <div class="sub-tab-btn active" id="tab-tpl-all" onclick="setTplTab('all')" style="padding:4px 8px;">ALL</div>
-            <div class="sub-tab-btn" id="tab-tpl-fav" onclick="setTplTab('fav')" style="padding:4px 8px;">FAV</div>
-            <div class="sub-tab-btn" id="tab-tpl-recent" onclick="setTplTab('recent')" style="padding:4px 8px;">REC</div>
+    <div class="panel-header" style="padding:8px 14px; flex-direction:column; gap:6px; align-items:stretch;">
+        <div class="sub-tabs" style="margin:0; border:none; background:rgba(128,128,128,0.12); padding:3px; border-radius:10px; gap:2px;">
+            <div class="sub-tab-btn active" id="tpl-panel-tab-btn-templates" onclick="tplPanelSwitch('templates')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📄 Templates</div>
+            <div class="sub-tab-btn" id="tpl-panel-tab-btn-services" onclick="tplPanelSwitch('services')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">🔌 Services</div>
+            <div class="sub-tab-btn" id="tpl-panel-tab-btn-links" onclick="tplPanelSwitch('links')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">🔗 Links</div>
         </div>
-        <div style="display:flex; gap:4px; margin-left:8px;">
-            <button class="chip" style="padding:4px 8px; font-size:12px;" onclick="document.getElementById('tpl-search-box').style.display = document.getElementById('tpl-search-box').style.display === 'none' ? 'block' : 'none';">🔍</button>
-            <button class="chip" style="padding:4px 8px; font-size:12px;" onclick="manageSection('templates'); closeAllPanels();">⚙️</button>
+        <div id="tpl-panel-header-templates" style="display:flex; align-items:center; gap:4px;">
+            <div class="sub-tabs" style="margin:0; flex:1; border:none; background:transparent; padding:0; gap:2px;">
+                <div class="sub-tab-btn active" id="tab-tpl-all" onclick="setTplTab('all')" style="padding:4px 8px;">ALL</div>
+                <div class="sub-tab-btn" id="tab-tpl-fav" onclick="setTplTab('fav')" style="padding:4px 8px;">FAV</div>
+                <div class="sub-tab-btn" id="tab-tpl-recent" onclick="setTplTab('recent')" style="padding:4px 8px;">REC</div>
+            </div>
+            <div style="display:flex; gap:4px;">
+                <button class="chip" style="padding:4px 8px; font-size:12px;" onclick="document.getElementById('tpl-search-box').style.display = document.getElementById('tpl-search-box').style.display === 'none' ? 'block' : 'none';">🔍</button>
+                <button class="chip" style="padding:4px 8px; font-size:12px;" onclick="manageSection('templates'); closeAllPanels();">⚙️</button>
+            </div>
+        </div>
+        <div id="tpl-panel-header-services" style="display:none; align-items:center; justify-content:space-between;">
+            <span style="font-size:13px; font-weight:700; color:var(--accent);">🔌 Services</span>
+            <button class="chip" style="padding:4px 8px; font-size:11px;" onclick="manageSection('tools'); closeAllPanels();">⚙️ Manage</button>
+        </div>
+        <div id="tpl-panel-header-links" style="display:none; align-items:center; justify-content:space-between;">
+            <span style="font-size:13px; font-weight:700; color:var(--accent);">🔗 Links</span>
+            <button class="chip" style="padding:4px 8px; font-size:11px;" onclick="manageSection('links'); closeAllPanels();">⚙️ Manage</button>
         </div>
     </div>
-    <div id="tpl-search-box" style="display:none; padding: 6px 14px;"><input type="text" id="temp-search" class="pp-input" style="margin:0; width:100%; padding:8px 12px; font-size:13px;" placeholder="Search Templates..." oninput="activeSearch=this.value; renderTemplates();"></div>
-    <div id="template-tags-container" class="chip-container" style="padding:6px 14px; display:none; border-bottom: 1px solid var(--border);"></div>
-    <div style="flex:1; overflow-y:auto; padding:0;">
-        <ul id="templates-view" style="list-style:none; padding:0; margin:0"></ul>
-    </div>
-</div>
 
-<div id="srv-slide-panel" class="side-panel" style="z-index: 157;">
-    <div class="panel-header" style="padding: 8px 14px;">
-        <span style="font-size:14px; font-weight:800; color:var(--accent);">Services</span>
-        <button class="chip" style="padding:4px 8px; font-size:11px;" onclick="manageSection('tools'); closeAllPanels();">⚙️ Manage</button>
+    <div id="tpl-pane-templates" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+        <div id="tpl-search-box" style="display:none; padding: 6px 14px;"><input type="text" id="temp-search" class="pp-input" style="margin:0; width:100%; padding:8px 12px; font-size:13px;" placeholder="Search Templates..." oninput="activeSearch=this.value; renderTemplates();"></div>
+        <div id="template-tags-container" class="chip-container" style="padding:6px 14px; display:none; border-bottom: 1px solid var(--border);"></div>
+        <div style="flex:1; overflow-y:auto; padding:0;">
+            <ul id="templates-view" style="list-style:none; padding:0; margin:0"></ul>
+        </div>
     </div>
-    <div style="flex:1; overflow-y:auto; padding:12px 14px;">
+
+    <div id="tpl-pane-services" style="flex:1; overflow-y:auto; padding:12px 14px; display:none;">
         <div id="tools-view" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+
+    <div id="tpl-pane-links" style="flex:1; display:none; flex-direction:column; overflow:hidden;">
+        <div style="padding:8px 14px; border-bottom:0.5px solid var(--border);">
+            <input id="links-panel-search" class="pp-input" placeholder="Search links…" style="margin:0; font-size:13px; padding:7px 12px;" oninput="renderLinksPanel()">
+        </div>
+        <div id="links-panel-list" style="flex:1; overflow-y:auto; padding:10px 14px; padding-bottom:70px;"></div>
+        <div id="links-panel-import-area" style="display:none; padding:10px 14px; border-top:0.5px solid var(--border); background:var(--sec-bg);">
+            <small style="font-weight:700; font-size:10px; color:#888; display:block; margin-bottom:6px;">PASTE JSON — {"Category":{"Title":"URL"}}</small>
+            <textarea id="links-panel-import-ta" class="pp-input" style="height:90px; font-family:monospace; font-size:11px; margin-bottom:6px;" placeholder='{"Category":{"Title":"https://…"}}'></textarea>
+            <div style="display:flex; gap:6px;">
+                <span class="chip" style="flex:1; text-align:center; background:var(--accent); color:#fff; padding:8px; font-weight:700; cursor:pointer;" onclick="linksImportFromPanel()">Import</span>
+                <span class="chip" style="flex:1; text-align:center; padding:8px; cursor:pointer;" onclick="document.getElementById('links-panel-import-area').style.display='none'">Cancel</span>
+            </div>
+        </div>
+        <div style="position:sticky; bottom:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); padding:8px 14px; border-top:0.5px solid var(--glass-border); display:flex; gap:6px;">
+            <span class="chip" style="flex:1; text-align:center; background:var(--accent); color:#fff; padding:9px; font-weight:700; cursor:pointer; font-size:13px;" onclick="manageSection('links'); closeAllPanels();">+ Add</span>
+            <span class="chip" style="flex:1; text-align:center; padding:9px; cursor:pointer; font-size:13px;" onclick="document.getElementById('links-panel-import-area').style.display=document.getElementById('links-panel-import-area').style.display==='none'?'block':'none'">Import JSON</span>
+        </div>
     </div>
 </div>
 
@@ -787,11 +827,11 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                         <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); document.getElementById('attach-menu').classList.add('closed');">📷 Camera</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-img').click(); document.getElementById('attach-menu').classList.add('closed');">🖼️ Photo Library</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); document.getElementById('attach-menu').classList.add('closed');">📁 Files</div>
-                        <div class="tool-menu-item" onclick="toggleTplPanel(); renderTemplates(); document.getElementById('attach-menu').classList.add('closed');">📄 Templates</div>
-                        <div class="tool-menu-item" onclick="toggleSrvPanel(); renderToolsList(); document.getElementById('attach-menu').classList.add('closed');">🔌 Services</div>
+                        <div class="tool-menu-item" onclick="tplPanelSwitch('templates'); toggleTplPanel(); document.getElementById('attach-menu').classList.add('closed');">📄 Templates</div>
+                        <div class="tool-menu-item" onclick="tplPanelSwitch('services'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); document.getElementById('attach-menu').classList.add('closed');">🔌 Services</div>
+                        <div class="tool-menu-item" onclick="tplPanelSwitch('links'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); document.getElementById('attach-menu').classList.add('closed');">🔗 Links</div>
                         <div class="tool-menu-item" onclick="toggleCtxPanel(); refreshUI(); document.getElementById('attach-menu').classList.add('closed');">📋 Context</div>
-                        <div class="tool-menu-item" onclick="manageSection('links'); closeAllPanels(); document.getElementById('attach-menu').classList.add('closed');">🔗 Links</div>
-                        <div class="tool-menu-item" onclick="document.getElementById('wa-zip-input').click(); document.getElementById('attach-menu').classList.add('closed');">📱 WhatsApp Chat</div>
+                        <div class="tool-menu-item" onclick="ctxSwitchTab('whatsapp'); closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.add('open'); document.getElementById('attach-menu').classList.add('closed');">📱 WhatsApp Chat</div>
                     </div>
                 </div>
 
@@ -1411,22 +1451,35 @@ function initGestures() {
     }
     document.querySelectorAll('.side-panel, .ctx-panel, .modal').forEach(lockPanelScroll);
 }
-function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'srv-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
+function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
 function toggleVarsPanel() { closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); }
 function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
 function ctxSwitchTab(tab) {
-    const isGmail = tab === 'gmail';
-    document.getElementById('ctx-pane-context').style.display = isGmail ? 'none' : 'flex';
-    document.getElementById('ctx-pane-gmail').style.display = isGmail ? 'flex' : 'none';
-    document.getElementById('ctx-pane-gmail').style.flexDirection = 'column';
-    document.getElementById('ctx-tab-context-actions').style.display = isGmail ? 'none' : 'flex';
-    document.getElementById('ctx-tab-gmail-actions').style.display = isGmail ? 'flex' : 'none';
-    document.getElementById('ctx-tab-btn-context').classList.toggle('active', !isGmail);
-    document.getElementById('ctx-tab-btn-gmail').classList.toggle('active', isGmail);
-    if(isGmail) { if(gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box').value.trim() || null); } else { gmailLoadEmails(); } }
+    ['context','gmail','whatsapp'].forEach(t => {
+        const btn = document.getElementById('ctx-tab-btn-'+t);
+        const pane = document.getElementById('ctx-pane-'+t);
+        if(btn) btn.classList.toggle('active', t===tab);
+        if(pane) { pane.style.display = t===tab ? 'flex' : 'none'; if(t===tab) pane.style.flexDirection = 'column'; }
+    });
+    document.getElementById('ctx-tab-context-actions').style.display = tab==='context' ? 'flex' : 'none';
+    document.getElementById('ctx-tab-gmail-actions').style.display = tab==='gmail' ? 'flex' : 'none';
+    if(tab==='gmail') { if(gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box').value.trim() || null); } else { gmailLoadEmails(); } }
 }
 function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
-function toggleSrvPanel() { closeAllPanels('srv-slide-panel'); document.getElementById('srv-slide-panel').classList.toggle('open'); }
+function toggleSrvPanel() { tplPanelSwitch('services'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); }
+function tplPanelSwitch(tab) {
+    ['templates','services','links'].forEach(t => {
+        const btn = document.getElementById('tpl-panel-tab-btn-'+t);
+        const pane = document.getElementById('tpl-pane-'+t);
+        const hdr = document.getElementById('tpl-panel-header-'+t);
+        if(btn) btn.classList.toggle('active', t===tab);
+        if(pane) { pane.style.display = t===tab ? 'flex' : 'none'; if(t===tab) pane.style.flexDirection = 'column'; }
+        if(hdr) hdr.style.display = t===tab ? 'flex' : 'none';
+    });
+    if(tab==='templates') renderTemplates();
+    if(tab==='services') renderToolsList();
+    if(tab==='links') renderLinksPanel();
+}
 function toggleExpandInput(forceExpand = false) { if(forceExpand && isInputExpanded) return; isInputExpanded = forceExpand ? true : !isInputExpanded; const t = document.getElementById('note-input'), b = document.getElementById('expand-btn'); if(isInputExpanded) { t.style.minHeight = '50vh'; t.style.height = '50vh'; t.style.maxHeight = '70vh'; b.innerText = '⤡'; } else { t.style.minHeight = '60px'; t.style.maxHeight = '200px'; b.innerText = '⤢'; sync(); } setTimeout(updateInputHeightVar, 50); }
 function toggleAllContext() { cutIdx = (cutIdx === -1) ? CONTEXT_LINES.length - 1 : -1; refreshUI(); }
 function renderInlinePrompts() {
@@ -1490,6 +1543,42 @@ function insertSelectedContexts() { let boxes = document.querySelectorAll('.ctx-
 function insertContextAtCursor(i) { insertAtCursor(CONTEXT_LINES[i], true, false); closeAllPanels(); }
 async function saveModelEntry() { const l = document.getElementById('mod-l').value, t = document.getElementById('mod-t').value; if(!l || !t) return notify("Fill both label and ID", "#ff3b30"); AI_MODELS.push({ label: l, text: t, profile: "Global" }); document.getElementById('mod-l').value = ""; document.getElementById('mod-t').value = ""; await saveAll(); refreshUI(); renderModelList(); notify("Model Added!", "#34c759"); }
 function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile === activeProfileLabel || t.profile === 'Global'); document.getElementById('tools-view').innerHTML = filtT.map(t => { let tIdx = API_SERVICES.indexOf(t); return `<div class="list-item" onclick="triggerApiService(${tIdx}); closeAllPanels();"><div style="flex:1;"><strong>${t.label}</strong></div></div>`; }).join(''); }
+function renderLinksPanel() {
+    const q = (document.getElementById('links-panel-search') ? document.getElementById('links-panel-search').value || '' : '').toLowerCase();
+    const links = CONFIG.links || [];
+    const filtered = links.filter(lk => { if(!q) return true; return (lk.title||'').toLowerCase().includes(q)||(lk.url||'').toLowerCase().includes(q)||(lk.category||'').toLowerCase().includes(q)||(lk.tags||[]).some(t=>t.toLowerCase().includes(q)); });
+    const grouped = {};
+    filtered.forEach(lk => { const c = lk.category || 'Uncategorized'; if(!grouped[c]) grouped[c]=[]; grouped[c].push(lk); });
+    let html = '';
+    Object.keys(grouped).sort().forEach(cat => {
+        html += `<div style="font-size:10px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 6px;padding:0 2px;">${_escH(cat)}</div>`;
+        grouped[cat].forEach(lk => {
+            const tagsHtml = (lk.tags||[]).map(t => `<span style="font-size:10px;padding:2px 6px;background:rgba(128,128,128,0.12);border-radius:6px;margin-right:3px;">${_escH(t)}</span>`).join('');
+            html += `<div class="list-item" style="align-items:flex-start;cursor:pointer;" onclick="linksInsert('${_escH(lk.id)}'); closeAllPanels();">
+                <div style="flex:1;min-width:0;">
+                    <strong style="font-size:13px;">${_escH(lk.title)}</strong>
+                    <div style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_escH(lk.url)}</div>
+                    <div style="margin-top:3px;">${tagsHtml}</div>
+                </div>
+            </div>`;
+        });
+    });
+    if(!filtered.length) html = `<div style="text-align:center;color:#888;padding:30px 0;font-size:14px;">${(CONFIG.links||[]).length ? 'No matches.' : 'No links yet. Tap <strong>+ Add</strong> below.'}</div>`;
+    const el = document.getElementById('links-panel-list');
+    if(el) el.innerHTML = html;
+}
+async function linksImportFromPanel() {
+    const ta = document.getElementById('links-panel-import-ta');
+    let raw; try { raw = JSON.parse(ta.value); } catch(e) { notify('Invalid JSON','#ff3b30',3000); return; }
+    if(!CONFIG.links) CONFIG.links = [];
+    let count = 0;
+    Object.keys(raw).forEach(cat => { const group = raw[cat]; if(typeof group==='object'&&group!==null) { Object.keys(group).forEach(title => { const url = group[title]; if(typeof url==='string'&&url.startsWith('http')) { CONFIG.links.push({id:'lk_'+Date.now()+'_'+(count++),title,url,tags:[cat],category:cat}); } }); } });
+    await saveAll();
+    document.getElementById('links-panel-import-area').style.display = 'none';
+    ta.value = '';
+    renderLinksPanel();
+    notify(`Imported ${count} link${count!==1?'s':''}!`, '#34c759', 2500);
+}
 function switchVarsTab(t) { ['vars','todos'].forEach(k => { document.getElementById('vtab-'+k).classList.toggle('active', t===k); document.getElementById('vview-'+k).classList.toggle('closed', t!==k); document.getElementById('vtab-'+k+'-btns').style.display = t===k ? 'flex' : 'none'; }); if(t === 'todos') renderChatTodos(); }
 function renderWorkspaceLists() { renderSessionsList(); let cur = document.querySelector('#workspace-panel .sub-tab-btn.active'); let curTab = cur ? (cur.id === 'wtab-all' ? 'all' : cur.id === 'wtab-data' ? 'data' : 'current') : 'current'; if(curTab === 'all') renderAllSessionsList(); if(curTab === 'data') renderDatasetsList(); }
 function switchWorkspaceTab(tab) { ['current','all','data'].forEach(k => { document.getElementById('wview-'+k).style.display = k === tab ? 'flex' : 'none'; document.getElementById('wtab-'+k).classList.toggle('active', k === tab); document.getElementById('wtab-'+k+'-btns').style.display = k === tab ? 'flex' : 'none'; }); if(tab === 'all') renderAllSessionsList(); if(tab === 'data') renderDatasetsList(); }
