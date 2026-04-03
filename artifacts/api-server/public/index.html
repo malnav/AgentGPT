@@ -568,13 +568,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </head>
 <body>
 
-<div id="init-sync-overlay" style="position:fixed; top:0; left:0; right:0; z-index:9998; display:flex; align-items:center; justify-content:center; gap:8px; background:rgba(0,0,0,0.55); backdrop-filter:blur(10px) saturate(1.6); -webkit-backdrop-filter:blur(10px) saturate(1.6); padding:8px 16px; padding-top:calc(8px + env(safe-area-inset-top)); pointer-events:none; transition:opacity 0.5s, transform 0.4s;">
-    <span style="font-size:14px; animation:floatCloud 2s ease-in-out infinite;">☁️</span>
-    <span style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.85);" id="init-overlay-label">Connecting to cloud…</span>
-    <div style="width:80px; height:2px; background:rgba(255,255,255,0.15); border-radius:2px; overflow:hidden; margin-left:4px;">
-        <div id="init-overlay-bar" style="width:0%; height:100%; background:var(--accent); border-radius:2px; transition:width 0.4s ease; animation:initBarAnim 20s ease-out forwards;"></div>
-    </div>
+<div id="init-sync-overlay" style="position:fixed; top:0; left:0; right:0; height:3px; z-index:9999; overflow:hidden; pointer-events:none; transition:opacity 0.5s;">
+    <div id="init-overlay-bar" style="height:100%; width:0%; background:var(--accent); transition:width 0.4s ease; animation:initBarAnim 20s ease-out forwards;"></div>
 </div>
+<span id="init-overlay-label" style="display:none;"></span>
 <div id="toast"></div>
 <div id="sync-indicator" style="display:none; position:fixed; right:14px; bottom:76px; z-index:299; align-items:center; gap:6px; background:rgba(30,30,40,0.82); backdrop-filter:blur(14px) saturate(1.8); -webkit-backdrop-filter:blur(14px) saturate(1.8); border:0.5px solid rgba(255,255,255,0.13); border-radius:20px; padding:5px 11px 5px 8px; font-size:11px; color:rgba(255,255,255,0.85); pointer-events:none; box-shadow:0 2px 12px rgba(0,0,0,0.25); transition:opacity 0.4s, transform 0.4s;"><span id="sync-spinner" style="display:inline-block; font-size:12px; animation:spin 1s linear infinite;">↻</span><span id="sync-label">Syncing…</span></div>
 
@@ -2602,10 +2599,8 @@ function hideInitOverlay() {
     const el = document.getElementById('init-sync-overlay');
     if (!el) return;
     const bar = document.getElementById('init-overlay-bar');
-    const lbl = document.getElementById('init-overlay-label');
     if (bar) { bar.style.animation = 'none'; bar.style.width = '100%'; }
-    if (lbl) lbl.textContent = 'Synced ✓';
-    setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(-100%)'; setTimeout(() => { el.style.display = 'none'; checkFirstRunSetup(); }, 450); }, 600);
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => { el.style.display = 'none'; checkFirstRunSetup(); }, 500); }, 400);
 }
 
 let _syncIndicatorHideTimer = null;
@@ -2685,6 +2680,29 @@ function stopRealtimeSync() {
     if(realtimeUnsub) { realtimeUnsub(); realtimeUnsub = null; }
     syncReady = false;
 }
+
+let _lastRefocusSync = 0;
+async function refocusSync() {
+    if(!CONFIG.fb_api || !CONFIG.fb_project) return;
+    if(isInitializing || applyInProgress) return;
+    const now = Date.now();
+    if(now - _lastRefocusSync < 20000) return;
+    _lastRefocusSync = now;
+    isInitializing = true;
+    addLog("SYNC", "Refocus", "Tab refocused — pulling from cloud");
+    showSyncIndicator();
+    try {
+        const db = await initFirebase(); if(!db) { isInitializing = false; hideSyncIndicator(false); return; }
+        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        const snap = await getDoc(doc(db, "quicknote_data", "primary_user"));
+        if(snap.exists()) { await applyCloudData(snap.data(), db, true, false, true); addLog("SYNC", "Refocus", "Pull complete"); }
+        else { addLog("SYNC", "Refocus", "No cloud data found"); }
+        hideSyncIndicator(true);
+    } catch(e) { addLog("SYNC", "Refocus Error", e.message); hideSyncIndicator(false); }
+    finally { isInitializing = false; triggerAutoSync(); }
+}
+
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') refocusSync(); });
 
 // --- GMAIL LOGIC ---
 let gmailTokenClient = null;
