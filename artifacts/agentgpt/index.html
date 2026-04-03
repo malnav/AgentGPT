@@ -815,6 +815,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <button id="mtab-profiles" class="tab-btn" onclick="switchMasterTab('profiles')">🤖 PROFILES</button>
         <button id="mtab-models" class="tab-btn" onclick="switchMasterTab('models')">🧠 MODELS</button>
         <button id="mtab-email" class="tab-btn" onclick="switchMasterTab('email')">📧 EMAIL</button>
+        <button id="mtab-links" class="tab-btn" onclick="switchMasterTab('links')">🔗 LINKS</button>
         <button id="mtab-logs" class="tab-btn" onclick="switchMasterTab('logs')">📜 LOGS</button>
     </div>
     <div id="mview-config" class="modal-content">
@@ -933,6 +934,32 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             </div>
             <div id="email-settings-imap-list" style="border-top:0.5px solid var(--border);"></div>
         </div>
+    </div>
+    <div id="mview-links" class="modal-content closed">
+        <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
+            <input id="links-search-f" class="pp-input" placeholder="Search title, tag, category…" oninput="renderLinksList()" style="flex:1;margin:0;font-size:13px;">
+            <span class="chip" style="font-size:12px;padding:5px 13px;background:var(--accent);color:#fff;white-space:nowrap;cursor:pointer;font-weight:700;" onclick="linksOpenForm()">+ Add</span>
+            <span class="chip" style="font-size:12px;padding:5px 11px;white-space:nowrap;cursor:pointer;" onclick="linksShowImport()">Import</span>
+        </div>
+        <div id="links-form" style="display:none;background:var(--sec-bg);border-radius:14px;padding:12px;margin-bottom:12px;">
+            <input id="links-f-title" class="pp-input" placeholder="Title" style="margin-bottom:6px;">
+            <input id="links-f-url" class="pp-input" placeholder="URL (https://…)" style="margin-bottom:6px;">
+            <input id="links-f-tags" class="pp-input" placeholder="Tags (comma separated)" style="margin-bottom:6px;">
+            <input id="links-f-cat" class="pp-input" placeholder="Category (optional)" style="margin-bottom:10px;">
+            <div style="display:flex;gap:8px;">
+                <span class="chip" style="flex:1;text-align:center;background:var(--accent);color:#fff;padding:9px;cursor:pointer;font-weight:700;" onclick="linksSaveForm()">Save</span>
+                <span class="chip" style="flex:1;text-align:center;padding:9px;cursor:pointer;" onclick="linksCancelForm()">Cancel</span>
+            </div>
+        </div>
+        <div id="links-import-form" style="display:none;background:var(--sec-bg);border-radius:14px;padding:12px;margin-bottom:12px;">
+            <small style="font-weight:700;font-size:10px;color:#888;display:block;margin-bottom:6px;">PASTE JSON — {"Category":{"Title":"URL"}}</small>
+            <textarea id="links-import-ta" class="pp-input" style="height:110px;font-family:monospace;font-size:11px;margin-bottom:8px;" placeholder='{"Category":{"Title":"https://…"}}'></textarea>
+            <div style="display:flex;gap:8px;">
+                <span class="chip" style="flex:1;text-align:center;background:var(--accent);color:#fff;padding:9px;cursor:pointer;font-weight:700;" onclick="linksDoImport()">Import</span>
+                <span class="chip" style="flex:1;text-align:center;padding:9px;cursor:pointer;" onclick="document.getElementById('links-import-form').style.display='none'">Cancel</span>
+            </div>
+        </div>
+        <div id="links-list"></div>
     </div>
 </div>
 
@@ -1448,7 +1475,7 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {};
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [] };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: storedCfg.ai_gen_prompts || { ...DEFAULT_DATA.ai_prompts }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [] };
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
@@ -2220,7 +2247,7 @@ async function openModal(id) {
     if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); } 
 }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-function switchMasterTab(t) { ['config','profiles','models','logs','email'].forEach(tab => { const btn = document.getElementById('mtab-'+tab); const view = document.getElementById('mview-'+tab); if(btn) btn.classList.toggle('active', t===tab); if(view) view.classList.toggle('closed', t!==tab); }); if(t==='models') renderModelList(); if(t==='profiles') renderProfileList(); if(t==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(t==='config') renderBgSwatches(); if(t==='email') renderEmailSettingsTab(); }
+function switchMasterTab(t) { ['config','profiles','models','logs','email','links'].forEach(tab => { const btn = document.getElementById('mtab-'+tab); const view = document.getElementById('mview-'+tab); if(btn) btn.classList.toggle('active', t===tab); if(view) view.classList.toggle('closed', t!==tab); }); if(t==='models') renderModelList(); if(t==='profiles') renderProfileList(); if(t==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(t==='config') renderBgSwatches(); if(t==='email') renderEmailSettingsTab(); if(t==='links') renderLinksList(); }
 function switchModalTab(t) { document.getElementById('tab-editor').classList.toggle('active', t==='editor'); document.getElementById('tab-bulk').classList.toggle('active', t==='bulk'); document.getElementById('view-editor').classList.toggle('closed', t!=='editor'); document.getElementById('view-bulk').classList.toggle('closed', t!=='bulk'); }
 
 function getActiveData() { return (activeCrud==='prompts')?PROMPTS:(activeCrud==='tools')?API_SERVICES:(activeCrud==='profiles')?AI_PROFILES:(activeCrud==='models')?AI_MODELS:TEMPLATES; }
@@ -3885,6 +3912,69 @@ async function sendComposedEmail() {
 }
 
 window.onload = init;
+
+let _linksEditId = null;
+function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function renderLinksList() {
+    const q = (document.getElementById('links-search-f').value || '').toLowerCase();
+    const links = CONFIG.links || [];
+    const filtered = links.filter(lk => { if(!q) return true; return lk.title.toLowerCase().includes(q)||(lk.url||'').toLowerCase().includes(q)||(lk.category||'').toLowerCase().includes(q)||(lk.tags||[]).some(t=>t.toLowerCase().includes(q)); });
+    const grouped = {};
+    filtered.forEach(lk => { const c = lk.category || 'Uncategorized'; if(!grouped[c]) grouped[c]=[]; grouped[c].push(lk); });
+    let html = '';
+    Object.keys(grouped).sort().forEach(cat => {
+        html += `<div style="font-size:10px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 6px;padding:0 2px;">${_escH(cat)}</div>`;
+        grouped[cat].forEach(lk => {
+            const tagsHtml = (lk.tags||[]).map(t => `<span class="chip" style="font-size:10px;padding:2px 7px;background:rgba(0,0,0,0.06);cursor:pointer;" onclick="document.getElementById('links-search-f').value='${_escH(t)}';renderLinksList();">${_escH(t)}</span>`).join('');
+            html += `<div style="background:var(--sec-bg);border-radius:12px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:flex-start;gap:8px;"><div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:13px;margin-bottom:2px;">${_escH(lk.title)}</div><div style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;">${_escH(lk.url)}</div><div style="display:flex;flex-wrap:wrap;gap:4px;">${tagsHtml}</div></div><div style="display:flex;gap:5px;flex-shrink:0;align-items:center;margin-top:2px;"><span class="chip" style="font-size:14px;padding:4px 11px;background:var(--accent);color:#fff;font-weight:800;cursor:pointer;" onclick="linksInsert('${lk.id}')">+</span><span class="chip" style="font-size:11px;padding:4px 8px;cursor:pointer;" onclick="linksOpenForm('${lk.id}')">✏️</span><span class="chip" style="font-size:11px;padding:4px 8px;cursor:pointer;" onclick="linksDelete('${lk.id}')">🗑️</span></div></div>`;
+        });
+    });
+    if(!filtered.length) html = `<div style="text-align:center;color:#888;padding:36px 0;font-size:14px;">${(CONFIG.links||[]).length ? 'No matches.' : 'No links yet. Tap <strong>+ Add</strong> or <strong>Import</strong>.'}</div>`;
+    document.getElementById('links-list').innerHTML = html;
+}
+function linksOpenForm(id) {
+    _linksEditId = id || null;
+    const lk = id ? (CONFIG.links||[]).find(l=>l.id===id) : null;
+    document.getElementById('links-f-title').value = lk ? lk.title : '';
+    document.getElementById('links-f-url').value = lk ? lk.url : '';
+    document.getElementById('links-f-tags').value = lk ? (lk.tags||[]).join(', ') : '';
+    document.getElementById('links-f-cat').value = lk ? (lk.category||'') : '';
+    document.getElementById('links-form').style.display = 'block';
+    document.getElementById('links-import-form').style.display = 'none';
+    setTimeout(() => document.getElementById('links-f-title').focus(), 80);
+}
+function linksCancelForm() { document.getElementById('links-form').style.display='none'; _linksEditId=null; }
+async function linksSaveForm() {
+    const title = document.getElementById('links-f-title').value.trim();
+    const url = document.getElementById('links-f-url').value.trim();
+    if(!title||!url) { notify('Title and URL are required','#ff3b30',2500); return; }
+    const tags = document.getElementById('links-f-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+    const category = document.getElementById('links-f-cat').value.trim();
+    if(!CONFIG.links) CONFIG.links=[];
+    if(_linksEditId) { const lk=CONFIG.links.find(l=>l.id===_linksEditId); if(lk){lk.title=title;lk.url=url;lk.tags=tags;lk.category=category;} }
+    else { CONFIG.links.push({id:'lk_'+Date.now(),title,url,tags,category}); }
+    await saveAll(); document.getElementById('links-form').style.display='none'; _linksEditId=null; renderLinksList(); notify('Link saved!','#34c759',2000);
+}
+function linksInsert(id) {
+    const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!lk) return;
+    insertAtCursor(lk.url,true,false); closeModal('master-modal'); notify('Link inserted!','#34c759',1500);
+}
+async function linksDelete(id) {
+    openConfirm('Delete this link?', async () => { CONFIG.links=(CONFIG.links||[]).filter(l=>l.id!==id); await saveAll(); renderLinksList(); notify('Deleted','#ff3b30',1500); });
+}
+function linksShowImport() {
+    document.getElementById('links-import-form').style.display='block';
+    document.getElementById('links-form').style.display='none';
+    document.getElementById('links-import-ta').value='';
+    setTimeout(()=>document.getElementById('links-import-ta').focus(),80);
+}
+async function linksDoImport() {
+    let raw; try { raw=JSON.parse(document.getElementById('links-import-ta').value); } catch(e) { notify('Invalid JSON','#ff3b30',3000); return; }
+    if(!CONFIG.links) CONFIG.links=[];
+    let count=0;
+    Object.keys(raw).forEach(cat => { const group=raw[cat]; if(typeof group==='object'&&group!==null) { Object.keys(group).forEach(title => { const url=group[title]; if(typeof url==='string'&&url.startsWith('http')) { CONFIG.links.push({id:'lk_'+Date.now()+'_'+(count++),title,url,tags:[cat],category:cat}); } }); } });
+    await saveAll(); document.getElementById('links-import-form').style.display='none'; renderLinksList(); notify(`Imported ${count} link${count!==1?'s':''}!`,'#34c759',2500);
+}
 </script>
 
 <div id="email-compose-modal" class="modal" style="z-index:520;">
