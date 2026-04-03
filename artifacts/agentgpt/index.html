@@ -557,17 +557,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   /* Hide ✕ close buttons inside the workspace panel (it's a fixed sidebar now) */
   #workspace-panel .panel-header > div[id$="-btns"] > div[onclick] { display: none !important; }
 
-  /* Move sys-icons to left side to avoid overlap with vars panel */
-  .sys-icons {
-    position: fixed !important;
-    left: 14px !important;
-    bottom: 100px;
-    flex-direction: column !important;
-    gap: 10px !important;
-    padding: 12px !important;
-    z-index: 50;
-  }
-
   /* Hide pull indicator on desktop (sidebar always visible) ── */
   .pull-indicator { display: none !important; }
 
