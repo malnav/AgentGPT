@@ -1950,14 +1950,14 @@ function exportHtmlAsPdf() {
         const iDoc = iframe.contentWindow.document;
         if (!iDoc.getElementById('_pdf_print_style')) {
             const s = iDoc.createElement('style'); s.id = '_pdf_print_style';
-            s.textContent = '@page { margin: 0; size: auto; } @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }';
+            s.textContent = '@page { margin: 0; size: auto; } @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; } html { margin: 0; padding: 0; } } @page :footer { display: none !important; } @page :header { display: none !important; }';
             iDoc.head.appendChild(s);
         }
         iframe.contentWindow.focus(); iframe.contentWindow.print();
     } catch(e) {
         const w = window.open('', '_blank');
         if (w) {
-            const printStyle = '<style>@page{margin:0;size:auto;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>';
+            const printStyle = '<style>@page{margin:0;size:auto;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;margin:0;padding:0;}html{margin:0;padding:0;}}@page :footer{display:none!important;}@page :header{display:none!important;}</style>';
             w.document.write(_currentHtmlPreview.replace('</head>', printStyle + '</head>'));
             w.document.close(); w.focus(); setTimeout(() => w.print(), 500);
         } else notify("Allow pop-ups to export PDF", "#ff3b30");
