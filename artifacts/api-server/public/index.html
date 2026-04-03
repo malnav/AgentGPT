@@ -1938,9 +1938,9 @@ function openHtmlPreview(html) {
     document.getElementById('fs-title').innerText = "HTML Preview";
     document.getElementById('fs-export-pdf-btn').style.display = 'inline-flex';
     const container = document.getElementById('fs-content'); container.innerHTML = '';
-    const iframe = document.createElement('iframe'); iframe.id = 'fs-iframe'; iframe.style.cssText = "width:100%; height:100%; border:none; background:#fff;";
+    const iframe = document.createElement('iframe'); iframe.id = 'fs-iframe'; iframe.style.cssText = "width:100%; height:100%; border:none; background:#fff; overflow:auto;";
     container.appendChild(iframe); openModal('fullscreen-modal');
-    setTimeout(() => { iframe.contentWindow.document.open(); iframe.contentWindow.document.write(html); iframe.contentWindow.document.close(); }, 50);
+    setTimeout(() => { const iDoc = iframe.contentWindow.document; const withViewport = html.includes('<meta') ? html : html.replace('<head>', '<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">'); iDoc.open(); iDoc.write(withViewport); iDoc.close(); }, 50);
 }
 
 function exportHtmlAsPdf() {
