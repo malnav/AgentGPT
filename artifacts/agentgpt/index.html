@@ -696,9 +696,13 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 
     <div id="ctx-pane-gmail" style="flex:1; overflow:hidden; display:none; flex-direction:column; position:relative;">
-        <div style="display:flex; align-items:center; gap:6px; padding:4px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
+        <div style="display:flex; align-items:center; gap:4px; padding:4px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
             <input type="checkbox" id="gmail-panel-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('panel',this.checked)">
-            <span style="flex:1; font-size:11px; color:#888; font-weight:600;">Select All</span>
+            <div style="display:flex; border:0.5px solid var(--border); border-radius:8px; overflow:hidden; flex-shrink:0;">
+                <span id="email-mailbox-inbox-panel" style="font-size:11px; padding:3px 8px; cursor:pointer; font-weight:700; background:var(--accent); color:#fff; transition:all 0.15s;" onclick="emailSwitchMailbox('INBOX')">Inbox</span>
+                <span id="email-mailbox-sent-panel" style="font-size:11px; padding:3px 8px; cursor:pointer; font-weight:700; background:transparent; color:var(--text); transition:all 0.15s; border-left:0.5px solid var(--border);" onclick="emailSwitchMailbox('Sent')">Sent</span>
+            </div>
+            <span style="flex:1;"></span>
             <span id="email-acct-chip-panel" class="chip" style="font-size:11px; padding:3px 9px; font-weight:700;" onclick="emailShowMultiPicker()">All ▾</span>
             <span class="chip" style="font-size:11px; padding:3px 9px;" onclick="gmailToggleSearch('panel')">🔍</span>
         </div>
@@ -992,9 +996,13 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
     </div>
     <div style="flex:1; overflow:hidden; display:flex; flex-direction:column; position:relative;">
-        <div style="display:flex; align-items:center; gap:6px; padding:5px 16px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
+        <div style="display:flex; align-items:center; gap:4px; padding:5px 16px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
             <input type="checkbox" id="gmail-modal-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('modal',this.checked)">
-            <span style="flex:1; font-size:12px; color:#888; font-weight:600;">Select All</span>
+            <div style="display:flex; border:0.5px solid var(--border); border-radius:8px; overflow:hidden; flex-shrink:0;">
+                <span id="email-mailbox-inbox-modal" style="font-size:11px; padding:3px 8px; cursor:pointer; font-weight:700; background:var(--accent); color:#fff; transition:all 0.15s;" onclick="emailSwitchMailbox('INBOX')">Inbox</span>
+                <span id="email-mailbox-sent-modal" style="font-size:11px; padding:3px 8px; cursor:pointer; font-weight:700; background:transparent; color:var(--text); transition:all 0.15s; border-left:0.5px solid var(--border);" onclick="emailSwitchMailbox('Sent')">Sent</span>
+            </div>
+            <span style="flex:1;"></span>
             <span id="email-acct-chip-modal" class="chip" style="font-size:11px; padding:3px 10px; font-weight:700;" onclick="emailShowMultiPicker()">All ▾</span>
             <span class="chip" style="font-size:11px; padding:3px 10px;" onclick="gmailToggleSearch('modal')">🔍</span>
         </div>
@@ -2742,6 +2750,7 @@ let gmailCurrentQuery = null;
 let gmailLoadingMore = false;
 let _gmailScrollObs = null;
 let selectedEmailAccountIds = [];
+let emailCurrentMailbox = 'INBOX';
 
 function emailGetAllAccounts() {
     const list = [];
@@ -2816,7 +2825,8 @@ async function emailFetchEmails(query) {
 async function emailFetchFromAccount(acct, query) {
     if(acct.type === 'gmail') {
         if(!gmailAccessToken) return [];
-        const q = query ? encodeURIComponent(query) : 'in%3Ainbox';
+        let baseQ = emailCurrentMailbox === 'Sent' ? 'in%3Asent' : 'in%3Ainbox';
+        const q = query ? encodeURIComponent(query) + (emailCurrentMailbox === 'Sent' ? '+in%3Asent' : '') : baseQ;
         try {
             const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25&q=${q}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
             if(!listRes.ok) { if(listRes.status === 401) { gmailAccessToken = null; } return []; }
@@ -2834,12 +2844,23 @@ async function emailFetchFromAccount(acct, query) {
         } catch(_) { return []; }
     } else {
         try {
-            const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: query || null, maxResults: 25 }) });
+            const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: query || null, maxResults: 25, mailbox: emailCurrentMailbox }) });
             if(!res.ok) return [];
             const data = await res.json();
             return (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name }));
         } catch(_) { return []; }
     }
+}
+
+function emailSwitchMailbox(mb) {
+    emailCurrentMailbox = mb;
+    ['email-mailbox-inbox-panel','email-mailbox-sent-panel','email-mailbox-inbox-modal','email-mailbox-sent-modal'].forEach(id => {
+        const el = document.getElementById(id); if(!el) return;
+        const isInbox = id.includes('inbox'); const isMb = (mb === 'INBOX') === isInbox;
+        el.style.background = isMb ? 'var(--accent)' : 'transparent';
+        el.style.color = isMb ? '#fff' : 'var(--text)';
+    });
+    emailFetchEmails(null);
 }
 
 function emailShowAddImap(editId) {
@@ -3992,7 +4013,7 @@ async function _doOpenComposeModal(mode) {
         document.getElementById('email-compose-reply-ref').style.display = 'none';
         const allAccts = emailGetAllAccounts();
         const fromSel = document.getElementById('email-compose-from');
-        if (allAccts.length > 1) {
+        if (allAccts.length > 0) {
             fromSel.innerHTML = allAccts.map(a => `<option value="${a.id}">${a.name || a.user || a.id}</option>`).join('');
             fromSel.style.display = '';
         } else {

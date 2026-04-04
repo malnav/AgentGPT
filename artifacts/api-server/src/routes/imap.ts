@@ -30,11 +30,19 @@ function addr(a: any) {
 }
 
 router.post("/imap/fetch", async (req, res) => {
-    const { host, port, user, pass, tls, query, maxResults = 25 } = req.body;
+    const { host, port, user, pass, tls, query, maxResults = 25, mailbox = "INBOX" } = req.body;
     if (!host || !user || !pass) return res.status(400).json({ error: "Missing required fields: host, user, pass" });
     try {
         const emails = await withImap({ host, port: parseInt(port) || (tls !== false ? 993 : 143), user, pass, tls: tls !== false }, async (client) => {
-            await client.mailboxOpen("INBOX");
+            const mailboxes = await client.list();
+            const mbNames = mailboxes.map((m: any) => m.path);
+            let resolvedMailbox = mailbox;
+            if (mailbox.toUpperCase() !== "INBOX") {
+                const sentCandidates = ["Sent", "Sent Items", "Sent Messages", "INBOX.Sent", "[Gmail]/Sent Mail"];
+                const wanted = mailbox === "Sent" ? sentCandidates : [mailbox];
+                resolvedMailbox = wanted.find(n => mbNames.some((mn: string) => mn.toLowerCase() === n.toLowerCase())) || mbNames.find((mn: string) => mn.toLowerCase().includes("sent")) || "INBOX";
+            }
+            await client.mailboxOpen(resolvedMailbox);
             let searchCriteria: any = { all: true };
             if (query) {
                 const q = query.trim();
