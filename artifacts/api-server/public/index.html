@@ -241,7 +241,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #chips-row { display: none; align-items: center; gap: 8px; margin-bottom: 6px; }
 #chips-row.has-chips { display: flex; }
 .input-wrapper {
-  position: relative;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 200;
   width: 100%;
   display: flex;
@@ -253,6 +256,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   border: 0.5px solid var(--glass-border);
   overflow: visible;
   box-shadow: var(--glass-shadow-md);
+  margin: 12px;
+  width: calc(100% - 24px);
+  pointer-events: auto;
 }
 #attachment-preview { display: none; padding: 8px 14px 0 14px; gap: 8px; overflow-x: auto; white-space: nowrap; border-bottom: 0.5px solid var(--border); scrollbar-width: none; border-top-left-radius: 22px; border-top-right-radius: 22px; }
 #attachment-preview::-webkit-scrollbar { display: none; }
@@ -1651,7 +1657,7 @@ async function resetCurrentSession() {
     chatHistory = newChat; document.getElementById('note-input').value = ""; lastCursorPos = null; cutIdx = CONFIG.def_ctx === 'none' ? -1 : CONTEXT_LINES.length - 1;
     sData.list.push({ id: newId, title: "Chat " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), msgs: newChat, var_id: newId, draft: "" });
     sData.current = newId; GLOBAL_DATASETS[newId] = { title: "Data Set " + newId.substring(newId.length-4), data: {} };
-    chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); refreshUI(); document.getElementById('note-input').focus(); await saveAll(); setTimeout(() => document.getElementById('note-input').focus(), 150);
+    chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); refreshUI(); document.getElementById('note-input').focus(); await saveAll(); setTimeout(() => { document.getElementById('vars-slide-panel').classList.add('open'); document.getElementById('note-input').focus(); }, 100);
 }
 
 function renderDatasetsList() {
