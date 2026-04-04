@@ -3474,8 +3474,10 @@ async function gmailPreview(i, src) {
             if(!r.ok) throw new Error("IMAP fetch failed");
             const d = await r.json();
             const bodyEl = document.getElementById(ids.body);
-            bodyEl.style.whiteSpace = 'pre-wrap';
-            bodyEl.textContent = d.body || em.snippet;
+            let bodyContent = d.body || em.snippet;
+            bodyContent = gmailStripQuotedReply(bodyContent);
+            if(bodyContent.includes('<') && bodyContent.includes('>')) { bodyEl.style.whiteSpace = 'normal'; bodyEl.innerHTML = gmailSanitizeHtml(bodyContent); }
+            else { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = bodyContent; }
         } else {
             const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}?format=full`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
             if(!r.ok) throw new Error("Failed to load");
@@ -3520,6 +3522,7 @@ function gmailExtractBody(payload, _depth) {
     return { text, html };
 }
 
+function gmailStripQuotedReply(body) { let lines = body.split('\n'); let cutOff = lines.findIndex(l => l.match(/^On .+ wrote:$|^>.*|^----+|^_+$|^From: |^Sent: |^To: /)); if(cutOff > 0) return lines.slice(0, cutOff).join('\n').trim(); return body; }
 function gmailSanitizeHtml(html) {
     const tmp = document.createElement('div');
     tmp.innerHTML = html;
