@@ -856,7 +856,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 </div>
 
-<div id="master-modal" class="modal">
+<div id="master-modal" class="modal" style="z-index:900;">
     <div class="modal-header"><h3>Settings Hub</h3><div onclick="closeModal('master-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
     <div class="modal-tabs">
         <button id="mtab-config" class="tab-btn active" onclick="switchMasterTab('config')">🔧 CONFIG</button>
@@ -989,7 +989,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 </div>
 
-<div id="gmail-modal" class="modal" style="z-index:280;">
+<div id="gmail-modal" class="modal" style="z-index:950;">
     <div class="modal-header" style="flex-direction:column; gap:0; align-items:stretch; padding:0;">
         <div style="display:flex; align-items:center; justify-content:space-between; padding:max(14px, env(safe-area-inset-top)) 16px 8px 16px;">
             <span style="font-size:16px; font-weight:800;">📧 Email</span>
