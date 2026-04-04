@@ -1745,7 +1745,7 @@ function renderSessionVariables() {
     roots.forEach(rk => { ordered.push({ k: rk, indent: false }); allKeys.forEach(ck => { if(meta[ck] && meta[ck].parent === rk) ordered.push({ k: ck, indent: true }); }); });
     allKeys.filter(k => !ordered.find(o => o.k === k)).forEach(k => ordered.push({ k, indent: false }));
     let html = ordered.map(({ k, indent }) => {
-        let vObj = vars[k]; if(typeof vObj === 'string') vObj = { value: vObj, locked: false }; let rawVal = vObj && vObj.value !== undefined ? vObj.value : ""; let valDisp = rawVal !== "" ? `<div style="font-size:12px; line-height:1.5; max-height:56px; overflow:hidden; opacity:0.8; margin-top:3px;">${rawVal}</div>` : `<div style="opacity:0.4; font-style:italic; font-size:12px; margin-top:3px;">Empty</div>`; let isLocked = vObj && vObj.locked;
+        let vObj = vars[k]; if(typeof vObj === 'string') vObj = { value: vObj, locked: false }; let rawVal = vObj && vObj.value !== undefined ? vObj.value : ""; let richHtml = rawVal !== "" ? formatVarValueRich(rawVal) : ''; let lineCount = rawVal ? (rawVal.split('<br>').length + (rawVal.match(/<ul/g)||[]).length) : 0; let isLong = lineCount > 4; let valDisp = rawVal !== "" ? `<div class="var-rich-val" data-vk-full="${k}" style="margin-top:4px; opacity:0.85;"><div class="var-rich-inner" id="vrv-${k}" style="${isLong ? 'max-height:68px; overflow:hidden;' : ''}">${richHtml}</div>${isLong ? `<span onclick="event.stopPropagation(); toggleVarExpand('${k}')" id="vrv-tog-${k}" style="display:inline-block; margin-top:2px; font-size:10px; color:var(--accent); cursor:pointer; font-weight:600;">▼ Show more</span>` : ''}</div>` : `<div style="opacity:0.4; font-style:italic; font-size:12px; margin-top:3px;">Empty</div>`; let isLocked = vObj && vObj.locked;
         let parentKey = meta[k] && meta[k].parent;
         let capName = k.charAt(0).toUpperCase() + k.slice(1);
         let rowBg = isLocked ? 'background:rgba(0,122,255,0.07);' : '';
@@ -1761,6 +1761,7 @@ function renderSessionVariables() {
     initVarDragDrop();
 }
 
+function toggleVarExpand(k) { let inner = document.getElementById('vrv-' + k); let tog = document.getElementById('vrv-tog-' + k); if(!inner || !tog) return; let expanded = inner.dataset.expanded === '1'; if(expanded) { inner.style.maxHeight = '68px'; inner.style.overflow = 'hidden'; tog.textContent = '▼ Show more'; inner.dataset.expanded = '0'; } else { inner.style.maxHeight = ''; inner.style.overflow = ''; tog.textContent = '▲ Show less'; inner.dataset.expanded = '1'; } }
 function initVarDragDrop() {
     const list = document.querySelector('#session-vars-list ul'); if(!list) return;
     let fromKey = null, dragging = null, dropMode = null;
@@ -1884,6 +1885,42 @@ async function toggleVarLock(key) { let vars = getActiveVars(); if(typeof vars[k
 async function deleteVariable(key) { openConfirm(`Delete variable {{${key}}} from profile?`, async () => { let p = AI_PROFILES.find(x => x.label === activeProfileLabel); if(p.expected_vars) p.expected_vars = p.expected_vars.filter(v => v !== key); let vars = getActiveVars(); if(vars) delete vars[key]; await saveAll(); renderSessionVariables(); }); }
 function sanitizeVarName(raw) { return raw.trim().replace(/[^a-zA-Z0-9 ]/g, '').replace(/\s+/g, ' ').trim(); }
 function varValueToText(v) { if(!v) return ""; let tmp = document.createElement('div'); tmp.innerHTML = v; return tmp.innerText || tmp.textContent || ""; }
+function formatVarValueRich(html) {
+  if(!html) return '';
+  let tmp = document.createElement('div'); tmp.innerHTML = html;
+  let text = tmp.innerText || tmp.textContent || '';
+  let lines = text.split(/\n/);
+  let inList = false;
+  let out = '';
+  for(let i = 0; i < lines.length; i++) {
+    let ln = lines[i];
+    let isBullet = /^[\-\*•·]\s+/.test(ln);
+    let isNum = /^\d+\.\s+/.test(ln);
+    if(isBullet || isNum) {
+      if(!inList) { out += '<ul style="margin:3px 0 3px 14px; padding:0; list-style:disc;">'; inList = true; }
+      let t = ln.replace(/^[\-\*•·]\s+/, '').replace(/^\d+\.\s+/, '');
+      t = applyInlineRich(t);
+      out += '<li style="margin:1px 0; font-size:12px; line-height:1.5;">' + t + '</li>';
+    } else {
+      if(inList) { out += '</ul>'; inList = false; }
+      if(ln.trim() === '') { out += '<div style="height:4px;"></div>'; continue; }
+      let styled = applyInlineRich(ln);
+      let isHeader = /^[A-Z][^a-z]*:$/.test(ln.trim()) || (ln.trim().endsWith(':') && ln.trim().length < 40 && !ln.includes(' '));
+      if(isHeader) out += '<div style="font-size:10px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:0.04em; margin-top:6px; margin-bottom:1px;">' + ln.trim().replace(/:$/, '') + '</div>';
+      else out += '<div style="font-size:12px; line-height:1.55;">' + styled + '</div>';
+    }
+  }
+  if(inList) out += '</ul>';
+  return out;
+}
+function applyInlineRich(t) {
+  t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  t = t.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" style="color:var(--accent); text-decoration:none; word-break:break-all;">$1</a>');
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/\*([^*]+?)\*/g, '<em style="color:#888;">$1</em>');
+  t = t.replace(/`([^`]+?)`/g, '<code style="background:rgba(0,0,0,0.08); padding:0 3px; border-radius:3px; font-family:monospace; font-size:11px;">$1</code>');
+  return t;
+}
 async function addManualVariable() { let key = await promptUserAsync("Enter variable name (e.g. orderTotal):"); if(!key) return; key = sanitizeVarName(key); if(!key) return; let p = AI_PROFILES.find(x => x.label === activeProfileLabel); if(!p.expected_vars) p.expected_vars = []; if(!p.expected_vars.includes(key)) p.expected_vars.push(key); await saveAll(); renderSessionVariables(); editVariableValue(key); }
 function getChatModel() { return document.getElementById('chatModel').value; }
 function getTitleModel()   { return CONFIG.title_model   || getChatModel(); }
