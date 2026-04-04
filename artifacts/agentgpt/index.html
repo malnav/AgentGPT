@@ -843,6 +843,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div onclick="redoStateAction()" style="display:none;" title="Redo">↪️</div>
             </div>
             <div style="display:flex; gap:10px; align-items:center;">
+                <div onclick="pickDatasetQuick()" style="cursor:pointer; font-size:14px; width:31px; height:27px; border-radius:12px; display:flex; align-items:center; justify-content:center; border:0.5px solid var(--glass-border); background:var(--glass); backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); box-shadow:var(--glass-shadow);" title="Change Dataset">📊</div>
                 <div id="ctx-indicator" onclick="toggleAllContext()" style="cursor:pointer; font-size:14px; width:31px; height:27px; border-radius:12px; display:flex; align-items:center; justify-content:center; border:0.5px solid var(--glass-border); background:var(--glass); backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); box-shadow:var(--glass-shadow);" title="Toggle Context">☁️</div>
                 <div onclick="resetCurrentSession()" style="cursor:pointer; font-size:14px; width:31px; height:27px; border-radius:12px; display:flex; align-items:center; justify-content:center; border:0.5px solid var(--glass-border); background:var(--glass); backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); box-shadow:var(--glass-shadow);" title="New Chat">📝</div>
                 <button class="send-btn" id="send-btn-el" onclick="sendToAI()" title="Send">↑</button>
@@ -1182,6 +1183,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </div>
 
 <div id="var-picker-modal" class="modal" style="z-index: 500;"><div class="modal-header"><h3>Select Variable</h3><div onclick="closeModal('var-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="var-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div>
+
+<div id="datasets-picker-modal" class="modal" style="z-index: 505;"><div class="modal-header"><h3>Select Data Set</h3><div onclick="closeModal('datasets-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="datasets-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div>
 
 <div id="var-edit-modal" class="modal" style="z-index: 510;">
     <div class="modal-header"><h3 style="color:var(--accent);">Edit Variable</h3><div onclick="closeModal('var-edit-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
@@ -1706,6 +1709,8 @@ async function openDatasetFirstChat(vid) {
     await jumpToSession(first.pName, first.c.id);
     setTimeout(() => { document.getElementById('vars-slide-panel').classList.add('open'); }, 100);
 }
+
+function pickDatasetQuick() { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur) return; let sortedVids = Object.keys(GLOBAL_DATASETS).sort((a,b) => { let ua = GLOBAL_DATASETS[a]._updated || Number(a); let ub = GLOBAL_DATASETS[b]._updated || Number(b); return ub - ua; }); let html = sortedVids.map(vid => { let ds = GLOBAL_DATASETS[vid]; let isCurrent = String(vid) === String(cur.var_id); return `<li class="list-item ${isCurrent ? 'in-cut' : ''}" onclick="linkToDataset('${vid}'); closeAllPanels();" style="cursor:pointer;"><div style="flex:1;"><strong>${ds.title}</strong><div style="font-size:11px; color:#888; margin-top:2px;">ID: ${String(vid).substring(String(vid).length-4)}</div></div>${isCurrent ? '<span style="color:var(--accent); font-size:13px;">✓</span>' : ''}</li>`; }).join(''); html += `<li style="padding:12px 16px; text-align:center; border-top:0.5px solid var(--border);"><button class="chip" onclick="createNewDataset(); closeAllPanels();" style="background:var(--accent); color:#fff; padding:8px 14px; font-size:13px;">+ New Data Set</button></li>`; document.getElementById('datasets-picker-list').innerHTML = html; openModal('datasets-picker-modal'); }
 
 async function linkToDataset(vid) { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); cur.var_id = vid; await saveAll(); renderDatasetsList(); renderSessionVariables(); notify("Linked to Data Set!", "#34c759"); }
 async function renameDataset(vid) { let ds = GLOBAL_DATASETS[vid]; let newName = await promptUserAsync("Rename Data Set:", ds.title); if(newName) { ds.title = newName; await saveAll(); renderDatasetsList(); renderSessionVariables(); } }
