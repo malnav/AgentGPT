@@ -648,7 +648,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <button class="chip" style="font-size:18px; padding:2px 10px; background:var(--accent); color:#fff; font-weight:bold;" onclick="addTodo()" title="New Todo">+</button>
         </div>
     </div>
-    <div id="vview-vars" style="flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column;">
+    <div id="vview-vars" style="flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; max-height:calc(100vh - 380px);">
         <div style="font-size:12px; color:var(--accent); margin-bottom:8px; cursor:pointer; font-weight:700;" onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); switchWorkspaceTab('data'); renderDatasetsList();"><span id="active-dataset-title">Data Set</span> ▶</div>
         <ul id="session-vars-list" style="list-style:none; padding:0; margin:0; background:var(--sec-bg); border-radius:8px;"></ul>
         <hr style="border:none; border-top:1px solid var(--border); margin: 16px 0;">
@@ -658,7 +658,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <button class="chip" style="border:1px dashed var(--border); color:var(--accent);" onclick="suggestVariablesAI()">🪄 AI Gen</button>
         </div>
     </div>
-    <div id="vview-todos" class="closed" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:6px;">
+    <div id="vview-todos" class="closed" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:6px; max-height:calc(100vh - 380px);">
         <div id="chat-todo-list" style="display:flex; flex-direction:column; gap:6px;"></div>
     </div>
 </div>
@@ -1651,7 +1651,7 @@ async function resetCurrentSession() {
     chatHistory = newChat; document.getElementById('note-input').value = ""; lastCursorPos = null; cutIdx = CONFIG.def_ctx === 'none' ? -1 : CONTEXT_LINES.length - 1;
     sData.list.push({ id: newId, title: "Chat " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), msgs: newChat, var_id: newId, draft: "" });
     sData.current = newId; GLOBAL_DATASETS[newId] = { title: "Data Set " + newId.substring(newId.length-4), data: {} };
-    chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); refreshUI(); document.getElementById('note-input').focus(); await saveAll(); setTimeout(() => document.getElementById('note-input').focus(), 150);
+    chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); refreshUI(); closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); switchWorkspaceTab('data'); renderDatasetsList(); document.getElementById('note-input').focus(); await saveAll(); setTimeout(() => document.getElementById('note-input').focus(), 150);
 }
 
 function renderDatasetsList() {
