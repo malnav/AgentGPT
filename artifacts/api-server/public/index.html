@@ -3522,7 +3522,7 @@ function gmailExtractBody(payload, _depth) {
     return { text, html };
 }
 
-function gmailStripQuotedReply(body) { let lines = body.split('\n'); let cutOff = lines.findIndex(l => l.match(/^On .+ wrote:$|^>.*|^----+|^_+$|^From: |^Sent: |^To: /)); if(cutOff > 0) return lines.slice(0, cutOff).join('\n').trim(); return body; }
+function gmailStripQuotedReply(body) { let lines = body.split('\n'); let cutOff = -1; for(let i = 0; i < lines.length; i++) { let l = lines[i].trim(); if(l.match(/^On .+,.*wrote:$|^On .+ at .+ wrote:$|^>|^-----+|^_____+|^From:\s|^Sent:\s|^To:\s|^Date:\s|^Subject:\s|^\[.*\]\s*\[external\]/i)) { cutOff = i; break; } } if(cutOff > 0) return lines.slice(0, cutOff).join('\n').trim(); return body; }
 function gmailSanitizeHtml(html) {
     const tmp = document.createElement('div');
     tmp.innerHTML = html;
