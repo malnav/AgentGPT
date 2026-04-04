@@ -36,13 +36,16 @@ router.post("/imap/fetch", async (req, res) => {
         const emails = await withImap({ host, port: parseInt(port) || (tls !== false ? 993 : 143), user, pass, tls: tls !== false }, async (client) => {
             const mailboxes = await client.list();
             const mbNames = mailboxes.map((m: any) => m.path);
+            console.log(`[IMAP] Available mailboxes:`, mbNames, `Requested: ${mailbox}`);
             let resolvedMailbox = mailbox;
             if (mailbox.toUpperCase() !== "INBOX") {
                 const sentCandidates = ["Sent", "Sent Items", "Sent Messages", "INBOX.Sent", "[Gmail]/Sent Mail"];
                 const wanted = mailbox === "Sent" ? sentCandidates : [mailbox];
                 resolvedMailbox = wanted.find(n => mbNames.some((mn: string) => mn.toLowerCase() === n.toLowerCase())) || mbNames.find((mn: string) => mn.toLowerCase().includes("sent")) || "INBOX";
+                console.log(`[IMAP] Sent candidates: ${sentCandidates.join(", ")} → resolved to: ${resolvedMailbox}`);
             }
             await client.mailboxOpen(resolvedMailbox);
+            console.log(`[IMAP] Opened mailbox: ${resolvedMailbox}`);
             let searchCriteria: any = { all: true };
             if (query) {
                 const q = query.trim();
