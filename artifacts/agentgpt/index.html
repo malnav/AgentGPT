@@ -3301,7 +3301,7 @@ async function emailFetchBody(em) {
     if(imapAcct) {
         try {
             const r = await fetch('/api/imap/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, uid: em.id }) });
-            if(r.ok) { const d = await r.json(); return d.body || ''; }
+            if(r.ok) { const d = await r.json(); if(d.body && typeof d.body === 'object') { return d.body.text || d.body.html || ''; } else { return d.body || ''; } }
         } catch(_) {}
         return em.snippet || '';
     }
