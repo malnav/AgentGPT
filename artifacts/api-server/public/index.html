@@ -1875,6 +1875,19 @@ function getSuggestModel() { return CONFIG.suggest_model || getChatModel(); }
 
 async function suggestVariablesAI() { if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30"); notify("Suggesting variables...", "#007aff"); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let extra = document.getElementById('ai-suggest-prompt').value; let sysPrompt = `Based on the profile instructions: "${p.text}", suggest a JSON array of 3 to 5 short variable names (use plain words with spaces if needed, e.g. "customer name", "order id") that would be useful to extract and track in conversations. Return ONLY a valid JSON array of strings. e.g. ["customer name","order id","total amount"]`; if(extra) sysPrompt += `\nUser Context/Requirement: ${extra}`; try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: getSuggestModel(), messages: [{role:"user", content: sysPrompt}] }) }); if(!res.ok) throw new Error("API Failure"); const d = await res.json(); let arr = JSON.parse(d.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim()); arr = arr.map(v => sanitizeVarName(v)).filter(v => v.length > 0); if(!p.expected_vars) p.expected_vars = []; let added = 0; arr.forEach(v => { if(!p.expected_vars.includes(v)) { p.expected_vars.push(v); added++; } }); await saveAll(); renderSessionVariables(); notify(`Added ${added} new variables!`, "#34c759"); document.getElementById('ai-suggest-prompt').value = ""; } catch(e) { notify("Failed to suggest.", "#ff3b30"); } }
 
+function _extractStrVal(v) {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'string') return v;
+    if (Array.isArray(v)) return v.map(i => _extractStrVal(i)).filter(Boolean).join(', ');
+    if (typeof v === 'object') {
+        if (v.value !== undefined) return _extractStrVal(v.value);
+        if (v.text !== undefined) return _extractStrVal(v.text);
+        if (v.content !== undefined) return _extractStrVal(v.content);
+        return Object.values(v).map(i => _extractStrVal(i)).filter(Boolean).join('\n');
+    }
+    return String(v);
+}
+
 async function autoExtractVariables(isManual = false) {
     if(!CONFIG.ai_key) return; let p = AI_PROFILES.find(x => x.label === activeProfileLabel);
     if(!p || !p.expected_vars || p.expected_vars.length === 0) { if(isManual) notify("No variables defined to extract.", "#ff3b30"); return; }
@@ -1893,7 +1906,7 @@ async function autoExtractVariables(isManual = false) {
         let rawContent = d.choices[0].message.content.trim(); let extractedObj;
         try { extractedObj = JSON.parse(rawContent); } catch(parseErr) { const match = rawContent.match(/\{[\s\S]*\}/); if(match) extractedObj = JSON.parse(match[0]); else throw new Error("Could not parse JSON."); }
         let updatedList = [];
-        for(let k of unlockedVars) { if(extractedObj[k] && String(extractedObj[k]).trim() !== "") { let rawStr = String(extractedObj[k]); let htmlVal = rawStr.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); let oldVal = vars[k] && typeof vars[k] === 'object' ? vars[k].value : vars[k]; if(oldVal !== htmlVal) { vars[k] = { value: htmlVal, locked: false }; updatedList.push(k); } } }
+        for(let k of unlockedVars) { if(extractedObj[k] != null && extractedObj[k] !== '') { let rawStr = _extractStrVal(extractedObj[k]); if(!rawStr.trim()) continue; let htmlVal = rawStr.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); let oldVal = vars[k] && typeof vars[k] === 'object' ? vars[k].value : vars[k]; if(oldVal !== htmlVal) { vars[k] = { value: htmlVal, locked: false }; updatedList.push(k); } } }
         if(updatedList.length > 0) { await saveAll(); renderSessionVariables(); await generateDatasetTitleAI(cur.var_id); notify(`Variables updated: ${updatedList.join(', ')}`, "#34c759", 4000); addLog("VARS", "Auto-Updated", updatedList); } else { if(isManual) notify("No new data found.", "#888"); }
     } catch(e) { if(isManual) notify("Extraction failed.", "#ff3b30"); addLog("VARS", "Extract Fail", e.message); }
 }
