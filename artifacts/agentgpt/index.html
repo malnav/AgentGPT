@@ -568,12 +568,16 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </head>
 <body>
 
-<div id="init-sync-overlay" style="position:fixed; top:0; left:0; right:0; height:3px; z-index:9999; overflow:hidden; pointer-events:none; transition:opacity 0.5s;">
+<div id="init-sync-overlay" style="position:fixed; bottom:0; left:0; right:0; height:3px; z-index:9999; overflow:hidden; pointer-events:none; transition:opacity 0.5s;">
     <div id="init-overlay-bar" style="height:100%; width:0%; background:var(--accent); transition:width 0.4s ease; animation:initBarAnim 20s ease-out forwards;"></div>
 </div>
 <span id="init-overlay-label" style="display:none;"></span>
 <div id="toast"></div>
-<div id="sync-indicator" style="display:none; position:fixed; right:14px; bottom:76px; z-index:299; align-items:center; gap:6px; background:rgba(30,30,40,0.82); backdrop-filter:blur(14px) saturate(1.8); -webkit-backdrop-filter:blur(14px) saturate(1.8); border:0.5px solid rgba(255,255,255,0.13); border-radius:20px; padding:5px 11px 5px 8px; font-size:11px; color:rgba(255,255,255,0.85); pointer-events:none; box-shadow:0 2px 12px rgba(0,0,0,0.25); transition:opacity 0.4s, transform 0.4s;"><span id="sync-spinner" style="display:inline-block; font-size:12px; animation:spin 1s linear infinite;">↻</span><span id="sync-label">Syncing…</span></div>
+<div id="sync-indicator" style="display:none; position:fixed; bottom:0; left:0; right:0; height:3px; z-index:9998; overflow:hidden; pointer-events:none; transition:opacity 0.4s;">
+    <div id="sync-bar-fill" style="height:100%; width:0%; background:var(--accent);"></div>
+</div>
+<span id="sync-spinner" style="display:none;"></span>
+<span id="sync-label" style="display:none;"></span>
 
 <input type="file" id="attach-cam" accept="image/*" capture="environment" style="display:none;" tabindex="-1" onchange="handleAttachments(event)">
 <input type="file" id="attach-img" accept="image/*" multiple style="display:none;" tabindex="-1" onchange="handleAttachments(event)">
@@ -2614,24 +2618,23 @@ function showSyncIndicator() {
     if(!CONFIG.fb_api || !CONFIG.fb_project) return;
     clearTimeout(_syncIndicatorHideTimer);
     const el = document.getElementById('sync-indicator');
-    if (!el) return;
-    el.style.display = 'flex';
-    el.style.opacity = '1';
-    el.style.transform = 'translateY(0)';
-    document.getElementById('sync-label').textContent = 'Syncing…';
-    document.getElementById('sync-spinner').style.animation = 'spin 1s linear infinite';
+    const fill = document.getElementById('sync-bar-fill');
+    if (!el || !fill) return;
+    fill.style.cssText = 'height:100%; width:0%; background:var(--accent); transition:none;';
+    el.style.display = 'block'; el.style.opacity = '1';
+    requestAnimationFrame(() => { requestAnimationFrame(() => { fill.style.transition = 'width 2.5s ease-out'; fill.style.width = '72%'; }); });
 }
 function hideSyncIndicator(ok) {
     const el = document.getElementById('sync-indicator');
+    const fill = document.getElementById('sync-bar-fill');
     if (!el || el.style.display === 'none') return;
-    document.getElementById('sync-label').textContent = ok ? 'Synced ✓' : 'Sync failed';
-    document.getElementById('sync-spinner').style.animation = 'none';
-    document.getElementById('sync-spinner').textContent = ok ? '☁️' : '⚠️';
+    fill.style.transition = 'width 0.25s ease, background 0.15s ease';
+    fill.style.background = ok ? 'var(--accent)' : '#ff3b30';
+    fill.style.width = '100%';
     _syncIndicatorHideTimer = setTimeout(() => {
         el.style.opacity = '0';
-        el.style.transform = 'translateY(6px)';
-        setTimeout(() => { el.style.display = 'none'; el.style.opacity = '1'; el.style.transform = 'translateY(0)'; document.getElementById('sync-spinner').textContent = '↻'; document.getElementById('sync-spinner').style.animation = 'spin 1s linear infinite'; }, 420);
-    }, 1800);
+        setTimeout(() => { el.style.display = 'none'; el.style.opacity = '1'; }, 440);
+    }, ok ? 600 : 1400);
 }
 
 function triggerAutoSync() {
