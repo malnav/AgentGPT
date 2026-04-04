@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
+import nodemailer from "nodemailer";
 
 const router = Router();
 
@@ -94,6 +95,30 @@ router.post("/imap/message", async (req, res) => {
         res.json({ body });
     } catch (e: any) {
         res.status(500).json({ error: e.message || "Failed to fetch message" });
+    }
+});
+
+router.post("/imap/send", async (req, res) => {
+    const { host, port, user, pass, tls, to, subject, text, html } = req.body;
+    if (!host || !user || !pass || !to || !subject) return res.status(400).json({ error: "Missing required fields: host, user, pass, to, subject" });
+    try {
+        const transporter = nodemailer.createTransport({
+            host: host,
+            port: parseInt(port) || (tls !== false ? 587 : 25),
+            secure: tls === true && parseInt(port) === 465,
+            auth: { user: user, pass: pass },
+            connectionTimeout: 15000,
+        });
+        await transporter.sendMail({
+            from: user,
+            to: to,
+            subject: subject,
+            text: text || undefined,
+            html: html || undefined,
+        });
+        res.json({ success: true, message: "Email sent" });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message || "Failed to send email" });
     }
 });
 
