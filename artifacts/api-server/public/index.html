@@ -1965,6 +1965,13 @@ const AI_PROMPT_DEFS = [
   { key: 'chat_title', label: '💬 Chat Title', desc: 'Prompt for generateChatTitleAI — auto-generates a session title.' },
   { key: 'ds_title', label: '📦 Dataset Title', desc: 'Prompt for generateDatasetTitleAI — use [DATA] for variable values JSON.' }
 ];
+const AI_PROMPT_PLACEHOLDERS = {
+  todos_gen: 'Based on this conversation, extract or suggest action items.\nReturn ONLY a JSON array like: [{"text":"Item 1","date":"2026-04-01"},{"text":"Item 2"}]',
+  var_suggest: 'Based on [PROFILE], suggest 3-5 variable names.\nReturn ONLY a JSON array like: ["name", "email", "phone"]',
+  var_extract: 'Extract values for [VARS] from the conversation.\nReturn ONLY a JSON object like: {"name": "John", "email": "john@example.com"}',
+  chat_title: 'Summarize these messages into a very short title (2-5 words max).\nReturn ONLY the title text without quotes.',
+  ds_title: 'Generate a short title (2-5 words) for this data: [DATA]\nReturn ONLY the title text without quotes.'
+};
 function renderAiPromptCards() {
   const mH = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join('');
   document.getElementById('ai-prompt-cards').innerHTML = AI_PROMPT_DEFS.map(def => {
@@ -1981,7 +1988,7 @@ function renderAiPromptCards() {
         <select id="ai-prompt-model-${def.key}" class="pp-input" style="flex:1; font-size:11px; margin:0;" onchange="saveAiPromptSetting('${def.key}')">${modelOpts}</select>
       </div>
       <div style="padding:0 14px 12px;">
-        <textarea id="ai-prompt-txt-${def.key}" class="pp-input" style="height:90px; font-size:11px; font-family:monospace; line-height:1.5;" oninput="saveAiPromptSetting('${def.key}')">${stored.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        <textarea id="ai-prompt-txt-${def.key}" class="pp-input" style="height:90px; font-size:11px; font-family:monospace; line-height:1.5;" placeholder="${(AI_PROMPT_PLACEHOLDERS[def.key] || '').replace(/"/g, '&quot;')}" oninput="saveAiPromptSetting('${def.key}')">${stored.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
       </div>
     </div>`;
   }).join('');
