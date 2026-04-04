@@ -1198,6 +1198,11 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <div id="var-picker-modal" class="modal" style="z-index: 500;"><div class="modal-header"><h3>Select Variable</h3><div onclick="closeModal('var-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="var-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div>
 
+<div id="var-menu-modal" class="modal" style="z-index: 510;">
+    <div class="modal-header"><h3 style="color:var(--accent);">Variable Actions</h3><div onclick="closeModal('var-menu-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
+    <div class="modal-content"><div id="var-menu-modal-content"></div></div>
+</div>
+
 <div id="datasets-picker-modal" class="modal" style="z-index: 505;"><div class="modal-header"><h3>Select Data Set</h3><div onclick="closeModal('datasets-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="datasets-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div>
 
 <div id="var-edit-modal" class="modal" style="z-index: 510;">
@@ -1761,6 +1766,26 @@ function renderSessionVariables() {
     initVarDragDrop();
 }
 
+function openVarMenu(k) {
+  let p = AI_PROFILES.find(x => x.label === activeProfileLabel);
+  let vars = getActiveVars();
+  let vObj = vars[k];
+  if(typeof vObj === 'string') vObj = { value: vObj, locked: false };
+  let isLocked = vObj && vObj.locked;
+  let sData = getSessions();
+  let cur = sData.list.find(x => String(x.id) === String(sData.current));
+  let activeDs = GLOBAL_DATASETS[cur.var_id];
+  let isDateVar = activeDs && activeDs.cal_date_var === k;
+  let html = `
+    <div style="padding:12px 0;"><strong style="font-size:13px;">Actions for <code style="font-family:monospace;">${k}</code></strong></div>
+    <button class="chip" style="width:100%; text-align:left; padding:10px 14px; background:transparent; border:0.5px solid var(--border); border-radius:8px; margin-bottom:8px; cursor:pointer; font-size:12px; color:var(--text);" onclick="event.stopPropagation(); toggleCalDateVar('${k}'); closeModal('var-menu-modal'); openVarMenu('${k}');">📅 ${isDateVar ? 'Remove from' : 'Set as'} Calendar Date</button>
+    <button class="chip" style="width:100%; text-align:left; padding:10px 14px; background:transparent; border:0.5px solid var(--border); border-radius:8px; margin-bottom:8px; cursor:pointer; font-size:12px; color:var(--text);" onclick="event.stopPropagation(); toggleVarLock('${k}'); closeModal('var-menu-modal'); openVarMenu('${k}');">🔐 ${isLocked ? 'Unlock' : 'Lock'} Value</button>
+    <button class="chip" style="width:100%; text-align:left; padding:10px 14px; background:transparent; border:0.5px solid var(--border); border-radius:8px; margin-bottom:8px; cursor:pointer; font-size:12px; color:var(--text);" onclick="event.stopPropagation(); openSetVarParent('${k}'); closeModal('var-menu-modal');">⤵️ Set Parent</button>
+    <button class="chip" style="width:100%; text-align:left; padding:10px 14px; background:transparent; border:0.5px solid var(--border); border-radius:8px; border-color:#ff3b30; color:#ff3b30; cursor:pointer; font-size:12px;" onclick="event.stopPropagation(); deleteVariable('${k}'); closeModal('var-menu-modal');">🗑️ Delete</button>
+  `;
+  document.getElementById('var-menu-modal-content').innerHTML = html;
+  openModal('var-menu-modal');
+}
 function toggleVarExpand(k) { let inner = document.getElementById('vrv-' + k); let tog = document.getElementById('vrv-tog-' + k); if(!inner || !tog) return; let expanded = inner.dataset.expanded === '1'; if(expanded) { inner.style.maxHeight = '68px'; inner.style.overflow = 'hidden'; tog.textContent = '▼ Show more'; inner.dataset.expanded = '0'; } else { inner.style.maxHeight = ''; inner.style.overflow = ''; tog.textContent = '▲ Show less'; inner.dataset.expanded = '1'; } }
 function initVarDragDrop() {
     const list = document.querySelector('#session-vars-list ul'); if(!list) return;
