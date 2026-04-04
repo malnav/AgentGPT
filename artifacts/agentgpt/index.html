@@ -3474,10 +3474,7 @@ async function gmailPreview(i, src) {
             if(!r.ok) throw new Error("IMAP fetch failed");
             const d = await r.json();
             const bodyEl = document.getElementById(ids.body);
-            let bodyContent = d.body || em.snippet;
-            bodyContent = gmailStripQuotedReply(bodyContent);
-            if(bodyContent.includes('<') && bodyContent.includes('>')) { bodyEl.style.whiteSpace = 'normal'; bodyEl.innerHTML = gmailSanitizeHtml(bodyContent); }
-            else { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = bodyContent; }
+            let bodyContent = ''; if(d.body && typeof d.body === 'object') { if(d.body.html) { bodyContent = d.body.html; bodyEl.style.whiteSpace = 'normal'; bodyEl.innerHTML = gmailSanitizeHtml(gmailStripQuotedHtml(bodyContent)); } else if(d.body.text) { bodyContent = d.body.text; bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = gmailStripQuotedReply(bodyContent); } } else if(d.body) { bodyContent = d.body; bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = gmailStripQuotedReply(bodyContent); } else { bodyEl.textContent = em.snippet; }
         } else {
             const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}?format=full`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
             if(!r.ok) throw new Error("Failed to load");
@@ -3523,6 +3520,7 @@ function gmailExtractBody(payload, _depth) {
 }
 
 function gmailStripQuotedReply(body) { let lines = body.split('\n'); let cutOff = -1; for(let i = 0; i < lines.length; i++) { let l = lines[i].trim(); if(l.match(/^On .+,.*wrote:$|^On .+ at .+ wrote:$|^>|^-----+|^_____+|^From:\s|^Sent:\s|^To:\s|^Date:\s|^Subject:\s|^\[.*\]\s*\[external\]/i)) { cutOff = i; break; } } if(cutOff > 0) return lines.slice(0, cutOff).join('\n').trim(); return body; }
+function gmailStripQuotedHtml(html) { let tmp = document.createElement('div'); tmp.innerHTML = html; let walkNodes = (node, depth) => { if(depth > 50) return true; for(let i = node.childNodes.length - 1; i >= 0; i--) { let child = node.childNodes[i]; if(child.nodeType === 3) { let t = child.textContent.trim(); if(t.match(/^On .+,.*wrote:$|^On .+ at .+ wrote:$|^From:|^Sent:|^To:|^Date:|^Subject:|^\[.*\]\s*\[external\]/i)) { return true; } } else if(child.nodeType === 1) { let el = child; if(el.tagName === 'BLOCKQUOTE' || (el.className||'').includes('quote') || (el.getAttribute('style')||'').includes('border-left')) { return true; } if(walkNodes(child, (depth||0) + 1)) { if(el.parentNode) el.parentNode.removeChild(el); return false; } } } return false; }; walkNodes(tmp, 0); return tmp.innerHTML; }
 function gmailSanitizeHtml(html) {
     const tmp = document.createElement('div');
     tmp.innerHTML = html;

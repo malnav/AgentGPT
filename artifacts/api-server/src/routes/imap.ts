@@ -80,20 +80,16 @@ router.post("/imap/message", async (req, res) => {
     const { host, port, user, pass, tls, uid } = req.body;
     if (!host || !user || !pass || !uid) return res.status(400).json({ error: "Missing required fields" });
     try {
-        const decodeHtmlEntities = (str: string) => {
-            const map: { [k: string]: string } = { '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&apos;': "'" };
-            return str.replace(/&[a-z]+;/gi, (m) => map[m] || m).replace(/&#(\d+);/g, (m, c) => String.fromCharCode(parseInt(c))).replace(/&#x([0-9a-f]+);/gi, (m, c) => String.fromCharCode(parseInt(c, 16)));
-        };
         const body = await withImap({ host, port: parseInt(port) || (tls !== false ? 993 : 143), user, pass, tls: tls !== false }, async (client) => {
             await client.mailboxOpen("INBOX");
-            let text = "";
+            let text = "", html = "";
             for await (const msg of client.fetch([parseInt(uid)], { source: true }, { uid: true })) {
                 const parsed = await simpleParser(msg.source as any);
+                if(parsed.html) { html = parsed.html; }
                 if(parsed.text) { text = parsed.text; }
-                else if(parsed.html) { text = parsed.html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '); text = decodeHtmlEntities(text).trim(); }
                 break;
             }
-            return text;
+            return { text, html };
         });
         res.json({ body });
     } catch (e: any) {
