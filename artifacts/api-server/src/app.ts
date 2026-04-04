@@ -33,12 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api", router);
 
 const publicDir = path.resolve("public");
-app.use("/app", (_req, res, next) => {
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  next();
-}, express.static(publicDir));
+app.use("/app", express.static(publicDir));
 app.get("/app", (_req, res) => { res.sendFile(path.join(publicDir, "index.html")); });
 
 export default app;
