@@ -1754,7 +1754,7 @@ function renderSessionVariables() {
         let indentMargin = indent ? 'margin-left:12px;' : '';
         let parentPad = parentKey ? '12px' : '6px';
         let isDateVar = activeDs && activeDs.cal_date_var === k;
-        return `<li data-vk="${k}" style="display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; padding:${parentPad} 0; border-bottom:0.5px solid var(--border); transition:background 0.15s; ${rowBg}${borderL}${pl}${indentMargin}"><div class="var-handle" style="color:#bbb; font-size:15px; padding:2px 8px 0 0; cursor:grab; flex-shrink:0; user-select:none; touch-action:none;">⠿</div><div style="flex:1; word-break:break-word; cursor:pointer; min-width:0;" onclick="editVariableValue('${k}')"><strong style="color:${isLocked ? 'var(--accent)' : 'var(--text)'};">${capName}</strong>${isDateVar ? '<span style="font-size:10px; color:var(--accent); font-weight:700; margin-left:5px;">📅 date</span>' : ''}${valDisp}</div><div style="display:flex; gap:4px; flex-shrink:0;"><div style="cursor:pointer; font-size:14px; padding:0 4px; padding-top:2px; color:${isDateVar ? 'var(--accent)' : '#888'}; opacity:${isDateVar ? '1' : '0.45'};" onclick="event.stopPropagation(); toggleCalDateVar('${k}')" title="Set as calendar date">📅</div><div style="cursor:pointer; font-size:18px; padding:0 4px; padding-top:1px; color:${isLocked ? 'var(--accent)' : '#888'};" onclick="event.stopPropagation(); toggleVarLock('${k}')">${isLocked ? '🔒' : '🔓'}</div><div style="cursor:pointer; opacity:0.45; padding:0 4px; padding-top:2px; font-size:13px;" onclick="event.stopPropagation(); openSetVarParent('${k}')" title="Set parent">⤵</div><div style="cursor:pointer; opacity:0.35; padding:0 4px; padding-top:2px;" onclick="event.stopPropagation(); deleteVariable('${k}')">🗑️</div></div></li>`;
+        return `<li data-vk="${k}" style="display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; padding:${parentPad} 0; border-bottom:0.5px solid var(--border); transition:background 0.15s; ${rowBg}${borderL}${pl}${indentMargin}"><div class="var-handle" style="color:#bbb; font-size:15px; padding:2px 8px 0 0; cursor:grab; flex-shrink:0; user-select:none; touch-action:none;">⠿</div><div style="flex:1; word-break:break-word; cursor:pointer; min-width:0;" onclick="editVariableValue('${k}')"><strong style="color:${isLocked ? 'var(--accent)' : 'var(--text)'};">${capName}</strong>${isDateVar ? '<span style="font-size:10px; color:var(--accent); font-weight:700; margin-left:5px;">📅 date</span>' : ''}${valDisp}</div><div style="flex-shrink:0; display:flex; align-items:flex-start; padding-top:2px;"><button onclick="event.stopPropagation(); showVarMenu('${k}', event, ${isLocked}, ${isDateVar})" style="background:none; border:none; cursor:pointer; font-size:18px; color:#999; padding:0 4px; line-height:1; border-radius:6px; transition:background 0.12s;" title="Actions">···</button></div></li>`;
     }).join('');
     if(html === "") html = `<div style="font-size:12px; color:#888; text-align:center; padding:10px;">No variables defined.</div>`;
     document.getElementById('session-vars-list').innerHTML = `<ul style="list-style:none; padding:0; margin:0;">${html}</ul>`;
@@ -1762,6 +1762,34 @@ function renderSessionVariables() {
 }
 
 function toggleVarExpand(k) { let inner = document.getElementById('vrv-' + k); let tog = document.getElementById('vrv-tog-' + k); if(!inner || !tog) return; let expanded = inner.dataset.expanded === '1'; if(expanded) { inner.style.maxHeight = '68px'; inner.style.overflow = 'hidden'; tog.textContent = '▼ Show more'; inner.dataset.expanded = '0'; } else { inner.style.maxHeight = ''; inner.style.overflow = ''; tog.textContent = '▲ Show less'; inner.dataset.expanded = '1'; } }
+function closeVarMenu() { const m = document.getElementById('var-action-menu'); if(m) m.remove(); document.removeEventListener('click', _varMenuOutside); }
+function _varMenuOutside(e) { const m = document.getElementById('var-action-menu'); if(m && !m.contains(e.target)) closeVarMenu(); }
+function showVarMenu(k, e, isLocked, isDateVar) {
+  closeVarMenu();
+  e.stopPropagation();
+  const capName = k.charAt(0).toUpperCase() + k.slice(1);
+  const items = [
+    { label: '✏️ Edit value',        action: `editVariableValue('${k}')` },
+    { label: isDateVar ? '📅 Unset calendar date' : '📅 Set as calendar date', action: `toggleCalDateVar('${k}')` },
+    { label: isLocked  ? '🔓 Unlock value'        : '🔒 Lock value',           action: `toggleVarLock('${k}')` },
+    { label: '⤵ Set parent variable', action: `openSetVarParent('${k}')` },
+    { label: '🗑️ Delete variable',   action: `deleteVariable('${k}')`, danger: true }
+  ];
+  const btn = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const menu = document.createElement('div');
+  menu.id = 'var-action-menu';
+  menu.style.cssText = `position:fixed; z-index:9999; background:var(--glass); backdrop-filter:blur(var(--blur)); -webkit-backdrop-filter:blur(var(--blur)); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow-lg,0 8px 32px rgba(0,0,0,0.18)); overflow:hidden; min-width:190px;`;
+  menu.innerHTML = `<div style="padding:8px 14px 6px; border-bottom:0.5px solid var(--border);"><strong style="font-size:11px; color:var(--accent);">${capName}</strong></div>` +
+    items.map(it => `<div onclick="closeVarMenu(); ${it.action};" style="padding:11px 16px; font-size:13px; cursor:pointer; color:${it.danger ? '#ff3b30' : 'var(--text)'}; border-bottom:0.5px solid var(--border); transition:background 0.1s;" onmouseenter="this.style.background='rgba(0,122,255,0.07)'" onmouseleave="this.style.background=''">${it.label}</div>`).join('');
+  document.body.appendChild(menu);
+  const mw = 200, mh = items.length * 44 + 38;
+  let top = rect.bottom + 4, left = rect.left - mw + rect.width;
+  if(top + mh > window.innerHeight - 10) top = rect.top - mh - 4;
+  if(left < 8) left = 8;
+  menu.style.top = top + 'px'; menu.style.left = left + 'px';
+  setTimeout(() => document.addEventListener('click', _varMenuOutside), 10);
+}
 function initVarDragDrop() {
     const list = document.querySelector('#session-vars-list ul'); if(!list) return;
     let fromKey = null, dragging = null, dropMode = null;
