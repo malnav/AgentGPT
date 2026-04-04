@@ -102,10 +102,13 @@ router.post("/imap/send", async (req, res) => {
     const { host, port, user, pass, tls, to, subject, text, html } = req.body;
     if (!host || !user || !pass || !to || !subject) return res.status(400).json({ error: "Missing required fields: host, user, pass, to, subject" });
     try {
+        const smtpHost = typeof host === "string" && host.startsWith("imap.") ? "smtp." + host.slice(5) : host;
+        const smtpPort = 587;
         const transporter = nodemailer.createTransport({
-            host: host,
-            port: parseInt(port) || (tls !== false ? 587 : 25),
-            secure: tls === true && parseInt(port) === 465,
+            host: smtpHost,
+            port: smtpPort,
+            secure: false,
+            requireTLS: true,
             auth: { user: user, pass: pass },
             connectionTimeout: 15000,
         });
