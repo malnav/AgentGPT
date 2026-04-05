@@ -3654,7 +3654,8 @@ async function gmailPreview(i, src) {
     gmailCurrentEmail = em;
     gmailCurrentIdx = i;
     const pb = document.getElementById('profile-bubble');
-    if(pb) pb.classList.add('email-mode');
+    const icon = document.getElementById('profile-bubble-icon');
+    if(pb) { pb.classList.add('email-mode'); if(icon) icon.textContent = '📨'; }
     ['panel','modal'].forEach(s => {
         const btn = document.getElementById(`gmail-preview-star-${s}`);
         if(btn) { btn.textContent = em._starred ? '⭐' : '☆'; btn.className = 'email-action-icon' + (em._starred ? ' starred' : ''); }
