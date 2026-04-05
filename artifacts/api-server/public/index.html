@@ -3653,9 +3653,6 @@ async function gmailPreview(i, src) {
     const em = gmailEmails[i];
     gmailCurrentEmail = em;
     gmailCurrentIdx = i;
-    const pb = document.getElementById('profile-bubble');
-    const icon = document.getElementById('profile-bubble-icon');
-    if(pb) { pb.classList.add('email-mode'); if(icon) icon.textContent = '📨'; }
     ['panel','modal'].forEach(s => {
         const btn = document.getElementById(`gmail-preview-star-${s}`);
         if(btn) { btn.textContent = em._starred ? '⭐' : '☆'; btn.className = 'email-action-icon' + (em._starred ? ' starred' : ''); }
@@ -3899,8 +3896,6 @@ function gmailClosePreview(src) {
     src = src || 'panel';
     document.getElementById(gmailIds(src).overlay).style.display = 'none';
     gmailCurrentEmail = null;
-    const pb = document.getElementById('profile-bubble');
-    if(pb) { pb.classList.remove('email-mode'); updateProfileBubble(); }
 }
 
 function gmailAddEmailToContext(splitByLine, src) {
@@ -4141,38 +4136,8 @@ function updateProfileBubble() {
 
 function profileBubbleTap(e) {
     if (e && e.stopPropagation) e.stopPropagation();
-    const pb = document.getElementById('profile-bubble');
-    if (pb && pb.classList.contains('email-mode')) { openEmailActionsMenu(); return; }
     const n = document.querySelectorAll('.gmail-chk:checked').length;
     if (n > 0) { openProfileBubbleMenu(); } else { const defLabel = CONFIG.def_profile || activeProfileLabel; startEmailChat(defLabel, 'none'); }
-}
-
-function openEmailActionsMenu() {
-    const listEl = document.getElementById('pbm-profile-list');
-    const subEl = document.getElementById('pbm-email-count');
-    const em = gmailCurrentEmail;
-    const panelOverlay = document.getElementById('gmail-preview-overlay');
-    const modalOverlay = document.getElementById('gmail-modal-preview');
-    const src = (panelOverlay && panelOverlay.style.display !== 'none') ? 'panel' : 'modal';
-    const starIcon = em && em._starred ? '⭐' : '☆';
-    listEl.innerHTML = `<div class="pbm-profile-row" onclick="closeProfileBubbleMenu(); gmailStarToggle(gmailCurrentIdx,'${src}')">${starIcon} ${em && em._starred ? 'Unstar' : 'Star'}</div><div class="pbm-profile-row" onclick="closeProfileBubbleMenu(); gmailMarkReadToggle(gmailCurrentIdx,'${src}')">✉️ Mark read</div><div class="pbm-profile-row" onclick="closeProfileBubbleMenu(); gmailArchiveEmail(gmailCurrentIdx,'${src}')">📥 Archive</div><div class="pbm-profile-row" onclick="closeProfileBubbleMenu(); gmailTrashEmail(gmailCurrentIdx,'${src}')" style="color:#ff3b30;">🗑️ Delete</div><div class="pbm-profile-row" onclick="closeProfileBubbleMenu(); gmailAddEmailToContext(false,'${src}')">+ Add context</div>`;
-    subEl.textContent = 'Email actions';
-    subEl.style.color = 'var(--accent)';
-    const menu = document.getElementById('profile-bubble-menu');
-    const backdrop = document.getElementById('profile-bubble-backdrop');
-    const bubble = document.getElementById('profile-bubble');
-    const bRect = bubble.getBoundingClientRect();
-    menu.style.display = 'block';
-    const mw = menu.offsetWidth || 260;
-    const mh = menu.offsetHeight || 280;
-    let left = bRect.left - mw - 10;
-    let top = bRect.top + bRect.height / 2 - mh / 2;
-    if (left < 8) left = bRect.right + 10;
-    if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
-    if (top < 8) top = 8;
-    if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
-    menu.style.left = left + 'px'; menu.style.top = top + 'px';
-    backdrop.style.display = 'block';
 }
 
 function openProfileBubbleMenu() {
