@@ -2087,7 +2087,7 @@ async function applyPrompt(idx) {
 function savePromptFromChat(idx) { let rawText = getTextFromContent(chatHistory[idx].content); if(rawText.includes("\n\n[CONTEXT]\n")) rawText = rawText.split("\n\n[CONTEXT]\n")[0]; closeAllPanels(); manageSection('prompts'); document.getElementById('entry-t').value = rawText; }
 function previewPayload(idx) { const msg = chatHistory[idx]; document.getElementById('preview-text').innerText = JSON.stringify(msg, null, 2); openModal('preview-modal'); }
 
-async function editChatMsg(idx) { let rawText = getTextFromContent(chatHistory[idx].content); if(rawText.includes("\n\n[CONTEXT]\n")) rawText = rawText.split("\n\n[CONTEXT]\n")[0]; document.getElementById('note-input').value = rawText; chatHistory = chatHistory.slice(0, idx); await saveAll(); renderChatHistory(); document.getElementById('note-input').focus(); sync(); }
+async function editChatMsg(idx) { let rawText = getTextFromContent(chatHistory[idx].content); if(rawText.includes("\n\n[CONTEXT]\n")) rawText = rawText.split("\n\n[CONTEXT]\n")[0]; document.getElementById('note-input').value = rawText; pendingAttachments = []; if(Array.isArray(chatHistory[idx].content)) { chatHistory[idx].content.forEach(c => { if((c.type === 'input_image' || c.type === 'image_url') && c.image_url) { let url = typeof c.image_url === 'string' ? c.image_url : (c.image_url && c.image_url.url); if(url) pendingAttachments.push({ type: 'image', data: url, name: 'image' }); } }); } renderAttachmentPreview(); chatHistory = chatHistory.slice(0, idx); await saveAll(); renderChatHistory(); document.getElementById('note-input').focus(); sync(); }
 
 function editAIResponse(idx) { 
     let msg = chatHistory[idx]; let currentText = getTextFromContent(msg.content);
