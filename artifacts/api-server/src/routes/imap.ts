@@ -29,6 +29,23 @@ function addr(a: any) {
     return name ? `${name} <${address}>` : address;
 }
 
+function resolveMailbox(mailbox: string, mbNames: string[]): { resolved: string; flaggedSearch: boolean } {
+    const mb = mailbox.trim();
+    if (mb.toUpperCase() === "INBOX") return { resolved: "INBOX", flaggedSearch: false };
+    if (mb.toUpperCase() === "STARRED") return { resolved: "INBOX", flaggedSearch: true };
+    const candidates: Record<string, string[]> = {
+        "Sent":  ["Sent", "Sent Items", "Sent Messages", "INBOX.Sent", "[Gmail]/Sent Mail"],
+        "Trash": ["Trash", "Deleted", "Deleted Items", "Deleted Messages", "[Gmail]/Trash", "INBOX.Trash", "INBOX.Deleted"],
+        "All":   ["[Gmail]/All Mail", "All Mail", "INBOX.Archive", "Archive"],
+    };
+    const list = candidates[mb] || [mb];
+    const found = list.find(n => mbNames.some((mn: string) => mn.toLowerCase() === n.toLowerCase()));
+    if (found) return { resolved: found, flaggedSearch: false };
+    const keyword = mb.toLowerCase();
+    const fuzzy = mbNames.find((mn: string) => mn.toLowerCase().includes(keyword));
+    return { resolved: fuzzy || "INBOX", flaggedSearch: false };
+}
+
 router.post("/imap/fetch", async (req, res) => {
     const { host, port, user, pass, tls, query, maxResults = 25, mailbox = "INBOX" } = req.body;
     if (!host || !user || !pass) return res.status(400).json({ error: "Missing required fields: host, user, pass" });
@@ -37,17 +54,11 @@ router.post("/imap/fetch", async (req, res) => {
             const mailboxes = await client.list();
             const mbNames = mailboxes.map((m: any) => m.path);
             console.log(`[IMAP] Available mailboxes:`, mbNames, `Requested: ${mailbox}`);
-            let resolvedMailbox = mailbox;
-            if (mailbox.toUpperCase() !== "INBOX") {
-                const sentCandidates = ["Sent", "Sent Items", "Sent Messages", "INBOX.Sent", "[Gmail]/Sent Mail"];
-                const wanted = mailbox === "Sent" ? sentCandidates : [mailbox];
-                resolvedMailbox = wanted.find(n => mbNames.some((mn: string) => mn.toLowerCase() === n.toLowerCase())) || mbNames.find((mn: string) => mn.toLowerCase().includes("sent")) || "INBOX";
-                console.log(`[IMAP] Sent candidates: ${sentCandidates.join(", ")} → resolved to: ${resolvedMailbox}`);
-            }
+            const { resolved: resolvedMailbox, flaggedSearch } = resolveMailbox(mailbox, mbNames);
             await client.mailboxOpen(resolvedMailbox);
-            console.log(`[IMAP] Opened mailbox: ${resolvedMailbox}`);
-            let searchCriteria: any = { all: true };
-            if (query) {
+            console.log(`[IMAP] Opened mailbox: ${resolvedMailbox}, flaggedSearch: ${flaggedSearch}`);
+            let searchCriteria: any = flaggedSearch ? { flagged: true } : { all: true };
+            if (query && !flaggedSearch) {
                 const q = query.trim();
                 const fromAddrs: string[] = [];
                 const fromRe = /from:([\w.+@\-]+)/gi;
@@ -63,6 +74,9 @@ router.post("/imap/fetch", async (req, res) => {
                 } else {
                     searchCriteria = { or: [{ subject: q }, { body: q }] };
                 }
+            } else if (query && flaggedSearch) {
+                const q = query.trim();
+                searchCriteria = { flagged: true, or: [{ subject: q }, { body: q }] };
             }
             const uids: number[] = await client.search(searchCriteria, { uid: true }) as number[];
             const slice = uids.slice(-Math.max(maxResults, 1)).reverse();
@@ -78,6 +92,8 @@ router.post("/imap/fetch", async (req, res) => {
                     messageId: msg.envelope?.messageId || "",
                     snippet: "",
                     unread: !msg.flags?.has("\\Seen"),
+                    _starred: msg.flags?.has("\\Flagged") || false,
+                    _mailbox: resolvedMailbox,
                 });
             }
             return results.reverse();
@@ -89,11 +105,14 @@ router.post("/imap/fetch", async (req, res) => {
 });
 
 router.post("/imap/message", async (req, res) => {
-    const { host, port, user, pass, tls, uid } = req.body;
+    const { host, port, user, pass, tls, uid, mailbox } = req.body;
     if (!host || !user || !pass || !uid) return res.status(400).json({ error: "Missing required fields" });
     try {
         const body = await withImap({ host, port: parseInt(port) || (tls !== false ? 993 : 143), user, pass, tls: tls !== false }, async (client) => {
-            await client.mailboxOpen("INBOX");
+            const mailboxes = await client.list();
+            const mbNames = mailboxes.map((m: any) => m.path);
+            const { resolved } = resolveMailbox(mailbox || "INBOX", mbNames);
+            await client.mailboxOpen(resolved);
             let text = "", html = "";
             for await (const msg of client.fetch([parseInt(uid)], { source: true }, { uid: true })) {
                 const parsed = await simpleParser(msg.source as any);

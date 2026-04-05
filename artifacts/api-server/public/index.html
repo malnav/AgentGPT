@@ -441,10 +441,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .tool-menu-item:active { background: rgba(0,122,255,0.08); }
 @keyframes sync-pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 @keyframes bubble-email-pulse { 0%,100% { box-shadow:0 4px 24px rgba(0,122,255,0.5); } 50% { box-shadow:0 4px 32px rgba(0,122,255,0.9), 0 0 0 7px rgba(0,122,255,0.18); } }
-#profile-bubble { position:fixed; width:54px; height:54px; border-radius:27px; background:var(--accent); color:#fff; font-size:21px; font-weight:800; display:flex; align-items:center; justify-content:center; z-index:450; cursor:pointer; box-shadow:0 4px 24px rgba(0,122,255,0.45); user-select:none; -webkit-user-select:none; touch-action:none; transition:background 0.25s, box-shadow 0.2s, transform 0.1s; }
+#profile-bubble { position:fixed; width:54px; height:54px; border-radius:27px; background:var(--accent); color:#fff; font-size:21px; font-weight:800; display:flex; align-items:center; justify-content:center; z-index:3300; cursor:pointer; box-shadow:0 4px 24px rgba(0,122,255,0.45); user-select:none; -webkit-user-select:none; touch-action:none; transition:background 0.25s, box-shadow 0.2s, transform 0.1s; }
 #profile-bubble.email-mode { background:linear-gradient(135deg,#007aff,#5c5cff); animation:bubble-email-pulse 1.6s ease-in-out infinite; font-size:24px; }
 #profile-bubble:active { transform:scale(0.93); }
-#profile-bubble-menu { position:fixed; z-index:460; min-width:230px; max-width:88vw; background:var(--glass); border:0.5px solid var(--glass-border); border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,0.28); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; }
+#profile-bubble-menu { position:fixed; z-index:3350; min-width:230px; max-width:88vw; background:var(--glass); border:0.5px solid var(--glass-border); border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,0.28); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; }
 .pbm-header { padding:14px 16px 10px; border-bottom:0.5px solid var(--border); }
 .pbm-title { font-size:12px; font-weight:800; color:var(--accent); letter-spacing:0.4px; }
 .pbm-sub { font-size:11px; color:#888; margin-top:2px; }
@@ -708,17 +708,16 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 
     <div id="ctx-pane-gmail" style="flex:1; overflow:hidden; display:none; flex-direction:column; position:relative;">
-        <div style="padding:6px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg); display:flex; flex-direction:column; gap:5px;">
-            <div style="display:flex; align-items:center; gap:4px;">
-                <div class="email-folder-tabs">
-                    <button class="email-folder-tab active" id="email-folder-inbox-panel" onclick="emailSwitchFolder('INBOX','panel')">Inbox</button>
-                    <button class="email-folder-tab" id="email-folder-starred-panel" onclick="emailSwitchFolder('STARRED','panel')">⭐ Starred</button>
-                    <button class="email-folder-tab" id="email-folder-sent-panel" onclick="emailSwitchFolder('Sent','panel')">Sent</button>
-                    <button class="email-folder-tab" id="email-folder-trash-panel" onclick="emailSwitchFolder('Trash','panel')">Trash</button>
-                </div>
-                <span id="email-acct-chip-panel" class="chip" style="font-size:11px; padding:3px 9px; font-weight:700; flex-shrink:0;" onclick="emailShowMultiPicker()">All ▾</span>
-                <span class="chip" style="font-size:11px; padding:3px 9px; flex-shrink:0;" onclick="gmailToggleSearch('panel')">🔍</span>
+        <div style="padding:4px 10px; border-bottom:0.5px solid var(--border); background:var(--sec-bg); display:flex; align-items:center; gap:4px;">
+            <input type="checkbox" id="gmail-panel-select-all" style="width:15px;height:15px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('panel',this.checked)" title="Select all">
+            <div class="email-folder-tabs">
+                <button class="email-folder-tab active" id="email-folder-inbox-panel" onclick="emailSwitchFolder('INBOX','panel')">Inbox</button>
+                <button class="email-folder-tab" id="email-folder-starred-panel" onclick="emailSwitchFolder('STARRED','panel')">⭐</button>
+                <button class="email-folder-tab" id="email-folder-sent-panel" onclick="emailSwitchFolder('Sent','panel')">Sent</button>
+                <button class="email-folder-tab" id="email-folder-trash-panel" onclick="emailSwitchFolder('Trash','panel')">Trash</button>
             </div>
+            <span id="email-acct-chip-panel" class="chip" style="font-size:11px; padding:3px 8px; font-weight:700; flex-shrink:0;" onclick="emailShowMultiPicker()">All ▾</span>
+            <span class="chip" style="font-size:11px; padding:3px 8px; flex-shrink:0;" onclick="gmailToggleSearch('panel')">🔍</span>
         </div>
         <div id="gmail-search-row" style="padding:6px 14px; display:none; border-bottom:0.5px solid var(--border);">
             <input id="gmail-search-box" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:7px 12px;" oninput="gmailOnSearch(this.value)">
@@ -742,7 +741,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                         <div id="gmail-preview-avatar" style="width:44px; height:44px; border-radius:50%; background:#54A0FF; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:800; color:#fff; flex-shrink:0; letter-spacing:-0.5px;"></div>
                         <div style="flex:1; min-width:0; padding-top:1px;">
                             <div id="gmail-preview-from" style="font-size:14px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
-                            <div id="gmail-preview-to" style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px;"></div>
+                            <div id="gmail-preview-sender-email" style="font-size:11px; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:0px;"></div>
+                            <div id="gmail-preview-to" style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px;"></div>
                             <div id="gmail-preview-date" style="font-size:11px; color:#aaa; margin-top:2px;"></div>
                         </div>
                     </div>
@@ -1023,18 +1023,17 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
     </div>
     <div style="flex:1; overflow:hidden; display:flex; flex-direction:column; position:relative;">
-        <div style="padding:6px 16px; border-bottom:0.5px solid var(--border); background:var(--sec-bg); display:flex; flex-direction:column; gap:5px;">
-            <div style="display:flex; align-items:center; gap:4px;">
-                <div class="email-folder-tabs">
-                    <button class="email-folder-tab active" id="email-folder-inbox-modal" onclick="emailSwitchFolder('INBOX','modal')">Inbox</button>
-                    <button class="email-folder-tab" id="email-folder-starred-modal" onclick="emailSwitchFolder('STARRED','modal')">⭐ Starred</button>
-                    <button class="email-folder-tab" id="email-folder-sent-modal" onclick="emailSwitchFolder('Sent','modal')">Sent</button>
-                    <button class="email-folder-tab" id="email-folder-trash-modal" onclick="emailSwitchFolder('Trash','modal')">Trash</button>
-                </div>
-                <span id="email-acct-chip-modal" class="chip" style="font-size:11px; padding:3px 9px; font-weight:700; flex-shrink:0;" onclick="emailShowMultiPicker()">All ▾</span>
-                <span class="chip" style="font-size:11px; padding:3px 9px; flex-shrink:0;" onclick="gmailToggleSearch('modal')">🔍</span>
-                <span class="chip" style="font-size:11px; padding:3px 9px; background:var(--accent); color:#fff; font-weight:700; flex-shrink:0;" onclick="gmailOpenCompose()">✏️</span>
+        <div style="padding:5px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg); display:flex; align-items:center; gap:4px;">
+            <input type="checkbox" id="gmail-modal-select-all" style="width:15px;height:15px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('modal',this.checked)" title="Select all">
+            <div class="email-folder-tabs">
+                <button class="email-folder-tab active" id="email-folder-inbox-modal" onclick="emailSwitchFolder('INBOX','modal')">Inbox</button>
+                <button class="email-folder-tab" id="email-folder-starred-modal" onclick="emailSwitchFolder('STARRED','modal')">⭐</button>
+                <button class="email-folder-tab" id="email-folder-sent-modal" onclick="emailSwitchFolder('Sent','modal')">Sent</button>
+                <button class="email-folder-tab" id="email-folder-trash-modal" onclick="emailSwitchFolder('Trash','modal')">Trash</button>
             </div>
+            <span id="email-acct-chip-modal" class="chip" style="font-size:11px; padding:3px 8px; font-weight:700; flex-shrink:0;" onclick="emailShowMultiPicker()">All ▾</span>
+            <span class="chip" style="font-size:11px; padding:3px 8px; flex-shrink:0;" onclick="gmailToggleSearch('modal')">🔍</span>
+            <span class="chip" style="font-size:11px; padding:3px 8px; background:var(--accent); color:#fff; font-weight:700; flex-shrink:0;" onclick="gmailOpenCompose()">✏️</span>
         </div>
         <div id="gmail-modal-search-row" style="padding:6px 16px; display:none; border-bottom:0.5px solid var(--border);">
             <input id="gmail-modal-search" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:8px 14px;" oninput="gmailOnSearch(this.value)">
@@ -1056,7 +1055,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                         <div id="gmail-modal-preview-avatar" style="width:48px; height:48px; border-radius:50%; background:#54A0FF; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:800; color:#fff; flex-shrink:0; letter-spacing:-0.5px;"></div>
                         <div style="flex:1; min-width:0; padding-top:2px;">
                             <div id="gmail-modal-preview-from" style="font-size:15px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
-                            <div id="gmail-modal-preview-to" style="font-size:12px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px;"></div>
+                            <div id="gmail-modal-preview-sender-email" style="font-size:11px; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:0px;"></div>
+                            <div id="gmail-modal-preview-to" style="font-size:12px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px;"></div>
                             <div id="gmail-modal-preview-date" style="font-size:11px; color:#aaa; margin-top:2px;"></div>
                         </div>
                     </div>
@@ -3088,8 +3088,9 @@ function gmailIds(src) {
         to:      m ? 'gmail-modal-preview-to'      : 'gmail-preview-to',
         date:    m ? 'gmail-modal-preview-date'    : 'gmail-preview-date',
         avatar:  m ? 'gmail-modal-preview-avatar'  : 'gmail-preview-avatar',
-        body:    m ? 'gmail-modal-preview-body'    : 'gmail-preview-body',
-        reply:   m ? 'gmail-modal-reply-box'       : 'gmail-reply-box'
+        body:        m ? 'gmail-modal-preview-body'       : 'gmail-preview-body',
+        reply:       m ? 'gmail-modal-reply-box'          : 'gmail-reply-box',
+        senderEmail: m ? 'gmail-modal-preview-sender-email' : 'gmail-preview-sender-email'
     };
 }
 
@@ -3502,7 +3503,7 @@ async function emailFetchBody(em) {
     const imapAcct = acctId !== 'gmail' ? (CONFIG.imap_accounts||[]).find(a => a.id === acctId) : null;
     if(imapAcct) {
         try {
-            const r = await fetch('/api/imap/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, uid: em.id }) });
+            const r = await fetch('/api/imap/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, uid: em.id, mailbox: em._mailbox || 'INBOX' }) });
             if(r.ok) { const d = await r.json(); if(d.body && typeof d.body === 'object') { return d.body.text || d.body.html || ''; } else { return d.body || ''; } }
         } catch(_) {}
         return em.snippet || '';
@@ -3666,8 +3667,11 @@ async function gmailPreview(i, src) {
     if(avatarEl) { avatarEl.style.background = avatarColor; avatarEl.textContent = initial; }
     document.getElementById(ids.from).textContent = dispName || dispEmail;
     const toEl = document.getElementById(ids.to);
-    if(toEl) toEl.textContent = nameMatch ? dispEmail : '';
-    document.getElementById(ids.date).textContent = em.date;
+    if(toEl) toEl.textContent = nameMatch && dispName ? dispEmail : '';
+    const dateEl = document.getElementById(ids.date);
+    if(dateEl) dateEl.textContent = em.date;
+    const senderEmailEl = document.getElementById(ids.senderEmail);
+    if(senderEmailEl) senderEmailEl.textContent = nameMatch && dispName ? dispEmail : '';
     document.getElementById(ids.subject).textContent = em.subject;
     document.getElementById(ids.body).textContent = "Loading…";
     document.getElementById(ids.reply).innerHTML = "";
@@ -3677,7 +3681,7 @@ async function gmailPreview(i, src) {
         const acctId = em._accountId || 'gmail';
         const imapAcct = acctId !== 'gmail' ? (CONFIG.imap_accounts||[]).find(a => a.id === acctId) : null;
         if(imapAcct) {
-            const r = await fetch('/api/imap/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, uid: em.id }) });
+            const r = await fetch('/api/imap/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, uid: em.id, mailbox: em._mailbox || 'INBOX' }) });
             if(!r.ok) throw new Error("IMAP fetch failed");
             const d = await r.json();
             const bodyEl = document.getElementById(ids.body);
@@ -3688,7 +3692,7 @@ async function gmailPreview(i, src) {
             const d = await r.json();
             const hdrs = d.payload && d.payload.headers ? d.payload.headers : [];
             const toHdr = hdrs.find(h => h.name.toLowerCase() === 'to');
-            if(toEl && toHdr) { const toName = toHdr.value.match(/^([^<]+?)\s*<[^>]+>$/); toEl.textContent = 'To: ' + (toName ? toName[1].trim() : toHdr.value.trim()).split(',')[0]; }
+            if(toEl && toHdr) { const toAddrMatch = toHdr.value.match(/<([^>]+)>/); const toAddr = toAddrMatch ? toAddrMatch[1].trim() : toHdr.value.trim().split(',')[0].trim(); toEl.textContent = 'To: ' + toAddr; }
             const { text, html } = gmailExtractBody(d.payload);
             const bodyEl = document.getElementById(ids.body);
             if(text) { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = text; }
@@ -4411,7 +4415,7 @@ function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt
 function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!lk) return; insertAtCursor(`**${lk.title}**\n${lk.url}`,true,false); closeAllPanels(); notify('Link inserted!','#34c759',1500); }
 </script>
 
-<div id="email-compose-modal" class="modal" style="z-index:520;">
+<div id="email-compose-modal" class="modal" style="z-index:3500;">
     <div class="modal-header">
         <h3 id="email-compose-title" style="color:var(--accent);">📨 Draft New Email</h3>
         <div onclick="closeModal('email-compose-modal')" style="font-size:24px; cursor:pointer;">✕</div>
@@ -4462,7 +4466,7 @@ function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!l
     </div>
 </div>
 
-<div id="profile-bubble-backdrop" style="display:none; position:fixed; inset:0; z-index:459;" onclick="closeProfileBubbleMenu()"></div>
+<div id="profile-bubble-backdrop" style="display:none; position:fixed; inset:0; z-index:3299;" onclick="closeProfileBubbleMenu()"></div>
 
 <div id="wa-import-modal" class="modal" style="z-index:9997; display:none;">
     <div class="modal-header">
