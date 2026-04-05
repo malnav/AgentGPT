@@ -257,6 +257,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #attachment-preview { display: none; padding: 8px 14px 0 14px; gap: 8px; overflow-x: auto; white-space: nowrap; border-bottom: 0.5px solid var(--border); scrollbar-width: none; border-top-left-radius: 22px; border-top-right-radius: 22px; }
 #attachment-preview::-webkit-scrollbar { display: none; }
 #note-input { width: 100%; font-size: 16px; line-height: 1.5; border: none; border-radius: 22px; background: transparent; color: var(--text); outline: none; resize: none; min-height: 48px; max-height: 200px; padding: 13px 36px 4px 15px; transition: height 0.2s ease; }
+#note-input::placeholder { font-size: 13px; opacity: 0.6; }
 #expand-btn { position: absolute; top: 9px; right: 10px; font-size: 16px; cursor: pointer; opacity: 0.4; z-index: 30; padding: 4px; transition: opacity 0.2s; }
 #expand-btn:active { opacity: 0.8; }
 
@@ -1740,7 +1741,7 @@ let _varDragKey = null;
 
 function renderSessionVariables() {
     let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current));
-    let activeDs = GLOBAL_DATASETS[cur.var_id]; let dsTitle = activeDs ? (activeDs.title || "Data Set") : "Data Set"; document.getElementById('active-dataset-title').innerText = dsTitle; let noteInEl = document.getElementById('note-input'); if(noteInEl) noteInEl.placeholder = `Draft text... [${dsTitle}]`;
+    let activeDs = GLOBAL_DATASETS[cur.var_id]; let dsTitle = activeDs ? (activeDs.title || "Data Set") : "Data Set"; document.getElementById('active-dataset-title').innerText = dsTitle; let noteInEl = document.getElementById('note-input'); if(noteInEl) noteInEl.placeholder = `Draft text... ${dsTitle}`;
     let vars = getActiveVars(); let allKeys = [...(p.expected_vars || [])]; let meta = p.var_meta || {};
     let roots = allKeys.filter(k => !meta[k] || !meta[k].parent || !allKeys.includes(meta[k].parent));
     let ordered = [];
