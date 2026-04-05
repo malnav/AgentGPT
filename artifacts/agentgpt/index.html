@@ -375,7 +375,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .cal-day { min-height: 60px; border: 0.5px solid var(--border); border-radius: 10px; padding: 4px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; background: rgba(255,255,255,0.25); }
 @media (prefers-color-scheme: dark) { .cal-day { background: rgba(255,255,255,0.04); } }
 .cal-date-num { font-size: 11px; font-weight: bold; margin-bottom: 2px; color: var(--text); }
-.cal-event { font-size: 9px; background: var(--accent); color: #fff; border-radius: 5px; padding: 2px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; font-weight: 600; }
+.cal-event { font-size: 9px; background: var(--accent); color: #fff; border-radius: 5px; padding: 2px 4px; white-space: normal; word-break: break-word; overflow: hidden; cursor: pointer; font-weight: 600; }
 
 /* ── MODALS ── */
 .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 200; display: none; flex-direction: column; overflow: hidden; }
