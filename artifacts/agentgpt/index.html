@@ -3653,6 +3653,8 @@ async function gmailPreview(i, src) {
     const em = gmailEmails[i];
     gmailCurrentEmail = em;
     gmailCurrentIdx = i;
+    const pb = document.getElementById('profile-bubble');
+    if(pb) pb.classList.add('email-mode');
     ['panel','modal'].forEach(s => {
         const btn = document.getElementById(`gmail-preview-star-${s}`);
         if(btn) { btn.textContent = em._starred ? '⭐' : '☆'; btn.className = 'email-action-icon' + (em._starred ? ' starred' : ''); }
@@ -3896,6 +3898,8 @@ function gmailClosePreview(src) {
     src = src || 'panel';
     document.getElementById(gmailIds(src).overlay).style.display = 'none';
     gmailCurrentEmail = null;
+    const pb = document.getElementById('profile-bubble');
+    if(pb) { pb.classList.remove('email-mode'); updateProfileBubble(); }
 }
 
 function gmailAddEmailToContext(splitByLine, src) {
