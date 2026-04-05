@@ -475,6 +475,17 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .gmail-thread.open .spark-thread-body { display:block; }
 .spark-msg-row { display:flex; align-items:center; gap:10px; padding:10px 14px 10px 24px; border-bottom:0.5px solid var(--border); }
 .spark-msg-row:last-child { border-bottom:none; }
+.email-folder-tabs { display:flex; gap:3px; overflow-x:auto; flex:1; scrollbar-width:none; padding:2px 0; }
+.email-folder-tabs::-webkit-scrollbar { display:none; }
+.email-folder-tab { font-size:11px; padding:4px 10px; border-radius:8px; cursor:pointer; font-weight:700; color:#888; white-space:nowrap; transition:all 0.15s; flex-shrink:0; background:transparent; border:none; }
+.email-folder-tab.active { background:var(--accent); color:#fff; }
+.email-star { cursor:pointer; font-size:15px; padding:2px 4px; transition:transform 0.15s; flex-shrink:0; line-height:1; opacity:0.5; }
+.email-star.starred { opacity:1; }
+.email-action-icon { width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:10px; cursor:pointer; font-size:15px; background:transparent; transition:background 0.12s; flex-shrink:0; }
+.email-action-icon:active { background:var(--sec-bg); }
+.email-unread-dot { width:7px; height:7px; border-radius:50%; background:var(--accent); flex-shrink:0; margin-right:2px; }
+.email-compose-fab { position:absolute; bottom:16px; right:14px; width:46px; height:46px; border-radius:23px; background:var(--accent); color:#fff; font-size:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 20px rgba(0,122,255,0.45); z-index:5; transition:transform 0.15s; border:none; }
+.email-compose-fab:active { transform:scale(0.92); }
 
 /* ═══════════════════════════════════════════════
    RESPONSIVE LAYOUT — Tablet ≥ 768px
@@ -697,41 +708,47 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 
     <div id="ctx-pane-gmail" style="flex:1; overflow:hidden; display:none; flex-direction:column; position:relative;">
-        <div style="display:flex; align-items:center; gap:4px; padding:4px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
-            <input type="checkbox" id="gmail-panel-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('panel',this.checked)">
-            <div style="display:flex; border:0.5px solid var(--border); border-radius:8px; overflow:hidden; flex-shrink:0;">
-                <span id="email-mailbox-inbox-panel" style="font-size:11px; padding:3px 8px; cursor:pointer; font-weight:700; background:var(--accent); color:#fff; transition:all 0.15s;" onclick="emailSwitchMailbox('INBOX')">Inbox</span>
-                <span id="email-mailbox-sent-panel" style="font-size:11px; padding:3px 8px; cursor:pointer; font-weight:700; background:transparent; color:var(--text); transition:all 0.15s; border-left:0.5px solid var(--border);" onclick="emailSwitchMailbox('Sent')">Sent</span>
+        <div style="padding:6px 14px; border-bottom:0.5px solid var(--border); background:var(--sec-bg); display:flex; flex-direction:column; gap:5px;">
+            <div style="display:flex; align-items:center; gap:4px;">
+                <div class="email-folder-tabs">
+                    <button class="email-folder-tab active" id="email-folder-inbox-panel" onclick="emailSwitchFolder('INBOX','panel')">Inbox</button>
+                    <button class="email-folder-tab" id="email-folder-starred-panel" onclick="emailSwitchFolder('STARRED','panel')">⭐ Starred</button>
+                    <button class="email-folder-tab" id="email-folder-sent-panel" onclick="emailSwitchFolder('Sent','panel')">Sent</button>
+                    <button class="email-folder-tab" id="email-folder-trash-panel" onclick="emailSwitchFolder('Trash','panel')">Trash</button>
+                </div>
+                <span id="email-acct-chip-panel" class="chip" style="font-size:11px; padding:3px 9px; font-weight:700; flex-shrink:0;" onclick="emailShowMultiPicker()">All ▾</span>
+                <span class="chip" style="font-size:11px; padding:3px 9px; flex-shrink:0;" onclick="gmailToggleSearch('panel')">🔍</span>
             </div>
-            <span style="flex:1;"></span>
-            <span id="email-acct-chip-panel" class="chip" style="font-size:11px; padding:3px 9px; font-weight:700;" onclick="emailShowMultiPicker()">All ▾</span>
-            <span class="chip" style="font-size:11px; padding:3px 9px;" onclick="gmailToggleSearch('panel')">🔍</span>
         </div>
         <div id="gmail-search-row" style="padding:6px 14px; display:none; border-bottom:0.5px solid var(--border);">
             <input id="gmail-search-box" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:7px 12px;" oninput="gmailOnSearch(this.value)">
         </div>
-        <ul id="gmail-list" class="gmail-email-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:60px;"></ul>
+        <ul id="gmail-list" class="gmail-email-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:70px;"></ul>
+        <button class="email-compose-fab" onclick="gmailOpenCompose()" title="Compose">✏️</button>
 
         <div id="gmail-preview-overlay" style="display:none; position:absolute; inset:0; background:var(--bg); z-index:10; flex-direction:column; overflow:hidden;">
-            <div style="display:flex; align-items:center; gap:6px; padding:10px 14px; border-bottom:0.5px solid var(--border); background:var(--bg);">
-                <span onclick="gmailClosePreview('panel')" style="cursor:pointer; font-size:16px; color:var(--accent); font-weight:700; padding:4px 8px 4px 0;">← Back</span>
+            <div style="display:flex; align-items:center; gap:2px; padding:8px 10px; border-bottom:0.5px solid var(--border); background:var(--bg);">
+                <span onclick="gmailClosePreview('panel')" style="cursor:pointer; font-size:16px; color:var(--accent); font-weight:700; padding:4px 6px 4px 0; white-space:nowrap;">← Back</span>
                 <span style="flex:1;"></span>
-                <span class="chip" style="font-size:11px; padding:5px 11px; background:var(--accent); color:#fff; font-weight:700;" onclick="gmailAddEmailToContext(false,'panel')">+ Context</span>
-                <span class="chip" style="font-size:11px; padding:5px 10px;" onclick="gmailFindSameAddress('panel')">🔍 Address</span>
+                <div class="email-action-icon" id="gmail-preview-star-panel" onclick="gmailStarToggle(gmailCurrentIdx,'panel')" title="Star">☆</div>
+                <div class="email-action-icon" onclick="gmailMarkReadToggle(gmailCurrentIdx,'panel')" title="Mark unread">✉️</div>
+                <div class="email-action-icon" onclick="gmailArchiveEmail(gmailCurrentIdx,'panel')" title="Archive">📥</div>
+                <div class="email-action-icon" onclick="gmailTrashEmail(gmailCurrentIdx,'panel')" title="Delete" style="color:#ff3b30;">🗑️</div>
+                <span class="chip" style="font-size:10px; padding:4px 9px; background:var(--accent); color:#fff; font-weight:700; white-space:nowrap; flex-shrink:0;" onclick="gmailAddEmailToContext(false,'panel')">+ Context</span>
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
-                <div style="padding:16px 14px 14px; border-bottom:0.5px solid var(--border);">
-                    <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:14px;">
-                        <div id="gmail-preview-avatar" style="width:46px; height:46px; border-radius:50%; background:#54A0FF; display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:800; color:#fff; flex-shrink:0; letter-spacing:-0.5px;"></div>
+                <div style="padding:14px 14px 12px; border-bottom:0.5px solid var(--border);">
+                    <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:12px;">
+                        <div id="gmail-preview-avatar" style="width:44px; height:44px; border-radius:50%; background:#54A0FF; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:800; color:#fff; flex-shrink:0; letter-spacing:-0.5px;"></div>
                         <div style="flex:1; min-width:0; padding-top:1px;">
                             <div id="gmail-preview-from" style="font-size:14px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
                             <div id="gmail-preview-to" style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px;"></div>
                             <div id="gmail-preview-date" style="font-size:11px; color:#aaa; margin-top:2px;"></div>
                         </div>
                     </div>
-                    <div id="gmail-preview-subject" style="font-size:17px; font-weight:800; color:var(--text); line-height:1.3; word-break:break-word;"></div>
+                    <div id="gmail-preview-subject" style="font-size:16px; font-weight:800; color:var(--text); line-height:1.3; word-break:break-word;"></div>
                 </div>
-                <div id="gmail-preview-body" style="padding:16px 14px 24px; font-size:13.5px; line-height:1.75; white-space:pre-wrap; word-break:break-word; color:var(--text);"></div>
+                <div id="gmail-preview-body" style="padding:14px 14px 24px; font-size:13.5px; line-height:1.75; white-space:pre-wrap; word-break:break-word; color:var(--text);"></div>
             </div>
             <div style="padding:8px 14px; border-top:0.5px solid var(--border); display:flex; flex-direction:column; gap:6px;">
                 <div style="display:flex; gap:4px; flex-wrap:wrap;">
@@ -741,8 +758,12 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                     <span class="chip" style="font-size:12px; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('insertUnorderedList')">• List</span>
                     <span class="chip" style="font-size:12px; padding:3px 9px; color:#ff3b30;" onmousedown="event.preventDefault(); gmailClearReply('panel')">Clear</span>
                 </div>
-                <div id="gmail-reply-box" contenteditable="true" data-ph="Write a reply…" style="min-height:60px; max-height:140px; overflow-y:auto; border:0.5px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
-                <button class="chip" style="background:var(--accent); color:#fff; padding:10px; font-size:13px; font-weight:700;" onclick="gmailSendReply('panel')">Send Reply ↑</button>
+                <div id="gmail-reply-box" contenteditable="true" data-ph="Write a reply…" style="min-height:54px; max-height:120px; overflow-y:auto; border:0.5px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
+                <div style="display:flex; gap:6px;">
+                    <button class="chip" style="flex:1; background:var(--sec-bg); color:var(--text); padding:9px 6px; font-size:12px; border:0.5px solid var(--border);" onclick="gmailForward('panel')">↪ Fwd</button>
+                    <button class="chip" style="flex:1; background:var(--sec-bg); color:var(--text); padding:9px 6px; font-size:12px; border:0.5px solid var(--border);" onclick="gmailReplyAll('panel')">↩ All</button>
+                    <button class="chip" style="flex:2; background:var(--accent); color:#fff; padding:9px; font-size:13px; font-weight:700;" onclick="gmailSendReply('panel')">Send ↑</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1002,31 +1023,37 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
     </div>
     <div style="flex:1; overflow:hidden; display:flex; flex-direction:column; position:relative;">
-        <div style="display:flex; align-items:center; gap:4px; padding:5px 16px; border-bottom:0.5px solid var(--border); background:var(--sec-bg);">
-            <input type="checkbox" id="gmail-modal-select-all" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;" onchange="gmailToggleSelectAll('modal',this.checked)">
-            <div style="display:flex; border:0.5px solid var(--border); border-radius:8px; overflow:hidden; flex-shrink:0;">
-                <span id="email-mailbox-inbox-modal" style="font-size:11px; padding:3px 8px; cursor:pointer; font-weight:700; background:var(--accent); color:#fff; transition:all 0.15s;" onclick="emailSwitchMailbox('INBOX')">Inbox</span>
-                <span id="email-mailbox-sent-modal" style="font-size:11px; padding:3px 8px; cursor:pointer; font-weight:700; background:transparent; color:var(--text); transition:all 0.15s; border-left:0.5px solid var(--border);" onclick="emailSwitchMailbox('Sent')">Sent</span>
+        <div style="padding:6px 16px; border-bottom:0.5px solid var(--border); background:var(--sec-bg); display:flex; flex-direction:column; gap:5px;">
+            <div style="display:flex; align-items:center; gap:4px;">
+                <div class="email-folder-tabs">
+                    <button class="email-folder-tab active" id="email-folder-inbox-modal" onclick="emailSwitchFolder('INBOX','modal')">Inbox</button>
+                    <button class="email-folder-tab" id="email-folder-starred-modal" onclick="emailSwitchFolder('STARRED','modal')">⭐ Starred</button>
+                    <button class="email-folder-tab" id="email-folder-sent-modal" onclick="emailSwitchFolder('Sent','modal')">Sent</button>
+                    <button class="email-folder-tab" id="email-folder-trash-modal" onclick="emailSwitchFolder('Trash','modal')">Trash</button>
+                </div>
+                <span id="email-acct-chip-modal" class="chip" style="font-size:11px; padding:3px 9px; font-weight:700; flex-shrink:0;" onclick="emailShowMultiPicker()">All ▾</span>
+                <span class="chip" style="font-size:11px; padding:3px 9px; flex-shrink:0;" onclick="gmailToggleSearch('modal')">🔍</span>
+                <span class="chip" style="font-size:11px; padding:3px 9px; background:var(--accent); color:#fff; font-weight:700; flex-shrink:0;" onclick="gmailOpenCompose()">✏️</span>
             </div>
-            <span style="flex:1;"></span>
-            <span id="email-acct-chip-modal" class="chip" style="font-size:11px; padding:3px 10px; font-weight:700;" onclick="emailShowMultiPicker()">All ▾</span>
-            <span class="chip" style="font-size:11px; padding:3px 10px;" onclick="gmailToggleSearch('modal')">🔍</span>
         </div>
         <div id="gmail-modal-search-row" style="padding:6px 16px; display:none; border-bottom:0.5px solid var(--border);">
             <input id="gmail-modal-search" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:8px 14px;" oninput="gmailOnSearch(this.value)">
         </div>
         <ul id="gmail-modal-list" class="gmail-email-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:80px;"></ul>
         <div id="gmail-modal-preview" style="display:none; position:absolute; inset:0; background:var(--bg); z-index:10; flex-direction:column; overflow:hidden;">
-            <div style="display:flex; align-items:center; gap:6px; padding:10px 16px; border-bottom:0.5px solid var(--border); background:var(--bg);">
-                <span onclick="gmailClosePreview('modal')" style="cursor:pointer; font-size:16px; color:var(--accent); font-weight:700; padding:4px 8px 4px 0;">← Back</span>
+            <div style="display:flex; align-items:center; gap:2px; padding:10px 12px; border-bottom:0.5px solid var(--border); background:var(--bg);">
+                <span onclick="gmailClosePreview('modal')" style="cursor:pointer; font-size:16px; color:var(--accent); font-weight:700; padding:4px 8px 4px 0; white-space:nowrap;">← Back</span>
                 <span style="flex:1;"></span>
-                <span class="chip" style="font-size:12px; padding:6px 13px; background:var(--accent); color:#fff; font-weight:700;" onclick="gmailAddEmailToContext(false,'modal')">+ Context</span>
-                <span class="chip" id="gmail-modal-find-addr-btn" style="font-size:12px; padding:6px 11px;" onclick="gmailFindSameAddress('modal')">🔍 Address</span>
+                <div class="email-action-icon" id="gmail-preview-star-modal" onclick="gmailStarToggle(gmailCurrentIdx,'modal')" title="Star">☆</div>
+                <div class="email-action-icon" onclick="gmailMarkReadToggle(gmailCurrentIdx,'modal')" title="Mark unread">✉️</div>
+                <div class="email-action-icon" onclick="gmailArchiveEmail(gmailCurrentIdx,'modal')" title="Archive">📥</div>
+                <div class="email-action-icon" onclick="gmailTrashEmail(gmailCurrentIdx,'modal')" title="Delete" style="color:#ff3b30;">🗑️</div>
+                <span class="chip" style="font-size:11px; padding:5px 11px; background:var(--accent); color:#fff; font-weight:700; white-space:nowrap; flex-shrink:0;" onclick="gmailAddEmailToContext(false,'modal')">+ Context</span>
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
-                <div style="padding:18px 16px 14px; border-bottom:0.5px solid var(--border);">
-                    <div style="display:flex; align-items:flex-start; gap:13px; margin-bottom:14px;">
-                        <div id="gmail-modal-preview-avatar" style="width:50px; height:50px; border-radius:50%; background:#54A0FF; display:flex; align-items:center; justify-content:center; font-size:21px; font-weight:800; color:#fff; flex-shrink:0; letter-spacing:-0.5px;"></div>
+                <div style="padding:16px 16px 14px; border-bottom:0.5px solid var(--border);">
+                    <div style="display:flex; align-items:flex-start; gap:13px; margin-bottom:12px;">
+                        <div id="gmail-modal-preview-avatar" style="width:48px; height:48px; border-radius:50%; background:#54A0FF; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:800; color:#fff; flex-shrink:0; letter-spacing:-0.5px;"></div>
                         <div style="flex:1; min-width:0; padding-top:2px;">
                             <div id="gmail-modal-preview-from" style="font-size:15px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
                             <div id="gmail-modal-preview-to" style="font-size:12px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px;"></div>
@@ -1035,7 +1062,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                     </div>
                     <div id="gmail-modal-preview-subject" style="font-size:18px; font-weight:800; color:var(--text); line-height:1.3; word-break:break-word;"></div>
                 </div>
-                <div id="gmail-modal-preview-body" style="padding:18px 16px 28px; font-size:14px; line-height:1.8; white-space:pre-wrap; word-break:break-word; color:var(--text);"></div>
+                <div id="gmail-modal-preview-body" style="padding:16px 16px 28px; font-size:14px; line-height:1.8; white-space:pre-wrap; word-break:break-word; color:var(--text);"></div>
             </div>
             <div style="padding:10px 16px; border-top:0.5px solid var(--border); display:flex; flex-direction:column; gap:8px;">
                 <div style="display:flex; gap:4px; flex-wrap:wrap;">
@@ -1045,8 +1072,12 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                     <span class="chip" style="font-size:12px; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('insertUnorderedList')">• List</span>
                     <span class="chip" style="font-size:12px; padding:3px 9px; color:#ff3b30;" onmousedown="event.preventDefault(); gmailClearReply('modal')">Clear</span>
                 </div>
-                <div id="gmail-modal-reply-box" contenteditable="true" data-ph="Write a reply…" style="min-height:72px; max-height:180px; overflow-y:auto; border:0.5px solid var(--border); border-radius:12px; padding:10px 12px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
-                <button class="chip" style="background:var(--accent); color:#fff; padding:12px; font-size:13px; font-weight:700;" onclick="gmailSendReply('modal')">Send Reply ↑</button>
+                <div id="gmail-modal-reply-box" contenteditable="true" data-ph="Write a reply…" style="min-height:64px; max-height:160px; overflow-y:auto; border:0.5px solid var(--border); border-radius:12px; padding:10px 12px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
+                <div style="display:flex; gap:6px;">
+                    <button class="chip" style="flex:1; background:var(--sec-bg); color:var(--text); padding:10px 6px; font-size:12px; border:0.5px solid var(--border);" onclick="gmailForward('modal')">↪ Forward</button>
+                    <button class="chip" style="flex:1; background:var(--sec-bg); color:var(--text); padding:10px 6px; font-size:12px; border:0.5px solid var(--border);" onclick="gmailReplyAll('modal')">↩ Reply All</button>
+                    <button class="chip" style="flex:2; background:var(--accent); color:#fff; padding:10px; font-size:13px; font-weight:700;" onclick="gmailSendReply('modal')">Send ↑</button>
+                </div>
             </div>
         </div>
     </div>
@@ -2869,6 +2900,7 @@ let gmailTokenClient = null;
 let gmailAccessToken = null;
 let gmailEmails = [];
 let gmailCurrentEmail = null;
+let gmailCurrentIdx = -1;
 let gmailSearchTimer = null;
 let gmailNextPageToken = null;
 let gmailCurrentQuery = null;
@@ -2950,8 +2982,8 @@ async function emailFetchEmails(query) {
 async function emailFetchFromAccount(acct, query) {
     if(acct.type === 'gmail') {
         if(!gmailAccessToken) return [];
-        let baseQ = emailCurrentMailbox === 'Sent' ? 'in%3Asent' : 'in%3Ainbox';
-        const q = query ? encodeURIComponent(query) + (emailCurrentMailbox === 'Sent' ? '+in%3Asent' : '') : baseQ;
+        let baseQ = emailCurrentMailbox === 'Sent' ? 'in%3Asent' : emailCurrentMailbox === 'STARRED' ? 'is%3Astarred' : emailCurrentMailbox === 'Trash' ? 'in%3Atrash' : emailCurrentMailbox === 'All' ? 'in%3Aall' : 'in%3Ainbox';
+        const q = query ? encodeURIComponent(query) : baseQ;
         try {
             const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25&q=${q}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
             if(!listRes.ok) { if(listRes.status === 401) { gmailAccessToken = null; } return []; }
@@ -2963,7 +2995,8 @@ async function emailFetchFromAccount(acct, query) {
                 const d = await r.json();
                 const hdr = d.payload.headers || [];
                 const get = n => (hdr.find(h => h.name === n) || {}).value || "";
-                return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: (d.labelIds||[]).includes("UNREAD"), _accountId: 'gmail' };
+                const labels = d.labelIds || [];
+                return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail' };
             }));
             return details.filter(Boolean);
         } catch(_) { return []; }
@@ -2979,12 +3012,18 @@ async function emailFetchFromAccount(acct, query) {
 
 function emailSwitchMailbox(mb) {
     emailCurrentMailbox = mb;
-    ['email-mailbox-inbox-panel','email-mailbox-sent-panel','email-mailbox-inbox-modal','email-mailbox-sent-modal'].forEach(id => {
-        const el = document.getElementById(id); if(!el) return;
-        const isInbox = id.includes('inbox'); const isMb = (mb === 'INBOX') === isInbox;
-        el.style.background = isMb ? 'var(--accent)' : 'transparent';
-        el.style.color = isMb ? '#fff' : 'var(--text)';
+    emailFetchEmails(null);
+}
+
+function emailSwitchFolder(folder, src) {
+    const folderKey = folder === 'INBOX' ? 'inbox' : folder === 'STARRED' ? 'starred' : folder === 'Sent' ? 'sent' : folder === 'Trash' ? 'trash' : folder === 'All' ? 'all' : folder.toLowerCase();
+    ['inbox','starred','sent','trash','all'].forEach(f => {
+        ['panel','modal'].forEach(s => {
+            const el = document.getElementById(`email-folder-${f}-${s}`);
+            if(el) el.classList.toggle('active', f === folderKey);
+        });
     });
+    emailCurrentMailbox = folder;
     emailFetchEmails(null);
 }
 
@@ -3372,6 +3411,8 @@ function gmailThreadHtml(group, src) {
         : `gmailToggleThread(this.closest('.gmail-thread'))`;
 
     const unreadBar = hasUnread ? `style="border-left:3px solid var(--accent);padding-left:9px;"` : `style="padding-left:12px;"`;
+    const isStarred = group.some(g => g.em._starred);
+    const primaryIdx = group[0].idx;
 
     return `<li class="gmail-thread spark-email-row" data-idxs="${allIdxs.join(',')}">
         <div class="spark-row-hdr" onclick="${onclickHdr}" ${unreadBar}>
@@ -3380,7 +3421,7 @@ function gmailThreadHtml(group, src) {
             <div style="flex:1;min-width:0;${avCount>1?'margin-left:4px;':''}">
                 <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">
                     <span class="spark-from${hasUnread?' unread':''}">${sendersLabel}</span>
-                    <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
                         <span class="spark-time">${gmailRelTime(latest.date)}</span>
                         ${count>1?`<span class="spark-count-badge">${count}</span>`:''}
                     </div>
@@ -3388,6 +3429,7 @@ function gmailThreadHtml(group, src) {
                 <div class="spark-subject${hasUnread?' unread':''}">${latest.subject||'(no subject)'}</div>
                 <div class="spark-snippet">${latest.snippet||''}</div>
             </div>
+            <span class="email-star${isStarred?' starred':''}" data-star-idx="${primaryIdx}" onclick="event.stopPropagation(); gmailStarToggle(${primaryIdx},'${src}')" title="Star">${isStarred?'⭐':'☆'}</span>
             ${count>1?`<span class="spark-expand-icon">›</span>`:''}
         </div>
         ${count>1?`<ul class="spark-thread-body">${msgRows}</ul>`:''}
@@ -3609,6 +3651,11 @@ async function gmailPreview(i, src) {
     src = src || 'panel';
     const em = gmailEmails[i];
     gmailCurrentEmail = em;
+    gmailCurrentIdx = i;
+    ['panel','modal'].forEach(s => {
+        const btn = document.getElementById(`gmail-preview-star-${s}`);
+        if(btn) { btn.textContent = em._starred ? '⭐' : '☆'; btn.className = 'email-action-icon' + (em._starred ? ' starred' : ''); }
+    });
     const ids = gmailIds(src);
     const nameMatch = em.from.match(/^([^<]+?)\s*<([^>]+)>$/);
     const dispName = nameMatch ? nameMatch[1].trim().replace(/^["']|["']$/g,'') : em.from.replace(/.*@/,'').split('.')[0];
@@ -3723,6 +3770,122 @@ function gmailClearReply(src) {
     src = src || 'panel';
     const el = document.getElementById(gmailIds(src).reply);
     if(el) el.innerHTML = "";
+}
+
+async function gmailStarToggle(idx, src) {
+    const em = gmailEmails[idx];
+    if(!em) return;
+    em._starred = !em._starred;
+    ['panel','modal'].forEach(s => {
+        const btn = document.getElementById(`gmail-preview-star-${s}`);
+        if(btn) btn.textContent = em._starred ? '⭐' : '☆';
+    });
+    const rowStar = document.querySelector(`[data-star-idx="${idx}"]`);
+    if(rowStar) { rowStar.textContent = em._starred ? '⭐' : '☆'; rowStar.classList.toggle('starred', em._starred); }
+    if(!em._accountId || em._accountId === 'gmail') {
+        if(!gmailAccessToken) return;
+        try { await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}/modify`, { method: 'POST', headers: { Authorization: `Bearer ${gmailAccessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(em._starred ? { addLabelIds: ['STARRED'] } : { removeLabelIds: ['STARRED'] }) }); } catch(_) {}
+    }
+    notify(em._starred ? 'Starred ⭐' : 'Unstarred', '#888', 1500);
+}
+
+async function gmailMarkReadToggle(idx, src) {
+    const em = gmailEmails[idx];
+    if(!em) return;
+    em.unread = !em.unread;
+    if(!em._accountId || em._accountId === 'gmail') {
+        if(!gmailAccessToken) return;
+        try { await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}/modify`, { method: 'POST', headers: { Authorization: `Bearer ${gmailAccessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(em.unread ? { addLabelIds: ['UNREAD'] } : { removeLabelIds: ['UNREAD'] }) }); } catch(_) {}
+    }
+    notify(em.unread ? 'Marked unread' : 'Marked read', '#888', 1500);
+    gmailRenderEmails();
+}
+
+async function gmailArchiveEmail(idx, src) {
+    const em = gmailEmails[idx];
+    if(!em) return;
+    const isSrc = src || 'panel';
+    openConfirm('Archive this email?', async () => {
+        if(!em._accountId || em._accountId === 'gmail') {
+            if(!gmailAccessToken) { notify('Sign in to Gmail first', '#ff3b30'); return; }
+            try { await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}/modify`, { method: 'POST', headers: { Authorization: `Bearer ${gmailAccessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ removeLabelIds: ['INBOX'] }) }); } catch(e) { notify('Archive failed', '#ff3b30'); return; }
+        }
+        gmailEmails.splice(idx, 1);
+        gmailClosePreview(isSrc);
+        gmailRenderEmails();
+        notify('Archived ✓', '#34c759', 2000);
+    });
+}
+
+async function gmailTrashEmail(idx, src) {
+    const em = gmailEmails[idx];
+    if(!em) return;
+    const isSrc = src || 'panel';
+    openConfirm('Move to Trash?', async () => {
+        if(!em._accountId || em._accountId === 'gmail') {
+            if(!gmailAccessToken) { notify('Sign in to Gmail first', '#ff3b30'); return; }
+            try { await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}/trash`, { method: 'POST', headers: { Authorization: `Bearer ${gmailAccessToken}` } }); } catch(e) { notify('Delete failed', '#ff3b30'); return; }
+        }
+        gmailEmails.splice(idx, 1);
+        gmailClosePreview(isSrc);
+        gmailRenderEmails();
+        notify('Moved to Trash', '#888', 2000);
+    });
+}
+
+function gmailForward(src) {
+    const em = gmailCurrentEmail;
+    if(!em) return;
+    const allAccts = emailGetAllAccounts();
+    if(!allAccts.length) { notify('No email accounts configured', '#ff3b30'); return; }
+    const bodyEl2 = document.getElementById(src === 'panel' ? 'gmail-preview-body' : 'gmail-modal-preview-body');
+    const bodyText = bodyEl2 ? bodyEl2.textContent : (em.snippet || '');
+    document.getElementById('email-compose-title').textContent = '↪️ Forward';
+    document.getElementById('email-compose-to').value = '';
+    document.getElementById('email-compose-subject').value = (em.subject||'').startsWith('Fwd:') ? em.subject : 'Fwd: ' + (em.subject||'');
+    const bodyEl = document.getElementById('email-compose-body');
+    bodyEl.innerHTML = `<br><br><hr style="border:none;border-top:0.5px solid #ccc;margin:8px 0;"><p style="color:#888;font-size:12px;margin:4px 0;"><strong>---------- Forwarded message ----------</strong><br>From: ${em.from}<br>Date: ${em.date}<br>Subject: ${em.subject||''}</p><div style="color:var(--text);font-size:13px;margin-top:8px;">${bodyText.replace(/\n/g,'<br>')}</div>`;
+    document.getElementById('email-compose-reply-ref').style.display = 'none';
+    document.getElementById('email-compose-picker').style.display = 'none';
+    document.getElementById('email-compose-form').style.display = 'flex';
+    _emailComposeMode = 'new';
+    _emailComposeReplyTarget = null;
+    const fromSel = document.getElementById('email-compose-from');
+    fromSel.innerHTML = allAccts.map(a => `<option value="${a.id}">${a.name||a.user||a.id}</option>`).join('');
+    fromSel.style.display = allAccts.length > 0 ? '' : 'none';
+    openModal('email-compose-modal');
+}
+
+async function gmailReplyAll(src) {
+    const em = gmailCurrentEmail;
+    if(!em) return;
+    const replyBoxId = src === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box';
+    const replyEl = document.getElementById(replyBoxId);
+    if(!replyEl || !replyEl.textContent.trim()) { notify('Write a reply first', '#ff3b30'); return; }
+    notify('Sending reply to all…', '#007aff', 2000);
+    await gmailSendReply(src);
+}
+
+function gmailOpenCompose() {
+    const allAccts = emailGetAllAccounts();
+    if(!allAccts.length) { notify('No email accounts configured — add Gmail or IMAP first', '#ff3b30'); return; }
+    document.getElementById('email-compose-title').textContent = '📨 New Email';
+    document.getElementById('email-compose-to').value = '';
+    document.getElementById('email-compose-subject').value = '';
+    document.getElementById('email-compose-body').innerHTML = '';
+    document.getElementById('email-compose-reply-ref').style.display = 'none';
+    document.getElementById('email-compose-picker').style.display = 'none';
+    document.getElementById('email-compose-form').style.display = 'flex';
+    const ccRow = document.getElementById('email-compose-cc-row');
+    if(ccRow) ccRow.style.display = 'none';
+    const cc = document.getElementById('email-compose-cc'); if(cc) cc.value = '';
+    const bcc = document.getElementById('email-compose-bcc'); if(bcc) bcc.value = '';
+    _emailComposeMode = 'new';
+    _emailComposeReplyTarget = null;
+    const fromSel = document.getElementById('email-compose-from');
+    fromSel.innerHTML = allAccts.map(a => `<option value="${a.id}">${a.name||a.user||a.id}</option>`).join('');
+    fromSel.style.display = allAccts.length > 0 ? '' : 'none';
+    openModal('email-compose-modal');
 }
 
 function gmailClosePreview(src) {
@@ -4206,6 +4369,10 @@ async function sendComposedEmail() {
     const bodyEl = document.getElementById('email-compose-body');
     const bodyHtml = bodyEl.innerHTML.trim();
     const bodyText = bodyEl.textContent.trim();
+    const ccEl = document.getElementById('email-compose-cc');
+    const bccEl = document.getElementById('email-compose-bcc');
+    const cc = ccEl ? ccEl.value.trim() : '';
+    const bcc = bccEl ? bccEl.value.trim() : '';
     if (!to) { notify('Enter a recipient', '#ff3b30'); return; }
     if (!bodyText) { notify('Email body is empty', '#ff3b30'); return; }
     const fromSel = document.getElementById('email-compose-from');
@@ -4214,12 +4381,15 @@ async function sendComposedEmail() {
     try {
         notify('Sending…', '#007aff', 2000);
         if (imapAcct) {
-            const r = await fetch('/api/imap/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, to, subject: subject || '(no subject)', text: bodyText, html: `<html><body>${bodyHtml}</body></html>` }) });
+            const r = await fetch('/api/imap/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, to, cc: cc||undefined, bcc: bcc||undefined, subject: subject || '(no subject)', text: bodyText, html: `<html><body>${bodyHtml}</body></html>` }) });
             if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Send failed: ' + r.status); }
         } else {
             if (!gmailAccessToken) { notify('Not signed in to Gmail', '#ff3b30'); return; }
             const boundary = 'boundary_' + Date.now();
-            const lines = [`To: ${to}`, `Subject: ${subject || '(no subject)'}`, 'MIME-Version: 1.0', `Content-Type: multipart/alternative; boundary="${boundary}"`];
+            const lines = [`To: ${to}`];
+            if(cc) lines.push(`Cc: ${cc}`);
+            if(bcc) lines.push(`Bcc: ${bcc}`);
+            lines.push(`Subject: ${subject || '(no subject)'}`, 'MIME-Version: 1.0', `Content-Type: multipart/alternative; boundary="${boundary}"`);
             if (_emailComposeReplyTarget && _emailComposeReplyTarget.messageId) { lines.push(`In-Reply-To: ${_emailComposeReplyTarget.messageId}`); lines.push(`References: ${_emailComposeReplyTarget.messageId}`); }
             lines.push('', `--${boundary}`, 'Content-Type: text/plain; charset=utf-8', 'Content-Transfer-Encoding: quoted-printable', '', bodyText, '', `--${boundary}`, 'Content-Type: text/html; charset=utf-8', 'Content-Transfer-Encoding: quoted-printable', '', `<html><body>${bodyHtml}</body></html>`, '', `--${boundary}--`);
             const rawMsg = lines.join('\r\n');
@@ -4252,7 +4422,14 @@ function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!l
     </div>
     <div id="email-compose-form" class="modal-content" style="display:flex; flex-direction:column; padding:14px; gap:10px;">
         <select id="email-compose-from" class="pp-input" style="font-size:13px; display:none;"></select>
-        <input id="email-compose-to" class="pp-input" placeholder="To" style="font-size:13px;">
+        <div style="display:flex; gap:6px; align-items:center;">
+            <input id="email-compose-to" class="pp-input" placeholder="To" style="font-size:13px; flex:1;">
+            <button type="button" onclick="document.getElementById('email-compose-cc-row').style.display = document.getElementById('email-compose-cc-row').style.display === 'none' ? 'flex' : 'none';" style="font-size:11px; color:var(--accent); cursor:pointer; background:none; border:none; padding:4px 6px; font-weight:700; white-space:nowrap; flex-shrink:0;">CC/BCC</button>
+        </div>
+        <div id="email-compose-cc-row" style="display:none; flex-direction:column; gap:8px;">
+            <input id="email-compose-cc" class="pp-input" placeholder="CC" style="font-size:13px;">
+            <input id="email-compose-bcc" class="pp-input" placeholder="BCC" style="font-size:13px;">
+        </div>
         <input id="email-compose-subject" class="pp-input" placeholder="Subject" style="font-size:13px;">
         <div style="display:flex; gap:6px; background:var(--sec-bg); padding:6px 8px; border-radius:10px; flex-wrap:wrap;">
             <button class="chip" style="font-size:12px; font-weight:900; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('bold')"><b>B</b></button>
@@ -4260,9 +4437,12 @@ function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!l
             <button class="chip" style="font-size:12px; text-decoration:underline; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('underline')"><u>U</u></button>
             <button class="chip" style="font-size:12px; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('insertUnorderedList')">• List</button>
         </div>
-        <div id="email-compose-body" contenteditable="true" data-ph="Email body…" style="flex:1; min-height:160px; max-height:40vh; overflow-y:auto; background:var(--bg); border:0.5px solid var(--border); border-radius:12px; padding:12px; font-size:13px; line-height:1.6; outline:none; word-break:break-word;"></div>
+        <div id="email-compose-body" contenteditable="true" data-ph="Email body…" style="flex:1; min-height:160px; max-height:38vh; overflow-y:auto; background:var(--bg); border:0.5px solid var(--border); border-radius:12px; padding:12px; font-size:13px; line-height:1.6; outline:none; word-break:break-word;"></div>
         <div id="email-compose-reply-ref" style="display:none; font-size:11px; color:#888; padding:6px 10px; background:var(--sec-bg); border-radius:8px; border-left:3px solid var(--accent);"></div>
-        <button class="chip" style="width:100%; background:var(--accent); color:#fff; padding:13px; font-weight:bold; font-size:14px;" onclick="sendComposedEmail()">Send ↑</button>
+        <div style="display:flex; gap:8px;">
+            <button type="button" class="chip" style="flex:1; background:var(--sec-bg); color:#ff3b30; padding:12px; font-size:13px; border:0.5px solid var(--border);" onclick="closeModal('email-compose-modal')">Discard</button>
+            <button class="chip" style="flex:2; background:var(--accent); color:#fff; padding:13px; font-weight:bold; font-size:14px;" onclick="sendComposedEmail()">Send ↑</button>
+        </div>
     </div>
 </div>
 
