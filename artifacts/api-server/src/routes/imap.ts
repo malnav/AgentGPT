@@ -47,7 +47,7 @@ function resolveMailbox(mailbox: string, mbNames: string[]): { resolved: string;
 }
 
 router.post("/imap/fetch", async (req, res) => {
-    const { host, port, user, pass, tls, query, maxResults = 25, mailbox = "INBOX" } = req.body;
+    const { host, port, user, pass, tls, query, maxResults = 25, offset = 0, mailbox = "INBOX" } = req.body;
     if (!host || !user || !pass) return res.status(400).json({ error: "Missing required fields: host, user, pass" });
     try {
         const emails = await withImap({ host, port: parseInt(port) || (tls !== false ? 993 : 143), user, pass, tls: tls !== false }, async (client) => {
@@ -79,7 +79,9 @@ router.post("/imap/fetch", async (req, res) => {
                 searchCriteria = { flagged: true, or: [{ subject: q }, { body: q }] };
             }
             const uids: number[] = await client.search(searchCriteria, { uid: true }) as number[];
-            const slice = uids.slice(-Math.max(maxResults, 1)).reverse();
+            const skip = Math.max(0, parseInt(String(offset)) || 0);
+            const take = Math.max(1, maxResults);
+            const slice = skip > 0 ? [...uids].slice(-(take + skip), -skip).reverse() : [...uids].slice(-take).reverse();
             const results: any[] = [];
             for await (const msg of client.fetch(slice.length ? slice : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
                 results.push({
