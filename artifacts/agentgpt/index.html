@@ -2725,6 +2725,8 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
     applyInProgress = true;
     try {
         const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        const prevActiveProfile = activeProfileLabel;
+        const prevSessionId = (() => { const s = chatHistories[prevActiveProfile]; return s ? String(s.current) : null; })();
         let newHistories = chatHistories;
         if(data.chunks_count > 0) {
             let fullStr = "";
@@ -2741,17 +2743,29 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
         if(data.datasets) GLOBAL_DATASETS = data.datasets;
         chatHistories = isInitial ? mergeHistoriesSafe(chatHistories, newHistories) : newHistories;
 
-        if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
-
-        if(!currentAborter) {
-            const sData = chatHistories[activeProfileLabel];
-            if(sData && sData.list) {
-                const cur = sData.list.find(x => String(x.id) === String(sData.current)) || sData.list[0];
-                if(cur) { chatHistory = cur.msgs || []; sData.current = cur.id; }
+        if(silent) {
+            if(AI_PROFILES.find(p => p.label === prevActiveProfile)) activeProfileLabel = prevActiveProfile;
+            else if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
+            if(!currentAborter) {
+                const sData = chatHistories[activeProfileLabel];
+                if(sData && sData.list) {
+                    const restored = prevSessionId ? sData.list.find(x => String(x.id) === prevSessionId) : null;
+                    const cur = restored || sData.list.find(x => String(x.id) === String(sData.current)) || sData.list[0];
+                    if(cur) { chatHistory = cur.msgs || []; sData.current = cur.id; }
+                }
+                const activeProf = AI_PROFILES.find(p => p.label === activeProfileLabel);
+                if(activeProf && chatHistory.length > 0 && chatHistory[0].role === 'developer') chatHistory[0].content = [{ type: "input_text", text: activeProf.text }];
             }
-            const activeProf = AI_PROFILES.find(p => p.label === activeProfileLabel);
-            if(activeProf && chatHistory.length > 0 && chatHistory[0].role === 'developer') {
-                chatHistory[0].content = [{ type: "input_text", text: activeProf.text }];
+        } else {
+            if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : "";
+            if(!currentAborter) {
+                const sData = chatHistories[activeProfileLabel];
+                if(sData && sData.list) {
+                    const cur = sData.list.find(x => String(x.id) === String(sData.current)) || sData.list[0];
+                    if(cur) { chatHistory = cur.msgs || []; sData.current = cur.id; }
+                }
+                const activeProf = AI_PROFILES.find(p => p.label === activeProfileLabel);
+                if(activeProf && chatHistory.length > 0 && chatHistory[0].role === 'developer') chatHistory[0].content = [{ type: "input_text", text: activeProf.text }];
             }
         }
 
