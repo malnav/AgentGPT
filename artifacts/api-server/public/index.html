@@ -1614,7 +1614,7 @@ function renderLinksPanel() {
                     <div style="margin-top:3px;">${tagsHtml}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
-                    <span class="chip" style="font-size:11px;padding:4px 8px;cursor:pointer;white-space:nowrap;" onclick="linksInsert('${_escH(lk.id)}'); closeAllPanels();" title="Insert title + URL">📋 URL</span>
+                    <span class="chip" style="font-size:11px;padding:4px 8px;cursor:pointer;white-space:nowrap;" onclick="linksInsert('${_escH(lk.id)}')" title="Insert title + URL">📋 URL</span>
                     <span class="chip" id="link-fetch-btn-${_escH(lk.id)}" style="font-size:11px;padding:4px 8px;cursor:pointer;white-space:nowrap;background:var(--accent);color:#fff;" onclick="linksFetchAndInsert('${_escH(lk.id)}')" title="Fetch page HTML and insert with URL">🌐 +HTML</span>
                 </div>
             </div>`;
@@ -3351,8 +3351,6 @@ function gmailCleanBodyText(text) {
         /^(best\s+regards?|kind\s+regards?|warm\s+regards?|sincerely|thanks?|cheers?|regards?|br[,.]?|kr[,.]?)\s*[,.]?\s*$/i,
         /^(sent from (my |your )?(iphone|android|galaxy|pixel)|get outlook|sent via\s+\w)/i,
         /^(unsubscribe|this email was sent to|privacy policy|you (are )?receiving this|©\s*\d{4})/i,
-        /^(tel|ph|mobile|cell|fax)\s*[:\-–]\s*[+\d\s\(\)]+$/i,
-        /^(www\.|http)[^\s]+$/i,
         /^\[.*\]\s*$/, /^#{3,}/
     ];
     const QUOTE_BREAK = [
@@ -4459,7 +4457,7 @@ async function sendComposedEmail() {
 window.onload = init;
 
 function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!lk) return; insertAtCursor(`**${lk.title}**\n${lk.url}`,true,false); closeAllPanels(); notify('Link inserted!','#34c759',1500); }
+function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!lk) return; insertAtCursor(`**${lk.title}**\n${lk.url}`,true,false); notify('Link inserted!','#34c759',1500); }
 </script>
 
 <div id="email-compose-modal" class="modal" style="z-index:3500;">
