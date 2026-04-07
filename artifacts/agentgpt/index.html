@@ -450,7 +450,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #floating-chat { position:fixed; z-index:9000; inset:0; background:var(--bg); display:flex; flex-direction:column; overflow:hidden; }
 #floating-chat.fc-minimized { inset:auto; bottom:0; left:0; right:0; height:auto; border-radius:18px 18px 0 0; box-shadow:0 -4px 32px rgba(0,0,0,0.22); background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); }
 #floating-chat.fc-minimized #fchat-header { padding-top: 10px; }
-#profile-bubble { display:none !important; z-index:9001 !important; }
+#profile-bubble { z-index:9001 !important; }
+#master-modal.closed ~ #profile-bubble { display:none !important; }
 #fchat-header { display:flex; align-items:center; padding:calc(var(--sat, env(safe-area-inset-top, 0px)) + 10px) 12px 10px 12px; gap:6px; flex-shrink:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-bottom:0.5px solid var(--glass-border); min-height:48px; }
 #floating-chat .sys-icons { display:none !important; }
 #floating-chat .top-nav { top: 0 !important; }
