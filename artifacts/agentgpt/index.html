@@ -445,29 +445,14 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #profile-bubble.email-mode { background:linear-gradient(135deg,#007aff,#5c5cff); animation:bubble-email-pulse 1.6s ease-in-out infinite; font-size:24px; }
 #profile-bubble:active { transform:scale(0.93); }
 #profile-bubble-menu { position:fixed; z-index:3350; min-width:230px; max-width:88vw; background:var(--glass); border:0.5px solid var(--glass-border); border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,0.28); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; }
-#floating-chat { position:fixed; z-index:4500; width:min(380px,95vw); height:min(580px,82vh); border-radius:22px; background:var(--glass); border:0.5px solid var(--glass-border); box-shadow:0 10px 50px rgba(0,0,0,0.38); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; display:flex; flex-direction:column; }
-#floating-chat.fc-minimized #fchat-context-bar,#floating-chat.fc-minimized #fchat-chat-container,#floating-chat.fc-minimized #fchat-input-row { display:none !important; }
-#fchat-header { display:flex; align-items:center; padding:11px 14px; gap:8px; cursor:move; user-select:none; -webkit-user-select:none; flex-shrink:0; }
-#fchat-context-bar { display:flex; align-items:center; gap:6px; padding:7px 12px; border-top:0.5px solid var(--glass-border); overflow-x:auto; scrollbar-width:none; flex-shrink:0; }
-#fchat-context-bar::-webkit-scrollbar { display:none; }
-#fchat-chat-container { flex:1; overflow-y:auto; padding:10px 10px 6px; display:flex; flex-direction:column; gap:6px; min-height:0; }
-#fchat-chat-container .bubble { max-width:98%; }
-#fchat-chat-container .bubble-content { font-size:13px; }
-#fchat-chat-container .bubble-tools { font-size:14px; gap:8px; }
-#fchat-chat-container pre { font-size:11px; }
-#fchat-input-row { display:flex; flex-direction:column; gap:5px; padding:8px 10px; border-top:0.5px solid var(--glass-border); flex-shrink:0; }
-#fchat-toolbar { display:flex; align-items:center; gap:4px; }
-#fchat-note-input { width:100%; font-size:14px; line-height:1.5; border:none; border-radius:16px; background:var(--sec-bg); color:var(--text); outline:none; resize:none; min-height:44px; max-height:150px; padding:10px 13px; box-sizing:border-box; }
-#fchat-note-input::placeholder { font-size:13px; opacity:0.6; }
+#main-chat-wrapper { display:flex; flex-direction:column; flex:1; position:relative; min-height:0; overflow:hidden; }
+#floating-chat { position:fixed; z-index:9000; inset:0; background:var(--bg); display:flex; flex-direction:column; overflow:hidden; }
+#floating-chat.fc-minimized { inset:auto; bottom:0; left:0; right:0; height:auto; border-radius:18px 18px 0 0; box-shadow:0 -4px 32px rgba(0,0,0,0.22); background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); }
+#profile-bubble { z-index:9001 !important; }
+#fchat-header { display:flex; align-items:center; padding:10px 12px; gap:6px; flex-shrink:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-bottom:0.5px solid var(--glass-border); min-height:48px; }
 .fchat-ctx-btn { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:var(--accent); background:rgba(0,122,255,0.10); border-radius:8px; padding:4px 9px; cursor:pointer; white-space:nowrap; flex-shrink:0; border:0.5px solid rgba(0,122,255,0.18); transition:background 0.15s; }
 .fchat-ctx-btn:active { background:rgba(0,122,255,0.22); }
 .fchat-ctx-btn.danger { color:#ff3b30; background:rgba(255,59,48,0.10); border-color:rgba(255,59,48,0.18); }
-.fchat-msg { font-size:13px; line-height:1.55; padding:8px 11px; border-radius:14px; max-width:88%; word-break:break-word; }
-.fchat-msg.user { background:var(--accent); color:#fff; align-self:flex-end; border-bottom-right-radius:3px; }
-.fchat-msg.ai { background:var(--sec-bg); color:var(--text); align-self:flex-start; border-bottom-left-radius:3px; border:0.5px solid var(--border); }
-.fchat-msg p { margin:0 0 6px; } .fchat-msg p:last-child { margin:0; }
-.fchat-msg code { font-size:11px; background:rgba(0,0,0,0.09); padding:1px 4px; border-radius:4px; }
-.fchat-msg ul,.fchat-msg ol { margin:4px 0 4px 16px; padding:0; } .fchat-msg li { margin:2px 0; }
 .pbm-header { padding:14px 16px 10px; border-bottom:0.5px solid var(--border); }
 .pbm-title { font-size:12px; font-weight:800; color:var(--accent); letter-spacing:0.4px; }
 .pbm-sub { font-size:11px; color:#888; margin-top:2px; }
@@ -620,6 +605,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <input type="file" id="attach-file" accept=".pdf,.txt,.md,.csv,.json,.xml,.html,.htm,.js,.ts,.jsx,.tsx,.css,.py,.swift,.kt,.doc,.docx,.xls,.xlsx" multiple style="display:none;" tabindex="-1" onchange="handleAttachments(event)">
 <input type="file" id="wa-zip-input" accept=".zip,.txt" style="display:none;" onchange="importWhatsAppFile(event)">
 
+<div id="main-chat-wrapper">
 <div class="top-nav">
     <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
         <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="cursor:pointer; font-size:18px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow);" title="Workspace">🗂️</div>
@@ -901,6 +887,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             </div>
         </div>
     </div>
+</div>
 </div>
 
 <div id="master-modal" class="modal" style="z-index:4000;">
@@ -2146,7 +2133,7 @@ async function applyPrompt(idx) {
 function savePromptFromChat(idx) { let rawText = getTextFromContent(chatHistory[idx].content); if(rawText.includes("\n\n[CONTEXT]\n")) rawText = rawText.split("\n\n[CONTEXT]\n")[0]; closeAllPanels(); manageSection('prompts'); document.getElementById('entry-t').value = rawText; }
 function previewPayload(idx) { const msg = chatHistory[idx]; document.getElementById('preview-text').innerText = JSON.stringify(msg, null, 2); openModal('preview-modal'); }
 
-async function editChatMsg(idx) { let rawText = getTextFromContent(chatHistory[idx].content); if(rawText.includes("\n\n[CONTEXT]\n")) rawText = rawText.split("\n\n[CONTEXT]\n")[0]; document.getElementById('note-input').value = rawText; const fcNI = document.getElementById('fchat-note-input'); if(fcNI && _fchatOpen) { fcNI.value = rawText; fchatAutoGrow(fcNI); } pendingAttachments = []; if(Array.isArray(chatHistory[idx].content)) { chatHistory[idx].content.forEach(c => { if((c.type === 'input_image' || c.type === 'image_url') && c.image_url) { let url = typeof c.image_url === 'string' ? c.image_url : (c.image_url && c.image_url.url); if(url) pendingAttachments.push({ type: 'image', data: url, name: 'image' }); } }); } renderAttachmentPreview(); chatHistory = chatHistory.slice(0, idx); await saveAll(); renderChatHistory(); document.getElementById('note-input').focus(); if(fcNI && _fchatOpen) fcNI.focus(); sync(); }
+async function editChatMsg(idx) { let rawText = getTextFromContent(chatHistory[idx].content); if(rawText.includes("\n\n[CONTEXT]\n")) rawText = rawText.split("\n\n[CONTEXT]\n")[0]; document.getElementById('note-input').value = rawText; pendingAttachments = []; if(Array.isArray(chatHistory[idx].content)) { chatHistory[idx].content.forEach(c => { if((c.type === 'input_image' || c.type === 'image_url') && c.image_url) { let url = typeof c.image_url === 'string' ? c.image_url : (c.image_url && c.image_url.url); if(url) pendingAttachments.push({ type: 'image', data: url, name: 'image' }); } }); } renderAttachmentPreview(); chatHistory = chatHistory.slice(0, idx); await saveAll(); renderChatHistory(); document.getElementById('note-input').focus(); sync(); }
 
 function editAIResponse(idx) { 
     let msg = chatHistory[idx]; let currentText = getTextFromContent(msg.content);
@@ -2285,8 +2272,6 @@ function renderChatHistory() {
             }
         } catch(e) { console.warn('Mermaid rendering issue', e); }
     }, 50);
-    const fcEl = document.getElementById('fchat-chat-container');
-    if (fcEl && _fchatOpen) { fcEl.innerHTML = document.getElementById('chat-container').innerHTML; setTimeout(() => { fcEl.scrollTop = fcEl.scrollHeight; }, 60); }
 }
 
 async function getOauthToken(url, clientId, clientSecret) { const credentials = btoa(`${clientId}:${clientSecret}`); const params = new URLSearchParams(); params.append("grant_type", "client_credentials"); addLog("API", "OAuth Fetch Request", url); const res = await fetch(url, { method: "POST", headers: { "Authorization": `Basic ${credentials}`, "Content-Type": "application/x-www-form-urlencoded" }, body: params.toString() }); if(!res.ok) throw new Error("OAuth token fetch failed: " + res.statusText); const data = await res.json(); return data.access_token; }
@@ -4123,7 +4108,6 @@ let _bubbleDragging = false;
 let _bubbleDragStartX = 0, _bubbleDragStartY = 0;
 let _bubbleMoved = false;
 let _fchatOpen = false, _fchatMinimized = false, _fchatProfileLabel = null;
-let _fchatDragActive = false, _fchatDragOX = 0, _fchatDragOY = 0;
 
 function initProfileBubble() {
     const b = document.getElementById('profile-bubble');
@@ -4218,31 +4202,37 @@ function openFloatingChat(profileLabel) {
     _fchatOpen = true; _fchatMinimized = false;
     _fchatProfileLabel = profileLabel || CONFIG.def_profile || activeProfileLabel;
     const el = document.getElementById('floating-chat'); if (!el) return;
+    const wrapper = document.getElementById('main-chat-wrapper');
+    if (wrapper && wrapper.parentNode !== el) { el.appendChild(wrapper); }
+    wrapper && (wrapper.style.display = '');
     el.style.display = 'flex'; el.classList.remove('fc-minimized');
-    if (!el.style.top || el.style.top === '' || el.style.top === 'auto') { el.style.bottom = '170px'; el.style.right = '18px'; el.style.top = 'auto'; el.style.left = 'auto'; }
     const p = AI_PROFILES.find(x => x.label === _fchatProfileLabel) || AI_PROFILES[0];
     const nameEl = document.getElementById('fchat-profile-name');
     if (nameEl) nameEl.textContent = (p ? p.label : 'AI') + ' Chat';
     const avatarEl = document.getElementById('fchat-avatar');
     if (avatarEl) avatarEl.textContent = p ? p.label[0].toUpperCase() : '?';
-    const mSel = document.getElementById('fchat-model-sel');
-    if (mSel) { mSel.innerHTML = document.getElementById('chatModel').innerHTML; mSel.value = document.getElementById('chatModel').value; }
     _updateFchatContextLabel();
-    renderChatHistory();
-    setTimeout(() => { const i = document.getElementById('fchat-note-input'); if (i) i.focus(); }, 200);
+    setTimeout(() => { const i = document.getElementById('note-input'); if (i) i.focus(); scrollToBottom(); }, 200);
 }
 
 function minimizeFloatingChat(e) {
     if (e && e.stopPropagation) e.stopPropagation();
     _fchatMinimized = !_fchatMinimized;
     const el = document.getElementById('floating-chat'); if (!el) return;
-    if (_fchatMinimized) { el.classList.add('fc-minimized'); } else { el.classList.remove('fc-minimized'); setTimeout(() => { const i = document.getElementById('fchat-input'); if (i) i.focus(); }, 150); }
+    const wrapper = document.getElementById('main-chat-wrapper');
+    if (_fchatMinimized) { if (wrapper) wrapper.style.display = 'none'; el.classList.add('fc-minimized'); }
+    else { if (wrapper) wrapper.style.display = ''; el.classList.remove('fc-minimized'); setTimeout(() => { const i = document.getElementById('note-input'); if (i) i.focus(); }, 150); }
 }
 
 function fchatClearAndClose(e) {
     if (e && e.stopPropagation) e.stopPropagation();
     _fchatOpen = false; _fchatMinimized = false;
-    const el = document.getElementById('floating-chat'); if (el) el.style.display = 'none';
+    const el = document.getElementById('floating-chat');
+    const wrapper = document.getElementById('main-chat-wrapper');
+    const ref = document.getElementById('master-modal');
+    if (wrapper && ref && ref.parentNode) { ref.parentNode.insertBefore(wrapper, ref); } else if (wrapper) { document.body.appendChild(wrapper); }
+    if (wrapper) wrapper.style.display = '';
+    if (el) el.style.display = 'none';
 }
 
 function _updateFchatContextLabel() {
@@ -4280,35 +4270,6 @@ async function addFloatingChatContext(type) {
     _updateFchatContextLabel();
 }
 
-function fchatSendToAI() {
-    const fcInp = document.getElementById('fchat-note-input'); if (!fcInp) return;
-    const txt = fcInp.value;
-    if (!txt.trim()) return;
-    const mainInp = document.getElementById('note-input');
-    if (mainInp) mainInp.value = txt;
-    fcInp.value = '';
-    fcInp.style.height = '';
-    sendToAI();
-}
-
-function fchatAutoGrow(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 150) + 'px';
-}
-
-function fchatDragStart(e) {
-    const el = document.getElementById('floating-chat'); if (!el) return;
-    if (e.target.tagName === 'INPUT' || (e.target.getAttribute && e.target.getAttribute('onclick'))) return;
-    if (e.target.closest('[onclick]')) return;
-    _fchatDragActive = true;
-    const touch = e.touches ? e.touches[0] : e;
-    const rect = el.getBoundingClientRect();
-    _fchatDragOX = touch.clientX - rect.left; _fchatDragOY = touch.clientY - rect.top;
-    const mm = (ev) => { if (!_fchatDragActive) return; const t = ev.touches ? ev.touches[0] : ev; let nx = t.clientX - _fchatDragOX; let ny = t.clientY - _fchatDragOY; nx = Math.max(0, Math.min(nx, window.innerWidth - el.offsetWidth)); ny = Math.max(0, Math.min(ny, window.innerHeight - el.offsetHeight)); el.style.left = nx + 'px'; el.style.top = ny + 'px'; el.style.right = 'auto'; el.style.bottom = 'auto'; };
-    const mu = () => { _fchatDragActive = false; document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); document.removeEventListener('touchmove', mm); document.removeEventListener('touchend', mu); };
-    document.addEventListener('mousemove', mm); document.addEventListener('mouseup', mu); document.addEventListener('touchmove', mm, { passive: false }); document.addEventListener('touchend', mu);
-    e.preventDefault();
-}
 
 function openProfileBubbleMenu() {
     const n = document.querySelectorAll('.gmail-chk:checked').length;
@@ -4746,37 +4707,19 @@ function _linkifyHtml(html) {
 
 <div id="profile-bubble-backdrop" style="display:none; position:fixed; inset:0; z-index:3299;" onclick="closeProfileBubbleMenu()"></div>
 
-<div id="floating-chat" style="display:none; bottom:170px; right:18px;">
-    <div id="fchat-header" onmousedown="fchatDragStart(event)" ontouchstart="fchatDragStart(event)">
-        <div id="fchat-avatar" style="width:33px; height:33px; border-radius:17px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:800; flex-shrink:0; cursor:default;">?</div>
+<div id="floating-chat" style="display:none;">
+    <div id="fchat-header">
+        <div id="fchat-avatar" style="width:30px; height:30px; border-radius:15px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:800; flex-shrink:0;">?</div>
         <div style="flex:1; min-width:0;">
-            <div id="fchat-profile-name" style="font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">AI Chat</div>
-            <div id="fchat-context-label" style="font-size:10px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">No context added</div>
+            <div id="fchat-profile-name" style="font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.3;">AI Chat</div>
+            <div id="fchat-context-label" style="font-size:10px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.3;">No context added</div>
         </div>
-        <div onclick="resetCurrentSession()" style="font-size:16px; line-height:1; cursor:pointer; padding:4px 6px; color:#888;" title="New Chat">📝</div>
-        <div onclick="minimizeFloatingChat(event)" style="font-size:20px; line-height:1; cursor:pointer; padding:4px 7px; color:#888;" title="Minimize/Restore">—</div>
-        <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888;" title="Close">✕</div>
-    </div>
-    <div id="fchat-context-bar">
-        <span style="font-size:10px; color:#888; font-weight:700; flex-shrink:0; white-space:nowrap; margin-right:2px;">CONTEXT:</span>
-        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')">📧 Email</div>
+        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')" style="margin-left:4px;">📧 Email</div>
         <div class="fchat-ctx-btn" onclick="addFloatingChatContext('sender')">📬 Thread</div>
-        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')">✅ Selected</div>
-        <div class="fchat-ctx-btn danger" onclick="addFloatingChatContext('clear')">🗑 Clear</div>
-    </div>
-    <div id="fchat-chat-container"></div>
-    <div id="fchat-input-row">
-        <div id="fchat-toolbar">
-            <button class="chip" style="padding:3px 7px; font-size:17px; background:transparent; border:none; color:var(--accent); cursor:pointer;" onclick="toggleMenu(document.getElementById('attach-menu'))" title="Attach / Templates">➕</button>
-            <select id="fchat-model-sel" class="model-sel" onchange="document.getElementById('chatModel').value=this.value;" style="width:85px; flex-shrink:0;"></select>
-            <div style="flex:1;"></div>
-            <div onclick="popState()" title="Undo last message" style="cursor:pointer; font-size:14px; color:#888; padding:3px 5px;">↩️</div>
-            <div onclick="manageSection('prompts'); closeAllPanels();" title="Prompts library" style="cursor:pointer; font-size:14px; color:#888; padding:3px 5px;">📚</div>
-        </div>
-        <div style="display:flex; gap:8px; align-items:flex-end;">
-            <textarea id="fchat-note-input" placeholder="Draft message…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();fchatSendToAI();}" oninput="fchatAutoGrow(this)"></textarea>
-            <button id="fchat-send-btn" onclick="fchatSendToAI()" style="width:40px; height:40px; border-radius:20px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px; cursor:pointer; flex-shrink:0; border:none; box-shadow:0 2px 12px rgba(0,122,255,0.4);" title="Send">↑</button>
-        </div>
+        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')">✅ Sel</div>
+        <div class="fchat-ctx-btn danger" onclick="addFloatingChatContext('clear')">🗑</div>
+        <div onclick="minimizeFloatingChat(event)" style="font-size:22px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0;" title="Minimize">—</div>
+        <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0;" title="Close">✕</div>
     </div>
 </div>
 
