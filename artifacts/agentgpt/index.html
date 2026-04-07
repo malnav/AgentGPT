@@ -2549,7 +2549,7 @@ async function openModal(id) {
     document.getElementById(id).style.display = 'flex'; 
     if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); } 
 }
-function closeModal(id) { document.getElementById(id).style.display = 'none'; if (id === 'gmail-modal') { const pb = document.getElementById('profile-bubble'); if (pb) pb.style.display = 'none'; if (_fchatOpen) fchatClearAndClose(null); } }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; if (id === 'gmail-modal' && _fchatOpen) fchatClearAndClose(null); }
 function switchMasterTab(t) { ['config','profiles','models','logs','email','ai-prompts'].forEach(tab => { const btn = document.getElementById('mtab-'+tab); const view = document.getElementById('mview-'+tab); if(btn) btn.classList.toggle('active', t===tab); if(view) view.classList.toggle('closed', t!==tab); }); if(t==='models') renderModelList(); if(t==='profiles') renderProfileList(); if(t==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(t==='config') renderBgSwatches(); if(t==='email') renderEmailSettingsTab(); if(t==='ai-prompts') renderAiPromptCards(); }
 function switchModalTab(t) { document.getElementById('tab-editor').classList.toggle('active', t==='editor'); document.getElementById('tab-bulk').classList.toggle('active', t==='bulk'); document.getElementById('view-editor').classList.toggle('closed', t!=='editor'); document.getElementById('view-bulk').classList.toggle('closed', t!=='bulk'); }
 
@@ -3149,7 +3149,6 @@ function openGmailModal() {
     openModal('gmail-modal');
     emailRenderAccountChip();
     emailFetchEmails(null);
-    const pb = document.getElementById('profile-bubble'); if (pb) pb.style.display = 'flex';
 }
 
 function gmailEnsureScript(onReady) {
@@ -4718,7 +4717,7 @@ function _linkifyHtml(html) {
     </div>
 </div>
 
-<div id="profile-bubble" style="bottom:110px; right:18px; display:none;" title="Profile Chat Bubble" onclick="profileBubbleTap(event)">
+<div id="profile-bubble" style="bottom:110px; right:18px;" title="Profile Chat Bubble" onclick="profileBubbleTap(event)">
     <span id="profile-bubble-icon">?</span>
 </div>
 

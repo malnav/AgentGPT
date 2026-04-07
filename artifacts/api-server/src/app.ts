@@ -35,7 +35,5 @@ app.use("/api", router);
 const publicDir = path.resolve("public");
 app.use("/app", express.static(publicDir));
 app.get("/app", (_req, res) => { res.sendFile(path.join(publicDir, "index.html")); });
-app.use(express.static(publicDir));
-app.get("/", (_req, res) => { res.sendFile(path.join(publicDir, "index.html")); });
 
 export default app;
