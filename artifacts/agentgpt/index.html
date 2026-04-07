@@ -576,6 +576,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   /* Profile dropdown — more width available */
   .main-profile-dropdown { max-width: 220px; }
 }
+#gmail-reply-box a, #gmail-modal-reply-box a, #email-compose-body a { color: var(--accent); text-decoration: underline; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -4461,7 +4462,25 @@ window.onload = init;
 function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!lk) return; insertAtCursor(`**${lk.title}**\n${lk.url}`,true,false); notify('Link inserted!','#34c759',1500); }
 
+function _getAnchorAtCursor() {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return null;
+    let node = sel.getRangeAt(0).commonAncestorContainer;
+    while (node && node !== document.body) { if (node.nodeName === 'A') return node; node = node.parentNode; }
+    return null;
+}
 function _composeInsertLink() {
+    const anchor = _getAnchorAtCursor();
+    if (anchor) {
+        const newUrl = prompt('Edit link URL (clear to remove link):', anchor.href);
+        if (newUrl === null) return;
+        if (!newUrl || !newUrl.startsWith('http')) {
+            const parent = anchor.parentNode;
+            while (anchor.firstChild) parent.insertBefore(anchor.firstChild, anchor);
+            parent.removeChild(anchor);
+        } else { anchor.href = newUrl; }
+        return;
+    }
     const sel = window.getSelection();
     const url = prompt('Link URL:', 'https://');
     if (!url || !url.startsWith('http')) return;
