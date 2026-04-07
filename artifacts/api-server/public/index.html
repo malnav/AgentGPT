@@ -87,7 +87,7 @@ body::before {
 #toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); padding: 10px 22px; border-radius: 28px; background: rgba(20,20,30,0.88); backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm); color: #fff; font-size: 13px; font-weight: 700; z-index: 10000; display: none; text-align: center; box-shadow: var(--glass-shadow-md); border: 0.5px solid rgba(255,255,255,0.15); }
 
 /* ── TOP NAV ── */
-.top-nav { position: absolute; top: 0; left: 0; right: 0; padding: max(14px, env(safe-area-inset-top)) 14px 10px 14px; display: flex; align-items: center; justify-content: space-between; z-index: 100; pointer-events: none; }
+.top-nav { position: absolute; top: 0; left: 0; right: 0; padding: max(20px, calc(env(safe-area-inset-top) + 10px)) 14px 10px 14px; display: flex; align-items: center; justify-content: space-between; z-index: 100; pointer-events: none; }
 
 .main-profile-dropdown {
   border-radius: 22px;
@@ -148,7 +148,7 @@ body::before {
 .chip.active { background: var(--accent) !important; color: #fff !important; border-color: transparent; box-shadow: 0 4px 14px rgba(0,122,255,0.35); }
 
 /* ── SCROLL AREA ── */
-.scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; padding-top: calc(64px + env(safe-area-inset-top)); position: relative; scroll-behavior: smooth; }
+.scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; padding-top: calc(68px + env(safe-area-inset-top)); position: relative; scroll-behavior: smooth; }
 /* spacer keeps last bubble above the fixed input zone without causing scroll jumps */
 #scroll-spacer { flex-shrink: 0; height: var(--input-h, 130px); pointer-events: none; }
 
