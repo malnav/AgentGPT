@@ -445,13 +445,20 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #profile-bubble.email-mode { background:linear-gradient(135deg,#007aff,#5c5cff); animation:bubble-email-pulse 1.6s ease-in-out infinite; font-size:24px; }
 #profile-bubble:active { transform:scale(0.93); }
 #profile-bubble-menu { position:fixed; z-index:3350; min-width:230px; max-width:88vw; background:var(--glass); border:0.5px solid var(--glass-border); border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,0.28); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; }
-#floating-chat { position:fixed; z-index:4500; width:min(340px,93vw); border-radius:22px; background:var(--glass); border:0.5px solid var(--glass-border); box-shadow:0 10px 50px rgba(0,0,0,0.38); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; display:flex; flex-direction:column; }
-#floating-chat.fc-minimized #fchat-context-bar,#floating-chat.fc-minimized #fchat-messages,#floating-chat.fc-minimized #fchat-input-row { display:none !important; }
+#floating-chat { position:fixed; z-index:4500; width:min(380px,95vw); height:min(580px,82vh); border-radius:22px; background:var(--glass); border:0.5px solid var(--glass-border); box-shadow:0 10px 50px rgba(0,0,0,0.38); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; display:flex; flex-direction:column; }
+#floating-chat.fc-minimized #fchat-context-bar,#floating-chat.fc-minimized #fchat-chat-container,#floating-chat.fc-minimized #fchat-input-row { display:none !important; }
 #fchat-header { display:flex; align-items:center; padding:11px 14px; gap:8px; cursor:move; user-select:none; -webkit-user-select:none; flex-shrink:0; }
 #fchat-context-bar { display:flex; align-items:center; gap:6px; padding:7px 12px; border-top:0.5px solid var(--glass-border); overflow-x:auto; scrollbar-width:none; flex-shrink:0; }
 #fchat-context-bar::-webkit-scrollbar { display:none; }
-#fchat-messages { flex:1; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; min-height:0; }
-#fchat-input-row { display:flex; gap:8px; padding:10px 12px; border-top:0.5px solid var(--glass-border); flex-shrink:0; align-items:center; }
+#fchat-chat-container { flex:1; overflow-y:auto; padding:10px 10px 6px; display:flex; flex-direction:column; gap:6px; min-height:0; }
+#fchat-chat-container .bubble { max-width:98%; }
+#fchat-chat-container .bubble-content { font-size:13px; }
+#fchat-chat-container .bubble-tools { font-size:14px; gap:8px; }
+#fchat-chat-container pre { font-size:11px; }
+#fchat-input-row { display:flex; flex-direction:column; gap:5px; padding:8px 10px; border-top:0.5px solid var(--glass-border); flex-shrink:0; }
+#fchat-toolbar { display:flex; align-items:center; gap:4px; }
+#fchat-note-input { width:100%; font-size:14px; line-height:1.5; border:none; border-radius:16px; background:var(--sec-bg); color:var(--text); outline:none; resize:none; min-height:44px; max-height:150px; padding:10px 13px; box-sizing:border-box; }
+#fchat-note-input::placeholder { font-size:13px; opacity:0.6; }
 .fchat-ctx-btn { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:var(--accent); background:rgba(0,122,255,0.10); border-radius:8px; padding:4px 9px; cursor:pointer; white-space:nowrap; flex-shrink:0; border:0.5px solid rgba(0,122,255,0.18); transition:background 0.15s; }
 .fchat-ctx-btn:active { background:rgba(0,122,255,0.22); }
 .fchat-ctx-btn.danger { color:#ff3b30; background:rgba(255,59,48,0.10); border-color:rgba(255,59,48,0.18); }
@@ -2139,7 +2146,7 @@ async function applyPrompt(idx) {
 function savePromptFromChat(idx) { let rawText = getTextFromContent(chatHistory[idx].content); if(rawText.includes("\n\n[CONTEXT]\n")) rawText = rawText.split("\n\n[CONTEXT]\n")[0]; closeAllPanels(); manageSection('prompts'); document.getElementById('entry-t').value = rawText; }
 function previewPayload(idx) { const msg = chatHistory[idx]; document.getElementById('preview-text').innerText = JSON.stringify(msg, null, 2); openModal('preview-modal'); }
 
-async function editChatMsg(idx) { let rawText = getTextFromContent(chatHistory[idx].content); if(rawText.includes("\n\n[CONTEXT]\n")) rawText = rawText.split("\n\n[CONTEXT]\n")[0]; document.getElementById('note-input').value = rawText; pendingAttachments = []; if(Array.isArray(chatHistory[idx].content)) { chatHistory[idx].content.forEach(c => { if((c.type === 'input_image' || c.type === 'image_url') && c.image_url) { let url = typeof c.image_url === 'string' ? c.image_url : (c.image_url && c.image_url.url); if(url) pendingAttachments.push({ type: 'image', data: url, name: 'image' }); } }); } renderAttachmentPreview(); chatHistory = chatHistory.slice(0, idx); await saveAll(); renderChatHistory(); document.getElementById('note-input').focus(); sync(); }
+async function editChatMsg(idx) { let rawText = getTextFromContent(chatHistory[idx].content); if(rawText.includes("\n\n[CONTEXT]\n")) rawText = rawText.split("\n\n[CONTEXT]\n")[0]; document.getElementById('note-input').value = rawText; const fcNI = document.getElementById('fchat-note-input'); if(fcNI && _fchatOpen) { fcNI.value = rawText; fchatAutoGrow(fcNI); } pendingAttachments = []; if(Array.isArray(chatHistory[idx].content)) { chatHistory[idx].content.forEach(c => { if((c.type === 'input_image' || c.type === 'image_url') && c.image_url) { let url = typeof c.image_url === 'string' ? c.image_url : (c.image_url && c.image_url.url); if(url) pendingAttachments.push({ type: 'image', data: url, name: 'image' }); } }); } renderAttachmentPreview(); chatHistory = chatHistory.slice(0, idx); await saveAll(); renderChatHistory(); document.getElementById('note-input').focus(); if(fcNI && _fchatOpen) fcNI.focus(); sync(); }
 
 function editAIResponse(idx) { 
     let msg = chatHistory[idx]; let currentText = getTextFromContent(msg.content);
@@ -2278,6 +2285,8 @@ function renderChatHistory() {
             }
         } catch(e) { console.warn('Mermaid rendering issue', e); }
     }, 50);
+    const fcEl = document.getElementById('fchat-chat-container');
+    if (fcEl && _fchatOpen) { fcEl.innerHTML = document.getElementById('chat-container').innerHTML; setTimeout(() => { fcEl.scrollTop = fcEl.scrollHeight; }, 60); }
 }
 
 async function getOauthToken(url, clientId, clientSecret) { const credentials = btoa(`${clientId}:${clientSecret}`); const params = new URLSearchParams(); params.append("grant_type", "client_credentials"); addLog("API", "OAuth Fetch Request", url); const res = await fetch(url, { method: "POST", headers: { "Authorization": `Basic ${credentials}`, "Content-Type": "application/x-www-form-urlencoded" }, body: params.toString() }); if(!res.ok) throw new Error("OAuth token fetch failed: " + res.statusText); const data = await res.json(); return data.access_token; }
@@ -4113,7 +4122,7 @@ loadBgTheme();
 let _bubbleDragging = false;
 let _bubbleDragStartX = 0, _bubbleDragStartY = 0;
 let _bubbleMoved = false;
-let _fchatOpen = false, _fchatMinimized = false, _fchatHistory = [], _fchatContext = [], _fchatProfileLabel = null, _fchatLoading = false;
+let _fchatOpen = false, _fchatMinimized = false, _fchatProfileLabel = null;
 let _fchatDragActive = false, _fchatDragOX = 0, _fchatDragOY = 0;
 
 function initProfileBubble() {
@@ -4210,15 +4219,17 @@ function openFloatingChat(profileLabel) {
     _fchatProfileLabel = profileLabel || CONFIG.def_profile || activeProfileLabel;
     const el = document.getElementById('floating-chat'); if (!el) return;
     el.style.display = 'flex'; el.classList.remove('fc-minimized');
-    if (!el.style.top || el.style.top === '') { el.style.bottom = '170px'; el.style.right = '18px'; el.style.top = 'auto'; el.style.left = 'auto'; }
+    if (!el.style.top || el.style.top === '' || el.style.top === 'auto') { el.style.bottom = '170px'; el.style.right = '18px'; el.style.top = 'auto'; el.style.left = 'auto'; }
     const p = AI_PROFILES.find(x => x.label === _fchatProfileLabel) || AI_PROFILES[0];
     const nameEl = document.getElementById('fchat-profile-name');
     if (nameEl) nameEl.textContent = (p ? p.label : 'AI') + ' Chat';
     const avatarEl = document.getElementById('fchat-avatar');
     if (avatarEl) avatarEl.textContent = p ? p.label[0].toUpperCase() : '?';
+    const mSel = document.getElementById('fchat-model-sel');
+    if (mSel) { mSel.innerHTML = document.getElementById('chatModel').innerHTML; mSel.value = document.getElementById('chatModel').value; }
     _updateFchatContextLabel();
-    renderFloatingChatMessages();
-    setTimeout(() => { const i = document.getElementById('fchat-input'); if (i) i.focus(); }, 200);
+    renderChatHistory();
+    setTimeout(() => { const i = document.getElementById('fchat-note-input'); if (i) i.focus(); }, 200);
 }
 
 function minimizeFloatingChat(e) {
@@ -4236,16 +4247,18 @@ function fchatClearAndClose(e) {
 
 function _updateFchatContextLabel() {
     const lbl = document.getElementById('fchat-context-label'); if (!lbl) return;
-    lbl.textContent = _fchatContext.length === 0 ? 'No context — tap buttons to add' : _fchatContext.length + ' context lines loaded';
+    const n = (CONTEXT_LINES || []).length;
+    lbl.textContent = n === 0 ? 'No context — tap buttons above to add' : n + ' context lines loaded';
 }
 
 async function addFloatingChatContext(type) {
-    if (type === 'clear') { _fchatContext = []; _updateFchatContextLabel(); notify('Context cleared', '#888', 1500); return; }
+    if (type === 'clear') { CONTEXT_LINES.splice(0); cutIdx = -1; _updateFchatContextLabel(); notify('Context cleared', '#888', 1500); return; }
     if (type === 'current') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
-        notify('Adding current email…', '#007aff', 1800);
+        notify('Adding current email to context…', '#007aff', 1800);
         const lines = await gmailFetchEmailLines(em);
-        lines.forEach(l => _fchatContext.push(l));
+        lines.forEach(l => CONTEXT_LINES.push(l));
+        cutIdx = CONTEXT_LINES.length - 1;
         notify('Email added to context', '#34c759', 1800);
     } else if (type === 'sender') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
@@ -4253,59 +4266,34 @@ async function addFloatingChatContext(type) {
         const related = (gmailEmails || []).filter(e => gmailExtractAddr(e.from) === senderAddr || (e.to && e.to.includes(senderAddr)));
         if (!related.length) { notify('No other emails from this sender found', '#888', 1800); return; }
         notify('Loading ' + related.length + ' email(s) from sender…', '#007aff', 2500);
-        for (const r of related) { const ls = await gmailFetchEmailLines(r); ls.forEach(l => _fchatContext.push(l)); }
+        for (const r of related) { const ls = await gmailFetchEmailLines(r); ls.forEach(l => CONTEXT_LINES.push(l)); }
+        cutIdx = CONTEXT_LINES.length - 1;
         notify(related.length + ' email(s) added to context', '#34c759', 1800);
     } else if (type === 'selected') {
         const checked = Array.from(document.querySelectorAll('.gmail-chk:checked'));
         if (!checked.length) { notify('No emails selected in the list', '#ff3b30', 1800); return; }
         notify('Adding ' + checked.length + ' selected email(s)…', '#007aff', 2000);
-        for (const cb of checked) { const em = gmailEmails[parseInt(cb.dataset.idx)]; if (!em) continue; const ls = await gmailFetchEmailLines(em); ls.forEach(l => _fchatContext.push(l)); }
+        for (const cb of checked) { const em = gmailEmails[parseInt(cb.dataset.idx)]; if (!em) continue; const ls = await gmailFetchEmailLines(em); ls.forEach(l => CONTEXT_LINES.push(l)); }
+        cutIdx = CONTEXT_LINES.length - 1;
         notify(checked.length + ' email(s) added to context', '#34c759', 1800);
     }
     _updateFchatContextLabel();
 }
 
-async function sendFloatingChatMessage() {
-    if (_fchatLoading) return;
-    const inp = document.getElementById('fchat-input'); if (!inp) return;
-    const text = inp.value.trim(); if (!text) return;
-    if (!CONFIG.ai_key) { notify('Missing API Key — add it in Settings ⚙️', '#ff3b30'); return; }
-    inp.value = '';
-    _fchatHistory.push({ role: 'user', content: text });
-    renderFloatingChatMessages();
-    _fchatLoading = true;
-    const msgsEl = document.getElementById('fchat-messages');
-    const loadDiv = document.createElement('div'); loadDiv.className = 'fchat-msg ai'; loadDiv.style.opacity = '0.5'; loadDiv.innerHTML = '<span style="animation:spin 1s linear infinite;display:inline-block;">↻</span> Thinking…';
-    if (msgsEl) { msgsEl.appendChild(loadDiv); msgsEl.scrollTop = msgsEl.scrollHeight; }
-    try {
-        const p = AI_PROFILES.find(x => x.label === _fchatProfileLabel) || AI_PROFILES[0];
-        const sysText = (p ? p.text : 'You are a helpful AI assistant.') + (_fchatContext.length > 0 ? '\n\nContext:\n' + _fchatContext.slice(-300).join('\n') : '');
-        const messages = [{ role: 'system', content: sysText }];
-        _fchatHistory.slice(-20).forEach(m => messages.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }));
-        const mdl = (document.getElementById('chatModel') && document.getElementById('chatModel').value) || 'gpt-4o-mini';
-        const res = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: mdl, messages }) });
-        const d = await res.json();
-        if (!res.ok) throw new Error((d.error && d.error.message) || 'API error');
-        const reply = d.choices[0].message.content;
-        _fchatHistory.push({ role: 'assistant', content: reply });
-    } catch (err) { _fchatHistory.push({ role: 'assistant', content: '❌ ' + (err.message || 'Error sending message') }); }
-    _fchatLoading = false;
-    if (loadDiv.parentNode) loadDiv.remove();
-    renderFloatingChatMessages();
-    if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+function fchatSendToAI() {
+    const fcInp = document.getElementById('fchat-note-input'); if (!fcInp) return;
+    const txt = fcInp.value;
+    if (!txt.trim()) return;
+    const mainInp = document.getElementById('note-input');
+    if (mainInp) mainInp.value = txt;
+    fcInp.value = '';
+    fcInp.style.height = '';
+    sendToAI();
 }
 
-function renderFloatingChatMessages() {
-    const el = document.getElementById('fchat-messages'); if (!el) return;
-    if (_fchatHistory.length === 0) { el.innerHTML = '<div style="text-align:center;color:#888;font-size:12px;padding:24px 12px 8px;line-height:1.8;">Ask anything about the open email.<br>Tap a context button above to load email content first.</div>'; return; }
-    el.innerHTML = '';
-    _fchatHistory.forEach(msg => {
-        const div = document.createElement('div');
-        div.className = 'fchat-msg ' + (msg.role === 'user' ? 'user' : 'ai');
-        if (msg.role !== 'user') { div.innerHTML = marked.parse(msg.content); } else { div.textContent = msg.content; }
-        el.appendChild(div);
-    });
-    el.scrollTop = el.scrollHeight;
+function fchatAutoGrow(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 150) + 'px';
 }
 
 function fchatDragStart(e) {
@@ -4760,11 +4748,12 @@ function _linkifyHtml(html) {
 
 <div id="floating-chat" style="display:none; bottom:170px; right:18px;">
     <div id="fchat-header" onmousedown="fchatDragStart(event)" ontouchstart="fchatDragStart(event)">
-        <div id="fchat-avatar" style="width:33px; height:33px; border-radius:17px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:800; flex-shrink:0;">?</div>
+        <div id="fchat-avatar" style="width:33px; height:33px; border-radius:17px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:800; flex-shrink:0; cursor:default;">?</div>
         <div style="flex:1; min-width:0;">
             <div id="fchat-profile-name" style="font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">AI Chat</div>
             <div id="fchat-context-label" style="font-size:10px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">No context added</div>
         </div>
+        <div onclick="resetCurrentSession()" style="font-size:16px; line-height:1; cursor:pointer; padding:4px 6px; color:#888;" title="New Chat">📝</div>
         <div onclick="minimizeFloatingChat(event)" style="font-size:20px; line-height:1; cursor:pointer; padding:4px 7px; color:#888;" title="Minimize/Restore">—</div>
         <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888;" title="Close">✕</div>
     </div>
@@ -4775,10 +4764,19 @@ function _linkifyHtml(html) {
         <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')">✅ Selected</div>
         <div class="fchat-ctx-btn danger" onclick="addFloatingChatContext('clear')">🗑 Clear</div>
     </div>
-    <div id="fchat-messages" style="height:290px;"></div>
+    <div id="fchat-chat-container"></div>
     <div id="fchat-input-row">
-        <input id="fchat-input" class="pp-input" placeholder="Ask about this email…" style="flex:1; font-size:14px;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendFloatingChatMessage();}">
-        <div onclick="sendFloatingChatMessage()" style="width:38px; height:38px; border-radius:19px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px; cursor:pointer; flex-shrink:0; transition:transform 0.15s var(--spring);" title="Send">↑</div>
+        <div id="fchat-toolbar">
+            <button class="chip" style="padding:3px 7px; font-size:17px; background:transparent; border:none; color:var(--accent); cursor:pointer;" onclick="toggleMenu(document.getElementById('attach-menu'))" title="Attach / Templates">➕</button>
+            <select id="fchat-model-sel" class="model-sel" onchange="document.getElementById('chatModel').value=this.value;" style="width:85px; flex-shrink:0;"></select>
+            <div style="flex:1;"></div>
+            <div onclick="popState()" title="Undo last message" style="cursor:pointer; font-size:14px; color:#888; padding:3px 5px;">↩️</div>
+            <div onclick="manageSection('prompts'); closeAllPanels();" title="Prompts library" style="cursor:pointer; font-size:14px; color:#888; padding:3px 5px;">📚</div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:flex-end;">
+            <textarea id="fchat-note-input" placeholder="Draft message…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();fchatSendToAI();}" oninput="fchatAutoGrow(this)"></textarea>
+            <button id="fchat-send-btn" onclick="fchatSendToAI()" style="width:40px; height:40px; border-radius:20px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px; cursor:pointer; flex-shrink:0; border:none; box-shadow:0 2px 12px rgba(0,122,255,0.4);" title="Send">↑</button>
+        </div>
     </div>
 </div>
 
