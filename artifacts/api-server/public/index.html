@@ -4227,7 +4227,7 @@ function showInlineDatasetsToChat() {
     _freshSessionActive = true;
     const picker = document.createElement('div'); picker.id = 'inline-dataset-picker'; picker.style.cssText = 'padding:20px 14px 10px; animation:fadeIn 0.3s ease;';
     picker.innerHTML = `<div style="font-size:11px; font-weight:700; color:#888; text-align:center; letter-spacing:0.5px; margin-bottom:12px; text-transform:uppercase;">Choose a dataset</div><div style="display:flex; flex-direction:column; gap:8px;">${cards}</div><div style="font-size:10px; color:#bbb; text-align:center; margin-top:12px;">Skip to use the default</div>`;
-    container.appendChild(picker); const ms = document.getElementById('mainScroll'); if (ms) ms.scrollTop = ms.scrollHeight;
+    container.appendChild(picker);
 }
 
 async function selectInlineDataset(vid) {
