@@ -4212,7 +4212,7 @@ function openFloatingChat(profileLabel) {
     const avatarEl = document.getElementById('fchat-avatar');
     if (avatarEl) avatarEl.textContent = p ? p.label[0].toUpperCase() : '?';
     _updateFchatContextLabel();
-    setTimeout(() => { const i = document.getElementById('note-input'); if (i) i.focus(); scrollToBottom(); }, 200);
+    setTimeout(() => { const i = document.getElementById('note-input'); if (i) i.focus(); if(typeof scrollToLastRequest === 'function') scrollToLastRequest(true); }, 200);
 }
 
 function minimizeFloatingChat(e) {
