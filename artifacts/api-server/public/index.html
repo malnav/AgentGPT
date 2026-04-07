@@ -2240,7 +2240,7 @@ function renderChatHistory() {
             
             const toolsDiv = document.createElement('div'); toolsDiv.className = 'bubble-tools';
             if(side === 'user') { toolsDiv.innerHTML = `<div onclick="previewPayload(${idx})" title="View Payload">📦</div><div onclick="editChatMsg(${idx})" title="Edit">✏️</div><div onclick="savePromptFromChat(${idx})" title="Save Prompt">💾</div>`; } 
-            else { toolsDiv.innerHTML = `<div onclick="editAIResponse(${idx})" title="Edit Response">✏️</div><div onclick="copyFormattedText(this.closest('.bubble'))" title="Copy Formatted">📋</div><div onclick="copyRawText(${idx})" title="Copy Raw">📄</div><div onclick="draftEmailFromBubble(${idx})" title="Draft Email">📧</div>`; }
+            else { toolsDiv.innerHTML = `<div onclick="editAIResponse(${idx})" title="Edit Response">✏️</div><div onclick="copyFormattedText(this.closest('.bubble'))" title="Copy Formatted">📋</div><div onclick="copyRawText(${idx})" title="Copy Raw">📄</div><div onclick="draftEmailFromBubble(${idx},'new')" title="Draft New Email">📨</div><div onclick="draftEmailFromBubble(${idx},'reply')" title="Reply to Email">↩️</div>`; }
             b.appendChild(toolsDiv);
             container.appendChild(b); 
         }
@@ -4418,26 +4418,40 @@ function _fillToSuggestions() {
     dl.innerHTML = _extractEmailAddresses().map(e => `<option value="${e}">`).join('');
 }
 
-function draftEmailFromBubble(idx) {
+function draftEmailFromBubble(idx, mode) {
+    mode = mode || 'new';
     const allAccts = emailGetAllAccounts();
     if(!allAccts.length) { notify("No email accounts configured — add one in Settings", "#ff3b30"); return; }
     const msg = chatHistory[idx]; if(!msg) return;
     const text = getTextFromContent(msg.content);
     const bodyHtml = marked.parse(text);
     const doOpen = () => {
-        _emailComposeMode = 'new'; _emailComposeReplyTarget = null;
-        document.getElementById('email-compose-title').textContent = '📨 Draft Email';
+        _emailComposeMode = mode; _emailComposeReplyTarget = null;
         document.getElementById('email-compose-body').innerHTML = bodyHtml;
-        document.getElementById('email-compose-to').value = '';
-        document.getElementById('email-compose-subject').value = '';
-        document.getElementById('email-compose-reply-ref').style.display = 'none';
-        document.getElementById('email-compose-picker').style.display = 'none';
-        document.getElementById('email-compose-form').style.display = 'flex';
-        const fromSel = document.getElementById('email-compose-from');
-        fromSel.innerHTML = allAccts.map(a => `<option value="${a.id}">${a.name || a.user || a.id}</option>`).join('');
-        fromSel.style.display = allAccts.length > 0 ? '' : 'none';
         _fillToSuggestions();
-        openModal('email-compose-modal');
+        if(mode === 'new') {
+            document.getElementById('email-compose-title').textContent = '📨 Draft New Email';
+            document.getElementById('email-compose-to').value = '';
+            document.getElementById('email-compose-subject').value = '';
+            document.getElementById('email-compose-reply-ref').style.display = 'none';
+            document.getElementById('email-compose-picker').style.display = 'none';
+            document.getElementById('email-compose-form').style.display = 'flex';
+            const fromSel = document.getElementById('email-compose-from');
+            fromSel.innerHTML = allAccts.map(a => `<option value="${a.id}">${a.name || a.user || a.id}</option>`).join('');
+            fromSel.style.display = allAccts.length > 0 ? '' : 'none';
+            openModal('email-compose-modal');
+        } else {
+            document.getElementById('email-compose-title').textContent = '↩️ Reply to Email';
+            const listEl = document.getElementById('email-compose-pick-list');
+            const renderPickerList = () => { listEl.innerHTML = gmailEmails.map((em, i) => `<li style="display:flex; align-items:flex-start; gap:10px; padding:12px 16px; border-bottom:0.5px solid var(--border); cursor:pointer;" onclick="emailComposePickReply(${i})"><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${em.subject || '(no subject)'}</div><div style="font-size:11px; color:#888; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${em.from || ''}</div></div><div style="font-size:18px; flex-shrink:0; color:var(--accent);">→</div></li>`).join(''); };
+            document.getElementById('email-compose-picker').style.display = 'flex';
+            document.getElementById('email-compose-form').style.display = 'none';
+            openModal('email-compose-modal');
+            if(!gmailEmails || gmailEmails.length === 0) {
+                listEl.innerHTML = '<li style="padding:24px; color:#888; font-size:13px; text-align:center;"><span style="font-size:24px; display:block; margin-bottom:8px; animation:spin 1.2s linear infinite;">↻</span>Loading emails…</li>';
+                emailFetchEmails(null).then(() => { renderPickerList(); }).catch(() => { listEl.innerHTML = '<li style="padding:20px; color:#888; font-size:13px; text-align:center;">Could not load emails</li>'; });
+            } else { renderPickerList(); }
+        }
     };
     const hasGmail = allAccts.some(a => a.type === 'gmail');
     if(hasGmail && !gmailAccessToken) { gmailEnsureAuth(doOpen); } else { doOpen(); }
