@@ -440,6 +440,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .tool-menu-item:last-child { border-bottom: none; }
 .tool-menu-item:active { background: rgba(0,122,255,0.08); }
 @keyframes sync-pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+@keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 @keyframes bubble-email-pulse { 0%,100% { box-shadow:0 4px 24px rgba(0,122,255,0.5); } 50% { box-shadow:0 4px 32px rgba(0,122,255,0.9), 0 0 0 7px rgba(0,122,255,0.18); } }
 #profile-bubble { position:fixed; width:54px; height:54px; border-radius:27px; background:var(--accent); color:#fff; font-size:21px; font-weight:800; display:flex; align-items:center; justify-content:center; z-index:3300; cursor:pointer; box-shadow:0 4px 24px rgba(0,122,255,0.45); user-select:none; -webkit-user-select:none; touch-action:none; transition:background 0.25s, box-shadow 0.2s, transform 0.1s; }
 #profile-bubble.email-mode { background:linear-gradient(135deg,#007aff,#5c5cff); animation:bubble-email-pulse 1.6s ease-in-out infinite; font-size:24px; }
@@ -4211,7 +4212,23 @@ function openFloatingChat(profileLabel) {
     const p = AI_PROFILES.find(x => x.label === _fchatProfileLabel) || AI_PROFILES[0];
     if (avatarEl) avatarEl.textContent = p ? p.label[0].toUpperCase() : '?';
     _updateFchatContextLabel();
-    resetCurrentSession().then(() => { setTimeout(() => { pickDatasetQuick(); }, 120); });
+    resetCurrentSession().then(() => { setTimeout(() => { showInlineDatasetsToChat(); }, 80); });
+}
+
+function showInlineDatasetsToChat() {
+    const container = document.getElementById('chat-container'); if (!container) return;
+    const sData = getSessions(); const cur = sData.list.find(x => String(x.id) === String(sData.current));
+    const sortedVids = Object.keys(GLOBAL_DATASETS).sort((a,b) => { let ua = GLOBAL_DATASETS[a]._updated||Number(a), ub = GLOBAL_DATASETS[b]._updated||Number(b); return ub - ua; }).filter(vid => { const ds = GLOBAL_DATASETS[vid]; const varCount = Object.keys(ds.data||{}).length; return varCount > 0 || (cur && String(vid) === String(cur.var_id)); });
+    if (!sortedVids.length) return;
+    const cards = sortedVids.map(vid => { const ds = GLOBAL_DATASETS[vid]; const isCurrent = cur && String(vid) === String(cur.var_id); const varCount = Object.keys(ds.data||{}).length; const varKeys = Object.keys(ds.data||{}).slice(0,2); const varPreview = varKeys.map(k => { let v = ds.data[k]; v = typeof v === 'object' ? v.value : v; return `<span style="opacity:0.7;">${k}</span>${v && String(v).length ? ': ' + String(v).substring(0,18) + (String(v).length>18?'…':'') : ''}`;}).join(' · '); return `<div onclick="selectInlineDataset('${vid}')" style="padding:11px 14px; border-radius:16px; background:${isCurrent?'rgba(0,122,255,0.10)':'var(--sec-bg)'}; border:0.5px solid ${isCurrent?'var(--accent)':'var(--glass-border)'}; cursor:pointer; transition:background 0.15s, transform 0.1s; margin:0 2px;" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform=''" onmouseenter="this.style.background='rgba(0,122,255,0.08)'" onmouseleave="this.style.background='${isCurrent?'rgba(0,122,255,0.10)':'var(--sec-bg)'}'"><div style="font-size:13px; font-weight:700; color:var(--text);">${ds.title}${isCurrent?' <span style=\'font-size:10px;color:var(--accent);font-weight:800;\'>CURRENT</span>':''}</div>${varPreview?`<div style="font-size:10px; color:#888; margin-top:4px; line-height:1.5;">${varPreview}</div>`:''}<div style="font-size:10px; color:#aaa; margin-top:3px;">📊 ${varCount} var${varCount!==1?'s':''}</div></div>`;}).join('');
+    const picker = document.createElement('div'); picker.id = 'inline-dataset-picker'; picker.style.cssText = 'padding:20px 14px 10px; animation:fadeIn 0.3s ease;';
+    picker.innerHTML = `<div style="font-size:11px; font-weight:700; color:#888; text-align:center; letter-spacing:0.5px; margin-bottom:12px; text-transform:uppercase;">Choose a dataset</div><div style="display:flex; flex-direction:column; gap:8px;">${cards}</div><div style="font-size:10px; color:#bbb; text-align:center; margin-top:12px;">Skip to use the default</div>`;
+    container.appendChild(picker); const ms = document.getElementById('mainScroll'); if (ms) ms.scrollTop = ms.scrollHeight;
+}
+
+async function selectInlineDataset(vid) {
+    const picker = document.getElementById('inline-dataset-picker'); if (picker) picker.remove();
+    await linkToDataset(vid);
 }
 
 function minimizeFloatingChat(e) {
