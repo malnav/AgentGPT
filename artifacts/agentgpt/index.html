@@ -2240,7 +2240,7 @@ function renderChatHistory() {
             
             const toolsDiv = document.createElement('div'); toolsDiv.className = 'bubble-tools';
             if(side === 'user') { toolsDiv.innerHTML = `<div onclick="previewPayload(${idx})" title="View Payload">📦</div><div onclick="editChatMsg(${idx})" title="Edit">✏️</div><div onclick="savePromptFromChat(${idx})" title="Save Prompt">💾</div>`; } 
-            else { toolsDiv.innerHTML = `<div onclick="editAIResponse(${idx})" title="Edit Response">✏️</div><div onclick="copyFormattedText(this.closest('.bubble'))" title="Copy Formatted">📋</div><div onclick="copyRawText(${idx})" title="Copy Raw">📄</div>`; }
+            else { toolsDiv.innerHTML = `<div onclick="editAIResponse(${idx})" title="Edit Response">✏️</div><div onclick="copyFormattedText(this.closest('.bubble'))" title="Copy Formatted">📋</div><div onclick="copyRawText(${idx})" title="Copy Raw">📄</div><div onclick="draftEmailFromBubble(${idx})" title="Draft Email">📧</div>`; }
             b.appendChild(toolsDiv);
             container.appendChild(b); 
         }
@@ -4357,6 +4357,7 @@ async function _doOpenComposeModal(mode) {
     const bodyEl = document.getElementById('email-compose-body');
     const sourceHtml = document.getElementById('edit-ai-input').innerHTML;
     bodyEl.innerHTML = sourceHtml;
+    _fillToSuggestions();
     if (mode === 'new') {
         document.getElementById('email-compose-title').textContent = '📨 Draft New Email';
         document.getElementById('email-compose-to').value = '';
@@ -4400,6 +4401,46 @@ function openEmailComposeFromEdit(mode) {
     } else {
         _doOpenComposeModal(mode);
     }
+}
+
+function _extractEmailAddresses() {
+    const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+    const found = new Set();
+    CONTEXT_LINES.forEach(l => { const m = l.match(EMAIL_RE); if(m) m.forEach(e => found.add(e)); });
+    chatHistory.forEach(msg => { const t = getTextFromContent(msg.content); const m = t.match(EMAIL_RE); if(m) m.forEach(e => found.add(e)); });
+    (gmailEmails||[]).forEach(em => { [em.from, em.to].forEach(f => { if(f) { const m = f.match(EMAIL_RE); if(m) m.forEach(e => found.add(e)); } }); });
+    return [...found];
+}
+
+function _fillToSuggestions() {
+    const dl = document.getElementById('email-to-suggestions');
+    if(!dl) return;
+    dl.innerHTML = _extractEmailAddresses().map(e => `<option value="${e}">`).join('');
+}
+
+function draftEmailFromBubble(idx) {
+    const allAccts = emailGetAllAccounts();
+    if(!allAccts.length) { notify("No email accounts configured — add one in Settings", "#ff3b30"); return; }
+    const msg = chatHistory[idx]; if(!msg) return;
+    const text = getTextFromContent(msg.content);
+    const bodyHtml = marked.parse(text);
+    const doOpen = () => {
+        _emailComposeMode = 'new'; _emailComposeReplyTarget = null;
+        document.getElementById('email-compose-title').textContent = '📨 Draft Email';
+        document.getElementById('email-compose-body').innerHTML = bodyHtml;
+        document.getElementById('email-compose-to').value = '';
+        document.getElementById('email-compose-subject').value = '';
+        document.getElementById('email-compose-reply-ref').style.display = 'none';
+        document.getElementById('email-compose-picker').style.display = 'none';
+        document.getElementById('email-compose-form').style.display = 'flex';
+        const fromSel = document.getElementById('email-compose-from');
+        fromSel.innerHTML = allAccts.map(a => `<option value="${a.id}">${a.name || a.user || a.id}</option>`).join('');
+        fromSel.style.display = allAccts.length > 0 ? '' : 'none';
+        _fillToSuggestions();
+        openModal('email-compose-modal');
+    };
+    const hasGmail = allAccts.some(a => a.type === 'gmail');
+    if(hasGmail && !gmailAccessToken) { gmailEnsureAuth(doOpen); } else { doOpen(); }
 }
 
 function emailComposePickReply(idx) {
@@ -4526,7 +4567,8 @@ function _linkifyHtml(html) {
     <div id="email-compose-form" class="modal-content" style="display:flex; flex-direction:column; padding:14px; gap:10px;">
         <select id="email-compose-from" class="pp-input" style="font-size:13px; display:none;"></select>
         <div style="display:flex; gap:6px; align-items:center;">
-            <input id="email-compose-to" class="pp-input" placeholder="To" style="font-size:13px; flex:1;">
+            <input id="email-compose-to" class="pp-input" placeholder="To" style="font-size:13px; flex:1;" list="email-to-suggestions" autocomplete="off">
+            <datalist id="email-to-suggestions"></datalist>
             <button type="button" onclick="document.getElementById('email-compose-cc-row').style.display = document.getElementById('email-compose-cc-row').style.display === 'none' ? 'flex' : 'none';" style="font-size:11px; color:var(--accent); cursor:pointer; background:none; border:none; padding:4px 6px; font-weight:700; white-space:nowrap; flex-shrink:0;">CC/BCC</button>
         </div>
         <div id="email-compose-cc-row" style="display:none; flex-direction:column; gap:8px;">
