@@ -449,7 +449,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #floating-chat { position:fixed; z-index:9000; inset:0; background:var(--bg); display:flex; flex-direction:column; overflow:hidden; }
 #floating-chat.fc-minimized { inset:auto; bottom:0; left:0; right:0; height:auto; border-radius:18px 18px 0 0; box-shadow:0 -4px 32px rgba(0,0,0,0.22); background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); }
 #profile-bubble { z-index:9001 !important; }
-#fchat-header { display:flex; align-items:center; padding:10px 12px; gap:6px; flex-shrink:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-bottom:0.5px solid var(--glass-border); min-height:48px; }
+#fchat-header { display:flex; align-items:center; padding:7px 12px; gap:6px; flex-shrink:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-bottom:0.5px solid var(--glass-border); overflow-x:auto; scrollbar-width:none; }
+#fchat-header::-webkit-scrollbar { display:none; }
 .fchat-ctx-btn { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:var(--accent); background:rgba(0,122,255,0.10); border-radius:8px; padding:4px 9px; cursor:pointer; white-space:nowrap; flex-shrink:0; border:0.5px solid rgba(0,122,255,0.18); transition:background 0.15s; }
 .fchat-ctx-btn:active { background:rgba(0,122,255,0.22); }
 .fchat-ctx-btn.danger { color:#ff3b30; background:rgba(255,59,48,0.10); border-color:rgba(255,59,48,0.18); }
@@ -4195,7 +4196,7 @@ function updateProfileBubble() {
 
 function profileBubbleTap(e) {
     if (e && e.stopPropagation) e.stopPropagation();
-    if (_fchatOpen && !_fchatMinimized) { minimizeFloatingChat(null); } else if (_fchatOpen && _fchatMinimized) { minimizeFloatingChat(null); } else { openFloatingChat(CONFIG.def_profile || activeProfileLabel); }
+    if (_fchatOpen) { fchatClearAndClose(null); } else { openFloatingChat(CONFIG.def_profile || activeProfileLabel); }
 }
 
 function openFloatingChat(profileLabel) {
@@ -4206,13 +4207,8 @@ function openFloatingChat(profileLabel) {
     if (wrapper && wrapper.parentNode !== el) { el.appendChild(wrapper); }
     wrapper && (wrapper.style.display = '');
     el.style.display = 'flex'; el.classList.remove('fc-minimized');
-    const p = AI_PROFILES.find(x => x.label === _fchatProfileLabel) || AI_PROFILES[0];
-    const nameEl = document.getElementById('fchat-profile-name');
-    if (nameEl) nameEl.textContent = (p ? p.label : 'AI') + ' Chat';
-    const avatarEl = document.getElementById('fchat-avatar');
-    if (avatarEl) avatarEl.textContent = p ? p.label[0].toUpperCase() : '?';
     _updateFchatContextLabel();
-    setTimeout(() => { const i = document.getElementById('note-input'); if (i) i.focus(); if(typeof scrollToLastRequest === 'function') scrollToLastRequest(true); }, 200);
+    resetCurrentSession();
 }
 
 function minimizeFloatingChat(e) {
@@ -4709,17 +4705,13 @@ function _linkifyHtml(html) {
 
 <div id="floating-chat" style="display:none;">
     <div id="fchat-header">
-        <div id="fchat-avatar" style="width:30px; height:30px; border-radius:15px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:800; flex-shrink:0;">?</div>
-        <div style="flex:1; min-width:0;">
-            <div id="fchat-profile-name" style="font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.3;">AI Chat</div>
-            <div id="fchat-context-label" style="font-size:10px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.3;">No context added</div>
-        </div>
-        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')" style="margin-left:4px;">📧 Email</div>
+        <span style="font-size:10px; color:#888; font-weight:700; flex-shrink:0; letter-spacing:0.3px;">ADD CONTEXT:</span>
+        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')">📧 Email</div>
         <div class="fchat-ctx-btn" onclick="addFloatingChatContext('sender')">📬 Thread</div>
-        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')">✅ Sel</div>
-        <div class="fchat-ctx-btn danger" onclick="addFloatingChatContext('clear')">🗑</div>
-        <div onclick="minimizeFloatingChat(event)" style="font-size:22px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0;" title="Minimize">—</div>
-        <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0;" title="Close">✕</div>
+        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')">✅ Selected</div>
+        <div class="fchat-ctx-btn danger" onclick="addFloatingChatContext('clear')">🗑 Clear</div>
+        <div style="flex:1;"></div>
+        <div id="fchat-context-label" style="font-size:10px; color:#888; white-space:nowrap; flex-shrink:0;">No context</div>
     </div>
 </div>
 
