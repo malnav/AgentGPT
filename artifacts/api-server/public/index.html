@@ -217,7 +217,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .bubble-content img { max-width: 100% !important; height: auto !important; border-radius: 12px; margin-top: 8px; display: block; }
 
 /* ── BUBBLE ACTIONS ── */
-.bubble-tools { display: flex; align-self: flex-end; justify-content: flex-end; gap: 18px; margin-top: 7px; font-size: 16px; opacity: 0.75; width: 100%; }
+.bubble-tools { display: flex; align-self: flex-end; justify-content: flex-end; gap: 10px; margin-top: 7px; font-size: 16px; opacity: 0.75; width: 100%; }
 .user .bubble-tools { color: rgba(255,255,255,0.8); }
 .ai .bubble-tools { color: rgba(0,0,0,0.45); }
 @media (prefers-color-scheme: dark) { .ai .bubble-tools { color: rgba(255,255,255,0.45); } }
@@ -445,6 +445,22 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #profile-bubble.email-mode { background:linear-gradient(135deg,#007aff,#5c5cff); animation:bubble-email-pulse 1.6s ease-in-out infinite; font-size:24px; }
 #profile-bubble:active { transform:scale(0.93); }
 #profile-bubble-menu { position:fixed; z-index:3350; min-width:230px; max-width:88vw; background:var(--glass); border:0.5px solid var(--glass-border); border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,0.28); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; }
+#floating-chat { position:fixed; z-index:4500; width:min(340px,93vw); border-radius:22px; background:var(--glass); border:0.5px solid var(--glass-border); box-shadow:0 10px 50px rgba(0,0,0,0.38); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; display:flex; flex-direction:column; }
+#floating-chat.fc-minimized #fchat-context-bar,#floating-chat.fc-minimized #fchat-messages,#floating-chat.fc-minimized #fchat-input-row { display:none !important; }
+#fchat-header { display:flex; align-items:center; padding:11px 14px; gap:8px; cursor:move; user-select:none; -webkit-user-select:none; flex-shrink:0; }
+#fchat-context-bar { display:flex; align-items:center; gap:6px; padding:7px 12px; border-top:0.5px solid var(--glass-border); overflow-x:auto; scrollbar-width:none; flex-shrink:0; }
+#fchat-context-bar::-webkit-scrollbar { display:none; }
+#fchat-messages { flex:1; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; min-height:0; }
+#fchat-input-row { display:flex; gap:8px; padding:10px 12px; border-top:0.5px solid var(--glass-border); flex-shrink:0; align-items:center; }
+.fchat-ctx-btn { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:var(--accent); background:rgba(0,122,255,0.10); border-radius:8px; padding:4px 9px; cursor:pointer; white-space:nowrap; flex-shrink:0; border:0.5px solid rgba(0,122,255,0.18); transition:background 0.15s; }
+.fchat-ctx-btn:active { background:rgba(0,122,255,0.22); }
+.fchat-ctx-btn.danger { color:#ff3b30; background:rgba(255,59,48,0.10); border-color:rgba(255,59,48,0.18); }
+.fchat-msg { font-size:13px; line-height:1.55; padding:8px 11px; border-radius:14px; max-width:88%; word-break:break-word; }
+.fchat-msg.user { background:var(--accent); color:#fff; align-self:flex-end; border-bottom-right-radius:3px; }
+.fchat-msg.ai { background:var(--sec-bg); color:var(--text); align-self:flex-start; border-bottom-left-radius:3px; border:0.5px solid var(--border); }
+.fchat-msg p { margin:0 0 6px; } .fchat-msg p:last-child { margin:0; }
+.fchat-msg code { font-size:11px; background:rgba(0,0,0,0.09); padding:1px 4px; border-radius:4px; }
+.fchat-msg ul,.fchat-msg ol { margin:4px 0 4px 16px; padding:0; } .fchat-msg li { margin:2px 0; }
 .pbm-header { padding:14px 16px 10px; border-bottom:0.5px solid var(--border); }
 .pbm-title { font-size:12px; font-weight:800; color:var(--accent); letter-spacing:0.4px; }
 .pbm-sub { font-size:11px; color:#888; margin-top:2px; }
@@ -4097,6 +4113,8 @@ loadBgTheme();
 let _bubbleDragging = false;
 let _bubbleDragStartX = 0, _bubbleDragStartY = 0;
 let _bubbleMoved = false;
+let _fchatOpen = false, _fchatMinimized = false, _fchatHistory = [], _fchatContext = [], _fchatProfileLabel = null, _fchatLoading = false;
+let _fchatDragActive = false, _fchatDragOX = 0, _fchatDragOY = 0;
 
 function initProfileBubble() {
     const b = document.getElementById('profile-bubble');
@@ -4184,8 +4202,124 @@ function updateProfileBubble() {
 
 function profileBubbleTap(e) {
     if (e && e.stopPropagation) e.stopPropagation();
-    const n = document.querySelectorAll('.gmail-chk:checked').length;
-    if (n > 0) { openProfileBubbleMenu(); } else { const defLabel = CONFIG.def_profile || activeProfileLabel; startEmailChat(defLabel, 'none'); }
+    if (_fchatOpen && !_fchatMinimized) { minimizeFloatingChat(null); } else if (_fchatOpen && _fchatMinimized) { minimizeFloatingChat(null); } else { openFloatingChat(CONFIG.def_profile || activeProfileLabel); }
+}
+
+function openFloatingChat(profileLabel) {
+    _fchatOpen = true; _fchatMinimized = false;
+    _fchatProfileLabel = profileLabel || CONFIG.def_profile || activeProfileLabel;
+    const el = document.getElementById('floating-chat'); if (!el) return;
+    el.style.display = 'flex'; el.classList.remove('fc-minimized');
+    if (!el.style.top || el.style.top === '') { el.style.bottom = '170px'; el.style.right = '18px'; el.style.top = 'auto'; el.style.left = 'auto'; }
+    const p = AI_PROFILES.find(x => x.label === _fchatProfileLabel) || AI_PROFILES[0];
+    const nameEl = document.getElementById('fchat-profile-name');
+    if (nameEl) nameEl.textContent = (p ? p.label : 'AI') + ' Chat';
+    const avatarEl = document.getElementById('fchat-avatar');
+    if (avatarEl) avatarEl.textContent = p ? p.label[0].toUpperCase() : '?';
+    _updateFchatContextLabel();
+    renderFloatingChatMessages();
+    setTimeout(() => { const i = document.getElementById('fchat-input'); if (i) i.focus(); }, 200);
+}
+
+function minimizeFloatingChat(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    _fchatMinimized = !_fchatMinimized;
+    const el = document.getElementById('floating-chat'); if (!el) return;
+    if (_fchatMinimized) { el.classList.add('fc-minimized'); } else { el.classList.remove('fc-minimized'); setTimeout(() => { const i = document.getElementById('fchat-input'); if (i) i.focus(); }, 150); }
+}
+
+function fchatClearAndClose(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    _fchatOpen = false; _fchatMinimized = false;
+    const el = document.getElementById('floating-chat'); if (el) el.style.display = 'none';
+}
+
+function _updateFchatContextLabel() {
+    const lbl = document.getElementById('fchat-context-label'); if (!lbl) return;
+    lbl.textContent = _fchatContext.length === 0 ? 'No context — tap buttons to add' : _fchatContext.length + ' context lines loaded';
+}
+
+async function addFloatingChatContext(type) {
+    if (type === 'clear') { _fchatContext = []; _updateFchatContextLabel(); notify('Context cleared', '#888', 1500); return; }
+    if (type === 'current') {
+        const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
+        notify('Adding current email…', '#007aff', 1800);
+        const lines = await gmailFetchEmailLines(em);
+        lines.forEach(l => _fchatContext.push(l));
+        notify('Email added to context', '#34c759', 1800);
+    } else if (type === 'sender') {
+        const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
+        const senderAddr = gmailExtractAddr(em.from); if (!senderAddr) { notify('Cannot extract sender address', '#ff3b30', 1800); return; }
+        const related = (gmailEmails || []).filter(e => gmailExtractAddr(e.from) === senderAddr || (e.to && e.to.includes(senderAddr)));
+        if (!related.length) { notify('No other emails from this sender found', '#888', 1800); return; }
+        notify('Loading ' + related.length + ' email(s) from sender…', '#007aff', 2500);
+        for (const r of related) { const ls = await gmailFetchEmailLines(r); ls.forEach(l => _fchatContext.push(l)); }
+        notify(related.length + ' email(s) added to context', '#34c759', 1800);
+    } else if (type === 'selected') {
+        const checked = Array.from(document.querySelectorAll('.gmail-chk:checked'));
+        if (!checked.length) { notify('No emails selected in the list', '#ff3b30', 1800); return; }
+        notify('Adding ' + checked.length + ' selected email(s)…', '#007aff', 2000);
+        for (const cb of checked) { const em = gmailEmails[parseInt(cb.dataset.idx)]; if (!em) continue; const ls = await gmailFetchEmailLines(em); ls.forEach(l => _fchatContext.push(l)); }
+        notify(checked.length + ' email(s) added to context', '#34c759', 1800);
+    }
+    _updateFchatContextLabel();
+}
+
+async function sendFloatingChatMessage() {
+    if (_fchatLoading) return;
+    const inp = document.getElementById('fchat-input'); if (!inp) return;
+    const text = inp.value.trim(); if (!text) return;
+    if (!CONFIG.ai_key) { notify('Missing API Key — add it in Settings ⚙️', '#ff3b30'); return; }
+    inp.value = '';
+    _fchatHistory.push({ role: 'user', content: text });
+    renderFloatingChatMessages();
+    _fchatLoading = true;
+    const msgsEl = document.getElementById('fchat-messages');
+    const loadDiv = document.createElement('div'); loadDiv.className = 'fchat-msg ai'; loadDiv.style.opacity = '0.5'; loadDiv.innerHTML = '<span style="animation:spin 1s linear infinite;display:inline-block;">↻</span> Thinking…';
+    if (msgsEl) { msgsEl.appendChild(loadDiv); msgsEl.scrollTop = msgsEl.scrollHeight; }
+    try {
+        const p = AI_PROFILES.find(x => x.label === _fchatProfileLabel) || AI_PROFILES[0];
+        const sysText = (p ? p.text : 'You are a helpful AI assistant.') + (_fchatContext.length > 0 ? '\n\nContext:\n' + _fchatContext.slice(-300).join('\n') : '');
+        const messages = [{ role: 'system', content: sysText }];
+        _fchatHistory.slice(-20).forEach(m => messages.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }));
+        const mdl = (document.getElementById('chatModel') && document.getElementById('chatModel').value) || 'gpt-4o-mini';
+        const res = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: mdl, messages }) });
+        const d = await res.json();
+        if (!res.ok) throw new Error((d.error && d.error.message) || 'API error');
+        const reply = d.choices[0].message.content;
+        _fchatHistory.push({ role: 'assistant', content: reply });
+    } catch (err) { _fchatHistory.push({ role: 'assistant', content: '❌ ' + (err.message || 'Error sending message') }); }
+    _fchatLoading = false;
+    if (loadDiv.parentNode) loadDiv.remove();
+    renderFloatingChatMessages();
+    if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+}
+
+function renderFloatingChatMessages() {
+    const el = document.getElementById('fchat-messages'); if (!el) return;
+    if (_fchatHistory.length === 0) { el.innerHTML = '<div style="text-align:center;color:#888;font-size:12px;padding:24px 12px 8px;line-height:1.8;">Ask anything about the open email.<br>Tap a context button above to load email content first.</div>'; return; }
+    el.innerHTML = '';
+    _fchatHistory.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'fchat-msg ' + (msg.role === 'user' ? 'user' : 'ai');
+        if (msg.role !== 'user') { div.innerHTML = marked.parse(msg.content); } else { div.textContent = msg.content; }
+        el.appendChild(div);
+    });
+    el.scrollTop = el.scrollHeight;
+}
+
+function fchatDragStart(e) {
+    const el = document.getElementById('floating-chat'); if (!el) return;
+    if (e.target.tagName === 'INPUT' || (e.target.getAttribute && e.target.getAttribute('onclick'))) return;
+    if (e.target.closest('[onclick]')) return;
+    _fchatDragActive = true;
+    const touch = e.touches ? e.touches[0] : e;
+    const rect = el.getBoundingClientRect();
+    _fchatDragOX = touch.clientX - rect.left; _fchatDragOY = touch.clientY - rect.top;
+    const mm = (ev) => { if (!_fchatDragActive) return; const t = ev.touches ? ev.touches[0] : ev; let nx = t.clientX - _fchatDragOX; let ny = t.clientY - _fchatDragOY; nx = Math.max(0, Math.min(nx, window.innerWidth - el.offsetWidth)); ny = Math.max(0, Math.min(ny, window.innerHeight - el.offsetHeight)); el.style.left = nx + 'px'; el.style.top = ny + 'px'; el.style.right = 'auto'; el.style.bottom = 'auto'; };
+    const mu = () => { _fchatDragActive = false; document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); document.removeEventListener('touchmove', mm); document.removeEventListener('touchend', mu); };
+    document.addEventListener('mousemove', mm); document.addEventListener('mouseup', mu); document.addEventListener('touchmove', mm, { passive: false }); document.addEventListener('touchend', mu);
+    e.preventDefault();
 }
 
 function openProfileBubbleMenu() {
@@ -4623,6 +4757,30 @@ function _linkifyHtml(html) {
 </div>
 
 <div id="profile-bubble-backdrop" style="display:none; position:fixed; inset:0; z-index:3299;" onclick="closeProfileBubbleMenu()"></div>
+
+<div id="floating-chat" style="display:none; bottom:170px; right:18px;">
+    <div id="fchat-header" onmousedown="fchatDragStart(event)" ontouchstart="fchatDragStart(event)">
+        <div id="fchat-avatar" style="width:33px; height:33px; border-radius:17px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:800; flex-shrink:0;">?</div>
+        <div style="flex:1; min-width:0;">
+            <div id="fchat-profile-name" style="font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">AI Chat</div>
+            <div id="fchat-context-label" style="font-size:10px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">No context added</div>
+        </div>
+        <div onclick="minimizeFloatingChat(event)" style="font-size:20px; line-height:1; cursor:pointer; padding:4px 7px; color:#888;" title="Minimize/Restore">—</div>
+        <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888;" title="Close">✕</div>
+    </div>
+    <div id="fchat-context-bar">
+        <span style="font-size:10px; color:#888; font-weight:700; flex-shrink:0; white-space:nowrap; margin-right:2px;">CONTEXT:</span>
+        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')">📧 Email</div>
+        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('sender')">📬 Thread</div>
+        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')">✅ Selected</div>
+        <div class="fchat-ctx-btn danger" onclick="addFloatingChatContext('clear')">🗑 Clear</div>
+    </div>
+    <div id="fchat-messages" style="height:290px;"></div>
+    <div id="fchat-input-row">
+        <input id="fchat-input" class="pp-input" placeholder="Ask about this email…" style="flex:1; font-size:14px;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendFloatingChatMessage();}">
+        <div onclick="sendFloatingChatMessage()" style="width:38px; height:38px; border-radius:19px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px; cursor:pointer; flex-shrink:0; transition:transform 0.15s var(--spring);" title="Send">↑</div>
+    </div>
+</div>
 
 <div id="wa-import-modal" class="modal" style="z-index:9997; display:none;">
     <div class="modal-header">
