@@ -1583,7 +1583,7 @@ async function init() {
     activeProfileLabel = await dbHelper.get('activeProfile') || (AI_PROFILES[0] ? AI_PROFILES[0].label : "Agent");
     if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0].label; }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
-    await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel, true); refreshUI(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
+    await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); refreshUI(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
     startRealtimeSync();
     setTimeout(hideInitOverlay, 30000);
     setTimeout(gmailSilentAuth, 1200);
@@ -2144,19 +2144,12 @@ function editAIResponse(idx) {
     document.getElementById('save-ai-edit-btn').onclick = async () => { msg.content = [{ type: "output_text", text: document.getElementById('edit-ai-input').innerHTML }]; await saveAll(); renderChatHistory(); closeModal('edit-ai-modal'); };
 }
 
-async function switchProfileSession(newLabel, isInit) { 
+async function switchProfileSession(newLabel) { 
     if (newLabel === '_new_') { document.getElementById('main-profile-sel').value = activeProfileLabel; closeAllPanels(); openModal('master-modal'); switchMasterTab('profiles'); manageSection('profiles'); setTimeout(() => document.getElementById('entry-l').focus(), 100); return; }
     activeProfileLabel = newLabel; activeTagFilter = "";
-    if (!isInit) {
-        addLog("SESSION", "Switch Profile", newLabel);
-        await resetCurrentSession(); refreshUI(); renderWorkspaceLists();
-        setTimeout(() => showInlineDatasetsToChat(), 80); return;
-    }
-    let sData = getSessions();
-    if(sData.list.length === 0) await resetCurrentSession();
-    else { let cur = sData.list.find(x => String(x.id) === String(sData.current)) || sData.list[0]; chatHistory = cur.msgs || []; sData.current = cur.id; document.getElementById('note-input').value = cur.draft || ""; lastCursorPos = null; if(chatHistory.length === 0) { const p = AI_PROFILES.find(x => x.label === activeProfileLabel) || AI_PROFILES[0]; if(p) chatHistory.push({ role: "developer", content: [{ type: "input_text", text: p.text }] }); } }
-    addLog("SESSION", "Init Profile", newLabel); await saveAll(); refreshUI(); renderChatHistory(); if(typeof scrollToLastRequest==='function') scrollToLastRequest(true); renderWorkspaceLists();
-    if (chatHistory.filter(m => m.role !== 'developer').length === 0) { setTimeout(() => showInlineDatasetsToChat(), 80); }
+    addLog("SESSION", "Switch Profile", newLabel);
+    await resetCurrentSession(); refreshUI(); renderWorkspaceLists();
+    setTimeout(() => showInlineDatasetsToChat(), 80);
 }
 
 async function copyFormattedText(btn) { try { const bubble = btn.closest('.bubble'); const content = bubble.querySelector('.bubble-content'); if (navigator.clipboard && window.ClipboardItem) { const html = new Blob([content.innerHTML], {type: 'text/html'}); const text = new Blob([content.innerText], {type: 'text/plain'}); const data = new ClipboardItem({'text/html': html, 'text/plain': text}); await navigator.clipboard.write([data]); } else { const selection = window.getSelection(); const range = document.createRange(); range.selectNodeContents(content); selection.removeAllRanges(); selection.addRange(range); document.execCommand('copy'); selection.removeAllRanges(); } notify("Copied Formatted!", "#34c759"); } catch(e) { notify("Copy Failed", "#ff3b30"); } }
