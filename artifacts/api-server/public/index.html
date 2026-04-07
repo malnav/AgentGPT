@@ -2604,6 +2604,7 @@ function renderProfileList() { document.getElementById('profile-list-crud').inne
 function sync() { const noteIn = document.getElementById('note-input'); if(isInputExpanded) return; noteIn.style.height = 'auto'; noteIn.style.height = Math.min(noteIn.scrollHeight, 200) + 'px'; setTimeout(updateInputHeightVar, 50); }
 
 async function sendToAI() {
+    _freshSessionActive = false;
     if(currentAborter) { currentAborter.abort(); currentAborter = null; return; }
     
     const noteIn = document.getElementById('note-input');
@@ -2766,7 +2767,7 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
                 if(sData && sData.list) {
                     const restored = prevSessionId ? sData.list.find(x => String(x.id) === prevSessionId) : null;
                     const cur = restored || sData.list.find(x => String(x.id) === String(sData.current)) || sData.list[0];
-                    if(cur) { chatHistory = cur.msgs || []; sData.current = cur.id; }
+                    if(cur) { if(!_freshSessionActive) { chatHistory = cur.msgs || []; } sData.current = _freshSessionActive ? (restored ? restored.id : sData.current) : cur.id; }
                 }
                 const activeProf = AI_PROFILES.find(p => p.label === activeProfileLabel);
                 if(activeProf && chatHistory.length > 0 && chatHistory[0].role === 'developer') chatHistory[0].content = [{ type: "input_text", text: activeProf.text }];
@@ -2777,7 +2778,7 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
                 const sData = chatHistories[activeProfileLabel];
                 if(sData && sData.list) {
                     const cur = sData.list.find(x => String(x.id) === String(sData.current)) || sData.list[0];
-                    if(cur) { chatHistory = cur.msgs || []; sData.current = cur.id; }
+                    if(cur) { if(!_freshSessionActive) { chatHistory = cur.msgs || []; } sData.current = _freshSessionActive ? sData.current : cur.id; }
                 }
                 const activeProf = AI_PROFILES.find(p => p.label === activeProfileLabel);
                 if(activeProf && chatHistory.length > 0 && chatHistory[0].role === 'developer') chatHistory[0].content = [{ type: "input_text", text: activeProf.text }];
@@ -2791,6 +2792,7 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
         await refreshUI(); renderWorkspaceLists();
         if(!currentAborter) {
             renderChatHistory();
+            if(_freshSessionActive) setTimeout(showInlineDatasetsToChat, 50);
             if(silent) requestAnimationFrame(() => { if(scrollEl) scrollEl.scrollTop = savedTop; });
             else scrollToLastRequest();
         }
@@ -4110,6 +4112,7 @@ let _bubbleDragging = false;
 let _bubbleDragStartX = 0, _bubbleDragStartY = 0;
 let _bubbleMoved = false;
 let _fchatOpen = false, _fchatMinimized = false, _fchatProfileLabel = null;
+let _freshSessionActive = false;
 
 function initProfileBubble() {
     const b = document.getElementById('profile-bubble');
@@ -4221,12 +4224,14 @@ function showInlineDatasetsToChat() {
     const sortedVids = Object.keys(GLOBAL_DATASETS).sort((a,b) => { let ua = GLOBAL_DATASETS[a]._updated||Number(a), ub = GLOBAL_DATASETS[b]._updated||Number(b); return ub - ua; }).filter(vid => { const ds = GLOBAL_DATASETS[vid]; const varCount = Object.keys(ds.data||{}).length; return varCount > 0 || (cur && String(vid) === String(cur.var_id)); });
     if (!sortedVids.length) return;
     const cards = sortedVids.map(vid => { const ds = GLOBAL_DATASETS[vid]; const isCurrent = cur && String(vid) === String(cur.var_id); const varCount = Object.keys(ds.data||{}).length; const varKeys = Object.keys(ds.data||{}).slice(0,2); const varPreview = varKeys.map(k => { let v = ds.data[k]; v = typeof v === 'object' ? v.value : v; return `<span style="opacity:0.7;">${k}</span>${v && String(v).length ? ': ' + String(v).substring(0,18) + (String(v).length>18?'…':'') : ''}`;}).join(' · '); return `<div onclick="selectInlineDataset('${vid}')" style="padding:11px 14px; border-radius:16px; background:${isCurrent?'rgba(0,122,255,0.10)':'var(--sec-bg)'}; border:0.5px solid ${isCurrent?'var(--accent)':'var(--glass-border)'}; cursor:pointer; transition:background 0.15s, transform 0.1s; margin:0 2px;" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform=''" onmouseenter="this.style.background='rgba(0,122,255,0.08)'" onmouseleave="this.style.background='${isCurrent?'rgba(0,122,255,0.10)':'var(--sec-bg)'}'"><div style="font-size:13px; font-weight:700; color:var(--text);">${ds.title}${isCurrent?' <span style=\'font-size:10px;color:var(--accent);font-weight:800;\'>CURRENT</span>':''}</div>${varPreview?`<div style="font-size:10px; color:#888; margin-top:4px; line-height:1.5;">${varPreview}</div>`:''}<div style="font-size:10px; color:#aaa; margin-top:3px;">📊 ${varCount} var${varCount!==1?'s':''}</div></div>`;}).join('');
+    _freshSessionActive = true;
     const picker = document.createElement('div'); picker.id = 'inline-dataset-picker'; picker.style.cssText = 'padding:20px 14px 10px; animation:fadeIn 0.3s ease;';
     picker.innerHTML = `<div style="font-size:11px; font-weight:700; color:#888; text-align:center; letter-spacing:0.5px; margin-bottom:12px; text-transform:uppercase;">Choose a dataset</div><div style="display:flex; flex-direction:column; gap:8px;">${cards}</div><div style="font-size:10px; color:#bbb; text-align:center; margin-top:12px;">Skip to use the default</div>`;
     container.appendChild(picker); const ms = document.getElementById('mainScroll'); if (ms) ms.scrollTop = ms.scrollHeight;
 }
 
 async function selectInlineDataset(vid) {
+    _freshSessionActive = false;
     const picker = document.getElementById('inline-dataset-picker'); if (picker) picker.remove();
     await linkToDataset(vid);
 }
