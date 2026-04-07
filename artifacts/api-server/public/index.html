@@ -1775,8 +1775,7 @@ async function openDatasetFirstChat(vid) {
     setTimeout(() => { document.getElementById('vars-slide-panel').classList.add('open'); }, 100);
 }
 
-function pickDatasetQuick() { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur) return; let sortedVids = Object.keys(GLOBAL_DATASETS).sort((a,b) => { let ua = GLOBAL_DATASETS[a]._updated || Number(a); let ub = GLOBAL_DATASETS[b]._updated || Number(b); return ub - ua; }).filter(vid => { let ds = GLOBAL_DATASETS[vid]; let varCount = Object.keys(ds.data || {}).length; return varCount > 0 || String(vid) === String(cur.var_id); }); let html = sortedVids.map(vid => { let ds = GLOBAL_DATASETS[vid]; let isCurrent = String(vid) === String(cur.var_id); let varCount = Object.keys(ds.data || {}).length; let linkedChats = []; Object.keys(chatHistories).forEach(pName => { let s = chatHistories[pName]; if(s.list) s.list.forEach(c => { if(String(c.var_id) === String(vid)) { linkedChats.push(c); } }); }); let varKeys = Object.keys(ds.data || {}).slice(0, 3); let varPreview = varKeys.length > 0 ? varKeys.map(k => { let v = ds.data[k]; v = typeof v === 'object' ? v.value : v; return k + (v && v.length > 0 ? ` (${String(v).substring(0,15)}${String(v).length > 15 ? '…' : ''})` : ' (—)'); }).join('<br>') : '(empty)'; return `<li class="list-item ${isCurrent ? 'in-cut' : ''}" style="padding:14px; cursor:pointer; border-bottom:0.5px solid var(--border); transition:background 0.15s;" onmouseenter="this.style.background='rgba(0,122,255,0.04)'" onmouseleave="this.style.background=''" onclick="selectDatasetFromPicker('${vid}')"><div style="display:flex; align-items:flex-start; gap:12px; justify-content:space-between;"><div style="flex:1;"><strong style="font-size:13px;">${ds.title}</strong><div style="font-size:11px; color:#888; margin-top:4px;">📊 ${varCount} var${varCount !== 1 ? 's' : ''} • 🔗 ${linkedChats.length} chat${linkedChats.length !== 1 ? 's' : ''}</div><div style="font-size:10px; color:#999; margin-top:6px; line-height:1.5; white-space:normal; word-break:break-word;">${varPreview}</div>
-<button class="chip" style="align-self:flex-start; font-size:11px; padding:4px 10px; background:var(--accent); color:#fff; border:none; border-radius:6px; cursor:pointer; margin-top:6px;" onclick="event.stopPropagation(); addDatasetToContext('${vid}');">📌 Add to Context</button></div><div style="flex-shrink:0; text-align:right; display:flex; align-items:center; gap:8px;">${isCurrent ? '<span style="color:var(--accent); font-size:14px;">✓</span><span style="cursor:pointer; font-size:16px;" onclick="event.stopPropagation(); unlinkFromDataset(); closeAllPanels();" title="Unlink">🔓</span>' : ''}</div></div></li>`; }).join(''); html += `<li style="padding:12px 16px; text-align:center; border-top:0.5px solid var(--border); background:rgba(0,122,255,0.04);"><button class="chip" onclick="createNewDataset(); closeAllPanels();" style="background:var(--accent); color:#fff; padding:8px 14px; font-size:13px;">+ New Data Set</button></li>`; document.getElementById('datasets-picker-list').innerHTML = html; openModal('datasets-picker-modal'); }
+function pickDatasetQuick() { const existing = document.getElementById('inline-dataset-picker'); if (existing) { existing.remove(); _freshSessionActive = false; return; } showInlineDatasetsToChat(); }
 
 async function linkToDataset(vid) { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); cur.var_id = vid; await saveAll(); renderDatasetsList(); renderSessionVariables(); refreshUI(); notify("Linked to Data Set!", "#34c759"); }
 async function selectDatasetFromPicker(vid) { await linkToDataset(vid); closeModal('datasets-picker-modal'); closeAllPanels(); }
@@ -2150,6 +2149,7 @@ function editAIResponse(idx) {
 
 async function switchProfileSession(newLabel) { 
     if (newLabel === '_new_') { document.getElementById('main-profile-sel').value = activeProfileLabel; closeAllPanels(); openModal('master-modal'); switchMasterTab('profiles'); manageSection('profiles'); setTimeout(() => document.getElementById('entry-l').focus(), 100); return; }
+    _freshSessionActive = true;
     activeProfileLabel = newLabel; activeTagFilter = "";
     addLog("SESSION", "Switch Profile", newLabel);
     await resetCurrentSession(); refreshUI(); renderWorkspaceLists();
@@ -3413,7 +3413,9 @@ function gmailGroupByThread(emails, startIdx) {
         if (!map.has(em.threadId)) map.set(em.threadId, []);
         map.get(em.threadId).push({ em, idx: base + i });
     });
-    return Array.from(map.values());
+    const groups = Array.from(map.values());
+    groups.sort((a, b) => { try { return new Date(b[b.length-1].em.date) - new Date(a[a.length-1].em.date); } catch(_) { return 0; } });
+    return groups;
 }
 
 function gmailSenderColor(name) {
@@ -4258,6 +4260,7 @@ function fchatClearAndClose(e) {
     if (wrapper && ref && ref.parentNode) { ref.parentNode.insertBefore(wrapper, ref); } else if (wrapper) { document.body.appendChild(wrapper); }
     if (wrapper) wrapper.style.display = '';
     if (el) el.style.display = 'none';
+    const bubble = document.getElementById('profile-bubble'); if (bubble) bubble.style.display = 'none';
 }
 
 function _updateFchatContextLabel() {
