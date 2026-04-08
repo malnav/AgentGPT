@@ -913,6 +913,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     <div class="modal-tabs">
         <button id="mtab-config" class="tab-btn active" onclick="switchMasterTab('config')">🔧 CONFIG</button>
         <button id="mtab-ai" class="tab-btn" onclick="switchMasterTab('ai')">🤖 AI</button>
+        <button id="mtab-bubbles" class="tab-btn" onclick="switchMasterTab('bubbles')">🫧 BUBBLES</button>
         <button id="mtab-email" class="tab-btn" onclick="switchMasterTab('email')">📧 EMAIL</button>
         <button id="mtab-logs" class="tab-btn" onclick="switchMasterTab('logs')">📜 LOGS</button>
         <button id="mtab-ai-prompts" class="tab-btn" onclick="switchMasterTab('ai-prompts')">🪄 PROMPTS</button>
@@ -1042,6 +1043,13 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     <div id="mview-ai-prompts" class="modal-content closed" style="padding-top:4px;">
         <small style="font-weight:800; font-size:11px; color:#888; display:block; margin-bottom:12px;">Customize the system prompts used by each background AI feature. Placeholders like <code>[PROFILE]</code>, <code>[VARS]</code>, <code>[DATA]</code> are replaced automatically at runtime.</small>
         <div id="ai-prompt-cards"></div>
+    </div>
+    <div id="mview-bubbles" class="modal-content closed" style="padding-top:4px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <small style="font-weight:800; font-size:11px; color:#888;">Configure the floating chat bubbles: emoji, label, default profile, and which context buttons appear.</small>
+            <button onclick="addBubbleConfig()" class="action-btn" style="font-size:11px; padding:6px 12px; white-space:nowrap; margin-left:8px;">+ Add</button>
+        </div>
+        <div id="bubble-settings-list"></div>
     </div>
 </div>
 
@@ -1361,6 +1369,15 @@ const SCHEMA_HINTS = { profiles: `[ { "label": "Name", "text": "Instructions", "
 
 let AI_PROFILES = [], PROMPTS = [], TEMPLATES = [], API_SERVICES = [], AI_MODELS = [], CONFIG = {}, chatHistories = {};
 let GLOBAL_DATASETS = {};
+let BUBBLE_CONFIGS = [];
+let _fchatBubblePositions = {};
+let _bubblePickerConfigs = [];
+const _CTX_OPTS = [
+    { id: 'email', icon: '📧', label: 'Email', ctxType: 'current' },
+    { id: 'thread', icon: '📬', label: 'Thread', ctxType: 'sender' },
+    { id: 'selected', icon: '✅', label: 'Sel', ctxType: 'selected' },
+    { id: 'clear', icon: '🗑', label: '', cls: 'danger', ctxType: 'clear' },
+];
 let activeProfileLabel = "Agent";
 let chatHistory = [], historyState = [], redoState = [], APP_LOGS = [], activeSearch = "", editIdx = -1, activeCrud = "";
 let cutIdx = -1;
@@ -1582,7 +1599,7 @@ async function saveAll(skipCloud = false) {
     try {
         let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { cur.msgs = chatHistory; if(GLOBAL_DATASETS[cur.var_id]) GLOBAL_DATASETS[cur.var_id]._updated = Date.now(); } }
         CONFIG._ts = Date.now();
-        await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
+        await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS, 'bubble_configs': BUBBLE_CONFIGS });
         if(!skipCloud) triggerAutoSync(); 
     } catch(e) { console.error("DB Save Error:", e); notify("⚠️ DB Error: " + (e.name || "Write Failed"), "#ff3b30", 4000); }
 }
@@ -1593,7 +1610,7 @@ async function init() {
         await dbHelper.set('profiles', JSON.parse(localStorage.getItem(DB_KEY+'_ap'))); await dbHelper.set('prompts', JSON.parse(localStorage.getItem(DB_KEY+'_p'))); await dbHelper.set('templates', JSON.parse(localStorage.getItem(DB_KEY+'_t'))); await dbHelper.set('tools', JSON.parse(localStorage.getItem(DB_KEY+'_tools'))); await dbHelper.set('models', JSON.parse(localStorage.getItem(DB_KEY+'_am'))); await dbHelper.set('config', JSON.parse(localStorage.getItem(DB_KEY+'_cfg'))); await dbHelper.set('histories', JSON.parse(localStorage.getItem(DB_KEY+'_histories'))); await dbHelper.set('activeProfile', localStorage.getItem(DB_KEY+'_cur_ap'));
         localStorage.clear(); addLog("SYS", "Migration", "Local Storage to IDB");
     }
-    AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {};
+    AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {}; BUBBLE_CONFIGS = await dbHelper.get('bubble_configs') || []; if (!BUBBLE_CONFIGS.length) BUBBLE_CONFIGS = _defaultBubbleConfigs();
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
     CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [] };
@@ -2563,7 +2580,7 @@ async function openModal(id) {
     if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); } 
 }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; if (id === 'gmail-modal' && _fchatActiveId !== null) fchatClearAndClose(null); }
-function switchMasterTab(t) { const realT = (t==='profiles'||t==='models') ? 'ai' : t; ['config','ai','logs','email','ai-prompts'].forEach(tab => { const btn = document.getElementById('mtab-'+tab); const view = document.getElementById('mview-'+tab); if(btn) btn.classList.toggle('active', realT===tab); if(view) view.classList.toggle('closed', realT!==tab); }); if(realT==='ai') { renderProfileList(); renderModelList(); if(t==='models') switchAiTab('models'); else switchAiTab('profiles'); } if(realT==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(realT==='config') renderBgSwatches(); if(realT==='email') renderEmailSettingsTab(); if(realT==='ai-prompts') renderAiPromptCards(); }
+function switchMasterTab(t) { const realT = (t==='profiles'||t==='models') ? 'ai' : t; ['config','ai','logs','email','ai-prompts','bubbles'].forEach(tab => { const btn = document.getElementById('mtab-'+tab); const view = document.getElementById('mview-'+tab); if(btn) btn.classList.toggle('active', realT===tab); if(view) view.classList.toggle('closed', realT!==tab); }); if(realT==='ai') { renderProfileList(); renderModelList(); if(t==='models') switchAiTab('models'); else switchAiTab('profiles'); } if(realT==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(realT==='config') renderBgSwatches(); if(realT==='email') renderEmailSettingsTab(); if(realT==='ai-prompts') renderAiPromptCards(); if(realT==='bubbles') renderBubbleSettings(); }
 function switchAiTab(sub) { ['profiles','models'].forEach(s => { const btn = document.getElementById('maitab-'+s); const view = document.getElementById('mview-'+s); if(btn) btn.classList.toggle('active', s===sub); if(view) view.classList.toggle('closed', s!==sub); }); if(sub==='models') renderModelList(); if(sub==='profiles') renderProfileList(); }
 function switchModalTab(t) { document.getElementById('tab-editor').classList.toggle('active', t==='editor'); document.getElementById('tab-bulk').classList.toggle('active', t==='bulk'); document.getElementById('view-editor').classList.toggle('closed', t!=='editor'); document.getElementById('view-bulk').classList.toggle('closed', t!=='bulk'); }
 function closeItemMenu() { document.querySelectorAll('.item-popup-menu').forEach(m => m.remove()); }
@@ -4232,25 +4249,159 @@ function updateProfileBubble() {
     }
 }
 
+function _defaultBubbleConfigs() { const defP = (AI_PROFILES[0] || {}).label || 'Agent'; return [{ id: 'default', emoji: '🤖', label: 'Assistant', profileLabel: defP, contexts: ['email','thread','selected','clear'] }]; }
+
+function renderBubbleSettings() {
+    const el = document.getElementById('bubble-settings-list'); if (!el) return;
+    if (!BUBBLE_CONFIGS.length) BUBBLE_CONFIGS = _defaultBubbleConfigs();
+    el.innerHTML = BUBBLE_CONFIGS.map((bc, i) => {
+        const profOpts = AI_PROFILES.map(p => `<option value="${p.label}" ${p.label === bc.profileLabel ? 'selected' : ''}>${p.label}</option>`).join('');
+        const ctxChecks = _CTX_OPTS.map(o => `<label style="display:flex; align-items:center; gap:6px; padding:6px 0; border-bottom:0.5px solid var(--border); cursor:pointer;"><input type="checkbox" value="${o.id}" ${(bc.contexts||[]).includes(o.id)?'checked':''} style="width:16px; height:16px; accent-color:var(--accent); flex-shrink:0;">${o.icon} ${o.label||'Clear context'}</label>`).join('');
+        return `<div style="background:var(--sec-bg); border-radius:16px; padding:14px; margin-bottom:10px;">
+            <div style="display:flex; gap:8px; margin-bottom:10px; align-items:center;">
+                <input type="text" id="be-emoji-${i}" value="${bc.emoji||'🤖'}" maxlength="2" class="pp-input" style="width:48px; text-align:center; font-size:20px; padding:6px 4px;" placeholder="🤖">
+                <input type="text" id="be-label-${i}" value="${bc.label||'Assistant'}" class="pp-input" style="flex:1;" placeholder="Bubble name">
+                <div class="inline-btn" onclick="deleteBubbleConfig(${i})" style="color:#ff3b30; flex-shrink:0;">🗑</div>
+            </div>
+            <small style="font-size:10px; font-weight:700; color:#888; display:block; margin-bottom:6px;">DEFAULT PROFILE</small>
+            <select id="be-prof-${i}" class="pp-input" style="margin-bottom:10px;">${profOpts}</select>
+            <small style="font-size:10px; font-weight:700; color:#888; display:block; margin-bottom:4px;">AVAILABLE CONTEXT BUTTONS</small>
+            <div id="be-ctx-${i}">${ctxChecks}</div>
+            <button onclick="saveBubbleConfig(${i})" class="action-btn" style="width:100%; margin-top:10px; font-size:12px;">💾 Save</button>
+        </div>`;
+    }).join('');
+}
+
+async function addBubbleConfig() { const defP = (AI_PROFILES[0]||{}).label||'Agent'; BUBBLE_CONFIGS.push({ id: Date.now().toString(), emoji:'🤖', label:'New Bubble', profileLabel: defP, contexts:['email','thread','selected','clear'] }); renderBubbleSettings(); }
+
+async function saveBubbleConfig(i) {
+    const bc = BUBBLE_CONFIGS[i]; if (!bc) return;
+    bc.emoji = document.getElementById('be-emoji-'+i)?.value || '🤖';
+    bc.label = document.getElementById('be-label-'+i)?.value || 'Assistant';
+    bc.profileLabel = document.getElementById('be-prof-'+i)?.value || activeProfileLabel;
+    const ctxEl = document.getElementById('be-ctx-'+i);
+    bc.contexts = ctxEl ? Array.from(ctxEl.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value) : ['email','thread','selected','clear'];
+    await saveAll(); notify('Bubble saved!', '#34c759', 1500); renderBubbleSettings();
+}
+
+async function deleteBubbleConfig(i) {
+    openConfirm('Delete this bubble config?', async () => { BUBBLE_CONFIGS.splice(i, 1); if (!BUBBLE_CONFIGS.length) BUBBLE_CONFIGS = _defaultBubbleConfigs(); await saveAll(); renderBubbleSettings(); });
+}
+
+function openBubblePicker() {
+    _bubblePickerConfigs = BUBBLE_CONFIGS.length ? [...BUBBLE_CONFIGS] : _defaultBubbleConfigs();
+    const listEl = document.getElementById('pbm-profile-list'); if (!listEl) return;
+    const subEl = document.getElementById('pbm-email-count');
+    if (subEl) { subEl.textContent = 'Start a chat session'; subEl.style.color = '#888'; }
+    const titleEl = document.getElementById('pbm-title-text');
+    if (titleEl) titleEl.textContent = '💬 NEW CHAT';
+    listEl.innerHTML = _bubblePickerConfigs.map((bc, i) => {
+        const profLabel = bc.profileLabel || activeProfileLabel;
+        const ctxCount = (bc.contexts||[]).length;
+        return `<div class="pbm-profile-row" onclick="closeProfileBubbleMenu(); createFchatSessionFromBubble(${i})"><div class="pbm-avatar" style="font-size:22px;">${bc.emoji||'🤖'}</div><div style="flex:1;"><div class="pbm-profile-name">${bc.label||'Assistant'}</div><div style="font-size:11px;color:#888;">${profLabel} · ${ctxCount} context btn${ctxCount!==1?'s':''}</div></div><div class="pbm-arrow">→</div></div>`;
+    }).join('') + `<div class="pbm-profile-row" onclick="closeProfileBubbleMenu(); openModal('master-modal'); switchMasterTab('bubbles');" style="border-top:0.5px solid var(--border);"><div class="pbm-avatar" style="font-size:18px; opacity:0.5;">⚙️</div><div style="flex:1;"><div class="pbm-profile-name" style="color:#888; font-size:12px;">Manage bubbles</div></div></div>`;
+    const menu = document.getElementById('profile-bubble-menu');
+    const backdrop = document.getElementById('profile-bubble-backdrop');
+    const bubble = document.getElementById('profile-bubble');
+    const bRect = bubble.getBoundingClientRect();
+    menu.style.display = 'block';
+    const mw = menu.offsetWidth || 260;
+    const mh = menu.offsetHeight || 200;
+    let left = bRect.left - mw - 10;
+    let top = bRect.top + bRect.height / 2 - mh / 2;
+    if (left < 8) left = bRect.right + 10;
+    if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+    if (top < 8) top = 8;
+    if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
+    menu.style.left = left + 'px'; menu.style.top = top + 'px';
+    backdrop.style.display = 'block';
+}
+
+function createFchatSessionFromBubble(idx) { const bc = _bubblePickerConfigs[idx]; if (!bc) return; createFchatSession(bc.profileLabel || activeProfileLabel, bc); }
+
+function renderFchatHeader(session) {
+    const p = AI_PROFILES.find(x => x.label === session.profileLabel) || AI_PROFILES[0];
+    const avatarEl = document.getElementById('fchat-avatar');
+    if (avatarEl) avatarEl.textContent = p ? p.label[0].toUpperCase() : '?';
+    const profNameEl = document.getElementById('fchat-profile-name');
+    if (profNameEl) profNameEl.textContent = p ? p.label : '';
+    const ctxBtns = document.getElementById('fchat-ctx-btns');
+    if (ctxBtns) {
+        const enabled = (session.bubbleConfig||{}).contexts || _CTX_OPTS.map(o => o.id);
+        ctxBtns.innerHTML = _CTX_OPTS.filter(o => enabled.includes(o.id)).map(o => `<div class="fchat-ctx-btn ${o.cls||''}" onclick="addFloatingChatContext('${o.ctxType}')">${o.icon}${o.label?' '+o.label:''}</div>`).join('');
+    }
+}
+
+function openFchatProfilePicker(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    _showItemMenu(e, AI_PROFILES.map(p => ({ label: p.label[0].toUpperCase() + ' ' + p.label, fn: () => changeFchatProfile(p.label) })));
+}
+
+function changeFchatProfile(profileLabel) {
+    if (_fchatActiveId === null) return;
+    const session = _fchatSessions.find(s => s.id === _fchatActiveId); if (!session) return;
+    session.profileLabel = profileLabel;
+    activeProfileLabel = profileLabel;
+    renderFchatHeader(session);
+    refreshUI();
+    notify('Switched to ' + profileLabel, '#007aff', 1500);
+}
+
+function _makeBubbleDraggable(el, sessionId) {
+    let sX, sY, eX, eY, moved;
+    const onStart = (cx, cy) => { const r = el.getBoundingClientRect(); sX = cx; sY = cy; eX = r.left; eY = r.top; moved = false; };
+    const onMove = (cx, cy) => {
+        const dx = cx - sX, dy = cy - sY;
+        if (!moved && Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        moved = true;
+        el.style.left = Math.max(0, Math.min(eX + dx, window.innerWidth - 56)) + 'px';
+        el.style.top = Math.max(0, Math.min(eY + dy, window.innerHeight - 56)) + 'px';
+    };
+    const onEnd = () => { if (moved) { _fchatBubblePositions[sessionId] = { x: parseInt(el.style.left), y: parseInt(el.style.top) }; el.addEventListener('click', e => e.stopPropagation(), { once: true }); } };
+    el.addEventListener('touchstart', e => { onStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+    el.addEventListener('touchmove', e => { onMove(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, { passive: false });
+    el.addEventListener('touchend', () => onEnd());
+    el.addEventListener('mousedown', e => {
+        if (e.target.closest('.fchat-bubble-action-btn')) return;
+        onStart(e.clientX, e.clientY);
+        const mm = ev => onMove(ev.clientX, ev.clientY);
+        const mu = () => { onEnd(); document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); };
+        document.addEventListener('mousemove', mm); document.addEventListener('mouseup', mu);
+        e.preventDefault();
+    });
+}
+
 function profileBubbleTap(e) {
     if (e && e.stopPropagation) e.stopPropagation();
     const n = document.querySelectorAll('.gmail-chk:checked').length;
     if (n > 0) { openProfileBubbleMenu(); return; }
-    createFchatSession(CONFIG.def_profile || activeProfileLabel);
+    openBubblePicker();
 }
 
 function renderFchatBubbles() {
-    const bar = document.getElementById('fchat-bubble-bar'); if (!bar) return;
+    document.querySelectorAll('.fchat-bubble').forEach(b => b.remove());
     const minimized = _fchatSessions.filter(s => s.id !== _fchatActiveId);
-    bar.innerHTML = minimized.map(s => {
-        const p = AI_PROFILES.find(x => x.label === s.profileLabel) || AI_PROFILES[0];
-        const letter = p ? p.label[0].toUpperCase() : '?';
-        const prof = (s.profileLabel || '').replace(/'/g, '&#39;');
-        return `<div class="fchat-bubble" onclick="fchatMaximize('${s.id}')" title="${prof}" style="background:var(--accent);"><span style="pointer-events:none;">${letter}</span><div class="fchat-bubble-actions"><div class="fchat-bubble-action-btn" onclick="event.stopPropagation(); fchatCloseBubble('${s.id}')" title="Close">✕</div></div><div class="fchat-bubble-label">${prof}</div></div>`;
-    }).join('');
+    minimized.forEach((s, i) => {
+        const bc = s.bubbleConfig || {};
+        const emoji = bc.emoji || '🤖';
+        const label = s.profileLabel || '';
+        const div = document.createElement('div');
+        div.className = 'fchat-bubble';
+        div.id = 'fchat-bubble-' + s.id;
+        div.style.position = 'fixed';
+        div.style.zIndex = '8900';
+        div.innerHTML = `<span style="pointer-events:none; font-size:22px; line-height:1;">${emoji}</span><div class="fchat-bubble-actions"><div class="fchat-bubble-action-btn" title="Close">✕</div></div><div class="fchat-bubble-label">${label}</div>`;
+        const pos = _fchatBubblePositions[s.id];
+        if (pos) { div.style.left = pos.x + 'px'; div.style.top = pos.y + 'px'; }
+        else { const bx = Math.max(8, window.innerWidth / 2 - 26 + (i - Math.floor(minimized.length / 2)) * 64); const by = window.innerHeight - 96; div.style.left = bx + 'px'; div.style.top = by + 'px'; _fchatBubblePositions[s.id] = { x: bx, y: by }; }
+        div.querySelector('.fchat-bubble-action-btn').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
+        div.onclick = () => fchatMaximize(s.id);
+        _makeBubbleDraggable(div, s.id);
+        document.body.appendChild(div);
+    });
 }
 
-function createFchatSession(profileLabel) {
+function createFchatSession(profileLabel, bubbleConfig) {
     if (_fchatActiveId !== null) {
         const cur = _fchatSessions.find(s => s.id === _fchatActiveId);
         if (cur) cur.chatId = getSessions().current;
@@ -4262,7 +4413,7 @@ function createFchatSession(profileLabel) {
         if (wrapper) wrapper.style.display = '';
         if (el) el.style.display = 'none';
     }
-    const session = { id: Date.now().toString(), profileLabel: profileLabel || activeProfileLabel, chatId: null };
+    const session = { id: Date.now().toString(), profileLabel: profileLabel || activeProfileLabel, chatId: null, bubbleConfig: bubbleConfig || null };
     _fchatSessions.push(session);
     _fchatActiveId = session.id;
     renderFchatBubbles();
@@ -4275,9 +4426,7 @@ function _openFchatPanel(session) {
     if (wrapper && wrapper.parentNode !== el) el.appendChild(wrapper);
     if (wrapper) wrapper.style.display = '';
     el.style.display = 'flex';
-    const avatarEl = document.getElementById('fchat-avatar');
-    const p = AI_PROFILES.find(x => x.label === session.profileLabel) || AI_PROFILES[0];
-    if (avatarEl) avatarEl.textContent = p ? p.label[0].toUpperCase() : '?';
+    renderFchatHeader(session);
     _updateFchatContextLabel();
     if (session.chatId) {
         jumpToSession(session.profileLabel, session.chatId);
@@ -4289,7 +4438,7 @@ function _openFchatPanel(session) {
 
 function fchatMaximize(sessionId) {
     const session = _fchatSessions.find(s => s.id === sessionId); if (!session) return;
-    if (_fchatActiveId !== null) {
+    if (_fchatActiveId !== null && _fchatActiveId !== sessionId) {
         const cur = _fchatSessions.find(s => s.id === _fchatActiveId);
         if (cur) cur.chatId = getSessions().current;
         const el2 = document.getElementById('floating-chat');
@@ -4300,6 +4449,8 @@ function fchatMaximize(sessionId) {
         if (el2) el2.style.display = 'none';
         _fchatActiveId = null;
     }
+    const bubbleEl = document.getElementById('fchat-bubble-' + sessionId);
+    if (bubbleEl) bubbleEl.remove();
     _fchatActiveId = sessionId;
     renderFchatBubbles();
     _openFchatPanel(session);
@@ -4832,7 +4983,7 @@ function _linkifyHtml(html) {
 
 <div id="profile-bubble-menu" style="display:none;">
     <div class="pbm-header">
-        <div class="pbm-title">🤖 START NEW CHAT</div>
+        <div class="pbm-title"><span id="pbm-title-text">💬 NEW CHAT</span></div>
         <div class="pbm-sub" id="pbm-email-count">Select emails first for context</div>
     </div>
     <div id="pbm-profile-list"></div>
@@ -4847,12 +4998,17 @@ function _linkifyHtml(html) {
 <div id="fchat-bubble-bar"></div>
 <div id="floating-chat" style="display:none;">
     <div id="fchat-header">
-        <div id="fchat-avatar" style="width:28px; height:28px; border-radius:14px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:800; flex-shrink:0;">?</div>
+        <div onclick="openFchatProfilePicker(event)" style="display:flex; align-items:center; gap:5px; flex-shrink:0; cursor:pointer;" title="Switch profile">
+            <div id="fchat-avatar" style="width:26px; height:26px; border-radius:13px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:800;">?</div>
+            <span id="fchat-profile-name" style="font-size:10px; font-weight:700; color:var(--text); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+        </div>
         <div id="fchat-context-label" style="font-size:10px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;">No context added</div>
-        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')">📧 Email</div>
-        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('sender')">📬 Thread</div>
-        <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')">✅ Sel</div>
-        <div class="fchat-ctx-btn danger" onclick="addFloatingChatContext('clear')">🗑</div>
+        <div id="fchat-ctx-btns" style="display:flex; gap:3px; flex-shrink:0;">
+            <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')">📧 Email</div>
+            <div class="fchat-ctx-btn" onclick="addFloatingChatContext('sender')">📬 Thread</div>
+            <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')">✅ Sel</div>
+            <div class="fchat-ctx-btn danger" onclick="addFloatingChatContext('clear')">🗑</div>
+        </div>
         <div onclick="minimizeFloatingChat(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0;" title="Minimize to bubble">⬇</div>
         <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 10px; color:#888; flex-shrink:0;" title="Close">✕</div>
     </div>
