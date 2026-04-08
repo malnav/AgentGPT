@@ -1817,7 +1817,7 @@ async function resetCurrentSession(forced = false) {
     chatHistory = newChat; document.getElementById('note-input').value = ""; lastCursorPos = null; cutIdx = CONFIG.def_ctx === 'none' ? -1 : CONTEXT_LINES.length - 1;
     sData.list.push({ id: newId, title: "Chat " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), msgs: newChat, var_id: newId, draft: "" });
     sData.current = newId; GLOBAL_DATASETS[newId] = { title: "Data Set " + newId.substring(newId.length-4), data: {} };
-    chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); if(!forced) showInlineDatasetsToChat(); refreshUI(); document.getElementById('note-input').focus(); await saveAll(); setTimeout(() => document.getElementById('note-input').focus(), 150);
+    chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); showInlineDatasetsToChat(); refreshUI(); document.getElementById('note-input').focus(); await saveAll(); setTimeout(() => document.getElementById('note-input').focus(), 150);
 }
 
 function renderDatasetsList() {
