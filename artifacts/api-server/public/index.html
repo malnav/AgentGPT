@@ -4471,6 +4471,16 @@ function showHomeScreen() {
     renderGlobalTodos();
     _hsInitCardDrag();
     emailFetchEmails(null);
+    setTimeout(_hsRenderGmailConnectIfNeeded, 800);
+}
+
+function _hsRenderGmailConnectIfNeeded() {
+    const allAccts = emailGetAllAccounts();
+    const hasGmail = allAccts.some(a => a.type === 'gmail');
+    if (!hasGmail || gmailAccessToken) return;
+    const list = document.getElementById('gmail-list');
+    if (!list) return;
+    list.innerHTML = '<li style="padding:24px 16px; text-align:center; list-style:none;"><div style="font-size:13px; color:#888; margin-bottom:14px;">Sign in to load your Gmail</div><button onclick="gmailEnsureAuth(() => emailFetchEmails(null))" style="background:var(--accent); color:#fff; border:none; border-radius:14px; padding:13px 28px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:var(--glass-shadow);">Connect Gmail</button></li>';
 }
 
 function hideHomeScreen() {
