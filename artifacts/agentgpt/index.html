@@ -1671,7 +1671,8 @@ async function init() {
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); await refreshUI(); if (CONFIG.home_screen) showHomeScreen(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
     startRealtimeSync();
     setTimeout(hideInitOverlay, 30000);
-    setTimeout(gmailSilentAuth, 1200);
+    gmailSilentAuth();
+    setTimeout(gmailSilentAuth, 2000);
 }
 
 async function refreshUI() {
@@ -3281,7 +3282,6 @@ function gmailSilentAuth() {
     const clientId = CONFIG.google_client_id || "";
     if (!clientId || gmailAccessToken) return;
     const hint = localStorage.getItem('gmail_hint') || "";
-    if (!hint) return;
     gmailEnsureScript(() => {
         if (typeof google === 'undefined' || !google.accounts) return;
         const tc = google.accounts.oauth2.initTokenClient({
