@@ -688,11 +688,11 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div class="sub-tab-btn" id="wtab-data" onclick="switchWorkspaceTab('data')" style="padding:4px 8px;">🗄️ Data</div>
         </div>
         <div id="wtab-all-btns" style="display:flex; gap:8px; align-items:center; margin-left:8px;">
-            <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession();" title="New Session in Current Profile">+</button>
+            <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession(true);" title="New Session in Current Profile">+</button>
             <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
         <div id="wtab-current-btns" style="display:none; gap:8px; align-items:center; margin-left:8px;">
-            <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession();" title="New Session">+</button>
+            <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="closeAllPanels(); resetCurrentSession(true);" title="New Session">+</button>
             <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
         <div id="wtab-data-btns" style="display:none; gap:8px; align-items:center; margin-left:8px;">
@@ -937,7 +937,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div style="display:flex; gap:10px; align-items:center;">
                 <div onclick="pickDatasetQuick()" style="cursor:pointer; font-size:14px; width:31px; height:27px; border-radius:12px; display:flex; align-items:center; justify-content:center; border:0.5px solid var(--glass-border); background:var(--glass); backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); box-shadow:var(--glass-shadow);" title="Change Dataset">📊</div>
                 <div id="ctx-indicator" onclick="toggleAllContext()" style="cursor:pointer; font-size:14px; width:31px; height:27px; border-radius:12px; display:flex; align-items:center; justify-content:center; border:0.5px solid var(--glass-border); background:var(--glass); backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); box-shadow:var(--glass-shadow);" title="Toggle Context">☁️</div>
-                <div onclick="resetCurrentSession()" style="cursor:pointer; font-size:14px; width:31px; height:27px; border-radius:12px; display:flex; align-items:center; justify-content:center; border:0.5px solid var(--glass-border); background:var(--glass); backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); box-shadow:var(--glass-shadow);" title="New Chat">📝</div>
+                <div onclick="resetCurrentSession(true)" style="cursor:pointer; font-size:14px; width:31px; height:27px; border-radius:12px; display:flex; align-items:center; justify-content:center; border:0.5px solid var(--glass-border); background:var(--glass); backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); box-shadow:var(--glass-shadow);" title="New Chat">📝</div>
                 <button class="send-btn" id="send-btn-el" onclick="sendToAI()" title="Send">↑</button>
             </div>
         </div>
@@ -1809,15 +1809,15 @@ async function loadSession(id) { let sData = getSessions(); sData.current = Stri
 function renderSessionsList() { let sData = getSessions(); let sortedChats = [...sData.list].sort((a,b) => { if(a.pinned && !b.pinned) return -1; if(!a.pinned && b.pinned) return 1; return Number(b.id) - Number(a.id); }); let visible = sortedChats.filter(s => { let isCurrent = String(s.id) === String(sData.current); let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; return isCurrent || msgCount > 0; }); document.getElementById('sessions-list').innerHTML = visible.map(s => { let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; let lockIcon = s.title_locked ? ' <span style="font-size:9px; opacity:0.5;" title="Title locked">🔒</span>' : ''; return `<li class="list-item ${String(s.id) === String(sData.current) ? 'in-cut' : ''}" onclick="loadSession('${s.id}')"><div style="flex:1; min-width:0; overflow:hidden;"><strong style="display:flex; align-items:center; gap:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.title}${lockIcon}</strong><span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div><div class="inline-btn" data-sid="${s.id}" data-prof="${activeProfileLabel}" data-pinned="${s.pinned?'1':'0'}" onclick="event.stopPropagation(); openSessionMenu(event, this)" style="font-size:18px; font-weight:700; letter-spacing:1px;">⋯</div></li>`; }).join(''); }
 async function togglePinCurrentChat(chatId) { let sData = getSessions(); let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat) return; chat.pinned = !chat.pinned; await saveAll(); renderSessionsList(); }
 
-async function resetCurrentSession() { 
+async function resetCurrentSession(forced = false) { 
     let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current));
-    if (cur && cur.msgs.filter(m => m.role !== 'developer').length === 0) { document.getElementById('note-input').focus(); return; } 
+    if (!forced && cur && cur.msgs.filter(m => m.role !== 'developer').length === 0) { document.getElementById('note-input').focus(); return; } 
     const p = AI_PROFILES.find(x => x.label === activeProfileLabel) || AI_PROFILES[0]; const newId = Date.now().toString(); const newChat = [];
     if(p) newChat.push({ role: "developer", content: [{ type: "input_text", text: p.text }] });
     chatHistory = newChat; document.getElementById('note-input').value = ""; lastCursorPos = null; cutIdx = CONFIG.def_ctx === 'none' ? -1 : CONTEXT_LINES.length - 1;
     sData.list.push({ id: newId, title: "Chat " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), msgs: newChat, var_id: newId, draft: "" });
     sData.current = newId; GLOBAL_DATASETS[newId] = { title: "Data Set " + newId.substring(newId.length-4), data: {} };
-    chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); showInlineDatasetsToChat(); refreshUI(); document.getElementById('note-input').focus(); await saveAll(); setTimeout(() => document.getElementById('note-input').focus(), 150);
+    chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); if(!forced) showInlineDatasetsToChat(); refreshUI(); document.getElementById('note-input').focus(); await saveAll(); setTimeout(() => document.getElementById('note-input').focus(), 150);
 }
 
 function renderDatasetsList() {
@@ -4226,7 +4226,7 @@ function renderCalendar() {
         calGrid.style.display = 'none'; calList.innerHTML = futureEvents.length > 0 ? futureEvents.map(e => e.html).join('') : `<div style="padding:14px; text-align:center; color:#888; font-size:12px;">No upcoming events.</div>`;
         let datedIds = new Set(getDatasetsWithDates().map(d => d.id));
         let noDatDs = Object.keys(GLOBAL_DATASETS).filter(vid => { if(datedIds.has(vid)) return false; let ds = GLOBAL_DATASETS[vid]; let hasVars = Object.keys(ds.data || {}).length > 0; let hasLinked = Object.values(chatHistories).some(h => (h.list||[]).some(c => String(c.var_id) === String(vid))); return hasVars || hasLinked; });
-        if(noDatDs.length > 0) { let noDatHtml = noDatDs.filter(vid => Object.keys(GLOBAL_DATASETS[vid]?.data || {}).length > 0).map(vid => { let ds = GLOBAL_DATASETS[vid]; let snap = { id: vid, title: ds.title || 'Data Set', data: ds.data || {}, dateKey: '' }; let varCount = Object.keys(ds.data || {}).length; let linkedCount = Object.values(chatHistories).reduce((n, h) => n + (h.list||[]).filter(c => String(c.var_id) === String(vid)).length, 0); return `<div style="font-size:13px; padding:10px 14px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="showDatasetDetails('${btoa(unescape(encodeURIComponent(JSON.stringify(snap))))}')"><div style="flex:1; min-width:0;"><div style="font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ds.title || 'Data Set'}</div><div style="font-size:11px; color:#888; margin-top:2px;">${varCount} var${varCount!==1?'s':''} · ${linkedCount} chat${linkedCount!==1?'s':''} linked</div></div><span style="font-size:14px; opacity:0.5;">✏️</span></div>`; }).join(''); calList.innerHTML += `<div style="padding:10px 14px 4px; border-top:4px solid var(--border); margin-top:2px;"><small style="font-weight:800; font-size:11px; color:#888; letter-spacing:0.03em;">📦 NO CALENDAR DATE</small></div>` + noDatHtml; }
+        if(noDatDs.length > 0) { let noDatHtml = noDatDs.filter(vid => { let ds = GLOBAL_DATASETS[vid]; let varCount = Object.keys(ds?.data || {}).length; let linkedCount = Object.values(chatHistories).reduce((n, h) => n + (h.list||[]).filter(c => String(c.var_id) === String(vid)).length, 0); return varCount > 0 && linkedCount > 0; }).map(vid => { let ds = GLOBAL_DATASETS[vid]; let snap = { id: vid, title: ds.title || 'Data Set', data: ds.data || {}, dateKey: '' }; let varCount = Object.keys(ds.data || {}).length; let linkedCount = Object.values(chatHistories).reduce((n, h) => n + (h.list||[]).filter(c => String(c.var_id) === String(vid)).length, 0); return `<div style="font-size:13px; padding:10px 14px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="showDatasetDetails('${btoa(unescape(encodeURIComponent(JSON.stringify(snap))))}')"><div style="flex:1; min-width:0;"><div style="font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ds.title || 'Data Set'}</div><div style="font-size:11px; color:#888; margin-top:2px;">${varCount} var${varCount!==1?'s':''} · ${linkedCount} chat${linkedCount!==1?'s':''} linked</div></div><span style="font-size:14px; opacity:0.5;">✏️</span></div>`; }).join(''); if (noDatHtml) calList.innerHTML += `<div style="padding:10px 14px 4px; border-top:4px solid var(--border); margin-top:2px;"><small style="font-weight:800; font-size:11px; color:#888; letter-spacing:0.03em;">📦 NO CALENDAR DATE</small></div>` + noDatHtml; }
     } else {
         calMonthTitle.style.display = ''; prevBtn.style.display = ''; nextBtn.style.display = '';
         const y = currentCalDate.getFullYear(), m = currentCalDate.getMonth(); const firstDay = new Date(y, m, 1).getDay(), daysInMonth = new Date(y, m + 1, 0).getDate();
@@ -4718,7 +4718,7 @@ function _openFchatPanel(session) {
     } else if (session.chatId) {
         jumpToSession(session.profileLabel, session.chatId);
     } else {
-        switchProfileSession(session.profileLabel).then(() => { session.chatId = getSessions().current; renderFchatBubbles(); });
+        (async () => { if (activeProfileLabel !== session.profileLabel) { activeProfileLabel = session.profileLabel; addLog("SESSION", "Switch Profile", session.profileLabel); } await resetCurrentSession(true); refreshUI(); renderWorkspaceLists(); session.chatId = getSessions().current; renderFchatBubbles(); })();
     }
 }
 
