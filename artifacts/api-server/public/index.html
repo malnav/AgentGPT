@@ -462,6 +462,31 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .fchat-bubble-actions { position:absolute; top:-9px; right:-9px; display:flex; flex-direction:column; gap:3px; }
 .fchat-bubble-action-btn { width:22px; height:22px; border-radius:11px; background:rgba(20,20,30,0.82); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1.5px solid rgba(255,255,255,0.35); box-shadow:0 1px 6px rgba(0,0,0,0.3); }
 .fchat-bubble-label { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:9px; color:#888; white-space:nowrap; font-weight:600; pointer-events:none; }
+#home-screen { position:fixed; inset:0; z-index:500; background:var(--bg); display:flex; flex-direction:column; overflow:hidden; }
+#hs-header { padding:max(14px, env(safe-area-inset-top)) 16px 10px 16px; display:flex; align-items:center; gap:10px; flex-shrink:0; border-bottom:0.5px solid var(--border); background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); }
+#hs-body { flex:1; overflow-y:auto; padding:14px 14px max(80px, calc(env(safe-area-inset-bottom) + 80px)) 14px; display:flex; flex-direction:column; gap:14px; }
+.hs-card { background:var(--glass); border:0.5px solid var(--glass-border); border-radius:20px; overflow:hidden; backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); box-shadow:0 2px 20px rgba(0,0,0,0.08); }
+.hs-card-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px 10px 16px; border-bottom:0.5px solid var(--border); }
+.hs-card-title { font-size:13px; font-weight:800; color:var(--text); }
+.hs-card-body { padding:10px 14px 14px 14px; }
+.hs-greeting { font-size:20px; font-weight:800; color:var(--text); flex:1; }
+.hs-date { font-size:11px; color:#888; margin-top:2px; }
+.hs-mini-cal { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+.hs-mini-cal-head { font-size:9px; font-weight:700; color:#888; text-align:center; padding:3px 0; }
+.hs-mini-cal-day { font-size:11px; text-align:center; padding:4px 2px; border-radius:8px; cursor:pointer; transition:background 0.15s; position:relative; min-height:26px; }
+.hs-mini-cal-day.today { background:var(--accent); color:#fff; font-weight:800; }
+.hs-mini-cal-day.has-event::after { content:''; position:absolute; bottom:2px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:2px; background:var(--accent); }
+.hs-mini-cal-day.today.has-event::after { background:#fff; }
+.hs-mini-cal-day.other-month { opacity:0.3; }
+.hs-mini-cal-day:active { background:var(--sec-bg); }
+.hs-todo-row { display:flex; align-items:flex-start; gap:8px; padding:8px 0; border-bottom:0.5px solid var(--border); }
+.hs-todo-row:last-child { border-bottom:none; }
+.hs-email-row { display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:0.5px solid var(--border); cursor:pointer; }
+.hs-email-row:last-child { border-bottom:none; }
+.hs-email-row:active { opacity:0.7; }
+.hs-email-avatar { width:34px; height:34px; border-radius:17px; background:var(--accent); color:#fff; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.hs-empty { font-size:13px; color:#888; text-align:center; padding:20px 0; }
+.hs-chats-btn { position:fixed; bottom:max(22px, env(safe-area-inset-bottom)); right:20px; z-index:510; width:54px; height:54px; border-radius:27px; background:var(--accent); color:#fff; font-size:22px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 20px rgba(0,122,255,0.4); cursor:pointer; border:none; }
 @keyframes fcbubble-in { from { transform:scale(0) translateY(16px); opacity:0; } to { transform:scale(1) translateY(0); opacity:1; } }
 #fchat-header { display:flex; align-items:center; padding:calc(var(--sat, env(safe-area-inset-top, 0px)) + 10px) 12px 10px 12px; gap:6px; flex-shrink:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-bottom:0.5px solid var(--glass-border); min-height:48px; }
 #floating-chat .sys-icons { display:none !important; }
@@ -919,6 +944,16 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <button id="mtab-ai-prompts" class="tab-btn" onclick="switchMasterTab('ai-prompts')">🪄 PROMPTS</button>
     </div>
     <div id="mview-config" class="modal-content">
+        <div style="background:var(--sec-bg); border-radius:16px; padding:14px 16px; margin-bottom:18px; display:flex; align-items:center; gap:12px;">
+            <div style="flex:1;">
+                <div style="font-size:13px; font-weight:800; color:var(--text);">🏠 Home Screen</div>
+                <div style="font-size:11px; color:#888; margin-top:3px;">Open to a home screen with calendar, todos &amp; emails instead of the chat UI.</div>
+            </div>
+            <label style="position:relative; display:inline-block; width:44px; height:26px; flex-shrink:0; cursor:pointer;">
+                <input type="checkbox" id="home-screen-toggle" style="opacity:0; width:0; height:0; position:absolute;" onchange="toggleHomeScreenSetting(this.checked)">
+                <span id="hs-toggle-track" style="position:absolute; inset:0; background:#ccc; border-radius:13px; transition:background 0.2s; display:flex; align-items:center;"><span id="hs-toggle-thumb" style="position:absolute; left:3px; width:20px; height:20px; background:#fff; border-radius:10px; transition:transform 0.2s; box-shadow:0 1px 4px rgba(0,0,0,0.2);"></span></span>
+            </label>
+        </div>
         <small style="font-weight:800; font-size:11px; color:var(--accent); display:block; margin-bottom:10px;">🎨 BACKGROUND THEME</small>
         <div id="bg-theme-swatches" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px;"></div>
         <hr style="border:none; border-top:0.5px solid var(--border); margin: 0 0 18px 0;">
@@ -1613,7 +1648,7 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {}; BUBBLE_CONFIGS = await dbHelper.get('bubble_configs') || []; if (!BUBBLE_CONFIGS.length) BUBBLE_CONFIGS = _defaultBubbleConfigs();
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [] };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: !!storedCfg.home_screen };
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
@@ -1641,6 +1676,11 @@ async function refreshUI() {
     document.getElementById('def-ctx-f').value = CONFIG.def_ctx || "all"; document.getElementById('def-prof-f').innerHTML = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); document.getElementById('def-mod-f').innerHTML = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('def-prof-f').value = CONFIG.def_profile; document.getElementById('def-mod-f').value = CONFIG.def_model;
     document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('google-client-id-f').value = CONFIG.google_client_id || ""; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
     updateProfileBubble(); renderBubbleProfilesChecklist();
+    const hsToggle = document.getElementById('home-screen-toggle'); if (hsToggle) hsToggle.checked = !!CONFIG.home_screen;
+    const hsTrack = document.getElementById('hs-toggle-track'); const hsThumb = document.getElementById('hs-toggle-thumb');
+    if (hsTrack) hsTrack.style.background = CONFIG.home_screen ? 'var(--accent)' : '#ccc';
+    if (hsThumb) hsThumb.style.transform = CONFIG.home_screen ? 'translateX(18px)' : 'translateX(0)';
+    if (CONFIG.home_screen) showHomeScreen();
 }
 
 function updateCtxSelection() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let btn = document.getElementById('ctx-bulk-btn-wrapper'); if(boxes.length > 0) { btn.style.display = 'block'; btn.querySelector('button').innerText = `Insert ${boxes.length} Selected ⟶`; } else { btn.style.display = 'none'; } }
@@ -2514,6 +2554,17 @@ async function pushConfigToFirebase() {
     } catch(e) { addLog("SYNC", "Config Push Error", e.message); hideSyncIndicator(false); }
 }
 
+async function toggleHomeScreenSetting(enabled) {
+    CONFIG.home_screen = !!enabled;
+    const track = document.getElementById('hs-toggle-track');
+    const thumb = document.getElementById('hs-toggle-thumb');
+    if (track) track.style.background = enabled ? 'var(--accent)' : '#ccc';
+    if (thumb) thumb.style.transform = enabled ? 'translateX(18px)' : 'translateX(0)';
+    await saveAll(true);
+    if (enabled) { showHomeScreen(); closeModal('master-modal'); } else { hideHomeScreen(); }
+    notify(enabled ? '🏠 Home screen enabled' : '💬 Chat view enabled', '#34c759', 1500);
+}
+
 async function saveMasterConfig() { 
     const prevFbApi = CONFIG.fb_api, prevFbProject = CONFIG.fb_project;
     CONFIG.ai_key = document.getElementById('ai-key-f').value; CONFIG.def_profile = document.getElementById('def-prof-f').value; CONFIG.def_model = document.getElementById('def-mod-f').value; 
@@ -2522,6 +2573,7 @@ async function saveMasterConfig() {
     CONFIG.extract_model = document.getElementById('extract-model-f').value;
     CONFIG.suggest_model = document.getElementById('suggest-model-f').value;
     CONFIG.def_ctx = document.getElementById('def-ctx-f').value;
+    CONFIG.home_screen = !!(document.getElementById('home-screen-toggle')?.checked);
     await saveAll(true); await refreshUI(); notify("Config Saved!", "#34c759");
     const credentialsChanged = CONFIG.fb_api !== prevFbApi || CONFIG.fb_project !== prevFbProject;
     if(credentialsChanged) { fbDb = null; stopRealtimeSync(); startRealtimeSync(); } else { pushConfigToFirebase(); }
@@ -4371,6 +4423,101 @@ function _makeBubbleDraggable(el, sessionId) {
     });
 }
 
+let _hsCalDate = new Date();
+let _hsActive = false;
+
+function showHomeScreen() {
+    _hsActive = true;
+    const hs = document.getElementById('home-screen'); if (hs) hs.style.display = 'flex';
+    renderHomeScreen();
+}
+
+function hideHomeScreen() {
+    _hsActive = false;
+    const hs = document.getElementById('home-screen'); if (hs) hs.style.display = 'none';
+}
+
+function renderHomeScreen() {
+    const hs = document.getElementById('home-screen'); if (!hs || hs.style.display === 'none') return;
+    const now = new Date();
+    const h = now.getHours();
+    const greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+    const el = document.getElementById('hs-greeting'); if (el) el.textContent = greeting;
+    const dateEl = document.getElementById('hs-date');
+    if (dateEl) dateEl.textContent = now.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric' });
+    renderHsCal();
+    renderHsTodos();
+    renderHsEmail();
+}
+
+function renderHsCal() {
+    const gridEl = document.getElementById('hs-cal-grid'); if (!gridEl) return;
+    const evEl = document.getElementById('hs-cal-events');
+    const lblEl = document.getElementById('hs-cal-month-label');
+    const y = _hsCalDate.getFullYear(), m = _hsCalDate.getMonth();
+    const today = new Date(); const todayKey = today.getFullYear() + '-' + today.getMonth() + '-' + today.getDate();
+    if (lblEl) lblEl.textContent = _hsCalDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    const days = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+    const firstDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const datasets = typeof getTodosWithDates === 'function' ? getTodosWithDates() : [];
+    const eventDays = new Set(datasets.filter(d => d.date.getFullYear() === y && d.date.getMonth() === m).map(d => d.date.getDate()));
+    if (typeof getDatasetsWithDates === 'function') getDatasetsWithDates().filter(d => d.date.getFullYear() === y && d.date.getMonth() === m).forEach(d => eventDays.add(d.date.getDate()));
+    let html = days.map(d => `<div class="hs-mini-cal-head">${d}</div>`).join('');
+    for (let i = 0; i < firstDay; i++) { const pDays = new Date(y, m, 0).getDate() - firstDay + 1 + i; html += `<div class="hs-mini-cal-day other-month">${pDays}</div>`; }
+    for (let d = 1; d <= daysInMonth; d++) {
+        const key = y + '-' + m + '-' + d;
+        const isToday = key === todayKey;
+        const hasEv = eventDays.has(d);
+        html += `<div class="hs-mini-cal-day${isToday ? ' today' : ''}${hasEv ? ' has-event' : ''}" onclick="hsCalDayClick(${d})">${d}</div>`;
+    }
+    gridEl.innerHTML = html;
+    if (evEl) {
+        const todayEvents = datasets.filter(d => d.date.getFullYear() === y && d.date.getMonth() === m && d.date.getDate() === today.getDate() && m === today.getMonth() && y === today.getFullYear());
+        if (todayEvents.length) { evEl.innerHTML = `<div style="font-size:10px; font-weight:700; color:#888; margin-bottom:4px;">TODAY</div>` + todayEvents.map(t => `<div class="hs-todo-row"><span onclick="toggleCalTodo('${t.vid}','${t.todoId}')" style="cursor:pointer; font-size:16px; flex-shrink:0;">${t.done ? '✅' : '⬜'}</span><span style="font-size:12px; color:var(--text); ${t.done ? 'text-decoration:line-through;opacity:0.6;' : ''}">${t.text}<span style="color:#888; font-size:10px; margin-left:4px;">${t.datasetTitle}</span></span></div>`).join(''); } else { evEl.innerHTML = ''; }
+    }
+}
+
+function hsCalMonth(offset) { _hsCalDate.setMonth(_hsCalDate.getMonth() + offset); renderHsCal(); }
+function hsCalToday() { _hsCalDate = new Date(); renderHsCal(); }
+function hsCalDayClick(d) { _hsCalDate.setDate(d); currentCalDate = new Date(_hsCalDate); openModal('cal-modal'); setTimeout(renderCalendar, 80); }
+
+function renderHsTodos() {
+    const el = document.getElementById('hs-todos-body'); if (!el) return;
+    let items = [];
+    Object.keys(GLOBAL_DATASETS).forEach(vid => { const ds = GLOBAL_DATASETS[vid]; if (!ds) return; (ds.todos || []).forEach(t => items.push({ ...t, vid, datasetTitle: ds.title || 'Dataset' })); });
+    const open = items.filter(t => !t.done).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
+    const done = items.filter(t => t.done).slice(0, 5);
+    if (!items.length) { el.innerHTML = '<div class="hs-empty">No todos yet.</div>'; return; }
+    const renderRow = (t) => `<div class="hs-todo-row"><span onclick="toggleCalTodo('${t.vid}','${t.id}'); renderHomeScreen();" style="cursor:pointer; font-size:18px; flex-shrink:0;" title="${t.done?'Mark undone':'Mark done'}">${t.done ? '✅' : '⬜'}</span><div style="flex:1; min-width:0;"><div style="font-size:13px; color:var(--text); ${t.done ? 'text-decoration:line-through; opacity:0.6;' : ''}">${t.text}</div>${t.date ? `<div style="font-size:10px; color:#888; margin-top:2px;">📅 ${t.date}</div>` : ''}<div style="font-size:10px; color:#888;">${t.datasetTitle}</div></div><div onclick="editTodo('${t.vid}','${t.id}')" style="cursor:pointer; font-size:15px; opacity:0.4; padding:2px 6px;">✏️</div></div>`;
+    let html = `<div style="font-size:11px; color:#888; margin-bottom:6px;">${done.length + (items.length - open.length - done.length)}/${items.length} done</div>`;
+    html += open.map(renderRow).join('');
+    if (done.length) html += `<div style="font-size:10px; color:#888; margin-top:8px; margin-bottom:4px; font-weight:700;">DONE</div>` + done.map(renderRow).join('');
+    el.innerHTML = html;
+}
+
+function renderHsEmail() {
+    const el = document.getElementById('hs-email-body'); if (!el) return;
+    const emails = typeof gmailEmails !== 'undefined' ? gmailEmails.slice(0, 12) : [];
+    if (!emails.length) { el.innerHTML = '<div class="hs-empty">No emails loaded. Tap Refresh to load.</div>'; return; }
+    el.innerHTML = emails.map(em => {
+        const from = em.from || em.sender || '';
+        const name = from.replace(/<.*>/, '').trim() || from.split('@')[0] || '?';
+        const letter = name.charAt(0).toUpperCase() || '?';
+        const subject = em.subject || '(no subject)';
+        const snippet = em.snippet || '';
+        const unread = !em.read ? 'font-weight:800;' : '';
+        return `<div class="hs-email-row" onclick="openEmailFromHome('${em.id}')"><div class="hs-email-avatar">${letter}</div><div style="flex:1; min-width:0;"><div style="font-size:13px; ${unread} color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</div><div style="font-size:12px; color:var(--text); opacity:0.8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; ${unread}">${subject}</div><div style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${snippet}</div></div></div>`;
+    }).join('');
+}
+
+async function hsEmailRefresh() {
+    const el = document.getElementById('hs-email-body'); if (el) el.innerHTML = '<div class="hs-empty" style="animation:pulse 1s infinite;">Loading…</div>';
+    if (typeof emailSwitchFolder === 'function') { await emailSwitchFolder('INBOX', 'panel'); setTimeout(() => renderHsEmail(), 1200); }
+}
+
+function openEmailFromHome(emailId) { openModal('gmail-modal'); setTimeout(() => { const item = document.querySelector('#gmail-modal-list [data-id="' + emailId + '"]'); if (item) item.click(); }, 300); }
+
 function profileBubbleTap(e) {
     if (e && e.stopPropagation) e.stopPropagation();
     const n = document.querySelectorAll('.gmail-chk:checked').length;
@@ -4979,6 +5126,56 @@ function _linkifyHtml(html) {
 
 <div id="profile-bubble" style="bottom:110px; right:18px;" title="Profile Chat Bubble" onclick="profileBubbleTap(event)">
     <span id="profile-bubble-icon">?</span>
+</div>
+
+<div id="home-screen" style="display:none;">
+    <div id="hs-header">
+        <div style="flex:1; min-width:0;">
+            <div class="hs-greeting" id="hs-greeting">Good morning</div>
+            <div class="hs-date" id="hs-date"></div>
+        </div>
+        <div onclick="openModal('master-modal')" style="font-size:22px; cursor:pointer; opacity:0.6; padding:4px 6px;" title="Settings">⚙️</div>
+        <div onclick="hideHomeScreen()" style="font-size:13px; font-weight:700; color:var(--accent); cursor:pointer; padding:4px 8px; background:var(--sec-bg); border-radius:12px; white-space:nowrap;">💬 Chats</div>
+    </div>
+    <div id="hs-body">
+        <div class="hs-card">
+            <div class="hs-card-header">
+                <span class="hs-card-title">📅 Calendar</span>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <div onclick="hsCalMonth(-1)" style="cursor:pointer; font-size:14px; padding:2px 8px; border-radius:8px; background:var(--sec-bg);">◀</div>
+                    <span id="hs-cal-month-label" style="font-size:11px; font-weight:700; color:#888;"></span>
+                    <div onclick="hsCalMonth(1)" style="cursor:pointer; font-size:14px; padding:2px 8px; border-radius:8px; background:var(--sec-bg);">▶</div>
+                    <div onclick="hsCalToday()" style="cursor:pointer; font-size:10px; font-weight:700; padding:3px 10px; border-radius:8px; background:var(--accent); color:#fff;">Today</div>
+                </div>
+            </div>
+            <div class="hs-card-body" style="padding:10px 10px 14px;">
+                <div class="hs-mini-cal" id="hs-cal-grid"></div>
+                <div id="hs-cal-events" style="margin-top:10px; font-size:12px;"></div>
+            </div>
+        </div>
+        <div class="hs-card">
+            <div class="hs-card-header">
+                <span class="hs-card-title">✅ Todos</span>
+                <button onclick="addTodo()" class="action-btn" style="font-size:11px; padding:5px 12px;">+ Add</button>
+            </div>
+            <div class="hs-card-body" id="hs-todos-body">
+                <div class="hs-empty">No todos yet.</div>
+            </div>
+        </div>
+        <div class="hs-card">
+            <div class="hs-card-header">
+                <span class="hs-card-title">📧 Email</span>
+                <div style="display:flex; gap:6px;">
+                    <div onclick="hsEmailRefresh()" style="cursor:pointer; font-size:12px; color:#888;">↺ Refresh</div>
+                    <div onclick="openModal('gmail-modal')" style="cursor:pointer; font-size:12px; color:var(--accent);">See All →</div>
+                </div>
+            </div>
+            <div class="hs-card-body" id="hs-email-body">
+                <div class="hs-empty">No emails loaded.</div>
+            </div>
+        </div>
+    </div>
+    <button class="hs-chats-btn" onclick="openBubblePicker()" title="Start new chat">💬</button>
 </div>
 
 <div id="profile-bubble-menu" style="display:none;">
