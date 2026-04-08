@@ -1664,7 +1664,7 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {}; BUBBLE_CONFIGS = await dbHelper.get('bubble_configs') || []; if (!BUBBLE_CONFIGS.length) BUBBLE_CONFIGS = _defaultBubbleConfigs();
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null };
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
@@ -4517,6 +4517,7 @@ function showHomeScreen() {
     hs.style.display = 'flex';
     const pb = document.getElementById('profile-bubble'); if (pb) pb.style.display = 'none';
     _hsUpdateGreeting();
+    _hsApplyCardOrder();
     _hsMoveToHomeScreen();
     renderCalendar();
     _populateGTodoFilters();
@@ -4543,6 +4544,15 @@ function hideHomeScreen() {
     hs.style.display = 'none';
     const pb = document.getElementById('profile-bubble'); if (pb) pb.style.display = '';
     _hsMoveFromHomeScreen();
+}
+
+function _hsApplyCardOrder() {
+    const order = CONFIG.hs_card_order;
+    if (!order || !Array.isArray(order) || order.length < 2) return;
+    const body = document.getElementById('hs-body'); if (!body) return;
+    const cards = {};
+    body.querySelectorAll('.hs-card[data-card-id]').forEach(c => { cards[c.dataset.cardId] = c; });
+    order.forEach(id => { if (cards[id]) body.appendChild(cards[id]); });
 }
 
 let _hsDragInited = false;
@@ -4579,6 +4589,8 @@ function _hsInitCardDrag() {
             const allCards = getCards(); const dragIdx = allCards.indexOf(_drag.card); const targetIdx = allCards.indexOf(best);
             if (dragIdx < targetIdx) body.insertBefore(best, _drag.card); else body.insertBefore(_drag.card, best);
         }
+        const newOrder = getCards().map(c => c.dataset.cardId).filter(Boolean);
+        if (newOrder.length) { CONFIG.hs_card_order = newOrder; saveAll(true); }
         document.body.style.userSelect = ''; _drag = null;
     };
     body.querySelectorAll('.hs-drag-handle').forEach(handle => {
@@ -5280,7 +5292,7 @@ function _linkifyHtml(html) {
         <div onclick="hideHomeScreen()" style="font-size:13px; font-weight:700; color:var(--accent); cursor:pointer; padding:4px 8px; background:var(--sec-bg); border-radius:12px; white-space:nowrap;">💬 Chats</div>
     </div>
     <div id="hs-body">
-        <div class="hs-card">
+        <div class="hs-card" data-card-id="calendar">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">📅 Calendar</span>
@@ -5306,7 +5318,7 @@ function _linkifyHtml(html) {
                 </div>
             </div>
         </div>
-        <div class="hs-card">
+        <div class="hs-card" data-card-id="todos">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">✅ Todos</span>
@@ -5318,7 +5330,7 @@ function _linkifyHtml(html) {
             </div>
             <div id="hs-todos-anchor" style="min-height:120px; overflow-y:auto; padding:8px 14px 10px;"></div>
         </div>
-        <div class="hs-card" style="overflow:hidden;">
+        <div class="hs-card" data-card-id="email" style="overflow:hidden;">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">📧 Email</span>
