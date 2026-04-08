@@ -1070,7 +1070,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             </div>
             <div style="padding:0 14px 14px;">
                 <input type="text" id="google-client-id-f" class="pp-input" placeholder="Google OAuth Client ID (…googleusercontent.com)" onchange="saveMasterConfig()" style="margin-bottom:6px;">
-                <small style="color:#888; font-size:10px; line-height:1.4; display:block;">Google Cloud Console → Enable Gmail API → OAuth 2.0 Client ID (Web App) → add this page URL to Authorized JS Origins.</small>
+                <input type="password" id="google-client-secret-f" class="pp-input" placeholder="Google OAuth Client Secret" onchange="saveMasterConfig()" style="margin-bottom:6px;">
+                <small style="color:#888; font-size:10px; line-height:1.4; display:block;">Google Cloud Console → Enable Gmail API → OAuth 2.0 Client ID (Web Application) → add this page URL to Authorized JS Origins and set redirect URI to <strong>postmessage</strong>.</small>
             </div>
         </div>
         <div style="background:var(--sec-bg); border-radius:16px; overflow:hidden; margin-bottom:12px;">
@@ -1661,7 +1662,7 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {}; BUBBLE_CONFIGS = await dbHelper.get('bubble_configs') || []; if (!BUBBLE_CONFIGS.length) BUBBLE_CONFIGS = _defaultBubbleConfigs();
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false };
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
@@ -1688,7 +1689,7 @@ async function refreshUI() {
     updateCtxSelection(); 
     let ctxLabel = cutIdx === -1 ? '☁️' : '🌦️'; document.getElementById('ctx-indicator').innerText = ctxLabel; document.getElementById('ctx-btn-all').classList.toggle('active', cutIdx === CONTEXT_LINES.length - 1); document.getElementById('ctx-btn-none').classList.toggle('active', cutIdx === -1);
     document.getElementById('def-ctx-f').value = CONFIG.def_ctx || "all"; document.getElementById('def-prof-f').innerHTML = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); document.getElementById('def-mod-f').innerHTML = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('def-prof-f').value = CONFIG.def_profile; document.getElementById('def-mod-f').value = CONFIG.def_model;
-    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('google-client-id-f').value = CONFIG.google_client_id || ""; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
+    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('google-client-id-f').value = CONFIG.google_client_id || ""; document.getElementById('google-client-secret-f').value = CONFIG.google_client_secret || ""; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
     updateProfileBubble(); renderBubbleProfilesChecklist();
     const hsToggle = document.getElementById('home-screen-toggle'); if (hsToggle) hsToggle.checked = !!CONFIG.home_screen;
     const hsTrack = document.getElementById('hs-toggle-track'); const hsThumb = document.getElementById('hs-toggle-thumb');
@@ -2586,7 +2587,7 @@ async function toggleHomeScreenSetting(enabled) {
 async function saveMasterConfig() { 
     const prevFbApi = CONFIG.fb_api, prevFbProject = CONFIG.fb_project;
     CONFIG.ai_key = document.getElementById('ai-key-f').value; CONFIG.def_profile = document.getElementById('def-prof-f').value; CONFIG.def_model = document.getElementById('def-mod-f').value; 
-    CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = true; CONFIG.google_client_id = document.getElementById('google-client-id-f').value.trim();
+    CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = true; CONFIG.google_client_id = document.getElementById('google-client-id-f').value.trim(); CONFIG.google_client_secret = document.getElementById('google-client-secret-f').value.trim();
     CONFIG.title_model = document.getElementById('title-model-f').value;
     CONFIG.extract_model = document.getElementById('extract-model-f').value;
     CONFIG.suggest_model = document.getElementById('suggest-model-f').value;
@@ -3278,9 +3279,54 @@ function gmailEnsureScript(onReady) {
     }
 }
 
-function gmailSilentAuth() {
+async function gmailBackendRefresh() {
+    const clientId = CONFIG.google_client_id || "";
+    const clientSecret = CONFIG.google_client_secret || "";
+    if (!clientId || !clientSecret) return false;
+    try {
+        const resp = await fetch('/api/gmail/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }) });
+        if (!resp.ok) return false;
+        const data = await resp.json();
+        if (data.access_token) { gmailAccessToken = data.access_token; updateProfileBubble(); return true; }
+        return false;
+    } catch { return false; }
+}
+
+function gmailConnectWithCode() {
+    const clientId = CONFIG.google_client_id || "";
+    const clientSecret = CONFIG.google_client_secret || "";
+    if (!clientId) { notify("Enter your Google OAuth Client ID in Settings first", "#ff3b30", 5000); return; }
+    if (!clientSecret) { notify("Enter your Google OAuth Client Secret in Settings first", "#ff3b30", 5000); return; }
+    gmailEnsureScript(() => {
+        if (typeof google === 'undefined' || !google.accounts) { notify("Google sign-in not ready — try again", "#ff9500", 3000); return; }
+        const client = google.accounts.oauth2.initCodeClient({
+            client_id: clientId,
+            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
+            ux_mode: 'popup',
+            callback: async (resp) => {
+                if (resp.error) { notify("Gmail sign-in failed: " + resp.error, "#ff3b30", 4000); return; }
+                notify("Connecting Gmail...", "#007aff", 2000);
+                try {
+                    const r = await fetch('/api/gmail/exchange-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: resp.code, client_id: clientId, client_secret: clientSecret }) });
+                    const data = await r.json();
+                    if (!r.ok || data.error) { notify("Gmail connection failed: " + (data.error || "Unknown error"), "#ff3b30", 5000); return; }
+                    gmailAccessToken = data.access_token;
+                    gmailStoreHint();
+                    updateProfileBubble();
+                    emailFetchEmails(null);
+                    notify("Gmail connected!", "#34c759", 3000);
+                } catch { notify("Gmail connection error", "#ff3b30", 4000); }
+            }
+        });
+        client.requestCode();
+    });
+}
+
+async function gmailSilentAuth() {
     const clientId = CONFIG.google_client_id || "";
     if (!clientId || gmailAccessToken) return;
+    const refreshed = await gmailBackendRefresh();
+    if (refreshed) { emailFetchEmails(null); return; }
     const hint = localStorage.getItem('gmail_hint') || "";
     gmailEnsureScript(() => {
         if (typeof google === 'undefined' || !google.accounts) return;
@@ -4480,7 +4526,9 @@ function _hsRenderGmailConnectIfNeeded() {
     if (!hasGmail || gmailAccessToken) return;
     const list = document.getElementById('gmail-list');
     if (!list) return;
-    list.innerHTML = '<li style="padding:24px 16px; text-align:center; list-style:none;"><div style="font-size:13px; color:#888; margin-bottom:14px;">Sign in to load your Gmail</div><button onclick="gmailEnsureAuth(() => emailFetchEmails(null))" style="background:var(--accent); color:#fff; border:none; border-radius:14px; padding:13px 28px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:var(--glass-shadow);">Connect Gmail</button></li>';
+    const hasSecret = !!(CONFIG.google_client_secret || "").trim();
+    const btnFn = hasSecret ? 'gmailConnectWithCode()' : 'gmailEnsureAuth(() => emailFetchEmails(null))';
+    list.innerHTML = '<li style="padding:24px 16px; text-align:center; list-style:none;"><div style="font-size:13px; color:#888; margin-bottom:14px;">Sign in to load your Gmail</div><button onclick="' + btnFn + '" style="background:var(--accent); color:#fff; border:none; border-radius:14px; padding:13px 28px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:var(--glass-shadow);">Connect Gmail</button></li>';
 }
 
 function hideHomeScreen() {
