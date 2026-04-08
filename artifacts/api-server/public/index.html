@@ -663,10 +663,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <select id="main-profile-sel" class="main-profile-dropdown" onchange="switchProfileSession(this.value)"></select>
     </div>
     <div class="sys-icons">
-        <div onclick="openCalendar()" style="cursor:pointer; font-size:16px; line-height:1;" title="Global Calendar">📅</div>
-        <div onclick="openGmailModal()" style="cursor:pointer; font-size:16px; line-height:1;" title="Email">📧</div>
-        <div onclick="openGlobalTodos()" style="cursor:pointer; font-size:16px; line-height:1;" title="Global Todos">✅</div>
         <div onclick="openModal('master-modal')" style="cursor:pointer; font-size:16px; line-height:1;" title="Settings">⚙️</div>
+        <div onclick="goHomeFromMainChat()" style="cursor:pointer; font-size:16px; line-height:1;" title="Home">🏠</div>
     </div>
 </div>
 
@@ -1670,7 +1668,7 @@ async function init() {
     activeProfileLabel = await dbHelper.get('activeProfile') || (AI_PROFILES[0] ? AI_PROFILES[0].label : "Agent");
     if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0].label; }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
-    await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); refreshUI(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
+    await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); await refreshUI(); if (CONFIG.home_screen) showHomeScreen(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
     startRealtimeSync();
     setTimeout(hideInitOverlay, 30000);
     setTimeout(gmailSilentAuth, 1200);
@@ -1695,7 +1693,6 @@ async function refreshUI() {
     const hsTrack = document.getElementById('hs-toggle-track'); const hsThumb = document.getElementById('hs-toggle-thumb');
     if (hsTrack) hsTrack.style.background = CONFIG.home_screen ? 'var(--accent)' : '#ccc';
     if (hsThumb) hsThumb.style.transform = CONFIG.home_screen ? 'translateX(18px)' : 'translateX(0)';
-    if (CONFIG.home_screen) showHomeScreen();
 }
 
 function updateCtxSelection() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let btn = document.getElementById('ctx-bulk-btn-wrapper'); if(boxes.length > 0) { btn.style.display = 'block'; btn.querySelector('button').innerText = `Insert ${boxes.length} Selected ⟶`; } else { btn.style.display = 'none'; } }
@@ -4638,8 +4635,7 @@ function _openFchatPanel(session) {
     if (session.chatId) {
         jumpToSession(session.profileLabel, session.chatId);
     } else {
-        activeProfileLabel = session.profileLabel;
-        resetCurrentSession().then(() => { session.chatId = getSessions().current; renderFchatBubbles(); setTimeout(() => showInlineDatasetsToChat(), 80); });
+        switchProfileSession(session.profileLabel).then(() => { session.chatId = getSessions().current; renderFchatBubbles(); });
     }
 }
 
@@ -4713,6 +4709,21 @@ function minimizeFloatingChat(e) {
     if (wrapper) wrapper.style.display = '';
     if (el) el.style.display = 'none';
     renderFchatBubbles();
+}
+
+function goHomeFromFloatingChat(e) {
+    minimizeFloatingChat(e);
+    showHomeScreen();
+}
+
+function goHomeFromMainChat() {
+    const profLabel = activeProfileLabel;
+    const chatId = getSessions() && getSessions().current;
+    if (chatId) {
+        const exists = _fchatSessions.find(s => s.profileLabel === profLabel && s.chatId === chatId);
+        if (!exists) { _fchatSessions.push({ id: Date.now().toString(), profileLabel: profLabel, chatId: chatId, bubbleConfig: null }); renderFchatBubbles(); }
+    }
+    showHomeScreen();
 }
 
 function fchatClearAndClose(e) {
@@ -5276,7 +5287,7 @@ function _linkifyHtml(html) {
             <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')">✅ Sel</div>
             <div class="fchat-ctx-btn danger" onclick="addFloatingChatContext('clear')">🗑</div>
         </div>
-        <div onclick="minimizeFloatingChat(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0;" title="Minimize to bubble">⬇</div>
+        <div onclick="goHomeFromFloatingChat(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0;" title="Home">🏠</div>
         <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 10px; color:#888; flex-shrink:0;" title="Close">✕</div>
     </div>
 </div>
