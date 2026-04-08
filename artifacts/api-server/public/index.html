@@ -3719,20 +3719,23 @@ function emailSwitchSmartTab(tab) { gmailSmartTab = tab; gmailRenderEmails(); }
 
 function emailRenderSmartTabs() {
     const isInbox = emailCurrentMailbox === 'INBOX';
-    const tabs = [['primary','📩 Primary'],['promotions','🏷️ Promo'],['updates','🔔 Updates'],['spam','🚫 Spam']];
+    const mainTabs = [['primary','📩 Primary'],['promotions','🏷️ Promo'],['updates','🔔 Updates']];
     const counts = { primary: 0, promotions: 0, updates: 0, spam: 0 };
     if (isInbox) gmailEmails.forEach(em => { const c = emailGetCategory(em); if (counts[c] !== undefined) counts[c]++; });
     ['gmail-smart-tabs-panel','gmail-smart-tabs-modal'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
+        el.style.cssText = (el.style.cssText || '') + '; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch;';
         el.style.display = isInbox ? 'flex' : 'none';
         if (!isInbox) return;
-        el.innerHTML = tabs.map(([t, label]) => {
+        const makBtn = (t, label, isMain) => {
             const active = t === gmailSmartTab;
             const cnt = counts[t];
             const badge = cnt ? ` <span style="font-size:10px;background:${active?'rgba(255,255,255,0.25)':'var(--border)'};color:${active?'#fff':'#888'};border-radius:8px;padding:1px 5px;margin-left:2px;font-weight:800;">${cnt}</span>` : '';
-            return `<button onclick="emailSwitchSmartTab('${t}')" style="flex:1;font-size:11px;font-weight:700;padding:7px 4px;border:none;border-bottom:2px solid ${active?'var(--accent)':'transparent'};cursor:pointer;background:transparent;color:${active?'var(--accent)':'#888'};transition:all 0.15s;">${label}${badge}</button>`;
-        }).join('');
+            const sizeStyle = isMain ? 'flex:0 0 calc(100%/3);' : 'flex:0 0 auto;min-width:80px;padding:7px 10px;';
+            return `<button onclick="emailSwitchSmartTab('${t}')" style="${sizeStyle}font-size:11px;font-weight:700;padding:7px 4px;border:none;border-bottom:2px solid ${active?'var(--accent)':'transparent'};cursor:pointer;background:transparent;color:${active?'var(--accent)':'#888'};transition:all 0.15s;white-space:nowrap;">${label}${badge}</button>`;
+        };
+        el.innerHTML = mainTabs.map(([t, label]) => makBtn(t, label, true)).join('') + makBtn('spam', '🚫 Spam', false);
     });
 }
 
