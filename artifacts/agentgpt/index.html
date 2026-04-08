@@ -1770,7 +1770,7 @@ function renderChatTodos() { let el = document.getElementById('chat-todo-list');
 function renderGlobalTodos() { let el = document.getElementById('global-todo-list'); if(!el) return; let items = []; let sData2 = getSessions(); let curVid = (sData2.list.find(x => String(x.id) === String(sData2.current)) || {}).var_id; let vids = globalTodoFilter === 'cur' ? (curVid ? [curVid] : []) : Object.keys(GLOBAL_DATASETS); vids.forEach(vid => { let ds = GLOBAL_DATASETS[vid]; if(!ds) return; (ds.todos || []).forEach(t => items.push({ ...t, vid, datasetTitle: ds.title || 'Dataset' })); }); el.innerHTML = buildTodoHtml(items, true); }
 
 function openGlobalTodos() { renderGlobalTodos(); openModal('global-todos-modal'); }
-function setGlobalTodoFilter(f) { globalTodoFilter = f; document.getElementById('gtodo-filter-all').style.background = f === 'all' ? 'var(--accent)' : ''; document.getElementById('gtodo-filter-all').style.color = f === 'all' ? '#fff' : ''; document.getElementById('gtodo-filter-cur').style.background = f === 'cur' ? 'var(--accent)' : ''; document.getElementById('gtodo-filter-cur').style.color = f === 'cur' ? '#fff' : ''; renderGlobalTodos(); }
+function setGlobalTodoFilter(f) { globalTodoFilter = f; ['','hs-'].forEach(pfx => { const aEl = document.getElementById(pfx+'gtodo-filter-all'); const cEl = document.getElementById(pfx+'gtodo-filter-cur'); if (aEl) { aEl.style.background = f === 'all' ? 'var(--accent)' : ''; aEl.style.color = f === 'all' ? '#fff' : ''; } if (cEl) { cEl.style.background = f === 'cur' ? 'var(--accent)' : ''; cEl.style.color = f === 'cur' ? '#fff' : ''; } }); renderGlobalTodos(); }
 
 function openTodoEditModal(todoObj, onSave) { document.getElementById('todo-edit-text').value = todoObj.text || ''; document.getElementById('todo-edit-date').value = todoObj.date || ''; openModal('todo-edit-modal'); document.getElementById('todo-edit-save-btn').onclick = () => { let text = document.getElementById('todo-edit-text').value.trim(); let date = document.getElementById('todo-edit-date').value || null; if(!text) return; onSave(text, date); closeModal('todo-edit-modal'); }; }
 
@@ -4160,7 +4160,7 @@ function renderCalendar() {
     } else {
         calMonthTitle.style.display = ''; prevBtn.style.display = ''; nextBtn.style.display = '';
         const y = currentCalDate.getFullYear(), m = currentCalDate.getMonth(); const firstDay = new Date(y, m, 1).getDay(), daysInMonth = new Date(y, m + 1, 0).getDate();
-        calMonthTitle.innerText = new Date(y, m, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+        calMonthTitle.innerText = new Date(y, m, 1).toLocaleString('default', { month: 'long', year: 'numeric' }); const _hsCML = document.getElementById('hs-cal-month-label'); if (_hsCML) _hsCML.textContent = calMonthTitle.innerText;
         let datasets = getDatasetsWithDates(); let todos = getTodosWithDates(); let html = "";
         for (let i = 0; i < firstDay; i++) { html += `<div class="cal-day" style="opacity:0.2;"></div>`; }
         for (let i = 1; i <= daysInMonth; i++) {
@@ -4423,100 +4423,83 @@ function _makeBubbleDraggable(el, sessionId) {
     });
 }
 
-let _hsCalDate = new Date();
 let _hsActive = false;
+let _hsMoved = { calProf: null, calGrid: null, calList: null, todos: null, email: null };
+let _hsEmailOrigDisplay = 'none';
 
-function showHomeScreen() {
-    _hsActive = true;
-    const hs = document.getElementById('home-screen'); if (hs) hs.style.display = 'flex';
-    renderHomeScreen();
-}
-
-function hideHomeScreen() {
-    _hsActive = false;
-    const hs = document.getElementById('home-screen'); if (hs) hs.style.display = 'none';
-}
-
-function renderHomeScreen() {
-    const hs = document.getElementById('home-screen'); if (!hs || hs.style.display === 'none') return;
-    const now = new Date();
-    const h = now.getHours();
+function _hsUpdateGreeting() {
+    const now = new Date(); const h = now.getHours();
     const greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
     const el = document.getElementById('hs-greeting'); if (el) el.textContent = greeting;
     const dateEl = document.getElementById('hs-date');
     if (dateEl) dateEl.textContent = now.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric' });
-    renderHsCal();
-    renderHsTodos();
-    renderHsEmail();
 }
 
-function renderHsCal() {
-    const gridEl = document.getElementById('hs-cal-grid'); if (!gridEl) return;
-    const evEl = document.getElementById('hs-cal-events');
-    const lblEl = document.getElementById('hs-cal-month-label');
-    const y = _hsCalDate.getFullYear(), m = _hsCalDate.getMonth();
-    const today = new Date(); const todayKey = today.getFullYear() + '-' + today.getMonth() + '-' + today.getDate();
-    if (lblEl) lblEl.textContent = _hsCalDate.toLocaleString('default', { month: 'long', year: 'numeric' });
-    const days = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-    const firstDay = new Date(y, m, 1).getDay();
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const datasets = typeof getTodosWithDates === 'function' ? getTodosWithDates() : [];
-    const eventDays = new Set(datasets.filter(d => d.date.getFullYear() === y && d.date.getMonth() === m).map(d => d.date.getDate()));
-    if (typeof getDatasetsWithDates === 'function') getDatasetsWithDates().filter(d => d.date.getFullYear() === y && d.date.getMonth() === m).forEach(d => eventDays.add(d.date.getDate()));
-    let html = days.map(d => `<div class="hs-mini-cal-head">${d}</div>`).join('');
-    for (let i = 0; i < firstDay; i++) { const pDays = new Date(y, m, 0).getDate() - firstDay + 1 + i; html += `<div class="hs-mini-cal-day other-month">${pDays}</div>`; }
-    for (let d = 1; d <= daysInMonth; d++) {
-        const key = y + '-' + m + '-' + d;
-        const isToday = key === todayKey;
-        const hasEv = eventDays.has(d);
-        html += `<div class="hs-mini-cal-day${isToday ? ' today' : ''}${hasEv ? ' has-event' : ''}" onclick="hsCalDayClick(${d})">${d}</div>`;
+function showHomeScreen() {
+    _hsActive = true;
+    const hs = document.getElementById('home-screen'); if (!hs) return;
+    hs.style.display = 'flex';
+    _hsUpdateGreeting();
+    _hsMoveToHomeScreen();
+    renderCalendar();
+    renderGlobalTodos();
+}
+
+function hideHomeScreen() {
+    _hsActive = false;
+    const hs = document.getElementById('home-screen'); if (!hs) return;
+    hs.style.display = 'none';
+    _hsMoveFromHomeScreen();
+}
+
+function _hsMoveToHomeScreen() {
+    const calProfEl = document.getElementById('cal-prof-filters');
+    const calGridEl = document.getElementById('cal-grid-content');
+    const calListEl = document.getElementById('cal-list-content');
+    const todosEl = document.getElementById('global-todo-list');
+    const emailPane = document.getElementById('ctx-pane-gmail');
+
+    const calProfAnchor = document.getElementById('hs-cal-prof-anchor');
+    const calGridAnchor = document.getElementById('hs-cal-grid-anchor');
+    const calListAnchor = document.getElementById('hs-cal-list-anchor');
+    const todosAnchor = document.getElementById('hs-todos-anchor');
+    const emailAnchor = document.getElementById('hs-email-anchor');
+
+    if (calProfEl && calProfAnchor) { _hsMoved.calProf = calProfEl.parentNode; calProfAnchor.appendChild(calProfEl); }
+    if (calGridEl && calGridAnchor) { _hsMoved.calGrid = calGridEl.parentNode; calGridAnchor.appendChild(calGridEl); }
+    if (calListEl && calListAnchor) { _hsMoved.calList = calListEl.parentNode; calListAnchor.appendChild(calListEl); }
+    if (todosEl && todosAnchor) { _hsMoved.todos = todosEl.parentNode; todosAnchor.appendChild(todosEl); }
+    if (emailPane && emailAnchor) {
+        _hsMoved.email = emailPane.parentNode;
+        _hsEmailOrigDisplay = emailPane.style.display;
+        emailAnchor.appendChild(emailPane);
+        emailPane.style.display = 'flex';
+        emailPane.style.flex = '1';
+        emailPane.style.minHeight = '0';
     }
-    gridEl.innerHTML = html;
-    if (evEl) {
-        const todayEvents = datasets.filter(d => d.date.getFullYear() === y && d.date.getMonth() === m && d.date.getDate() === today.getDate() && m === today.getMonth() && y === today.getFullYear());
-        if (todayEvents.length) { evEl.innerHTML = `<div style="font-size:10px; font-weight:700; color:#888; margin-bottom:4px;">TODAY</div>` + todayEvents.map(t => `<div class="hs-todo-row"><span onclick="toggleCalTodo('${t.vid}','${t.todoId}')" style="cursor:pointer; font-size:16px; flex-shrink:0;">${t.done ? '✅' : '⬜'}</span><span style="font-size:12px; color:var(--text); ${t.done ? 'text-decoration:line-through;opacity:0.6;' : ''}">${t.text}<span style="color:#888; font-size:10px; margin-left:4px;">${t.datasetTitle}</span></span></div>`).join(''); } else { evEl.innerHTML = ''; }
+    const calProfLabel = document.querySelector('#hs-cal-prof-anchor')?.previousElementSibling?.querySelector('small');
+    if (calProfLabel) calProfLabel.style.display = 'block';
+}
+
+function _hsMoveFromHomeScreen() {
+    const calGridEl = document.getElementById('cal-grid-content');
+    const calListEl = document.getElementById('cal-list-content');
+    const calProfEl = document.getElementById('cal-prof-filters');
+    const todosEl = document.getElementById('global-todo-list');
+    const emailPane = document.getElementById('ctx-pane-gmail');
+
+    if (calProfEl && _hsMoved.calProf) { _hsMoved.calProf.appendChild(calProfEl); }
+    if (calGridEl && _hsMoved.calGrid) { _hsMoved.calGrid.appendChild(calGridEl); }
+    if (calListEl && _hsMoved.calList) { _hsMoved.calList.appendChild(calListEl); }
+    if (todosEl && _hsMoved.todos) { _hsMoved.todos.appendChild(todosEl); }
+    if (emailPane && _hsMoved.email) {
+        _hsMoved.email.appendChild(emailPane);
+        emailPane.style.display = _hsEmailOrigDisplay;
+        emailPane.style.flex = '';
+        emailPane.style.minHeight = '';
     }
+    _hsMoved = { calProf: null, calGrid: null, calList: null, todos: null, email: null };
 }
-
-function hsCalMonth(offset) { _hsCalDate.setMonth(_hsCalDate.getMonth() + offset); renderHsCal(); }
-function hsCalToday() { _hsCalDate = new Date(); renderHsCal(); }
-function hsCalDayClick(d) { _hsCalDate.setDate(d); currentCalDate = new Date(_hsCalDate); openModal('cal-modal'); setTimeout(renderCalendar, 80); }
-
-function renderHsTodos() {
-    const el = document.getElementById('hs-todos-body'); if (!el) return;
-    let items = [];
-    Object.keys(GLOBAL_DATASETS).forEach(vid => { const ds = GLOBAL_DATASETS[vid]; if (!ds) return; (ds.todos || []).forEach(t => items.push({ ...t, vid, datasetTitle: ds.title || 'Dataset' })); });
-    const open = items.filter(t => !t.done).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
-    const done = items.filter(t => t.done).slice(0, 5);
-    if (!items.length) { el.innerHTML = '<div class="hs-empty">No todos yet.</div>'; return; }
-    const renderRow = (t) => `<div class="hs-todo-row"><span onclick="toggleCalTodo('${t.vid}','${t.id}'); renderHomeScreen();" style="cursor:pointer; font-size:18px; flex-shrink:0;" title="${t.done?'Mark undone':'Mark done'}">${t.done ? '✅' : '⬜'}</span><div style="flex:1; min-width:0;"><div style="font-size:13px; color:var(--text); ${t.done ? 'text-decoration:line-through; opacity:0.6;' : ''}">${t.text}</div>${t.date ? `<div style="font-size:10px; color:#888; margin-top:2px;">📅 ${t.date}</div>` : ''}<div style="font-size:10px; color:#888;">${t.datasetTitle}</div></div><div onclick="editTodo('${t.vid}','${t.id}')" style="cursor:pointer; font-size:15px; opacity:0.4; padding:2px 6px;">✏️</div></div>`;
-    let html = `<div style="font-size:11px; color:#888; margin-bottom:6px;">${done.length + (items.length - open.length - done.length)}/${items.length} done</div>`;
-    html += open.map(renderRow).join('');
-    if (done.length) html += `<div style="font-size:10px; color:#888; margin-top:8px; margin-bottom:4px; font-weight:700;">DONE</div>` + done.map(renderRow).join('');
-    el.innerHTML = html;
-}
-
-function renderHsEmail() {
-    const el = document.getElementById('hs-email-body'); if (!el) return;
-    const emails = typeof gmailEmails !== 'undefined' ? gmailEmails.slice(0, 12) : [];
-    if (!emails.length) { el.innerHTML = '<div class="hs-empty">No emails loaded. Tap Refresh to load.</div>'; return; }
-    el.innerHTML = emails.map(em => {
-        const from = em.from || em.sender || '';
-        const name = from.replace(/<.*>/, '').trim() || from.split('@')[0] || '?';
-        const letter = name.charAt(0).toUpperCase() || '?';
-        const subject = em.subject || '(no subject)';
-        const snippet = em.snippet || '';
-        const unread = !em.read ? 'font-weight:800;' : '';
-        return `<div class="hs-email-row" onclick="openEmailFromHome('${em.id}')"><div class="hs-email-avatar">${letter}</div><div style="flex:1; min-width:0;"><div style="font-size:13px; ${unread} color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</div><div style="font-size:12px; color:var(--text); opacity:0.8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; ${unread}">${subject}</div><div style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${snippet}</div></div></div>`;
-    }).join('');
-}
-
-async function hsEmailRefresh() {
-    const el = document.getElementById('hs-email-body'); if (el) el.innerHTML = '<div class="hs-empty" style="animation:pulse 1s infinite;">Loading…</div>';
-    if (typeof emailSwitchFolder === 'function') { await emailSwitchFolder('INBOX', 'panel'); setTimeout(() => renderHsEmail(), 1200); }
-}
-
-function openEmailFromHome(emailId) { openModal('gmail-modal'); setTimeout(() => { const item = document.querySelector('#gmail-modal-list [data-id="' + emailId + '"]'); if (item) item.click(); }, 300); }
 
 function profileBubbleTap(e) {
     if (e && e.stopPropagation) e.stopPropagation();
@@ -5142,37 +5125,44 @@ function _linkifyHtml(html) {
             <div class="hs-card-header">
                 <span class="hs-card-title">📅 Calendar</span>
                 <div style="display:flex; gap:6px; align-items:center;">
-                    <div onclick="hsCalMonth(-1)" style="cursor:pointer; font-size:14px; padding:2px 8px; border-radius:8px; background:var(--sec-bg);">◀</div>
-                    <span id="hs-cal-month-label" style="font-size:11px; font-weight:700; color:#888;"></span>
-                    <div onclick="hsCalMonth(1)" style="cursor:pointer; font-size:14px; padding:2px 8px; border-radius:8px; background:var(--sec-bg);">▶</div>
-                    <div onclick="hsCalToday()" style="cursor:pointer; font-size:10px; font-weight:700; padding:3px 10px; border-radius:8px; background:var(--accent); color:#fff;">Today</div>
+                    <div onclick="changeMonth(-1)" style="cursor:pointer; font-size:14px; padding:2px 8px; border-radius:8px; background:var(--sec-bg);">◀</div>
+                    <span id="hs-cal-month-label" style="font-size:11px; font-weight:700; color:#888; white-space:nowrap;"></span>
+                    <div onclick="changeMonth(1)" style="cursor:pointer; font-size:14px; padding:2px 8px; border-radius:8px; background:var(--sec-bg);">▶</div>
+                    <div onclick="currentCalDate = new Date(); renderCalendar();" style="cursor:pointer; font-size:10px; font-weight:700; padding:3px 10px; border-radius:8px; background:var(--accent); color:#fff;">Today</div>
+                    <div onclick="toggleCalFilterMode()" style="cursor:pointer; font-size:13px; padding:2px 8px; border-radius:8px; background:var(--sec-bg);">🔮</div>
                 </div>
             </div>
-            <div class="hs-card-body" style="padding:10px 10px 14px;">
-                <div class="hs-mini-cal" id="hs-cal-grid"></div>
-                <div id="hs-cal-events" style="margin-top:10px; font-size:12px;"></div>
+            <div id="hs-cal-body" style="overflow:hidden;">
+                <div style="padding:4px 8px 0 8px;">
+                    <div id="hs-cal-prof-anchor"></div>
+                </div>
+                <div style="padding:0 6px;">
+                    <div class="cal-grid" style="padding-bottom:0;">
+                        <div class="cal-day-header">SUN</div><div class="cal-day-header">MON</div><div class="cal-day-header">TUE</div><div class="cal-day-header">WED</div><div class="cal-day-header">THU</div><div class="cal-day-header">FRI</div><div class="cal-day-header">SAT</div>
+                    </div>
+                    <div id="hs-cal-grid-anchor"></div>
+                    <hr style="border:none; border-top:0.5px solid var(--border); margin:8px 4px;">
+                    <div id="hs-cal-list-anchor" style="max-height:180px; overflow-y:auto;"></div>
+                </div>
             </div>
         </div>
         <div class="hs-card">
             <div class="hs-card-header">
                 <span class="hs-card-title">✅ Todos</span>
-                <button onclick="addTodo()" class="action-btn" style="font-size:11px; padding:5px 12px;">+ Add</button>
-            </div>
-            <div class="hs-card-body" id="hs-todos-body">
-                <div class="hs-empty">No todos yet.</div>
-            </div>
-        </div>
-        <div class="hs-card">
-            <div class="hs-card-header">
-                <span class="hs-card-title">📧 Email</span>
-                <div style="display:flex; gap:6px;">
-                    <div onclick="hsEmailRefresh()" style="cursor:pointer; font-size:12px; color:#888;">↺ Refresh</div>
-                    <div onclick="openModal('gmail-modal')" style="cursor:pointer; font-size:12px; color:var(--accent);">See All →</div>
+                <div style="display:flex; gap:5px; align-items:center;">
+                    <button class="chip" id="hs-gtodo-filter-all" style="font-size:10px; padding:3px 9px; background:var(--accent); color:#fff;" onclick="setGlobalTodoFilter('all')">All</button>
+                    <button class="chip" id="hs-gtodo-filter-cur" style="font-size:10px; padding:3px 9px;" onclick="setGlobalTodoFilter('cur')">This Session</button>
+                    <button class="chip" style="font-size:10px; padding:3px 9px; background:var(--accent); color:#fff;" onclick="addTodo(true)">+ Add</button>
                 </div>
             </div>
-            <div class="hs-card-body" id="hs-email-body">
-                <div class="hs-empty">No emails loaded.</div>
+            <div id="hs-todos-anchor" style="max-height:340px; overflow-y:auto; padding:8px 14px 10px;"></div>
+        </div>
+        <div class="hs-card" style="overflow:hidden;">
+            <div class="hs-card-header">
+                <span class="hs-card-title">📧 Email</span>
+                <div onclick="openModal('gmail-modal')" style="cursor:pointer; font-size:12px; color:var(--accent);">Full View →</div>
             </div>
+            <div id="hs-email-anchor" style="height:420px; display:flex; flex-direction:column; position:relative; overflow:hidden;"></div>
         </div>
     </div>
     <button class="hs-chats-btn" onclick="openBubblePicker()" title="Start new chat">💬</button>
