@@ -786,6 +786,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
         <div id="gmail-smart-tabs-panel" style="display:none; border-bottom:0.5px solid var(--border); background:var(--sec-bg);"></div>
         <ul id="gmail-list" class="gmail-email-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:70px;"></ul>
+        <div id="gmail-bulk-bar-panel" style="position:absolute; bottom:0; left:0; right:0; z-index:7; background:var(--sec-bg); border-top:0.5px solid var(--glass-border); padding:10px 12px 16px; backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); transform:translateY(100%); transition:transform 0.22s cubic-bezier(0.4,0,0.2,1); display:flex; align-items:center; justify-content:center;"></div>
         <button class="email-compose-fab" onclick="gmailOpenCompose()" title="Compose">✏️</button>
 
         <div id="gmail-preview-overlay" style="display:none; position:absolute; inset:0; background:var(--bg); z-index:10; flex-direction:column; overflow:hidden;">
@@ -1124,6 +1125,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
         <div id="gmail-smart-tabs-modal" style="display:none; border-bottom:0.5px solid var(--border); background:var(--sec-bg);"></div>
         <ul id="gmail-modal-list" class="gmail-email-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:80px;"></ul>
+        <div id="gmail-bulk-bar-modal" style="position:absolute; bottom:0; left:0; right:0; z-index:7; background:var(--sec-bg); border-top:0.5px solid var(--glass-border); padding:10px 12px 16px; backdrop-filter:var(--blur-sm); -webkit-backdrop-filter:var(--blur-sm); transform:translateY(100%); transition:transform 0.22s cubic-bezier(0.4,0,0.2,1); display:flex; align-items:center; justify-content:center;"></div>
         <div id="gmail-modal-preview" style="display:none; position:absolute; inset:0; background:var(--bg); z-index:10; flex-direction:column; overflow:hidden;">
             <div style="display:flex; align-items:center; gap:2px; padding:10px 12px; border-bottom:0.5px solid var(--border); background:var(--bg);">
                 <span onclick="gmailClosePreview('modal')" style="cursor:pointer; font-size:16px; color:var(--accent); font-weight:700; padding:4px 8px 4px 0; white-space:nowrap;">← Back</span>
@@ -3698,6 +3700,9 @@ function gmailUpdateThreadChk(msgChkEl) {
 }
 
 function emailGetCategory(em) {
+    const senderAddr = gmailExtractAddr(em.from || '');
+    const rules = CONFIG.email_sender_rules || {};
+    if (rules[senderAddr]) return rules[senderAddr];
     const lu = em._listUnsubscribe || '';
     const prec = (em._precedence || '').toLowerCase();
     const auto = (em._autoSubmitted || '').toLowerCase();
@@ -3714,8 +3719,8 @@ function emailSwitchSmartTab(tab) { gmailSmartTab = tab; gmailRenderEmails(); }
 
 function emailRenderSmartTabs() {
     const isInbox = emailCurrentMailbox === 'INBOX';
-    const tabs = [['primary','📩 Primary'],['promotions','🏷️ Promo'],['updates','🔔 Updates']];
-    const counts = { primary: 0, promotions: 0, updates: 0 };
+    const tabs = [['primary','📩 Primary'],['promotions','🏷️ Promo'],['updates','🔔 Updates'],['spam','🚫 Spam']];
+    const counts = { primary: 0, promotions: 0, updates: 0, spam: 0 };
     if (isInbox) gmailEmails.forEach(em => { const c = emailGetCategory(em); if (counts[c] !== undefined) counts[c]++; });
     ['gmail-smart-tabs-panel','gmail-smart-tabs-modal'].forEach(id => {
         const el = document.getElementById(id);
@@ -3729,6 +3734,20 @@ function emailRenderSmartTabs() {
             return `<button onclick="emailSwitchSmartTab('${t}')" style="flex:1;font-size:11px;font-weight:700;padding:7px 4px;border:none;border-bottom:2px solid ${active?'var(--accent)':'transparent'};cursor:pointer;background:transparent;color:${active?'var(--accent)':'#888'};transition:all 0.15s;">${label}${badge}</button>`;
         }).join('');
     });
+}
+
+function emailBulkSetCategory(cat) {
+    const checked = Array.from(document.querySelectorAll('.gmail-chk:checked'));
+    if (!checked.length) return;
+    const senders = [...new Set(checked.map(cb => { const em = gmailEmails[parseInt(cb.dataset.idx)]; return em ? gmailExtractAddr(em.from) : null; }).filter(Boolean))];
+    if (!CONFIG.email_sender_rules) CONFIG.email_sender_rules = {};
+    senders.forEach(s => { CONFIG.email_sender_rules[s] = cat; });
+    saveAll();
+    document.querySelectorAll('.gmail-chk').forEach(c => c.checked = false);
+    document.querySelectorAll('.gmail-thread-chk').forEach(c => { c.checked = false; c.indeterminate = false; });
+    const catLabels = { primary: 'VIP/Primary', promotions: 'Promotions', updates: 'Updates', spam: 'Spam' };
+    notify(`${senders.length} sender${senders.length > 1 ? 's' : ''} → ${catLabels[cat] || cat}`, '#34c759', 2500);
+    gmailUpdateAddBtns(); gmailRenderEmails();
 }
 
 function gmailRenderEmails() {
@@ -3765,6 +3784,14 @@ function gmailUpdateAddBtns() {
     ['gmail-add-ctx-btn', 'gmail-modal-add-btn'].forEach(id => {
         const btn = document.getElementById(id);
         if(btn) { btn.style.display = n > 0 ? 'inline' : 'none'; btn.textContent = label; }
+    });
+    const cats = [['primary','⭐ VIP','#30d158'],['promotions','🏷️ Promo','#ff9f0a'],['updates','🔔 Updates','#007aff'],['spam','🚫 Spam','#ff3b30']];
+    const barHtml = n > 0 ? `<div style="display:flex;flex-direction:column;gap:6px;width:100%;"><div style="font-size:11px;font-weight:700;color:#888;text-align:center;letter-spacing:0.5px;">MARK ${n} SENDER${n>1?'S':''} AS</div><div style="display:flex;gap:6px;">${cats.map(([c,lbl,col])=>`<button onclick="emailBulkSetCategory('${c}')" style="flex:1;font-size:11px;font-weight:700;padding:8px 4px;border:none;border-radius:10px;cursor:pointer;background:${col}22;color:${col};border:1px solid ${col}44;">${lbl}</button>`).join('')}</div><button onclick="gmailAddToContext()" style="width:100%;font-size:12px;font-weight:700;padding:9px;border:none;border-radius:10px;cursor:pointer;background:var(--accent);color:#fff;">📋 Add ${n} to Context</button></div>` : '';
+    ['gmail-bulk-bar-panel','gmail-bulk-bar-modal'].forEach(id => {
+        const bar = document.getElementById(id);
+        if(!bar) return;
+        bar.innerHTML = barHtml;
+        bar.style.transform = n > 0 ? 'translateY(0)' : 'translateY(100%)';
     });
     updateProfileBubble();
 }
