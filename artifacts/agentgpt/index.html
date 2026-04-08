@@ -784,6 +784,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div id="gmail-search-row" style="padding:6px 14px; display:none; border-bottom:0.5px solid var(--border);">
             <input id="gmail-search-box" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:7px 12px;" oninput="gmailOnSearch(this.value)">
         </div>
+        <div id="gmail-smart-tabs-panel" style="display:none; border-bottom:0.5px solid var(--border); background:var(--sec-bg);"></div>
         <ul id="gmail-list" class="gmail-email-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:70px;"></ul>
         <button class="email-compose-fab" onclick="gmailOpenCompose()" title="Compose">✏️</button>
 
@@ -1121,6 +1122,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div id="gmail-modal-search-row" style="padding:6px 16px; display:none; border-bottom:0.5px solid var(--border);">
             <input id="gmail-modal-search" class="pp-input" placeholder="Search emails…" style="font-size:13px; padding:8px 14px;" oninput="gmailOnSearch(this.value)">
         </div>
+        <div id="gmail-smart-tabs-modal" style="display:none; border-bottom:0.5px solid var(--border); background:var(--sec-bg);"></div>
         <ul id="gmail-modal-list" class="gmail-email-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; padding-bottom:80px;"></ul>
         <div id="gmail-modal-preview" style="display:none; position:absolute; inset:0; background:var(--bg); z-index:10; flex-direction:column; overflow:hidden;">
             <div style="display:flex; align-items:center; gap:2px; padding:10px 12px; border-bottom:0.5px solid var(--border); background:var(--bg);">
@@ -3053,6 +3055,7 @@ document.addEventListener('visibilitychange', () => { if(document.visibilityStat
 let gmailTokenClient = null;
 let gmailAccessToken = null;
 let gmailEmails = [];
+let gmailSmartTab = 'primary';
 let gmailCurrentEmail = null;
 let gmailCurrentIdx = -1;
 let gmailSearchTimer = null;
@@ -3157,13 +3160,13 @@ async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
             gmailNextPageToken = listData.nextPageToken || null;
             const msgs = listData.messages || [];
             const details = await Promise.all(msgs.map(async m => {
-                const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+                const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
                 if(!r.ok) return null;
                 const d = await r.json();
                 const hdr = d.payload.headers || [];
                 const get = n => (hdr.find(h => h.name === n) || {}).value || "";
                 const labels = d.labelIds || [];
-                return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail' };
+                return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
             }));
             return { emails: details.filter(Boolean), hasMore: !!gmailNextPageToken };
         } catch(_) { return { emails: [] }; }
@@ -3191,6 +3194,7 @@ function emailSwitchFolder(folder, src) {
             if(el) el.classList.toggle('active', f === folderKey);
         });
     });
+    if (folder === 'INBOX') gmailSmartTab = 'primary';
     emailCurrentMailbox = folder;
     emailFetchEmails(null);
 }
@@ -3420,12 +3424,12 @@ async function gmailFetchEmails(query) {
         gmailNextPageToken = listData.nextPageToken || null;
         const msgs = listData.messages || [];
         const details = await Promise.all(msgs.map(async m => {
-            const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+            const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
             if(!r.ok) return null;
             const d = await r.json();
             const hdr = d.payload.headers || [];
             const get = n => (hdr.find(h => h.name === n) || {}).value || "";
-            return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: (d.labelIds||[]).includes("UNREAD"), _accountId: 'gmail' };
+            return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: (d.labelIds||[]).includes("UNREAD"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
         }));
         gmailEmails = details.filter(Boolean);
         gmailRenderEmails();
@@ -3454,11 +3458,11 @@ async function gmailLoadMoreEmails() {
                     if(gmailNextPageToken) hasMore = true;
                     const msgs = listData.messages || [];
                     const details = await Promise.all(msgs.map(async m => {
-                        const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+                        const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
                         if(!r.ok) return null;
                         const d = await r.json(); const hdr = d.payload.headers || []; const get = n => (hdr.find(h => h.name === n) || {}).value || "";
                         const labels = d.labelIds || [];
-                        return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail' };
+                        return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
                     }));
                     newEmails = newEmails.concat(details.filter(Boolean));
                 }
@@ -3693,16 +3697,53 @@ function gmailUpdateThreadChk(msgChkEl) {
     hdrChk.indeterminate = checked > 0 && checked < all.length;
 }
 
+function emailGetCategory(em) {
+    const lu = em._listUnsubscribe || '';
+    const prec = (em._precedence || '').toLowerCase();
+    const auto = (em._autoSubmitted || '').toLowerCase();
+    const from = (em.from || '').toLowerCase();
+    const subj = (em.subject || '').toLowerCase();
+    if (lu || prec === 'bulk' || prec === 'junk') return 'promotions';
+    if ((auto && auto !== 'no') || prec === 'list') return 'updates';
+    if (/noreply|no-reply|donotreply|do-not-reply|notification|newsletter|mailer@|info@|news@|updates?@|team@|support@|billing@|invoice@|orders?@|receipt@|confirm@|account@|hello@|alert@/.test(from)) return 'updates';
+    if (/\b(receipt|invoice|order|booking|reservation|otp|one.time password|password reset|verify|verification|sign.in code|statement|subscription|activate|unsubscribe)\b/.test(subj)) return 'updates';
+    return 'primary';
+}
+
+function emailSwitchSmartTab(tab) { gmailSmartTab = tab; gmailRenderEmails(); }
+
+function emailRenderSmartTabs() {
+    const isInbox = emailCurrentMailbox === 'INBOX';
+    const tabs = [['primary','📩 Primary'],['promotions','🏷️ Promo'],['updates','🔔 Updates']];
+    const counts = { primary: 0, promotions: 0, updates: 0 };
+    if (isInbox) gmailEmails.forEach(em => { const c = emailGetCategory(em); if (counts[c] !== undefined) counts[c]++; });
+    ['gmail-smart-tabs-panel','gmail-smart-tabs-modal'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = isInbox ? 'flex' : 'none';
+        if (!isInbox) return;
+        el.innerHTML = tabs.map(([t, label]) => {
+            const active = t === gmailSmartTab;
+            const cnt = counts[t];
+            const badge = cnt ? ` <span style="font-size:10px;background:${active?'rgba(255,255,255,0.25)':'var(--border)'};color:${active?'#fff':'#888'};border-radius:8px;padding:1px 5px;margin-left:2px;font-weight:800;">${cnt}</span>` : '';
+            return `<button onclick="emailSwitchSmartTab('${t}')" style="flex:1;font-size:11px;font-weight:700;padding:7px 4px;border:none;border-bottom:2px solid ${active?'var(--accent)':'transparent'};cursor:pointer;background:transparent;color:${active?'var(--accent)':'#888'};transition:all 0.15s;">${label}${badge}</button>`;
+        }).join('');
+    });
+}
+
 function gmailRenderEmails() {
+    emailRenderSmartTabs();
+    const isInbox = emailCurrentMailbox === 'INBOX';
     const empty = '<li style="padding:16px 14px; color:#888; font-size:13px;">No emails found.</li>';
     const panelList = document.getElementById('gmail-list');
     const modalList = document.getElementById('gmail-modal-list');
-    if(!gmailEmails.length) {
+    const allGroups = gmailGroupByThread(gmailEmails);
+    const groups = isInbox ? allGroups.filter(g => emailGetCategory(g[0].em) === gmailSmartTab) : allGroups;
+    if(!groups.length) {
         if(panelList) panelList.innerHTML = empty;
         if(modalList) modalList.innerHTML = empty;
         gmailUpdateAddBtns(); return;
     }
-    const groups = gmailGroupByThread(gmailEmails);
     if(panelList) panelList.innerHTML = groups.map(g => gmailThreadHtml(g, 'panel')).join('');
     if(modalList) modalList.innerHTML = groups.map(g => gmailThreadHtml(g, 'modal')).join('');
     const psa = document.getElementById('gmail-panel-select-all'); if(psa) psa.checked = false;
