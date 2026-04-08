@@ -3728,9 +3728,9 @@ function emailSwitchSmartTab(tab) { gmailSmartTab = tab; gmailRenderEmails(); }
 
 function emailRenderSmartTabs() {
     const isInbox = emailCurrentMailbox === 'INBOX';
-    const mainTabs = [['primary','📩 Primary'],['promotions','🏷️ Promo'],['updates','🔔 Updates']];
-    const counts = { primary: 0, promotions: 0, updates: 0, spam: 0 };
-    if (isInbox) gmailEmails.forEach(em => { const c = emailGetCategory(em); if (counts[c] !== undefined) counts[c]++; });
+    const mainTabs = [['primary','📩 Primary'],['promotions','🏷️ Promo'],['updates','🔔 Updates'],['all','📂 All']];
+    const counts = { primary: 0, promotions: 0, updates: 0, all: 0, spam: 0 };
+    if (isInbox) gmailEmails.forEach(em => { const c = emailGetCategory(em); if (counts[c] !== undefined) counts[c]++; if (c !== 'spam') counts.all++; });
     ['gmail-smart-tabs-panel','gmail-smart-tabs-modal'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -3741,7 +3741,7 @@ function emailRenderSmartTabs() {
             const active = t === gmailSmartTab;
             const cnt = counts[t];
             const badge = cnt ? ` <span style="font-size:10px;background:${active?'rgba(255,255,255,0.25)':'var(--border)'};color:${active?'#fff':'#888'};border-radius:8px;padding:1px 5px;margin-left:2px;font-weight:800;">${cnt}</span>` : '';
-            const sizeStyle = isMain ? 'flex:0 0 calc(100%/3);' : 'flex:0 0 auto;min-width:80px;padding:7px 10px;';
+            const sizeStyle = isMain ? 'flex:0 0 calc(100%/4);' : 'flex:0 0 auto;min-width:80px;padding:7px 10px;';
             return `<button onclick="emailSwitchSmartTab('${t}')" style="${sizeStyle}font-size:11px;font-weight:700;padding:7px 4px;border:none;border-bottom:2px solid ${active?'var(--accent)':'transparent'};cursor:pointer;background:transparent;color:${active?'var(--accent)':'#888'};transition:all 0.15s;white-space:nowrap;">${label}${badge}</button>`;
         };
         el.innerHTML = mainTabs.map(([t, label]) => makBtn(t, label, true)).join('') + makBtn('spam', '🚫 Spam', false);
@@ -3769,7 +3769,7 @@ function gmailRenderEmails() {
     const panelList = document.getElementById('gmail-list');
     const modalList = document.getElementById('gmail-modal-list');
     const allGroups = gmailGroupByThread(gmailEmails);
-    const groups = isInbox ? allGroups.filter(g => emailGetCategory(g[0].em) === gmailSmartTab) : allGroups;
+    const groups = isInbox ? (gmailSmartTab === 'all' ? allGroups.filter(g => emailGetCategory(g[0].em) !== 'spam') : allGroups.filter(g => emailGetCategory(g[0].em) === gmailSmartTab)) : allGroups;
     if(!groups.length) {
         if(panelList) panelList.innerHTML = empty;
         if(modalList) modalList.innerHTML = empty;
