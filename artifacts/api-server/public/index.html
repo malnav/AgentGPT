@@ -3588,7 +3588,11 @@ function gmailGroupByThread(emails, startIdx) {
         if (!map.has(key)) map.set(key, []);
         map.get(key).push({ em, idx: base + i });
     });
-    return Array.from(map.values());
+    const toMs = d => { try { const t = new Date(d).getTime(); return isNaN(t) ? 0 : t; } catch(_) { return 0; } };
+    const groups = Array.from(map.values());
+    groups.forEach(g => g.sort((a, b) => toMs(b.em.date) - toMs(a.em.date)));
+    groups.sort((a, b) => toMs(b[0].em.date) - toMs(a[0].em.date));
+    return groups;
 }
 
 function gmailSenderColor(name) {
