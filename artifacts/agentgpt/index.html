@@ -210,6 +210,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .copy-code-btn { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.14); backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm); color: #fff; border: 0.5px solid rgba(255,255,255,0.18); width: 32px; height: 32px; border-radius: 9px; font-size: 15px; cursor: pointer; transition: background 0.2s; z-index: 10; display:flex; align-items:center; justify-content:center; }
 .copy-code-btn.bottom { top: auto; bottom: 8px; }
 .copy-code-btn:active { background: rgba(255,255,255,0.28); }
+.action-btn { background:var(--accent); color:#fff; border:none; border-radius:10px; padding:8px 16px; font-size:13px; font-weight:700; cursor:pointer; transition:opacity 0.15s; font-family:inherit; }
+.action-btn:active { opacity:0.8; }
 .action-btn-overlay { position: absolute; top: 8px; background: rgba(255,255,255,0.14); backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm); color: #fff; border: 0.5px solid rgba(255,255,255,0.18); width: 32px; height: 32px; border-radius: 9px; font-size: 15px; cursor: pointer; transition: background 0.2s; z-index: 10; display:flex; align-items:center; justify-content:center; }
 .action-btn-overlay.bottom { top: auto; bottom: 8px; }
 .action-btn-overlay:active { background: rgba(255,255,255,0.28); }
@@ -462,7 +464,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .fchat-bubble-actions { position:absolute; top:-9px; right:-9px; display:flex; flex-direction:column; gap:3px; }
 .fchat-bubble-action-btn { width:22px; height:22px; border-radius:11px; background:rgba(20,20,30,0.82); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1.5px solid rgba(255,255,255,0.35); box-shadow:0 1px 6px rgba(0,0,0,0.3); }
 .fchat-bubble-label { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:9px; color:#888; white-space:nowrap; font-weight:600; pointer-events:none; }
-#home-screen { position:fixed; inset:0; z-index:500; background:var(--bg); display:flex; flex-direction:column; overflow:hidden; }
+#home-screen { position:fixed; inset:0; z-index:500; background:transparent; display:flex; flex-direction:column; overflow:hidden; }
 #hs-header { padding:max(14px, env(safe-area-inset-top)) 16px 10px 16px; display:flex; align-items:center; gap:10px; flex-shrink:0; border-bottom:0.5px solid var(--border); background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); }
 #hs-body { flex:1; overflow-y:auto; padding:14px 14px max(80px, calc(env(safe-area-inset-bottom) + 80px)) 14px; display:flex; flex-direction:column; gap:14px; }
 .hs-card { background:var(--glass); border:0.5px solid var(--glass-border); border-radius:20px; overflow:hidden; backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); box-shadow:0 2px 20px rgba(0,0,0,0.08); flex-shrink:0; }
@@ -818,7 +820,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                     <span class="chip" style="font-size:12px; padding:3px 9px;" onmousedown="event.preventDefault(); _composeInsertLink()">🔗 Link</span>
                     <span class="chip" style="font-size:12px; padding:3px 9px; color:#ff3b30;" onmousedown="event.preventDefault(); gmailClearReply('panel')">Clear</span>
                 </div>
-                <div id="gmail-reply-box" contenteditable="true" data-ph="Write a reply…" style="min-height:54px; max-height:120px; overflow-y:auto; border:0.5px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
+                <div style="position:relative;">
+                    <div id="gmail-reply-box" contenteditable="true" data-ph="Write a reply…" style="min-height:54px; max-height:120px; overflow-y:auto; border:0.5px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
+                    <button onclick="gmailExpandReply('panel')" style="position:absolute; bottom:5px; right:6px; background:transparent; border:none; cursor:pointer; font-size:15px; opacity:0.45; color:var(--text); padding:0; line-height:1;" title="Expand reply box">⤢</button>
+                </div>
                 <div style="display:flex; gap:6px;">
                     <button class="chip" style="flex:1; background:var(--sec-bg); color:var(--text); padding:9px 6px; font-size:12px; border:0.5px solid var(--border);" onclick="gmailForward('panel')">↪ Fwd</button>
                     <button class="chip" style="flex:1; background:var(--sec-bg); color:var(--text); padding:9px 6px; font-size:12px; border:0.5px solid var(--border);" onclick="gmailReplyAll('panel')">↩ All</button>
@@ -947,7 +952,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <button id="mtab-bubbles" class="tab-btn" onclick="switchMasterTab('bubbles')">🫧 BUBBLES</button>
         <button id="mtab-email" class="tab-btn" onclick="switchMasterTab('email')">📧 EMAIL</button>
         <button id="mtab-logs" class="tab-btn" onclick="switchMasterTab('logs')">📜 LOGS</button>
-        <button id="mtab-ai-prompts" class="tab-btn" onclick="switchMasterTab('ai-prompts')">🪄 PROMPTS</button>
     </div>
     <div id="mview-config" class="modal-content">
         <div style="background:var(--sec-bg); border-radius:16px; padding:14px 16px; margin-bottom:18px; display:flex; align-items:center; gap:12px;">
@@ -1010,13 +1014,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
 
         <hr style="border:none; border-top:1px solid var(--border); margin: 24px 0;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <small style="font-weight:800; font-size:11px; color:var(--accent);">🤖 PROFILE BUBBLE</small>
-        </div>
-        <small style="color:#888; font-size:10px; line-height:1.4; display:block; margin-bottom:10px;">Choose which profiles appear when you tap the floating bubble on the email screen.</small>
-        <div id="bubble-profiles-checklist" style="display:flex; flex-direction:column; gap:6px; margin-bottom:4px;"></div>
-
-        <hr style="border:none; border-top:1px solid var(--border); margin: 24px 0;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <small style="font-weight:800; font-size:11px; color:#888;">GLOBAL BACKUP & RESTORE</small>
             <small style="font-weight:800; font-size:11px; color:var(--accent);" id="storage-usage-disp">0.00 MB Used</small>
@@ -1030,7 +1027,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     <div id="mview-ai" class="modal-content closed" style="padding:0;">
         <div style="display:flex; gap:0; border-bottom:0.5px solid var(--border);">
             <button id="maitab-profiles" class="tab-btn active" style="flex:1; border-radius:0; border-right:0.5px solid var(--border);" onclick="switchAiTab('profiles')">🤖 PROFILES</button>
-            <button id="maitab-models" class="tab-btn" style="flex:1; border-radius:0;" onclick="switchAiTab('models')">🧠 MODELS</button>
+            <button id="maitab-models" class="tab-btn" style="flex:1; border-radius:0; border-right:0.5px solid var(--border);" onclick="switchAiTab('models')">🧠 MODELS</button>
+            <button id="maitab-prompts" class="tab-btn" style="flex:1; border-radius:0;" onclick="switchAiTab('prompts')">🪄 PROMPTS</button>
         </div>
         <div id="mview-profiles" class="modal-content" style="border-radius:0;">
             <div style="background:var(--sec-bg); padding:12px; border-radius:10px; margin-bottom:12px; text-align:center;">
@@ -1055,6 +1053,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div id="api-model-list" style="max-height:280px; overflow-y:auto; padding:4px 0;"></div>
             </div>
             <ul id="model-list-crud" style="list-style:none; padding:0; margin:0;"></ul>
+        </div>
+        <div id="mview-prompts" class="modal-content closed" style="border-radius:0; padding-top:4px;">
+            <small style="font-weight:800; font-size:11px; color:#888; display:block; margin-bottom:12px;">Customize the system prompts used by each background AI feature. Placeholders like <code>[PROFILE]</code>, <code>[VARS]</code>, <code>[DATA]</code> are replaced automatically at runtime.</small>
+            <div id="ai-prompt-cards"></div>
         </div>
     </div>
     <div id="mview-logs" class="modal-content closed" style="background:var(--log-bg); color:var(--log-text); font-family:monospace; font-size:11px; padding-top:10px;"><div id="log-viewer" style="white-space:pre-wrap;"></div></div>
@@ -1081,10 +1083,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             </div>
             <div id="email-settings-imap-list" style="border-top:0.5px solid var(--border);"></div>
         </div>
-    </div>
-    <div id="mview-ai-prompts" class="modal-content closed" style="padding-top:4px;">
-        <small style="font-weight:800; font-size:11px; color:#888; display:block; margin-bottom:12px;">Customize the system prompts used by each background AI feature. Placeholders like <code>[PROFILE]</code>, <code>[VARS]</code>, <code>[DATA]</code> are replaced automatically at runtime.</small>
-        <div id="ai-prompt-cards"></div>
     </div>
     <div id="mview-bubbles" class="modal-content closed" style="padding-top:4px;">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
@@ -1157,7 +1155,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                     <span class="chip" style="font-size:12px; padding:3px 9px;" onmousedown="event.preventDefault(); _composeInsertLink()">🔗 Link</span>
                     <span class="chip" style="font-size:12px; padding:3px 9px; color:#ff3b30;" onmousedown="event.preventDefault(); gmailClearReply('modal')">Clear</span>
                 </div>
-                <div id="gmail-modal-reply-box" contenteditable="true" data-ph="Write a reply…" style="min-height:64px; max-height:160px; overflow-y:auto; border:0.5px solid var(--border); border-radius:12px; padding:10px 12px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
+                <div style="position:relative;">
+                    <div id="gmail-modal-reply-box" contenteditable="true" data-ph="Write a reply…" style="min-height:64px; max-height:160px; overflow-y:auto; border:0.5px solid var(--border); border-radius:12px; padding:10px 12px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
+                    <button onclick="gmailExpandReply('modal')" style="position:absolute; bottom:6px; right:8px; background:transparent; border:none; cursor:pointer; font-size:15px; opacity:0.45; color:var(--text); padding:0; line-height:1;" title="Expand reply box">⤢</button>
+                </div>
                 <div style="display:flex; gap:6px;">
                     <button class="chip" style="flex:1; background:var(--sec-bg); color:var(--text); padding:10px 6px; font-size:12px; border:0.5px solid var(--border);" onclick="gmailForward('modal')">↪ Forward</button>
                     <button class="chip" style="flex:1; background:var(--sec-bg); color:var(--text); padding:10px 6px; font-size:12px; border:0.5px solid var(--border);" onclick="gmailReplyAll('modal')">↩ Reply All</button>
@@ -1690,7 +1691,7 @@ async function refreshUI() {
     let ctxLabel = cutIdx === -1 ? '☁️' : '🌦️'; document.getElementById('ctx-indicator').innerText = ctxLabel; document.getElementById('ctx-btn-all').classList.toggle('active', cutIdx === CONTEXT_LINES.length - 1); document.getElementById('ctx-btn-none').classList.toggle('active', cutIdx === -1);
     document.getElementById('def-ctx-f').value = CONFIG.def_ctx || "all"; document.getElementById('def-prof-f').innerHTML = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); document.getElementById('def-mod-f').innerHTML = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('def-prof-f').value = CONFIG.def_profile; document.getElementById('def-mod-f').value = CONFIG.def_model;
     document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('google-client-id-f').value = CONFIG.google_client_id || ""; document.getElementById('google-client-secret-f').value = CONFIG.google_client_secret || ""; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
-    updateProfileBubble(); renderBubbleProfilesChecklist();
+    updateProfileBubble();
     const hsToggle = document.getElementById('home-screen-toggle'); if (hsToggle) hsToggle.checked = !!CONFIG.home_screen;
     const hsTrack = document.getElementById('hs-toggle-track'); const hsThumb = document.getElementById('hs-toggle-thumb');
     if (hsTrack) hsTrack.style.background = CONFIG.home_screen ? 'var(--accent)' : '#ccc';
@@ -2651,8 +2652,8 @@ async function openModal(id) {
     if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); } 
 }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; if (id === 'gmail-modal' && _fchatActiveId !== null) fchatClearAndClose(null); }
-function switchMasterTab(t) { const realT = (t==='profiles'||t==='models') ? 'ai' : t; ['config','ai','logs','email','ai-prompts','bubbles'].forEach(tab => { const btn = document.getElementById('mtab-'+tab); const view = document.getElementById('mview-'+tab); if(btn) btn.classList.toggle('active', realT===tab); if(view) view.classList.toggle('closed', realT!==tab); }); if(realT==='ai') { renderProfileList(); renderModelList(); if(t==='models') switchAiTab('models'); else switchAiTab('profiles'); } if(realT==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(realT==='config') renderBgSwatches(); if(realT==='email') renderEmailSettingsTab(); if(realT==='ai-prompts') renderAiPromptCards(); if(realT==='bubbles') renderBubbleSettings(); }
-function switchAiTab(sub) { ['profiles','models'].forEach(s => { const btn = document.getElementById('maitab-'+s); const view = document.getElementById('mview-'+s); if(btn) btn.classList.toggle('active', s===sub); if(view) view.classList.toggle('closed', s!==sub); }); if(sub==='models') renderModelList(); if(sub==='profiles') renderProfileList(); }
+function switchMasterTab(t) { const realT = (t==='profiles'||t==='models'||t==='prompts') ? 'ai' : t; ['config','ai','logs','email','bubbles'].forEach(tab => { const btn = document.getElementById('mtab-'+tab); const view = document.getElementById('mview-'+tab); if(btn) btn.classList.toggle('active', realT===tab); if(view) view.classList.toggle('closed', realT!==tab); }); if(realT==='ai') { renderProfileList(); renderModelList(); if(t==='models') switchAiTab('models'); else if(t==='prompts') switchAiTab('prompts'); else switchAiTab('profiles'); } if(realT==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(realT==='config') renderBgSwatches(); if(realT==='email') renderEmailSettingsTab(); if(realT==='bubbles') renderBubbleSettings(); }
+function switchAiTab(sub) { ['profiles','models','prompts'].forEach(s => { const btn = document.getElementById('maitab-'+s); const view = document.getElementById('mview-'+s); if(btn) btn.classList.toggle('active', s===sub); if(view) view.classList.toggle('closed', s!==sub); }); if(sub==='models') renderModelList(); if(sub==='profiles') renderProfileList(); if(sub==='prompts') renderAiPromptCards(); }
 function switchModalTab(t) { document.getElementById('tab-editor').classList.toggle('active', t==='editor'); document.getElementById('tab-bulk').classList.toggle('active', t==='bulk'); document.getElementById('view-editor').classList.toggle('closed', t!=='editor'); document.getElementById('view-bulk').classList.toggle('closed', t!=='bulk'); }
 function closeItemMenu() { document.querySelectorAll('.item-popup-menu').forEach(m => m.remove()); }
 function _showItemMenu(event, items) { closeItemMenu(); event.stopPropagation(); const rect = (event.currentTarget || event.target).getBoundingClientRect(); const menu = document.createElement('div'); menu.className = 'item-popup-menu'; items.forEach(item => { const d = document.createElement('div'); d.className = 'item-popup-menu-item' + (item.cls ? ' '+item.cls : ''); d.textContent = item.label; d.onclick = (e) => { e.stopPropagation(); menu.remove(); item.fn(); }; menu.appendChild(d); }); document.body.appendChild(menu); const menuH = items.length * 50 + 8; let top = rect.bottom + 6; if (top + menuH > window.innerHeight - 20) top = rect.top - menuH - 6; let left = Math.min(rect.right - 170, window.innerWidth - 180); if(left < 8) left = 8; menu.style.top = top + 'px'; menu.style.left = left + 'px'; setTimeout(() => { const dismiss = (e) => { if (!e.target.closest('.item-popup-menu')) { menu.remove(); document.removeEventListener('click', dismiss); document.removeEventListener('touchstart', dismiss); } }; document.addEventListener('click', dismiss); document.addEventListener('touchstart', dismiss); }, 50); }
@@ -3170,7 +3171,7 @@ async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
             const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: query || null, maxResults: limit, offset: offset, mailbox: emailCurrentMailbox }) });
             if(!res.ok) return { emails: [] };
             const data = await res.json();
-            const emails = (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name }));
+            const emails = (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name, _mailbox: emailCurrentMailbox }));
             return { emails, hasMore: emails.length >= limit };
         } catch(_) { return { emails: [] }; }
     }
@@ -3923,8 +3924,8 @@ async function gmailPreview(i, src) {
             if(toEl && toHdr) { const toAddrMatch = toHdr.value.match(/<([^>]+)>/); const toAddr = toAddrMatch ? toAddrMatch[1].trim() : toHdr.value.trim().split(',')[0].trim(); toEl.textContent = 'To: ' + toAddr; }
             const { text, html } = gmailExtractBody(d.payload);
             const bodyEl = document.getElementById(ids.body);
-            if(text) { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = text; }
-            else if(html) { bodyEl.style.whiteSpace = 'normal'; bodyEl.innerHTML = gmailSanitizeHtml(html); }
+            if(html) { bodyEl.style.whiteSpace = 'normal'; bodyEl.innerHTML = gmailSanitizeHtml(html); }
+            else if(text) { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = text; }
             else { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = em.snippet; }
         }
     } catch(e) { document.getElementById(ids.body).textContent = em.snippet; }
@@ -3998,6 +3999,7 @@ async function gmailSendReply(src) {
     } catch(e) { notify("Failed to send: " + e.message, "#ff3b30", 5000); }
 }
 
+function gmailExpandReply(src) { const id = src === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box'; const el = document.getElementById(id); if (!el) return; const isExp = el.dataset.expanded === '1'; if (isExp) { el.style.maxHeight = src === 'panel' ? '120px' : '160px'; el.dataset.expanded = '0'; } else { el.style.maxHeight = '42vh'; el.dataset.expanded = '1'; } el.focus(); }
 function gmailClearReply(src) {
     src = src || 'panel';
     const el = document.getElementById(gmailIds(src).reply);
@@ -4221,6 +4223,9 @@ function renderCalendar() {
         let todos = getTodosWithDates().filter(td => td.date >= today);
         let futureEvents = [...datasets.map(ds => { let realDs = GLOBAL_DATASETS[ds.id]; let dk = _localDateIso(ds.date); let evLabel = _getCalLabel(ds, realDs, dk); let snap = Object.assign({}, ds, { dateKey: dk }); return { sortDate: ds.date, html: `<div style="font-size:13px; padding:8px 14px; border-bottom:0.5px solid var(--border); cursor:pointer;" onclick="showDatasetDetails('${btoa(unescape(encodeURIComponent(JSON.stringify(snap))))}')"><strong>${ds.date.toLocaleString('default', {month:'short', day:'numeric', year:ds.date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined})}:</strong> ${evLabel} <span style="color:#888;font-size:10px;">(${ds.profile})</span></div>` }; }), ...todos.map(td => ({ sortDate: td.date, html: `<div style="font-size:13px; padding:8px 14px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; gap:8px;"><span onclick="toggleCalTodo('${td.vid}','${td.todoId}')" style="cursor:pointer; font-size:16px; flex-shrink:0;" title="${td.done?'Mark undone':'Mark done'}">${td.done?'✅':'⬜'}</span><span onclick="editTodo('${td.vid}','${td.todoId}')" style="flex:1; cursor:pointer; ${td.done?'text-decoration:line-through;opacity:0.6;':''}"><strong>${td.date.toLocaleString('default', {month:'short', day:'numeric', year:td.date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined})}:</strong> ${td.text} <span style="color:#888;font-size:10px;">(${td.datasetTitle})</span></span></div>` })) ].sort((a,b) => a.sortDate - b.sortDate);
         calGrid.style.display = 'none'; calList.innerHTML = futureEvents.length > 0 ? futureEvents.map(e => e.html).join('') : `<div style="padding:14px; text-align:center; color:#888; font-size:12px;">No upcoming events.</div>`;
+        let datedIds = new Set(getDatasetsWithDates().map(d => d.id));
+        let noDatDs = Object.keys(GLOBAL_DATASETS).filter(vid => { if(datedIds.has(vid)) return false; let ds = GLOBAL_DATASETS[vid]; let hasVars = Object.keys(ds.data || {}).length > 0; let hasLinked = Object.values(chatHistories).some(h => (h.list||[]).some(c => String(c.var_id) === String(vid))); return hasVars || hasLinked; });
+        if(noDatDs.length > 0) { let noDatHtml = noDatDs.map(vid => { let ds = GLOBAL_DATASETS[vid]; let snap = { id: vid, title: ds.title || 'Data Set', data: ds.data || {}, dateKey: '' }; let varCount = Object.keys(ds.data || {}).length; let linkedCount = Object.values(chatHistories).reduce((n, h) => n + (h.list||[]).filter(c => String(c.var_id) === String(vid)).length, 0); return `<div style="font-size:13px; padding:10px 14px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="showDatasetDetails('${btoa(unescape(encodeURIComponent(JSON.stringify(snap))))}')"><div style="flex:1; min-width:0;"><div style="font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ds.title || 'Data Set'}</div><div style="font-size:11px; color:#888; margin-top:2px;">${varCount} var${varCount!==1?'s':''} · ${linkedCount} chat${linkedCount!==1?'s':''} linked</div></div><span style="font-size:14px; opacity:0.5;">✏️</span></div>`; }).join(''); calList.innerHTML += `<div style="padding:10px 14px 4px; border-top:4px solid var(--border); margin-top:2px;"><small style="font-weight:800; font-size:11px; color:#888; letter-spacing:0.03em;">📦 NO CALENDAR DATE</small></div>` + noDatHtml; }
     } else {
         calMonthTitle.style.display = ''; prevBtn.style.display = ''; nextBtn.style.display = '';
         const y = currentCalDate.getFullYear(), m = currentCalDate.getMonth(); const firstDay = new Date(y, m, 1).getDay(), daysInMonth = new Date(y, m + 1, 0).getDate();
@@ -4646,7 +4651,8 @@ function renderFchatBubbles() {
     minimized.forEach((s, i) => {
         const bc = s.bubbleConfig || {};
         const emoji = bc.emoji || '🤖';
-        const label = s.profileLabel || '';
+        let label = s.profileLabel || '';
+        if (s.chatId && chatHistories) { const profH = chatHistories[s.profileLabel] || {}; const chat = (profH.list || []).find(c => String(c.id) === String(s.chatId)); if (chat && chat.var_id && GLOBAL_DATASETS[chat.var_id] && GLOBAL_DATASETS[chat.var_id].title) { label = GLOBAL_DATASETS[chat.var_id].title; } }
         const div = document.createElement('div');
         div.className = 'fchat-bubble';
         div.id = 'fchat-bubble-' + s.id;
