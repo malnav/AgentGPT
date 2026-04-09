@@ -570,13 +570,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .email-compose-fab:active { transform:scale(0.92); }
 #reply-ai-profile-picker { position:fixed; left:0; right:0; bottom:0; z-index:9600; background:var(--glass); border-top:0.5px solid var(--glass-border); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-radius:24px 24px 0 0; padding:8px 0 24px; box-shadow:0 -8px 40px rgba(0,0,0,0.22); transform:translateY(100%); transition:transform 0.3s cubic-bezier(0.4,0,0.2,1); display:none; }
 #reply-ai-profile-picker.open { transform:translateY(0); display:block; }
-#reply-ai-popup { position:fixed; left:0; right:0; bottom:0; z-index:9700; background:var(--glass); border-top:0.5px solid var(--glass-border); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-radius:24px 24px 0 0; padding:0; box-shadow:0 -8px 40px rgba(0,0,0,0.28); transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.4,0,0.2,1); display:none; max-height:78vh; overflow:hidden; display:flex; flex-direction:column; }
-#reply-ai-popup.open { transform:translateY(0); display:flex; }
-#reply-ai-stream-preview { font-size:13px; line-height:1.6; color:var(--text); padding:10px 14px; overflow-y:auto; max-height:34vh; word-break:break-word; }
-#reply-ai-stream-preview:empty::before { content:'Response will appear here and stream into your reply…'; color:#aaa; font-style:italic; }
 .reply-ai-profile-btn { display:flex; align-items:center; gap:10px; padding:12px 18px; cursor:pointer; transition:background 0.15s; border-radius:0; }
 .reply-ai-profile-btn:active { background:rgba(0,122,255,0.09); }
-@keyframes reply-ai-fade-in { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
 
 /* ═══════════════════════════════════════════════
    RESPONSIVE LAYOUT — Tablet ≥ 768px
@@ -2842,6 +2837,7 @@ async function sendToAI() {
                         if (data.type === "response.output_text.delta") { 
                             if (fullR === "") aiB.innerHTML = `<div class="bubble-content"></div>`; 
                             fullR += data.delta; aiB.querySelector('.bubble-content').innerHTML = marked.parse(fullR); 
+                            if(_replyAiTargetBoxId){const _rb=document.getElementById(_replyAiTargetBoxId);if(_rb){_rb.innerHTML=marked.parse(fullR);_rb.scrollTop=_rb.scrollHeight;}}
                             if(!userScrolledDuringGen) scrollToLastRequest();
                         } 
                     } catch(e){}
@@ -5010,6 +5006,7 @@ function minimizeFloatingChat(e) {
     const session = _fchatSessions.find(s => s.id === _fchatActiveId);
     if (session) session.chatId = getSessions().current;
     _fchatActiveId = null;
+    _clearReplyAiTarget();
     const el = document.getElementById('floating-chat');
     const wrapper = document.getElementById('main-chat-wrapper');
     const ref = document.getElementById('master-modal');
@@ -5040,6 +5037,7 @@ function fchatClearAndClose(e) {
         _fchatSessions = _fchatSessions.filter(s => s.id !== _fchatActiveId);
         _fchatActiveId = null;
     }
+    _clearReplyAiTarget();
     const el = document.getElementById('floating-chat');
     const wrapper = document.getElementById('main-chat-wrapper');
     const ref = document.getElementById('master-modal');
@@ -5613,6 +5611,7 @@ function _linkifyHtml(html) {
             <div id="fchat-avatar" style="width:26px; height:26px; border-radius:13px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:800;">?</div>
             <span id="fchat-profile-name" style="font-size:10px; font-weight:700; color:var(--text); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
         </div>
+        <div id="fchat-reply-indicator" style="display:none; flex-shrink:0; font-size:10px; font-weight:800; color:#fff; background:var(--accent); border-radius:8px; padding:3px 8px; cursor:pointer; white-space:nowrap;" onclick="_clearReplyAiTarget()" title="Click to unlink reply box">✏️ → Reply ✕</div>
         <div id="fchat-context-label" style="font-size:10px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;">No context added</div>
         <div id="fchat-ctx-btns" style="display:flex; gap:3px; flex-shrink:0;">
             <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')">📧 Email</div>
@@ -5692,48 +5691,19 @@ function _linkifyHtml(html) {
     <div id="reply-ai-picker-list" style="overflow-y:auto; max-height:50vh;"></div>
 </div>
 
-<div id="reply-ai-popup">
-    <div style="display:flex; align-items:center; padding:13px 16px 10px; border-bottom:0.5px solid var(--border); gap:10px; flex-shrink:0;">
-        <div id="reply-ai-popup-avatar" style="width:36px; height:36px; border-radius:50%; background:var(--accent); color:#fff; font-size:19px; display:flex; align-items:center; justify-content:center; flex-shrink:0;"></div>
-        <div style="flex:1; min-width:0;">
-            <div id="reply-ai-popup-name" style="font-size:14px; font-weight:800; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
-            <div style="font-size:11px; color:#888; margin-top:1px;">Response will stream into your reply</div>
-        </div>
-        <button onclick="_closeReplyAiPopup()" style="background:none;border:none;font-size:20px;color:#888;cursor:pointer;padding:4px 8px;line-height:1;">✕</button>
-    </div>
-    <div id="reply-ai-stream-preview" style="flex:1; overflow-y:auto;"></div>
-    <div style="padding:10px 14px 28px; border-top:0.5px solid var(--border); flex-shrink:0;">
-        <div style="font-size:11px; font-weight:700; color:#888; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.4px;">Your request to AI</div>
-        <div style="display:flex; gap:8px; align-items:flex-end;">
-            <div id="reply-ai-input" contenteditable="true" data-ph="e.g. Write a polite decline…" style="flex:1; min-height:42px; max-height:100px; overflow-y:auto; border:0.5px solid var(--border); border-radius:12px; padding:10px 13px; background:var(--sec-bg); color:var(--text); font-size:13px; outline:none; line-height:1.5;" onkeydown="if((event.metaKey||event.ctrlKey)&&event.key==='Enter'){event.preventDefault();_sendReplyAiRequest();}"></div>
-            <button id="reply-ai-send-btn" onclick="_sendReplyAiRequest()" style="flex-shrink:0; width:42px; height:42px; border-radius:50%; background:var(--accent); color:#fff; border:none; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform 0.1s; box-shadow:0 2px 12px rgba(0,122,255,0.4);">↑</button>
-        </div>
-        <div id="reply-ai-status" style="font-size:11px; color:#888; margin-top:6px; min-height:14px; text-align:center;"></div>
-    </div>
-</div>
 
 <script>
 let _replyAiSrc = 'panel';
-let _replyAiProfileLabel = '';
-let _replyAiAbort = null;
-let _replyAiStreaming = false;
-let _replyAiAtRange = null;
+let _replyAiTargetBoxId = '';
 
 function _onReplyBoxInput(src, e) {
     const el = e.target;
     const text = el.innerText || el.textContent || '';
     const atIdx = text.lastIndexOf('@');
-    if (atIdx !== -1 && (atIdx === 0 || /[\s\n]/.test(text[atIdx-1]))) {
+    if (atIdx !== -1 && (atIdx === 0 || /[\s\n]/.test(text[atIdx - 1]))) {
         _replyAiSrc = src;
-        _replyAiAtRange = _saveCaretRange(el);
         _showReplyProfilePicker();
     }
-}
-
-function _saveCaretRange(el) {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return null;
-    return sel.getRangeAt(0).cloneRange();
 }
 
 function _removeAtSymbolFromReply() {
@@ -5743,7 +5713,6 @@ function _removeAtSymbolFromReply() {
     const text = el.innerText || el.textContent || '';
     const atIdx = text.lastIndexOf('@');
     if (atIdx !== -1) {
-        const full = el.innerHTML;
         el.innerHTML = '';
         const tn = document.createTextNode(text.substring(0, atIdx));
         el.appendChild(tn);
@@ -5759,14 +5728,13 @@ function _showReplyProfilePicker() {
     if (!picker || !list) return;
     const profiles = AI_PROFILES || [];
     if (!profiles.length) { notify('No AI profiles configured', '#ff3b30'); return; }
-    list.innerHTML = profiles.map((p, i) => {
+    list.innerHTML = profiles.map(p => {
         const emoji = p.emoji || p.label.charAt(0).toUpperCase();
-        const name = p.label || 'Profile';
-        return `<div class="reply-ai-profile-btn" onclick="_pickReplyAiProfile('${p.label.replace(/'/g,"\\'")}')"><div style="width:36px;height:36px;border-radius:50%;background:${p.color||'var(--accent)'};color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${emoji}</div><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);">${name}</div><div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(p.text||'').substring(0,60)}${(p.text||'').length>60?'…':''}</div></div></div>`;
+        return `<div class="reply-ai-profile-btn" onclick="_pickReplyAiProfile('${p.label.replace(/'/g, "\\'")}')"><div style="width:36px;height:36px;border-radius:50%;background:${p.color || 'var(--accent)'};color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${emoji}</div><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);">${p.label}</div><div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(p.text || '').substring(0, 60)}${(p.text || '').length > 60 ? '…' : ''}</div></div></div>`;
     }).join('');
     picker.style.display = 'block';
     requestAnimationFrame(() => picker.classList.add('open'));
-    document.addEventListener('touchstart', _pickerOutside, { once: true, passive: true });
+    setTimeout(() => document.addEventListener('touchstart', _pickerOutside, { once: true, passive: true }), 200);
 }
 
 function _pickerOutside(e) {
@@ -5785,92 +5753,29 @@ function _closeReplyProfilePicker() {
 function _pickReplyAiProfile(profileLabel) {
     _closeReplyProfilePicker();
     _removeAtSymbolFromReply();
-    _replyAiProfileLabel = profileLabel;
-    const p = AI_PROFILES.find(x => x.label === profileLabel);
-    const avatar = document.getElementById('reply-ai-popup-avatar');
-    const nameEl = document.getElementById('reply-ai-popup-name');
-    const preview = document.getElementById('reply-ai-stream-preview');
-    const status = document.getElementById('reply-ai-status');
-    const input = document.getElementById('reply-ai-input');
-    const sendBtn = document.getElementById('reply-ai-send-btn');
-    if (avatar) avatar.textContent = p ? (p.emoji || p.label.charAt(0)) : '🤖';
-    if (avatar && p && p.color) avatar.style.background = p.color;
-    if (nameEl) nameEl.textContent = profileLabel;
-    if (preview) preview.innerHTML = '';
-    if (status) status.textContent = '';
-    if (input) { input.innerHTML = ''; }
-    if (sendBtn) { sendBtn.innerHTML = '↑'; sendBtn.disabled = false; }
-    if (_replyAiAbort) { _replyAiAbort.abort(); _replyAiAbort = null; }
-    _replyAiStreaming = false;
-    const popup = document.getElementById('reply-ai-popup');
-    if (!popup) return;
-    popup.style.display = 'flex';
-    requestAnimationFrame(() => { popup.classList.add('open'); setTimeout(() => { if(input) input.focus(); }, 320); });
+    const boxId = _replyAiSrc === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box';
+    _replyAiTargetBoxId = boxId;
+    _updateReplyAiIndicator();
+    openFloatingChat(profileLabel);
+    notify('✏️ AI replies will stream into your draft', 'var(--accent)', 2400);
 }
 
-function _closeReplyAiPopup() {
-    if (_replyAiAbort) { _replyAiAbort.abort(); _replyAiAbort = null; }
-    _replyAiStreaming = false;
-    const popup = document.getElementById('reply-ai-popup');
-    if (!popup) return;
-    popup.classList.remove('open');
-    setTimeout(() => { popup.style.display = 'none'; }, 320);
-}
-
-async function _sendReplyAiRequest() {
-    if (_replyAiStreaming) return;
-    if (!CONFIG.ai_key) { notify('Missing API key', '#ff3b30'); return; }
-    const input = document.getElementById('reply-ai-input');
-    const sendBtn = document.getElementById('reply-ai-send-btn');
-    const preview = document.getElementById('reply-ai-stream-preview');
-    const status = document.getElementById('reply-ai-status');
-    const userPrompt = (input ? (input.innerText || input.textContent || '').trim() : '');
-    if (!userPrompt) { notify('Enter a request first', '#ff3b30'); return; }
-    const replyBoxId = _replyAiSrc === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box';
-    const replyEl = document.getElementById(replyBoxId);
-    const p = AI_PROFILES.find(x => x.label === _replyAiProfileLabel);
-    const sysText = p ? p.text : 'You are a helpful email assistant.';
-    const currentReply = replyEl ? (replyEl.innerText || replyEl.textContent || '').trim() : '';
-    const emailSrc = _replyAiSrc === 'panel' ? document.getElementById('gmail-preview-body') : document.getElementById('gmail-modal-preview-body');
-    const emailBody = emailSrc ? (emailSrc.innerText || emailSrc.textContent || '').trim().substring(0, 1500) : '';
-    const userMsg = `${emailBody ? 'Email context:\n"""\n' + emailBody + '\n"""\n\n' : ''}${currentReply ? 'Current draft:\n"""\n' + currentReply + '\n"""\n\n' : ''}Task: ${userPrompt}`;
-    if (sendBtn) { sendBtn.innerHTML = '⏹'; sendBtn.disabled = false; }
-    if (status) status.textContent = '✦ Generating…';
-    if (preview) preview.innerHTML = '<em style="color:#888;font-size:12px;">Streaming…</em>';
-    _replyAiStreaming = true;
-    _replyAiAbort = new AbortController();
-    sendBtn.onclick = () => { if(_replyAiAbort) _replyAiAbort.abort(); };
-    let fullR = '';
-    try {
-        const res = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: sysText + '\n\nYou are helping draft an email reply. Reply in well-formatted markdown. Be concise and professional.' }, { role: 'user', content: userMsg }], stream: true, temperature: 0.7, max_tokens: 800 }), signal: _replyAiAbort.signal });
-        if (!res.ok) { const t = await res.text(); throw new Error(`API Error ${res.status}: ${t}`); }
-        const reader = res.body.getReader(), decoder = new TextDecoder('utf-8');
-        while (true) {
-            const { done, value } = await reader.read(); if (done) break;
-            const chunk = decoder.decode(value);
-            chunk.split('\n').forEach(line => {
-                if (!line.startsWith('data: ')) return;
-                const jStr = line.slice(6); if (jStr === '[DONE]') return;
-                try { const d = JSON.parse(jStr); const delta = d.choices?.[0]?.delta?.content; if (delta) { fullR += delta; if (preview) preview.innerHTML = marked.parse(fullR); } } catch(e) {}
-            });
-        }
-        if (replyEl && fullR) {
-            const formatted = marked.parse(fullR);
-            const tmp = document.createElement('div'); tmp.innerHTML = formatted;
-            const existingContent = replyEl.innerHTML.trim();
-            if (existingContent) { replyEl.innerHTML = existingContent + '<br><br>' + formatted; } else { replyEl.innerHTML = formatted; }
-            replyEl.scrollTop = replyEl.scrollHeight;
-        }
-        if (status) status.textContent = '✓ Inserted into reply';
-        if (sendBtn) { sendBtn.innerHTML = '✓'; setTimeout(() => { sendBtn.innerHTML = '↑'; sendBtn.onclick = _sendReplyAiRequest; sendBtn.disabled = false; }, 1800); }
-        if (preview) { preview.innerHTML = marked.parse(fullR); preview.style.borderBottom = '0.5px solid var(--border)'; }
-    } catch(e) {
-        if (e.name === 'AbortError') { if (status) status.textContent = 'Stopped'; if (replyEl && fullR) { replyEl.innerHTML = (replyEl.innerHTML.trim() ? replyEl.innerHTML + '<br><br>' : '') + marked.parse(fullR); } } else { if (status) status.textContent = '✗ Error: ' + e.message; if (preview) preview.innerHTML = `<span style="color:#ff3b30;font-size:12px;">${e.message}</span>`; }
-        if (sendBtn) { sendBtn.innerHTML = '↑'; sendBtn.onclick = _sendReplyAiRequest; sendBtn.disabled = false; }
-    } finally {
-        _replyAiStreaming = false;
-        _replyAiAbort = null;
+function _updateReplyAiIndicator() {
+    const ind = document.getElementById('fchat-reply-indicator');
+    if (!ind) return;
+    if (_replyAiTargetBoxId) {
+        const label = _replyAiSrc === 'panel' ? 'Panel Reply' : 'Modal Reply';
+        ind.textContent = `✏️ → ${label} ✕`;
+        ind.style.display = 'inline-flex';
+        ind.style.alignItems = 'center';
+    } else {
+        ind.style.display = 'none';
     }
+}
+
+function _clearReplyAiTarget() {
+    _replyAiTargetBoxId = '';
+    _updateReplyAiIndicator();
 }
 </script>
 </body>
