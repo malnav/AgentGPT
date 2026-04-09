@@ -498,6 +498,15 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .hs-drag-handle:active { cursor:grabbing; }
 .hs-card.hs-dragging { opacity:0.25; }
 .hs-card-drag-clone { position:fixed; left:14px; right:14px; z-index:601; pointer-events:none; border-radius:20px; box-shadow:0 16px 60px rgba(0,0,0,0.3); opacity:0.95; }
+.hs-weather-pill { background:var(--sec-bg); border-radius:12px; padding:10px 12px; }
+.hs-weather-pill-label { font-size:9px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
+.hs-weather-pill-val { font-size:16px; font-weight:700; color:var(--text); }
+.hs-ds-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.hs-ds-cell { background:var(--sec-bg); border-radius:12px; padding:9px 11px; min-width:0; overflow:hidden; }
+.hs-ds-key { font-size:9px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:0.4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hs-ds-val { font-size:12px; font-weight:600; color:var(--text); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hs-quote-mark { position:absolute; top:-10px; left:10px; font-size:80px; font-weight:900; color:var(--accent); opacity:0.12; line-height:1; font-family:Georgia,serif; pointer-events:none; }
+.hs-badge { display:inline-flex; align-items:center; font-size:10px; font-weight:700; border-radius:9px; padding:3px 9px; }
 @keyframes fcbubble-in { from { transform:scale(0) translateY(16px); opacity:0; } to { transform:scale(1) translateY(0); opacity:1; } }
 #fchat-header { display:flex; align-items:center; padding:calc(var(--sat, env(safe-area-inset-top, 0px)) + 10px) 12px 10px 12px; gap:6px; flex-shrink:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-bottom:0.5px solid var(--glass-border); min-height:48px; }
 #floating-chat .sys-icons { display:none !important; }
@@ -2925,6 +2934,7 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
             renderCalendar();
             _populateGTodoFilters();
             renderGlobalTodos();
+            _hsRenderDataset();
         } else if(!currentAborter) {
             renderChatHistory();
             if(_freshSessionActive) setTimeout(showInlineDatasetsToChat, 50);
@@ -4657,6 +4667,9 @@ function showHomeScreen() {
     _populateGTodoFilters();
     renderGlobalTodos();
     _hsInitCardDrag();
+    _hsRenderWeather();
+    _hsRenderQuote();
+    _hsRenderDataset();
     emailFetchEmails(null);
     setTimeout(_hsRenderGmailConnectIfNeeded, 800);
 }
@@ -4690,6 +4703,21 @@ function _hsApplyCardOrder() {
     body.querySelectorAll('.hs-card[data-card-id]').forEach(c => { cards[c.dataset.cardId] = c; });
     order.forEach(id => { if (cards[id]) body.appendChild(cards[id]); });
 }
+
+let _hsWeatherCache = null, _hsWeatherDate = '';
+let _hsQuoteCache = null, _hsQuoteDate = '';
+
+function _hsWeatherIcon(code) { if(code===113)return'☀️'; if(code===116)return'⛅'; if([119,122].includes(code))return'☁️'; if([143,248,260].includes(code))return'🌫️'; if([176,263,266,293,296,353].includes(code))return'🌦️'; if([299,302,305,308,356,359].includes(code))return'🌧️'; if([200,386,389].includes(code))return'⛈️'; if([179,182,185,311,317,320,323,326,329,332,338,368,371,374].includes(code))return'🌨️'; return'🌤️'; }
+
+async function _hsFetchWeather() { const today=new Date().toDateString(); if(_hsWeatherCache&&_hsWeatherDate===today)return _hsWeatherCache; try { const r=await fetch('https://wttr.in/Da+Nang?format=j1'); if(!r.ok)return null; const d=await r.json(); const cc=d.current_condition[0]; _hsWeatherCache={temp:cc.temp_C,feels:cc.FeelsLikeC,humidity:cc.humidity,wind:cc.windspeedKmph,condition:cc.weatherDesc[0].value,uv:cc.uvIndex,icon:_hsWeatherIcon(parseInt(cc.weatherCode))}; _hsWeatherDate=today; return _hsWeatherCache; } catch(e){ return null; } }
+
+async function _hsRenderWeather() { const el=document.getElementById('hs-weather-body'); if(!el)return; el.innerHTML='<div style="padding:18px;text-align:center;color:#888;font-size:12px;">Loading weather…</div>'; const w=await _hsFetchWeather(); if(!w){el.innerHTML='<div style="padding:18px;text-align:center;color:#888;font-size:12px;">Weather unavailable — check connection</div>';return;} el.innerHTML=`<div class="hs-card-body"><div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;"><div style="font-size:58px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.15));">${w.icon}</div><div style="flex:1;"><div style="font-size:46px;font-weight:200;color:var(--text);line-height:1;letter-spacing:-1px;">${w.temp}<span style="font-size:20px;font-weight:300;">°C</span></div><div style="font-size:13px;font-weight:600;color:var(--text);margin-top:3px;">${w.condition}</div><div style="font-size:11px;color:#888;margin-top:1px;">Feels like ${w.feels}°C · Da Nang</div></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;"><div class="hs-weather-pill"><div class="hs-weather-pill-label">💧 Humidity</div><div class="hs-weather-pill-val">${w.humidity}%</div></div><div class="hs-weather-pill"><div class="hs-weather-pill-label">💨 Wind</div><div class="hs-weather-pill-val">${w.wind} km/h</div></div><div class="hs-weather-pill"><div class="hs-weather-pill-label">☀️ UV Index</div><div class="hs-weather-pill-val">${w.uv}</div></div><div class="hs-weather-pill"><div class="hs-weather-pill-label">🌡️ Feels Like</div><div class="hs-weather-pill-val">${w.feels}°C</div></div></div></div>`; }
+
+async function _hsFetchQuote() { const today=new Date().toDateString(); if(_hsQuoteCache&&_hsQuoteDate===today)return _hsQuoteCache; if(!CONFIG.ai_key)return{text:'Add your OpenAI key in Settings to receive a personalised daily quote.',author:''}; try { const dayNum=Math.floor(Date.now()/86400000); const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${CONFIG.ai_key}`},body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'user',content:`Give one powerful, concise inspiring quote for day seed ${dayNum}. Return ONLY valid JSON (no markdown): {"text":"...","author":"..."}`}],max_tokens:140})}); const d=await r.json(); const raw=d.choices[0].message.content.replace(/```json/g,'').replace(/```/g,'').trim(); _hsQuoteCache=JSON.parse(raw); _hsQuoteDate=today; return _hsQuoteCache; } catch(e){ return{text:'Every day is a new beginning. Take a deep breath and start again.',author:'Unknown'}; } }
+
+async function _hsRenderQuote() { const el=document.getElementById('hs-quote-body'); if(!el)return; el.innerHTML='<div style="padding:18px;text-align:center;color:#888;font-size:12px;">Loading quote…</div>'; const q=await _hsFetchQuote(); el.innerHTML=`<div class="hs-card-body" style="position:relative;overflow:hidden;"><div class="hs-quote-mark">"</div><div style="position:relative;font-size:14px;font-style:italic;color:var(--text);line-height:1.7;padding:6px 2px 10px 2px;">${q.text}</div><div style="font-size:11px;font-weight:700;color:var(--accent);">— ${q.author||'Unknown'}</div></div>`; }
+
+function _hsRenderDataset() { const el=document.getElementById('hs-dataset-body'); if(!el)return; let sData=getSessions(); let cur=sData.list.find(x=>String(x.id)===String(sData.current)); if(!cur||!cur.var_id){el.innerHTML='<div style="padding:16px;text-align:center;color:#888;font-size:12px;">No dataset linked to current session</div>';return;} let ds=GLOBAL_DATASETS[cur.var_id]; if(!ds){el.innerHTML='<div style="padding:16px;text-align:center;color:#888;font-size:12px;">Dataset not found</div>';return;} const vars=ds.vars||{}; const keys=Object.keys(vars); const todos=ds.todos||[]; const doneTodos=todos.filter(t=>t.done).length; const profile=activeProfileLabel||''; let rows=keys.map(k=>{const raw=vars[k];const valStr=Array.isArray(raw)?(raw.length?raw.join(', '):'—'):(raw!==null&&raw!==undefined&&raw!==''?String(raw):'—');return`<div class="hs-ds-cell"><div class="hs-ds-key">${k}</div><div class="hs-ds-val" title="${valStr}">${valStr}</div></div>`;}).join(''); if(!rows)rows='<div style="grid-column:span 2;text-align:center;color:#888;font-size:12px;padding:10px 0;">No variables yet — start a chat to populate</div>'; el.innerHTML=`<div class="hs-card-body"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;"><div style="font-size:15px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${ds.name||cur.var_id}</div><div style="display:flex;gap:5px;flex-shrink:0;"><span class="hs-badge" style="background:rgba(0,122,255,0.12);color:var(--accent);">${keys.length} vars</span><span class="hs-badge" style="background:rgba(52,199,89,0.12);color:#34c759;">${doneTodos}/${todos.length} done</span></div></div><div class="hs-ds-grid">${rows}</div>${profile?`<div style="font-size:10px;color:#888;margin-top:10px;">📎 Linked to <strong>${profile}</strong> profile</div>`:''}</div>`; }
 
 let _hsDragInited = false;
 function _hsInitCardDrag() {
@@ -5428,6 +5456,22 @@ function _linkifyHtml(html) {
         <div onclick="hideHomeScreen()" style="font-size:13px; font-weight:700; color:var(--accent); cursor:pointer; padding:4px 8px; background:var(--sec-bg); border-radius:12px; white-space:nowrap;">💬 Chats</div>
     </div>
     <div id="hs-body">
+        <div class="hs-card" data-card-id="weather">
+            <div class="hs-card-header">
+                <span class="hs-drag-handle">⠿</span>
+                <span class="hs-card-title">🌤 Weather</span>
+                <div onclick="_hsWeatherCache=null;_hsRenderWeather();" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 8px;background:var(--sec-bg);border-radius:8px;">Refresh</div>
+            </div>
+            <div id="hs-weather-body"></div>
+        </div>
+        <div class="hs-card" data-card-id="quote">
+            <div class="hs-card-header">
+                <span class="hs-drag-handle">⠿</span>
+                <span class="hs-card-title">✨ Quote of the Day</span>
+                <div onclick="_hsQuoteCache=null;_hsRenderQuote();" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 8px;background:var(--sec-bg);border-radius:8px;">New</div>
+            </div>
+            <div id="hs-quote-body"></div>
+        </div>
         <div class="hs-card" data-card-id="calendar">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
@@ -5465,6 +5509,14 @@ function _linkifyHtml(html) {
                 </div>
             </div>
             <div id="hs-todos-anchor" style="min-height:120px; overflow-y:auto; padding:8px 14px 10px;"></div>
+        </div>
+        <div class="hs-card" data-card-id="dataset">
+            <div class="hs-card-header">
+                <span class="hs-drag-handle">⠿</span>
+                <span class="hs-card-title">🗂 Dataset</span>
+                <div onclick="_hsRenderDataset();" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 8px;background:var(--sec-bg);border-radius:8px;">Refresh</div>
+            </div>
+            <div id="hs-dataset-body"></div>
         </div>
         <div class="hs-card" data-card-id="email" style="overflow:hidden;">
             <div class="hs-card-header">
