@@ -3492,12 +3492,15 @@ async function gmailLoadMoreEmails() {
         gmailEmails = [...gmailEmails, ...truly_new];
         gmailHasMoreEmails = hasMore;
         const newGroups = gmailGroupByThread(truly_new, startIdx);
-        const newHtml = newGroups.map(g => gmailThreadHtml(g, 'panel')).join('');
-        const newHtmlM = newGroups.map(g => gmailThreadHtml(g, 'modal')).join('');
+        const isInbox = emailCurrentMailbox === 'INBOX';
+        const filteredNewGroups = isInbox ? (gmailSmartTab === 'all' ? newGroups.filter(g => emailGetCategory(g[0].em) !== 'spam') : newGroups.filter(g => emailGetCategory(g[0].em) === gmailSmartTab)) : newGroups;
+        const newHtml = filteredNewGroups.map(g => gmailThreadHtml(g, 'panel')).join('');
+        const newHtmlM = filteredNewGroups.map(g => gmailThreadHtml(g, 'modal')).join('');
         ['gmail-list', 'gmail-modal-list'].forEach((listId, li) => {
             const list = document.getElementById(listId);
             if(list && (li === 0 ? newHtml : newHtmlM)) list.insertAdjacentHTML('beforeend', li === 0 ? newHtml : newHtmlM);
         });
+        emailRenderSmartTabs();
         gmailAttachScrollObs();
     } catch(e) { notify("Load more failed: " + e.message, "#ff3b30", 3000); }
     gmailLoadingMore = false;
