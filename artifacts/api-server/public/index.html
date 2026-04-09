@@ -4644,6 +4644,7 @@ function renderFchatHeader(session) {
         const enabled = (session.bubbleConfig||{}).contexts || _CTX_OPTS.map(o => o.id);
         ctxBtns.innerHTML = _CTX_OPTS.filter(o => enabled.includes(o.id)).map(o => `<div class="fchat-ctx-btn ${o.cls||''}" onclick="addFloatingChatContext('${o.ctxType}')">${o.icon}${o.label?' '+o.label:''}</div>`).join('');
     }
+    _updateReplyAiIndicator();
 }
 
 function openFchatProfilePicker(e) {
@@ -5017,7 +5018,6 @@ function minimizeFloatingChat(e) {
     const session = _fchatSessions.find(s => s.id === _fchatActiveId);
     if (session) session.chatId = getSessions().current;
     _fchatActiveId = null;
-    _clearReplyAiTarget();
     const el = document.getElementById('floating-chat');
     const wrapper = document.getElementById('main-chat-wrapper');
     const ref = document.getElementById('master-modal');
