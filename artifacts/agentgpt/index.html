@@ -933,7 +933,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                     </div>
                 </div>
 
-                <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="closeAllPanels(); manageSection('prompts');" title="Manage Prompts">📚</button>
+                <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="closeAllPanels(); minimizeFloatingChat(); manageSection('prompts');" title="Manage Prompts">📚</button>
                 <select id="chatModel" class="model-sel"></select>
                 <div onclick="popState()" style="display:none;" title="Undo">↩️</div>
                 <div onclick="redoStateAction()" style="display:none;" title="Redo">↪️</div>
