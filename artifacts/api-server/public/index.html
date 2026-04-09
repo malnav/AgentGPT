@@ -2921,7 +2921,11 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
         const scrollEl = document.getElementById('mainScroll');
         const savedTop = scrollEl ? scrollEl.scrollTop : 0;
         await refreshUI(); renderWorkspaceLists();
-        if(!currentAborter) {
+        if (_hsActive) {
+            renderCalendar();
+            _populateGTodoFilters();
+            renderGlobalTodos();
+        } else if(!currentAborter) {
             renderChatHistory();
             if(_freshSessionActive) setTimeout(showInlineDatasetsToChat, 50);
             if(silent) requestAnimationFrame(() => { if(scrollEl) scrollEl.scrollTop = savedTop; });
@@ -4637,6 +4641,11 @@ function _hsUpdateGreeting() {
 }
 
 function showHomeScreen() {
+    if (_hsActive) {
+        _hsUpdateGreeting();
+        _hsApplyCardOrder();
+        return;
+    }
     _hsActive = true;
     const hs = document.getElementById('home-screen'); if (!hs) return;
     hs.style.display = 'flex';
@@ -4669,6 +4678,8 @@ function hideHomeScreen() {
     hs.style.display = 'none';
     const pb = document.getElementById('profile-bubble'); if (pb) pb.style.display = '';
     _hsMoveFromHomeScreen();
+    renderChatHistory();
+    scrollToLastRequest();
 }
 
 function _hsApplyCardOrder() {
