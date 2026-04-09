@@ -933,7 +933,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                     </div>
                 </div>
 
-                <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="closeAllPanels(); minimizeFloatingChat(); manageSection('prompts');" title="Manage Prompts">📚</button>
+                <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="closeAllPanels(); manageSection('prompts');" title="Manage Prompts">📚</button>
                 <select id="chatModel" class="model-sel"></select>
                 <div onclick="popState()" style="display:none;" title="Undo">↩️</div>
                 <div onclick="redoStateAction()" style="display:none;" title="Redo">↪️</div>
@@ -1218,7 +1218,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 </div>
 
-<div id="crud-modal" class="modal" style="z-index: 300;">
+<div id="crud-modal" class="modal" style="z-index: 9500;">
     <div class="modal-header"><h3 id="crud-title">Manage</h3><div onclick="closeModal('crud-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
     <div class="modal-tabs"><button id="tab-editor" class="tab-btn active" onclick="switchModalTab('editor')">✏️ EDITOR</button><button id="tab-bulk" class="tab-btn" onclick="switchModalTab('bulk')">💾 BULK</button></div>
     
