@@ -65,7 +65,7 @@ router.post("/imap/fetch", async (req, res) => {
                 let fm: RegExpExecArray | null;
                 while ((fm = fromRe.exec(q)) !== null) fromAddrs.push(fm[1]);
                 if (fromAddrs.length > 0) {
-                    const build = (a: string): any => ({ or: [{ from: a }, { to: a }] });
+                    const build = (a: string): any => ({ or: [{ from: a }, { to: a }, { body: a }] });
                     let crit = build(fromAddrs[0]);
                     for (let i = 1; i < fromAddrs.length; i++) crit = { or: [crit, build(fromAddrs[i])] };
                     searchCriteria = crit;

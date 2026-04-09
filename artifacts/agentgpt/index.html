@@ -779,6 +779,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <button class="email-folder-tab" id="email-folder-trash-panel" onclick="emailSwitchFolder('Trash','panel')">Trash</button>
             </div>
             <span id="email-acct-chip-panel" class="chip" style="font-size:11px; padding:3px 8px; font-weight:700; flex-shrink:0;" onclick="emailShowMultiPicker()">All ▾</span>
+            <span id="email-related-btn-panel" class="chip" style="font-size:11px; padding:3px 8px; flex-shrink:0; display:none;" onclick="emailFindRelated()" title="Find all related emails">🔗</span>
             <span class="chip" style="font-size:11px; padding:3px 8px; flex-shrink:0;" onclick="gmailToggleSearch('panel')">🔍</span>
         </div>
         <div id="gmail-search-row" style="padding:6px 14px; display:none; border-bottom:0.5px solid var(--border);">
@@ -1117,6 +1118,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <button class="email-folder-tab" id="email-folder-trash-modal" onclick="emailSwitchFolder('Trash','modal')">Trash</button>
             </div>
             <span id="email-acct-chip-modal" class="chip" style="font-size:11px; padding:3px 8px; font-weight:700; flex-shrink:0;" onclick="emailShowMultiPicker()">All ▾</span>
+            <span id="email-related-btn-modal" class="chip" style="font-size:11px; padding:3px 8px; flex-shrink:0; display:none;" onclick="emailFindRelated()" title="Find all related emails">🔗</span>
             <span class="chip" style="font-size:11px; padding:3px 8px; flex-shrink:0;" onclick="gmailToggleSearch('modal')">🔍</span>
             <span class="chip" style="font-size:11px; padding:3px 8px; background:var(--accent); color:#fff; font-weight:700; flex-shrink:0;" onclick="gmailOpenCompose()">✏️</span>
         </div>
@@ -3154,7 +3156,9 @@ async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
     if(acct.type === 'gmail') {
         if(!gmailAccessToken) return { emails: [] };
         let baseQ = emailCurrentMailbox === 'Sent' ? 'in%3Asent' : emailCurrentMailbox === 'STARRED' ? 'is%3Astarred' : emailCurrentMailbox === 'Trash' ? 'in%3Atrash' : emailCurrentMailbox === 'All' ? 'in%3Aall' : 'in%3Ainbox';
-        const q = query ? encodeURIComponent(query) : baseQ;
+        let gmailQ = baseQ;
+        if (query) { const fromMs = [...query.matchAll(/from:([\w.+@\-]+)/gi)].map(m => m[1]); if (fromMs.length) { gmailQ = encodeURIComponent(fromMs.map(a => `from:${a} OR to:${a} OR "${a}"`).join(' OR ')); } else { gmailQ = encodeURIComponent(query); } }
+        const q = gmailQ;
         try {
             const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${limit}&q=${q}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
             if(!listRes.ok) { if(listRes.status === 401) { gmailAccessToken = null; } return { emails: [] }; }
@@ -3801,6 +3805,10 @@ function gmailUpdateAddBtns() {
         const btn = document.getElementById(id);
         if(btn) { btn.style.display = n > 0 ? 'inline' : 'none'; btn.textContent = label; }
     });
+    ['email-related-btn-panel', 'email-related-btn-modal'].forEach(id => {
+        const btn = document.getElementById(id);
+        if(btn) btn.style.display = n > 0 ? 'inline' : 'none';
+    });
     const cats = [['primary','⭐ VIP','#30d158'],['promotions','🏷️ Promo','#ff9f0a'],['updates','🔔 Updates','#007aff'],['spam','🚫 Spam','#ff3b30']];
     const barHtml = n > 0 ? `<div style="display:flex;flex-direction:column;gap:6px;width:100%;"><div style="font-size:11px;font-weight:700;color:#888;text-align:center;letter-spacing:0.5px;">MARK ${n} SENDER${n>1?'S':''} AS</div><div style="display:flex;gap:6px;">${cats.map(([c,lbl,col])=>`<button onclick="emailBulkSetCategory('${c}')" style="flex:1;font-size:11px;font-weight:700;padding:8px 4px;border:none;border-radius:10px;cursor:pointer;background:${col}22;color:${col};border:1px solid ${col}44;">${lbl}</button>`).join('')}</div><button onclick="gmailAddToContext()" style="width:100%;font-size:12px;font-weight:700;padding:9px;border:none;border-radius:10px;cursor:pointer;background:var(--accent);color:#fff;">📋 Add ${n} to Context</button></div>` : '';
     ['gmail-bulk-bar-panel','gmail-bulk-bar-modal'].forEach(id => {
@@ -3810,6 +3818,20 @@ function gmailUpdateAddBtns() {
         bar.style.transform = n > 0 ? 'translateY(0)' : 'translateY(100%)';
     });
     updateProfileBubble();
+}
+
+function emailFindRelated() {
+    const checked = Array.from(document.querySelectorAll('.gmail-chk:checked'));
+    if (!checked.length) return;
+    const addrs = [...new Set(checked.map(cb => { const em = gmailEmails[parseInt(cb.dataset.idx)]; return em ? gmailExtractAddr(em.from) : null; }).filter(Boolean))];
+    if (!addrs.length) return;
+    document.querySelectorAll('.gmail-chk').forEach(c => c.checked = false);
+    document.querySelectorAll('.gmail-thread-chk').forEach(c => { c.checked = false; c.indeterminate = false; });
+    gmailUpdateAddBtns();
+    gmailSmartTab = 'all';
+    const query = addrs.map(a => 'from:' + a).join(' ');
+    notify('Finding related emails for ' + addrs.length + ' sender' + (addrs.length > 1 ? 's' : '') + '…', '#007aff', 2500);
+    emailFetchEmails(query);
 }
 
 async function emailFetchBody(em) {
