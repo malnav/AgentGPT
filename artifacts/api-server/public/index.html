@@ -580,6 +580,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 /* ═══════════════════════════════════════════════
    RESPONSIVE LAYOUT — Tablet ≥ 768px
    ═══════════════════════════════════════════════ */
+/* Slide panels always appear above the floating chat when open */
+.ctx-panel.open, .side-panel.open { z-index: 9050 !important; }
+
 @media (min-width: 768px) {
   .side-panel, .ctx-panel { width: min(480px, 88%) !important; }
   .left-panel { right: auto !important; }
@@ -588,6 +591,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #chat-container { padding-left: 28px; padding-right: 28px; max-width: 900px; margin: 0 auto; width: 100%; }
   .modal-content { max-width: 720px; margin: 0 auto; }
   #fs-content { max-width: 100% !important; margin: 0 !important; width: 100% !important; }
+  /* Home screen: centered content column via padding */
+  #hs-body { padding-left: max(20px, calc((100vw - 640px) / 2)); padding-right: max(20px, calc((100vw - 640px) / 2)); }
+  .hs-greeting { font-size: 24px; }
+  #hs-header { padding-left: max(24px, calc((100vw - 640px) / 2)); padding-right: max(24px, calc((100vw - 640px) / 2)); }
 }
 
 /* ═══════════════════════════════════════════════
@@ -665,6 +672,19 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
   /* Profile dropdown — more width available */
   .main-profile-dropdown { max-width: 220px; }
+
+  /* Home screen: respect persistent sidebar, centered content */
+  #home-screen { left: 272px; }
+  #hs-header { padding-left: max(32px, calc((100vw - 272px - 760px) / 2)); padding-right: max(32px, calc((100vw - 272px - 760px) / 2)); }
+  #hs-body { padding-left: max(32px, calc((100vw - 272px - 760px) / 2)); padding-right: max(32px, calc((100vw - 272px - 760px) / 2)); }
+  .hs-greeting { font-size: 30px; }
+  .hs-card { border-radius: 24px; }
+  .hs-card-drag-clone { left: max(32px, calc((100vw - 272px - 760px) / 2)); right: max(32px, calc((100vw - 272px - 760px) / 2)); }
+
+  /* Floating chat: constrained between both sidebars */
+  #floating-chat { left: 272px; right: 320px; border-radius: 0; }
+  #floating-chat .top-nav { left: 0; }
+  #fchat-bubble-bar { left: calc(272px + (100vw - 272px - 320px) / 2); max-width: calc(100vw - 272px - 380px); }
 }
 #gmail-reply-box a, #gmail-modal-reply-box a, #email-compose-body a { color: var(--accent); text-decoration: underline; cursor: pointer; }
 </style>
@@ -4802,7 +4822,7 @@ async function _hsRenderQuote() { const el=document.getElementById('hs-quote-bod
 
 function _hsDsVarValue(raw) { if(raw===null||raw===undefined)return'—'; if(typeof raw==='object'&&raw.value!==undefined) raw=raw.value; if(typeof raw==='string') { let plain=raw.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); return plain||'—'; } return String(raw)||'—'; }
 
-function _hsFindTodayDatasets() { const today=new Date(); const todayMs=new Date(today.getFullYear(),today.getMonth(),today.getDate()).getTime(); const seen=new Set(); const todayList=[]; let futureBest=null,futureBestDiff=Infinity; Object.entries(chatHistories||{}).forEach(([prof,pData])=>{ if(!pData||!pData.list)return; pData.list.forEach(session=>{ const vid=session.var_id; if(!vid)return; const ds=GLOBAL_DATASETS[vid]; if(!ds||!ds.cal_date_var)return; const valObj=ds.data&&ds.data[ds.cal_date_var]; if(!valObj&&valObj!==0)return; const rawStr=_hsDsVarValue(valObj); const lines=rawStr.split(/\n/).map(s=>s.trim()).filter(Boolean); lines.forEach(line=>{ const d=parseCustomDate(line); if(isNaN(d.getTime()))return; const dMs=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(); const diff=dMs-todayMs; if(diff===0&&!seen.has(vid)){seen.add(vid);todayList.push({ds,vid,date:d,profile:prof,diffDays:0});} else if(diff>0&&diff<futureBestDiff){futureBestDiff=diff;futureBest={ds,vid,date:d,profile:prof,diffDays:Math.round(diff/86400000)};} }); }); }); if(todayList.length)return todayList; if(futureBest)return[futureBest]; return[]; }
+function _hsFindTodayDatasets() { const today=new Date(); const todayMs=new Date(today.getFullYear(),today.getMonth(),today.getDate()).getTime(); const seen=new Set(); const all=[]; Object.entries(chatHistories||{}).forEach(([prof,pData])=>{ if(!pData||!pData.list)return; pData.list.forEach(session=>{ const vid=session.var_id; if(!vid)return; const ds=GLOBAL_DATASETS[vid]; if(!ds||!ds.cal_date_var)return; const valObj=ds.data&&ds.data[ds.cal_date_var]; if(!valObj&&valObj!==0)return; const rawStr=_hsDsVarValue(valObj); const lines=rawStr.split(/\n/).map(s=>s.trim()).filter(Boolean); lines.forEach(line=>{ const d=parseCustomDate(line); if(isNaN(d.getTime()))return; const dMs=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(); const diff=dMs-todayMs; if(!seen.has(vid)){ seen.add(vid); all.push({ds,vid,date:d,profile:prof,diffDays:Math.round(diff/86400000)}); } }); }); }); all.sort((a,b)=>{ if(a.diffDays===0&&b.diffDays!==0)return -1; if(b.diffDays===0&&a.diffDays!==0)return 1; const aF=a.diffDays>0,bF=b.diffDays>0; if(aF&&bF)return a.diffDays-b.diffDays; if(!aF&&!bF)return b.diffDays-a.diffDays; return aF?-1:1; }); return all.slice(0,3); }
 
 async function _hsFetchDsSummary(ds,vid) { const today=new Date().toDateString(); if(_hsDsSummaryCache[vid]&&_hsDsSummaryDate===today)return _hsDsSummaryCache[vid]; const apiKey=typeof CONFIG!=='undefined'&&CONFIG.ai_key; if(!apiKey)return null; const data=ds.data||{}; const lines=Object.entries(data).map(([k,v])=>`${k}: ${_hsDsVarValue(v)}`).join('\n'); if(!lines.trim())return null; try{ const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'system',content:'You are a concise assistant summarizing a dataset for a daily briefing. Reply in 2-3 short natural sentences. No markdown.'},{role:'user',content:`Dataset: "${ds.title||ds.name||vid}"\n\n${lines}`}],max_tokens:120,temperature:0.4})}); if(!r.ok)return null; const d=await r.json(); const s=d.choices?.[0]?.message?.content?.trim()||null; if(s){_hsDsSummaryCache[vid]=s;_hsDsSummaryDate=today;} return s; }catch(e){return null;} }
 
