@@ -498,6 +498,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .hs-drag-handle:active { cursor:grabbing; }
 .hs-card.hs-dragging { opacity:0.25; }
 .hs-card-drag-clone { position:fixed; left:14px; right:14px; z-index:601; pointer-events:none; border-radius:20px; box-shadow:0 16px 60px rgba(0,0,0,0.3); opacity:0.95; }
+#hs-dataset-body::-webkit-scrollbar { display:none; }
 .hs-weather-pill { background:var(--sec-bg); border-radius:12px; padding:10px 12px; }
 .hs-weather-pill-label { font-size:9px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
 .hs-weather-pill-val { font-size:16px; font-weight:700; color:var(--text); }
@@ -596,7 +597,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   .hs-greeting { font-size: 24px; }
   #hs-header { padding-left: max(24px, calc((100vw - 640px) / 2)); padding-right: max(24px, calc((100vw - 640px) / 2)); }
   /* Grid layout for 2 columns (768px+) */
-  #hs-body.hs-cols-2, #hs-body.hs-cols-3 { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: min-content; column-gap: 14px; row-gap: 14px; align-content: start; padding-left: max(20px, calc((100vw - 900px) / 2)); padding-right: max(20px, calc((100vw - 900px) / 2)); }
+  #hs-body.hs-cols-2, #hs-body.hs-cols-3 { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: min-content; column-gap: 14px; row-gap: 14px; align-content: start; align-items: start; padding-left: max(20px, calc((100vw - 900px) / 2)); padding-right: max(20px, calc((100vw - 900px) / 2)); }
 }
 
 /* ═══════════════════════════════════════════════
@@ -4847,22 +4848,34 @@ async function _hsFetchDsSummary(ds,vid) { const today=new Date().toDateString()
 async function _hsRenderDataset() {
     const el=document.getElementById('hs-dataset-body'); if(!el)return;
     const navEl=document.getElementById('hs-ds-nav'); if(navEl)navEl.innerHTML='';
+    const gradEl=document.getElementById('hs-ds-gradient');
     let datasets=_hsFindTodayDatasets();
-    if(!datasets.length){ const sData=getSessions(); const cur=sData.list.find(x=>String(x.id)===String(sData.current)); if(!cur||!cur.var_id){el.innerHTML='<div style="padding:16px;text-align:center;color:#888;font-size:13px;">No dataset linked to current session</div>';return;} const fallDs=GLOBAL_DATASETS[cur.var_id]; if(!fallDs){el.innerHTML='<div style="padding:16px;text-align:center;color:#888;font-size:13px;">Dataset not found</div>';return;} datasets=[{ds:fallDs,vid:cur.var_id,date:null,profile:activeProfileLabel||'',diffDays:-1}]; }
-    el.innerHTML=_hsShimmer(3);
-    const _buildCard = async (found, idx) => {
+    if(!datasets.length){ const sData=getSessions(); const cur=sData.list.find(x=>String(x.id)===String(sData.current)); if(!cur||!cur.var_id){el.innerHTML=`<div style="flex:1;padding:16px;text-align:center;color:#888;font-size:13px;">No dataset linked to current session</div>`;if(gradEl)gradEl.style.opacity='0';return;} const fallDs=GLOBAL_DATASETS[cur.var_id]; if(!fallDs){el.innerHTML=`<div style="flex:1;padding:16px;text-align:center;color:#888;font-size:13px;">Dataset not found</div>`;if(gradEl)gradEl.style.opacity='0';return;} datasets=[{ds:fallDs,vid:cur.var_id,date:null,profile:activeProfileLabel||'',diffDays:-1}]; }
+    el.innerHTML=`<div style="flex:1;padding:16px;color:#888;font-size:13px;">${_hsShimmer(2)}</div>`;
+    const _buildSlide = async (found) => {
         const ds=found.ds,vid=found.vid,profile=found.profile;
         let dateLabel=''; if(found.date){ const d=found.date; dateLabel=found.diffDays===0?'📅 Today':found.diffDays===1?'📅 Tomorrow':`📅 In ${found.diffDays} days · ${d.toLocaleDateString('default',{month:'short',day:'numeric'})}`; }
         const summary=await _hsFetchDsSummary(ds,vid);
         const data=ds.data||{}; const keys=Object.keys(data); const todos=ds.todos||[]; const doneTodos=todos.filter(t=>t.done).length; const dateKey=ds.cal_date_var;
-        let rows=keys.map((k,i)=>{ const raw=data[k]; const valStr=_hsDsVarValue(raw); const isDate=k===dateKey; const isLocked=raw&&typeof raw==='object'&&raw.locked===true; const isEmpty=!valStr||valStr==='—'; return`<div style="padding:9px 0;border-bottom:0.5px solid var(--border);${isLocked?'border-left:3px solid var(--accent);padding-left:8px;':''}"><div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;"><span style="font-size:9px;font-weight:800;color:${isLocked?'var(--accent)':'#888'};text-transform:uppercase;letter-spacing:0.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${k}</span>${isDate?`<span style="font-size:9px;background:rgba(0,122,255,0.12);color:var(--accent);border-radius:5px;padding:1px 5px;font-weight:700;">📅</span>`:``}${isLocked?`<span style="font-size:9px;background:rgba(0,122,255,0.12);color:var(--accent);border-radius:5px;padding:1px 5px;">🔒</span>`:``}</div><div style="font-size:12px;color:${isEmpty?'rgba(128,128,128,0.45)':'var(--text)'};font-style:${isEmpty?'italic':'normal'};line-height:1.5;word-break:break-word;white-space:pre-wrap;">${isEmpty?'Empty':valStr}</div></div>`; }).join('');
+        let rows=keys.map((k)=>{ const raw=data[k]; const valStr=_hsDsVarValue(raw); const isDate=k===dateKey; const isLocked=raw&&typeof raw==='object'&&raw.locked===true; const isEmpty=!valStr||valStr==='—'; return`<div style="padding:9px 0;border-bottom:0.5px solid var(--border);${isLocked?'border-left:3px solid var(--accent);padding-left:8px;':''}"><div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;"><span style="font-size:9px;font-weight:800;color:${isLocked?'var(--accent)':'#888'};text-transform:uppercase;letter-spacing:0.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${k}</span>${isDate?`<span style="font-size:9px;background:rgba(0,122,255,0.12);color:var(--accent);border-radius:5px;padding:1px 5px;font-weight:700;">📅</span>`:``}${isLocked?`<span style="font-size:9px;background:rgba(0,122,255,0.12);color:var(--accent);border-radius:5px;padding:1px 5px;">🔒</span>`:``}</div><div style="font-size:12px;color:${isEmpty?'rgba(128,128,128,0.45)':'var(--text)'};font-style:${isEmpty?'italic':'normal'};line-height:1.5;word-break:break-word;white-space:pre-wrap;">${isEmpty?'Empty':valStr}</div></div>`; }).join('');
         if(!rows)rows='<div style="text-align:center;color:#888;font-size:12px;padding:12px 0;">No variables yet</div>';
         const summaryHtml=summary?`<div style="font-size:13px;line-height:1.6;color:var(--text);background:rgba(0,0,0,0.04);border-radius:10px;padding:10px 13px;margin-bottom:12px;border-left:3px solid var(--accent);">${summary}</div>`:'';
-        const sep=idx>0?`<div style="height:1px;background:var(--border);margin:2px 0 14px;opacity:0.5;"></div>`:'';
-        return `${sep}<div class="hs-card-body hs-anim-in">${dateLabel?`<div style="display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:var(--accent);background:rgba(0,122,255,0.1);border-radius:10px;padding:4px 10px;margin-bottom:10px;">${dateLabel}</div>`:''}<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;"><div style="font-size:15px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${ds.title||ds.name||vid}</div><div style="display:flex;gap:5px;flex-shrink:0;"><span class="hs-badge" style="background:rgba(0,122,255,0.1);color:var(--accent);">${keys.length} vars</span><span class="hs-badge" style="background:rgba(52,199,89,0.1);color:#34c759;">${doneTodos}/${todos.length} ✓</span></div></div>${summaryHtml}<details><summary style="font-size:11px;font-weight:700;color:#888;cursor:pointer;list-style:none;display:flex;align-items:center;gap:4px;margin-bottom:8px;user-select:none;-webkit-user-select:none;"><span>▾ All variables</span></summary><div style="padding:0 2px;">${rows}</div></details>${profile?`<div style="font-size:10px;color:#888;margin-top:10px;opacity:0.7;">📎 ${profile}</div>`:''}</div>`;
+        return `<div class="hs-ds-slide hs-card-body" style="flex:0 0 100%;min-width:0;width:100%;box-sizing:border-box;scroll-snap-align:start;">${dateLabel?`<div style="display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:var(--accent);background:rgba(0,122,255,0.1);border-radius:10px;padding:4px 10px;margin-bottom:10px;">${dateLabel}</div>`:''}<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;"><div style="font-size:15px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${ds.title||ds.name||vid}</div><div style="display:flex;gap:5px;flex-shrink:0;"><span class="hs-badge" style="background:rgba(0,122,255,0.1);color:var(--accent);">${keys.length} vars</span><span class="hs-badge" style="background:rgba(52,199,89,0.1);color:#34c759;">${doneTodos}/${todos.length} ✓</span></div></div>${summaryHtml}<details><summary style="font-size:11px;font-weight:700;color:#888;cursor:pointer;list-style:none;display:flex;align-items:center;gap:4px;margin-bottom:8px;user-select:none;-webkit-user-select:none;"><span>▾ All variables</span></summary><div style="padding:0 2px;">${rows}</div></details>${profile?`<div style="font-size:10px;color:#888;margin-top:10px;opacity:0.7;">📎 ${profile}</div>`:''}</div>`;
     };
-    const cards = await Promise.all(datasets.map((found, idx) => _buildCard(found, idx)));
-    el.innerHTML = cards.join('');
+    const slides = await Promise.all(datasets.map(found => _buildSlide(found)));
+    el.innerHTML = slides.join('');
+    el.style.cssText = 'display:flex;flex-direction:row;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none;';
+    const total=slides.length;
+    const _updateNav = () => {
+        if(!navEl||total<=1){if(navEl)navEl.innerHTML='';if(gradEl)gradEl.style.opacity='0';return;}
+        const idx=Math.round(el.scrollLeft/el.clientWidth);
+        navEl.innerHTML=Array.from({length:total},(_,i)=>`<span onclick="(function(){const el=document.getElementById('hs-dataset-body');el.scrollTo({left:${i}*el.clientWidth,behavior:'smooth'});})()" style="cursor:pointer;width:${i===idx?'16px':'6px'};height:6px;border-radius:6px;background:${i===idx?'var(--accent)':'rgba(128,128,128,0.35)'};transition:all 0.25s;display:inline-block;"></span>`).join('');
+        const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 4;
+        if(gradEl)gradEl.style.opacity=atEnd?'0':'1';
+    };
+    _updateNav();
+    el.addEventListener('scroll', _updateNav, {passive:true});
+    if(gradEl)gradEl.style.opacity=total>1?'1':'0';
 }
 
 let _hsDragInited = false;
@@ -5736,10 +5749,13 @@ function _linkifyHtml(html) {
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">🗂 Dataset</span>
-                <span id="hs-ds-nav" style="flex:1;display:flex;justify-content:center;"></span>
-                <div onclick="_hsDsIndex=0;_hsDsSummaryCache={};_hsRenderDataset();" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 8px;background:var(--sec-bg);border-radius:8px;">Refresh</div>
+                <span id="hs-ds-nav" style="flex:1;display:flex;justify-content:center;gap:5px;align-items:center;"></span>
+                <div onclick="_hsDsSummaryCache={};_hsRenderDataset();" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 8px;background:var(--sec-bg);border-radius:8px;">Refresh</div>
             </div>
-            <div id="hs-dataset-body"></div>
+            <div style="position:relative;overflow:hidden;border-radius:0 0 20px 20px;">
+                <div id="hs-dataset-body" style="display:flex;flex-direction:row;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none;"></div>
+                <div id="hs-ds-gradient" style="position:absolute;right:0;top:0;bottom:0;width:52px;pointer-events:none;background:linear-gradient(to right,transparent,var(--glass,rgba(255,255,255,0.78)));border-radius:0 0 20px 0;transition:opacity 0.25s;"></div>
+            </div>
         </div>
         <div class="hs-card" data-card-id="email" style="overflow:hidden;">
             <div class="hs-card-header">
