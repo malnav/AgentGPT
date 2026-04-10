@@ -1735,15 +1735,16 @@ async function refreshUI() {
     const mH = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); const mHopt = `<option value="">(chat)</option>` + mH; document.getElementById('chatModel').innerHTML = mH; document.getElementById('ai-gen-model').innerHTML = mH; document.getElementById('p-model-set').innerHTML = `<option value="">(Keep Global Model)</option>` + mH; ['title-model-f','extract-model-f','suggest-model-f'].forEach(id => document.getElementById(id).innerHTML = mHopt);
     if(currentGlobalModel) document.getElementById('chatModel').value = currentGlobalModel;
     renderSessionVariables(); renderInlinePrompts();
+    const _eh = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const _ctxGroupsHtml = (_ctxGroups || []).map(g =>
         `<li style="list-style:none; padding:0; border-left:3px solid #34c759; background:rgba(52,199,89,0.06); margin:2px 0;">` +
         `<div style="display:flex; align-items:center; gap:8px; padding:9px 12px; cursor:pointer;" onclick="_toggleCtxGroup('${g.id}')">` +
         `<span style="font-size:11px; flex-shrink:0;">${g.expanded ? '▼' : '▶'}</span>` +
-        `<span style="flex:1; font-weight:700; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text);">${g.title}</span>` +
+        `<span style="flex:1; font-weight:700; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text);">${_eh(g.title)}</span>` +
         `<span style="font-size:11px; color:#888; flex-shrink:0; margin-right:4px;">${g.lines.length} lines</span>` +
         `<div class="inline-btn" style="color:#ff3b30;" onclick="event.stopPropagation(); _removeCtxGroup('${g.id}')">🗑</div>` +
         `</div>` +
-        (g.expanded ? `<div style="padding:0 12px 8px; border-top:0.5px solid rgba(52,199,89,0.18);">` + g.lines.map(l => `<div class="cg-panel-line">${l}</div>`).join('') + `</div>` : '') +
+        (g.expanded ? `<div style="padding:0 12px 8px; border-top:0.5px solid rgba(52,199,89,0.18);">` + g.lines.map(l => `<div class="cg-panel-line" style="cursor:pointer;" onclick="_insertCtxLine('${encodeURIComponent(l)}')">${_eh(l)}</div>`).join('') + `</div>` : '') +
         `</li>`
     ).join('');
     document.getElementById('context-list').innerHTML = CONTEXT_LINES.map((l,i) => `<li class="list-item ${cutIdx!==-1 && i<=cutIdx?'in-cut':''}"><input type="checkbox" class="ctx-checkbox" value="${i}" onchange="updateCtxSelection()"><div style="flex:1; white-space:normal; word-break:break-word; padding-right:8px; cursor:pointer;" onclick="insertContextAtCursor(${i})">${l}</div><div class="btn-row"><div class="inline-btn" onclick="event.stopPropagation(); cutIdx=(cutIdx===${i})?-1:${i}; refreshUI();">${cutIdx===i?'✂️':'|'}</div></div></li>`).join('') + _ctxGroupsHtml;
@@ -1761,6 +1762,7 @@ async function refreshUI() {
 function updateCtxSelection() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let btn = document.getElementById('ctx-bulk-btn-wrapper'); if(boxes.length > 0) { btn.style.display = 'block'; btn.querySelector('button').innerText = `Insert ${boxes.length} Selected ⟶`; } else { btn.style.display = 'none'; } }
 function insertSelectedContexts() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let combined = Array.from(boxes).map(b => CONTEXT_LINES[b.value]).join('\n'); insertAtCursor(combined, true, false); boxes.forEach(b => b.checked = false); updateCtxSelection(); closeAllPanels(); }
 function insertContextAtCursor(i) { insertAtCursor(CONTEXT_LINES[i], true, false); closeAllPanels(); }
+function _insertCtxLine(encoded) { insertAtCursor(decodeURIComponent(encoded), true, false); closeAllPanels(); }
 async function saveModelEntry() { const l = document.getElementById('mod-l').value, t = document.getElementById('mod-t').value; if(!l || !t) return notify("Fill both label and ID", "#ff3b30"); AI_MODELS.push({ label: l, text: t, profile: "Global" }); document.getElementById('mod-l').value = ""; document.getElementById('mod-t').value = ""; await saveAll(); refreshUI(); renderModelList(); notify("Model Added!", "#34c759"); }
 function renderToolsList() { const filtT = API_SERVICES.filter(t => t.profile === activeProfileLabel || t.profile === 'Global'); document.getElementById('tools-view').innerHTML = filtT.map(t => { let tIdx = API_SERVICES.indexOf(t); return `<div class="list-item" onclick="triggerApiService(${tIdx}); closeAllPanels();"><div style="flex:1;"><strong>${t.label}</strong></div></div>`; }).join(''); }
 function renderLinksPanel() {
