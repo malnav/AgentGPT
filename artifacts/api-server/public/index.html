@@ -520,7 +520,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 @keyframes hs-content-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 .hs-anim-in { animation:hs-content-in 0.35s cubic-bezier(0.22,0.97,0.52,1) both; }
 @keyframes fcbubble-in { from { transform:scale(0) translateY(16px); opacity:0; } to { transform:scale(1) translateY(0); opacity:1; } }
-#fchat-header { display:flex; flex-direction:column; align-items:stretch; padding:calc(var(--sat, env(safe-area-inset-top, 0px)) + 8px) 12px 6px 12px; gap:5px; flex-shrink:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-bottom:0.5px solid var(--glass-border); }
+#fchat-header { display:flex; flex-direction:column; align-items:stretch; padding:calc(var(--sat, env(safe-area-inset-top, 0px)) + 8px) 12px 6px 12px; gap:5px; flex-shrink:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-bottom:0.5px solid var(--glass-border); position:relative; }
 #fchat-header-row1 { display:flex; align-items:center; gap:6px; }
 #fchat-header-row2 { display:flex; align-items:center; gap:4px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding-bottom:2px; }
 #fchat-header-row2::-webkit-scrollbar { display:none; }
@@ -530,6 +530,14 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .fchat-ctx-btn { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:var(--accent); background:rgba(0,122,255,0.10); border-radius:8px; padding:4px 9px; cursor:pointer; white-space:nowrap; flex-shrink:0; border:0.5px solid rgba(0,122,255,0.18); transition:background 0.15s; }
 .fchat-ctx-btn:active { background:rgba(0,122,255,0.22); }
 .fchat-ctx-btn.danger { color:#ff3b30; background:rgba(255,59,48,0.10); border-color:rgba(255,59,48,0.18); }
+.fchat-ctx-group-chip { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:#34c759; background:rgba(52,199,89,0.10); border-radius:8px; padding:4px 9px; cursor:pointer; white-space:nowrap; flex-shrink:0; border:0.5px solid rgba(52,199,89,0.22); transition:background 0.15s; max-width:150px; }
+.fchat-ctx-group-chip.open { background:rgba(52,199,89,0.20); }
+.fchat-ctx-group-chip:active { background:rgba(52,199,89,0.28); }
+.fchat-ctx-group-chip .cg-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70px; }
+.fchat-ctx-group-chip .cg-rm { color:#ff3b30; opacity:0.75; padding-left:2px; font-size:11px; }
+#fchat-ctx-group-panel { position:absolute; left:0; right:0; top:100%; max-height:220px; overflow-y:auto; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-top:0.5px solid var(--glass-border); border-bottom:0.5px solid var(--glass-border); padding:8px 14px 12px; z-index:9002; scrollbar-width:none; }
+#fchat-ctx-group-panel::-webkit-scrollbar { display:none; }
+.cg-panel-line { padding:3px 0; font-size:11px; color:var(--text); opacity:0.85; border-bottom:0.5px solid var(--border); white-space:pre-wrap; word-break:break-word; line-height:1.5; }
 .pbm-header { padding:14px 16px 10px; border-bottom:0.5px solid var(--border); }
 .pbm-title { font-size:12px; font-weight:800; color:var(--accent); letter-spacing:0.4px; }
 .pbm-sub { font-size:11px; color:#888; margin-top:2px; }
@@ -2793,9 +2801,12 @@ async function sendToAI() {
     
     if((!val && pendingAttachments.length === 0) || !CONFIG.ai_key) return notify("Missing Text/Attachment or Key", "#ff3b30");
     
-    let fullText = val; 
-    if(cutIdx !== -1 && val) { const ctx = CONTEXT_LINES.slice(0, cutIdx + 1).join('\n'); fullText = `${val}\n\n[CONTEXT]\n${ctx}`; } 
-    else if (cutIdx !== -1 && !val) { fullText = `[CONTEXT]\n${CONTEXT_LINES.slice(0, cutIdx + 1).join('\n')}`; }
+    let fullText = val;
+    const _groupCtxLines = (_ctxGroups || []).length ? '\n\n' + _ctxGroups.map(g => `=== ${g.title} ===\n${g.lines.join('\n')}`).join('\n\n') : '';
+    if(cutIdx !== -1 && val) { const ctx = CONTEXT_LINES.slice(0, cutIdx + 1).join('\n'); fullText = `${val}\n\n[CONTEXT]\n${ctx}${_groupCtxLines}`; }
+    else if (cutIdx !== -1 && !val) { fullText = `[CONTEXT]\n${CONTEXT_LINES.slice(0, cutIdx + 1).join('\n')}${_groupCtxLines}`; }
+    else if (_groupCtxLines && val) { fullText = `${val}\n\n[CONTEXT]${_groupCtxLines}`; }
+    else if (_groupCtxLines && !val) { fullText = `[CONTEXT]${_groupCtxLines}`; }
 
     let appendedText = fullText; let newContent = [];
 
@@ -4479,6 +4490,8 @@ let _bubbleDragStartX = 0, _bubbleDragStartY = 0;
 let _bubbleMoved = false;
 let _fchatSessions = [];
 let _fchatActiveId = null;
+let _ctxGroups = [];
+let _ctxGroupOpenId = null;
 let _freshSessionActive = false;
 
 function initProfileBubble() {
@@ -5060,57 +5073,89 @@ function fchatClearAndClose(e) {
     renderFchatBubbles();
 }
 
+function _addCtxGroup(title, lines) {
+    const id = 'cg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    _ctxGroups.push({ id, title, lines });
+    _updateFchatContextLabel();
+}
+function _removeCtxGroup(id, e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    _ctxGroups = _ctxGroups.filter(g => g.id !== id);
+    if (_ctxGroupOpenId === id) { _ctxGroupOpenId = null; _renderCtxGroupPanel(); }
+    _updateFchatContextLabel();
+}
+function _toggleCtxGroupPanel(id) {
+    _ctxGroupOpenId = (_ctxGroupOpenId === id) ? null : id;
+    _renderCtxGroupPanel();
+    _updateFchatContextLabel();
+}
+function _renderCtxGroupPanel() {
+    const panel = document.getElementById('fchat-ctx-group-panel'); if (!panel) return;
+    if (!_ctxGroupOpenId) { panel.style.display = 'none'; return; }
+    const g = _ctxGroups.find(x => x.id === _ctxGroupOpenId);
+    if (!g) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+    panel.innerHTML = `<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; padding-bottom:4px; border-bottom:0.5px solid var(--glass-border);"><span style="font-size:11px; font-weight:800; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${g.title}</span><span style="font-size:10px; color:#888; flex-shrink:0;">${g.lines.length} lines</span></div>` + g.lines.map(l => `<div class="cg-panel-line">${l}</div>`).join('');
+}
 function _updateFchatContextLabel() {
     const lbl = document.getElementById('fchat-context-label'); if (!lbl) return;
     const n = (CONTEXT_LINES || []).length;
-    lbl.textContent = n === 0 ? 'No context — tap buttons above to add' : n + ' context lines loaded';
+    const gTotal = (_ctxGroups || []).reduce((s, g) => s + g.lines.length, 0);
+    const total = n + gTotal;
+    lbl.textContent = total === 0 ? 'No context' : (n > 0 ? n + ' lines' : '') + (_ctxGroups.length ? (n > 0 ? ' + ' : '') + _ctxGroups.length + ' email' + (_ctxGroups.length !== 1 ? 's' : '') : '');
+    const chipsEl = document.getElementById('fchat-ctx-group-chips'); if (!chipsEl) return;
+    chipsEl.innerHTML = _ctxGroups.map(g =>
+        `<div class="fchat-ctx-group-chip ${_ctxGroupOpenId === g.id ? 'open' : ''}" onclick="_toggleCtxGroupPanel('${g.id}')">` +
+        `<span>${_ctxGroupOpenId === g.id ? '▼' : '▶'}</span>` +
+        `<span class="cg-title">${g.title}</span>` +
+        `<span style="opacity:0.6;">(${g.lines.length})</span>` +
+        `<span class="cg-rm" onclick="_removeCtxGroup('${g.id}',event)">✕</span>` +
+        `</div>`
+    ).join('');
 }
 
 async function addFloatingChatContext(type) {
-    if (type === 'clear') { CONTEXT_LINES.splice(0); cutIdx = -1; _updateFchatContextLabel(); notify('Context cleared', '#888', 1500); return; }
+    if (type === 'clear') { CONTEXT_LINES.splice(0); cutIdx = -1; _ctxGroups = []; _ctxGroupOpenId = null; _renderCtxGroupPanel(); _updateFchatContextLabel(); notify('Context cleared', '#888', 1500); return; }
     if (type === 'current') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
         notify('Adding current email to context…', '#007aff', 1800);
         const lines = await gmailFetchEmailLines(em);
-        lines.forEach(l => CONTEXT_LINES.push(l));
-        cutIdx = CONTEXT_LINES.length - 1;
-        notify('Email added to context', '#34c759', 1800);
+        if (lines.length) { _addCtxGroup(em.subject || gmailExtractAddr(em.from) || 'Email', lines); notify('Email added to context', '#34c759', 1800); }
+        else { notify('No content found in this email', '#888', 1800); }
     } else if (type === 'sender') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
         const senderAddr = gmailExtractAddr(em.from); if (!senderAddr) { notify('Cannot extract sender address', '#ff3b30', 1800); return; }
         const related = (gmailEmails || []).filter(e => gmailExtractAddr(e.from) === senderAddr || (e.to && e.to.includes(senderAddr)));
         if (!related.length) { notify('No other emails from this sender found', '#888', 1800); return; }
         notify('Loading ' + related.length + ' email(s) from sender…', '#007aff', 2500);
-        for (const r of related) { const ls = await gmailFetchEmailLines(r); ls.forEach(l => CONTEXT_LINES.push(l)); }
-        cutIdx = CONTEXT_LINES.length - 1;
-        notify(related.length + ' email(s) added to context', '#34c759', 1800);
+        let added = 0;
+        for (const r of related) { const ls = await gmailFetchEmailLines(r); if (ls.length) { _addCtxGroup(r.subject || senderAddr, ls); added++; } }
+        notify(added + ' email(s) added to context', '#34c759', 1800);
     } else if (type === 'address_scan') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
         const senderAddr = gmailExtractAddr(em.from); if (!senderAddr) { notify('Cannot extract address', '#ff3b30', 1800); return; }
         const allAccts = emailGetAllAccounts();
         if (!allAccts.length) { notify('No email accounts configured', '#888', 1800); return; }
         notify('Searching all accounts for ' + senderAddr + '…', '#007aff', 3000);
-        const searchQuery = 'from:' + senderAddr;
-        const results = await Promise.allSettled(allAccts.map(a => emailFetchFromAccount(a, searchQuery, 50, 0)));
+        const results = await Promise.allSettled(allAccts.map(a => emailFetchFromAccount(a, 'from:' + senderAddr, 50, 0)));
         const matched = [];
         results.forEach(r => { if (r.status === 'fulfilled') matched.push(...(r.value.emails || [])); });
         if (!matched.length) { notify('No emails found for ' + senderAddr + ' across all accounts', '#888', 2200); return; }
         notify('Loading ' + matched.length + ' email(s) from all accounts…', '#007aff', 2500);
-        const seen = new Set();
+        const seen = new Set(); let added = 0;
         for (const r of matched) {
             const key = (r._accountId || '') + ':' + (r.id || r.messageId || '');
             if (seen.has(key)) continue; seen.add(key);
-            const ls = await gmailFetchEmailLines(r); ls.forEach(l => { if (l && !CONTEXT_LINES.includes(l)) CONTEXT_LINES.push(l); });
+            const ls = await gmailFetchEmailLines(r); if (ls.length) { _addCtxGroup(r.subject || senderAddr, ls); added++; }
         }
-        cutIdx = CONTEXT_LINES.length - 1;
-        notify(matched.length + ' email(s) added to context from all accounts', '#34c759', 2200);
+        notify(added + ' email(s) added to context from all accounts', '#34c759', 2200);
     } else if (type === 'selected') {
         const checked = Array.from(document.querySelectorAll('.gmail-chk:checked'));
         if (!checked.length) { notify('No emails selected in the list', '#ff3b30', 1800); return; }
         notify('Adding ' + checked.length + ' selected email(s)…', '#007aff', 2000);
-        for (const cb of checked) { const em = gmailEmails[parseInt(cb.dataset.idx)]; if (!em) continue; const ls = await gmailFetchEmailLines(em); ls.forEach(l => CONTEXT_LINES.push(l)); }
-        cutIdx = CONTEXT_LINES.length - 1;
-        notify(checked.length + ' email(s) added to context', '#34c759', 1800);
+        let added = 0;
+        for (const cb of checked) { const em = gmailEmails[parseInt(cb.dataset.idx)]; if (!em) continue; const ls = await gmailFetchEmailLines(em); if (ls.length) { _addCtxGroup(em.subject || gmailExtractAddr(em.from) || 'Email', ls); added++; } }
+        notify(added + ' email(s) added to context', '#34c759', 1800);
     } else if (type === 'clipboard') {
         try {
             let addedLines = 0;
@@ -5689,13 +5734,10 @@ function _linkifyHtml(html) {
         </div>
         <div id="fchat-header-row2">
             <div id="fchat-context-label" style="font-size:10px; color:#888; white-space:nowrap; flex-shrink:0;">No context</div>
-            <div id="fchat-ctx-btns" style="display:flex; gap:3px; flex-shrink:0; margin-left:4px;">
-                <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')">📧 Email</div>
-                <div class="fchat-ctx-btn" onclick="addFloatingChatContext('sender')">📬 Thread</div>
-                <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')">✅ Sel</div>
-                <div class="fchat-ctx-btn danger" onclick="addFloatingChatContext('clear')">🗑</div>
-            </div>
+            <div id="fchat-ctx-group-chips" style="display:flex; gap:3px; flex-shrink:0; align-items:center;"></div>
+            <div id="fchat-ctx-btns" style="display:flex; gap:3px; flex-shrink:0; margin-left:4px;"></div>
         </div>
+        <div id="fchat-ctx-group-panel" style="display:none;"></div>
     </div>
 </div>
 
@@ -5838,11 +5880,9 @@ function _pickReplyAiProfile(profileLabel) {
         const bodyText = bodyEl ? (bodyEl.innerText || bodyEl.textContent || '').trim() : '';
         const lines = bodyText.split('\n').map(l => l.trim()).filter(l => l.length > 1);
         if (lines.length > 0) {
-            lines.forEach(l => CONTEXT_LINES.push(l));
-            cutIdx = CONTEXT_LINES.length - 1;
-            _updateFchatContextLabel();
-            refreshUI();
-            notify(`✏️ Reply mode · ${lines.length} email lines added to context`, 'var(--accent)', 3000);
+            const subj = gmailCurrentEmail ? (gmailCurrentEmail.subject || gmailExtractAddr(gmailCurrentEmail.from) || 'Current Email') : 'Current Email';
+            _addCtxGroup('📧 ' + subj, lines);
+            notify(`✏️ Reply mode · email added to context (${lines.length} lines)`, 'var(--accent)', 3000);
         } else {
             notify('✏️ AI responses will stream into your draft', 'var(--accent)', 2400);
         }
