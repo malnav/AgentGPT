@@ -1471,6 +1471,8 @@ let _bubblePickerConfigs = [];
 const _CTX_OPTS = [
     { id: 'email', icon: '📧', label: 'Email', ctxType: 'current' },
     { id: 'thread', icon: '📬', label: 'Thread', ctxType: 'sender' },
+    { id: 'address', icon: '🔍', label: 'Address', ctxType: 'address_scan' },
+    { id: 'clipboard', icon: '📋', label: 'Clipboard', ctxType: 'clipboard' },
     { id: 'selected', icon: '✅', label: 'Sel', ctxType: 'selected' },
     { id: 'clear', icon: '🗑', label: '', cls: 'danger', ctxType: 'clear' },
 ];
@@ -5082,6 +5084,23 @@ async function addFloatingChatContext(type) {
         for (const r of related) { const ls = await gmailFetchEmailLines(r); ls.forEach(l => CONTEXT_LINES.push(l)); }
         cutIdx = CONTEXT_LINES.length - 1;
         notify(related.length + ' email(s) added to context', '#34c759', 1800);
+    } else if (type === 'address_scan') {
+        const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
+        const senderAddr = gmailExtractAddr(em.from); if (!senderAddr) { notify('Cannot extract address', '#ff3b30', 1800); return; }
+        const addrLower = senderAddr.toLowerCase();
+        const matched = (gmailEmails || []).filter(e => {
+            if (gmailExtractAddr(e.from).toLowerCase() === addrLower) return true;
+            if ((e.to || '').toLowerCase().includes(addrLower)) return true;
+            if ((e.snippet || '').toLowerCase().includes(addrLower)) return true;
+            const bodyEl = document.getElementById('gmail-preview-body');
+            if (e === gmailCurrentEmail && bodyEl && (bodyEl.innerText || '').toLowerCase().includes(addrLower)) return true;
+            return false;
+        });
+        if (!matched.length) { notify('No emails found matching this address', '#888', 1800); return; }
+        notify('Loading ' + matched.length + ' email(s) matching address…', '#007aff', 2500);
+        for (const r of matched) { const ls = await gmailFetchEmailLines(r); ls.forEach(l => { if (l && !CONTEXT_LINES.includes(l)) CONTEXT_LINES.push(l); }); }
+        cutIdx = CONTEXT_LINES.length - 1;
+        notify(matched.length + ' email(s) added to context', '#34c759', 1800);
     } else if (type === 'selected') {
         const checked = Array.from(document.querySelectorAll('.gmail-chk:checked'));
         if (!checked.length) { notify('No emails selected in the list', '#ff3b30', 1800); return; }
@@ -5089,6 +5108,43 @@ async function addFloatingChatContext(type) {
         for (const cb of checked) { const em = gmailEmails[parseInt(cb.dataset.idx)]; if (!em) continue; const ls = await gmailFetchEmailLines(em); ls.forEach(l => CONTEXT_LINES.push(l)); }
         cutIdx = CONTEXT_LINES.length - 1;
         notify(checked.length + ' email(s) added to context', '#34c759', 1800);
+    } else if (type === 'clipboard') {
+        try {
+            let addedLines = 0;
+            if (navigator.clipboard && navigator.clipboard.read) {
+                const items = await navigator.clipboard.read();
+                for (const item of items) {
+                    if (item.types.includes('text/plain')) {
+                        const blob = await item.getType('text/plain');
+                        const text = await blob.text();
+                        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                        lines.forEach(l => CONTEXT_LINES.push(l));
+                        addedLines += lines.length;
+                    } else {
+                        const imgType = item.types.find(t => t.startsWith('image/'));
+                        if (imgType) {
+                            if (!CONFIG.ai_key) { notify('API key needed to transcribe images', '#ff3b30', 2200); continue; }
+                            const blob = await item.getType(imgType);
+                            const b64 = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result.split(',')[1]); r.readAsDataURL(blob); });
+                            notify('Transcribing clipboard image…', '#007aff', 3500);
+                            const resp = await fetch('https://api.openai.com/v1/responses', { method: 'POST', headers: { 'Authorization': 'Bearer ' + CONFIG.ai_key, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: CONFIG.model || 'gpt-4o-mini', input: [{ role: 'user', content: [{ type: 'input_image', image_url: 'data:' + imgType + ';base64,' + b64 }, { type: 'input_text', text: 'Transcribe all visible text from this image exactly as it appears, line by line. Output only the raw text content, no commentary.' }] }] }) });
+                            const json = await resp.json();
+                            const transcribed = ((json.output || [])[0]?.content || []).map(c => c.text || '').join('');
+                            const lines = transcribed.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                            lines.forEach(l => CONTEXT_LINES.push(l));
+                            addedLines += lines.length;
+                        }
+                    }
+                }
+            } else if (navigator.clipboard && navigator.clipboard.readText) {
+                const text = await navigator.clipboard.readText();
+                const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                lines.forEach(l => CONTEXT_LINES.push(l));
+                addedLines = lines.length;
+            } else { notify('Clipboard not supported in this browser', '#ff3b30', 2000); return; }
+            if (addedLines > 0) { cutIdx = CONTEXT_LINES.length - 1; notify(addedLines + ' lines added from clipboard', '#34c759', 2000); }
+            else { notify('Clipboard is empty or has no readable content', '#888', 1800); }
+        } catch (err) { notify('Clipboard access denied — allow clipboard permission', '#ff3b30', 2500); }
     }
     _updateFchatContextLabel();
 }
