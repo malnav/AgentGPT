@@ -530,13 +530,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .fchat-ctx-btn { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:var(--accent); background:rgba(0,122,255,0.10); border-radius:8px; padding:4px 9px; cursor:pointer; white-space:nowrap; flex-shrink:0; border:0.5px solid rgba(0,122,255,0.18); transition:background 0.15s; }
 .fchat-ctx-btn:active { background:rgba(0,122,255,0.22); }
 .fchat-ctx-btn.danger { color:#ff3b30; background:rgba(255,59,48,0.10); border-color:rgba(255,59,48,0.18); }
-.fchat-ctx-group-chip { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:#34c759; background:rgba(52,199,89,0.10); border-radius:8px; padding:4px 9px; cursor:pointer; white-space:nowrap; flex-shrink:0; border:0.5px solid rgba(52,199,89,0.22); transition:background 0.15s; max-width:150px; }
-.fchat-ctx-group-chip.open { background:rgba(52,199,89,0.20); }
-.fchat-ctx-group-chip:active { background:rgba(52,199,89,0.28); }
-.fchat-ctx-group-chip .cg-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70px; }
-.fchat-ctx-group-chip .cg-rm { color:#ff3b30; opacity:0.75; padding-left:2px; font-size:11px; }
-#fchat-ctx-group-panel { position:absolute; left:0; right:0; top:100%; max-height:220px; overflow-y:auto; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-top:0.5px solid var(--glass-border); border-bottom:0.5px solid var(--glass-border); padding:8px 14px 12px; z-index:9002; scrollbar-width:none; }
-#fchat-ctx-group-panel::-webkit-scrollbar { display:none; }
 .cg-panel-line { padding:3px 0; font-size:11px; color:var(--text); opacity:0.85; border-bottom:0.5px solid var(--border); white-space:pre-wrap; word-break:break-word; line-height:1.5; }
 .pbm-header { padding:14px 16px 10px; border-bottom:0.5px solid var(--border); }
 .pbm-title { font-size:12px; font-weight:800; color:var(--accent); letter-spacing:0.4px; }
@@ -1742,7 +1735,18 @@ async function refreshUI() {
     const mH = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); const mHopt = `<option value="">(chat)</option>` + mH; document.getElementById('chatModel').innerHTML = mH; document.getElementById('ai-gen-model').innerHTML = mH; document.getElementById('p-model-set').innerHTML = `<option value="">(Keep Global Model)</option>` + mH; ['title-model-f','extract-model-f','suggest-model-f'].forEach(id => document.getElementById(id).innerHTML = mHopt);
     if(currentGlobalModel) document.getElementById('chatModel').value = currentGlobalModel;
     renderSessionVariables(); renderInlinePrompts();
-    document.getElementById('context-list').innerHTML = CONTEXT_LINES.map((l,i) => `<li class="list-item ${cutIdx!==-1 && i<=cutIdx?'in-cut':''}"><input type="checkbox" class="ctx-checkbox" value="${i}" onchange="updateCtxSelection()"><div style="flex:1; white-space:normal; word-break:break-word; padding-right:8px; cursor:pointer;" onclick="insertContextAtCursor(${i})">${l}</div><div class="btn-row"><div class="inline-btn" onclick="event.stopPropagation(); cutIdx=(cutIdx===${i})?-1:${i}; refreshUI();">${cutIdx===i?'✂️':'|'}</div></div></li>`).join('');
+    const _ctxGroupsHtml = (_ctxGroups || []).map(g =>
+        `<li style="list-style:none; padding:0; border-left:3px solid #34c759; background:rgba(52,199,89,0.06); margin:2px 0;">` +
+        `<div style="display:flex; align-items:center; gap:8px; padding:9px 12px; cursor:pointer;" onclick="_toggleCtxGroup('${g.id}')">` +
+        `<span style="font-size:11px; flex-shrink:0;">${g.expanded ? '▼' : '▶'}</span>` +
+        `<span style="flex:1; font-weight:700; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text);">${g.title}</span>` +
+        `<span style="font-size:11px; color:#888; flex-shrink:0; margin-right:4px;">${g.lines.length} lines</span>` +
+        `<div class="inline-btn" style="color:#ff3b30;" onclick="event.stopPropagation(); _removeCtxGroup('${g.id}')">🗑</div>` +
+        `</div>` +
+        (g.expanded ? `<div style="padding:0 12px 8px; border-top:0.5px solid rgba(52,199,89,0.18);">` + g.lines.map(l => `<div class="cg-panel-line">${l}</div>`).join('') + `</div>` : '') +
+        `</li>`
+    ).join('');
+    document.getElementById('context-list').innerHTML = CONTEXT_LINES.map((l,i) => `<li class="list-item ${cutIdx!==-1 && i<=cutIdx?'in-cut':''}"><input type="checkbox" class="ctx-checkbox" value="${i}" onchange="updateCtxSelection()"><div style="flex:1; white-space:normal; word-break:break-word; padding-right:8px; cursor:pointer;" onclick="insertContextAtCursor(${i})">${l}</div><div class="btn-row"><div class="inline-btn" onclick="event.stopPropagation(); cutIdx=(cutIdx===${i})?-1:${i}; refreshUI();">${cutIdx===i?'✂️':'|'}</div></div></li>`).join('') + _ctxGroupsHtml;
     updateCtxSelection(); 
     let ctxLabel = cutIdx === -1 ? '☁️' : '🌦️'; document.getElementById('ctx-indicator').innerText = ctxLabel; document.getElementById('ctx-btn-all').classList.toggle('active', cutIdx === CONTEXT_LINES.length - 1); document.getElementById('ctx-btn-none').classList.toggle('active', cutIdx === -1);
     document.getElementById('def-ctx-f').value = CONFIG.def_ctx || "all"; document.getElementById('def-prof-f').innerHTML = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); document.getElementById('def-mod-f').innerHTML = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('def-prof-f').value = CONFIG.def_profile; document.getElementById('def-mod-f').value = CONFIG.def_model;
@@ -4491,7 +4495,6 @@ let _bubbleMoved = false;
 let _fchatSessions = [];
 let _fchatActiveId = null;
 let _ctxGroups = [];
-let _ctxGroupOpenId = null;
 let _freshSessionActive = false;
 
 function initProfileBubble() {
@@ -5075,47 +5078,33 @@ function fchatClearAndClose(e) {
 
 function _addCtxGroup(title, lines) {
     const id = 'cg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-    _ctxGroups.push({ id, title, lines });
+    _ctxGroups.push({ id, title, lines, expanded: false });
     _updateFchatContextLabel();
 }
 function _removeCtxGroup(id, e) {
     if (e && e.stopPropagation) e.stopPropagation();
     _ctxGroups = _ctxGroups.filter(g => g.id !== id);
-    if (_ctxGroupOpenId === id) { _ctxGroupOpenId = null; _renderCtxGroupPanel(); }
     _updateFchatContextLabel();
+    refreshUI();
 }
-function _toggleCtxGroupPanel(id) {
-    _ctxGroupOpenId = (_ctxGroupOpenId === id) ? null : id;
-    _renderCtxGroupPanel();
-    _updateFchatContextLabel();
-}
-function _renderCtxGroupPanel() {
-    const panel = document.getElementById('fchat-ctx-group-panel'); if (!panel) return;
-    if (!_ctxGroupOpenId) { panel.style.display = 'none'; return; }
-    const g = _ctxGroups.find(x => x.id === _ctxGroupOpenId);
-    if (!g) { panel.style.display = 'none'; return; }
-    panel.style.display = 'block';
-    panel.innerHTML = `<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; padding-bottom:4px; border-bottom:0.5px solid var(--glass-border);"><span style="font-size:11px; font-weight:800; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${g.title}</span><span style="font-size:10px; color:#888; flex-shrink:0;">${g.lines.length} lines</span></div>` + g.lines.map(l => `<div class="cg-panel-line">${l}</div>`).join('');
+function _toggleCtxGroup(id) {
+    const g = _ctxGroups.find(x => x.id === id); if (!g) return;
+    g.expanded = !g.expanded;
+    refreshUI();
 }
 function _updateFchatContextLabel() {
     const lbl = document.getElementById('fchat-context-label'); if (!lbl) return;
     const n = (CONTEXT_LINES || []).length;
-    const gTotal = (_ctxGroups || []).reduce((s, g) => s + g.lines.length, 0);
-    const total = n + gTotal;
-    lbl.textContent = total === 0 ? 'No context' : (n > 0 ? n + ' lines' : '') + (_ctxGroups.length ? (n > 0 ? ' + ' : '') + _ctxGroups.length + ' email' + (_ctxGroups.length !== 1 ? 's' : '') : '');
-    const chipsEl = document.getElementById('fchat-ctx-group-chips'); if (!chipsEl) return;
-    chipsEl.innerHTML = _ctxGroups.map(g =>
-        `<div class="fchat-ctx-group-chip ${_ctxGroupOpenId === g.id ? 'open' : ''}" onclick="_toggleCtxGroupPanel('${g.id}')">` +
-        `<span>${_ctxGroupOpenId === g.id ? '▼' : '▶'}</span>` +
-        `<span class="cg-title">${g.title}</span>` +
-        `<span style="opacity:0.6;">(${g.lines.length})</span>` +
-        `<span class="cg-rm" onclick="_removeCtxGroup('${g.id}',event)">✕</span>` +
-        `</div>`
-    ).join('');
+    const ge = (_ctxGroups || []).length;
+    if (n === 0 && ge === 0) { lbl.textContent = 'No context'; return; }
+    const parts = [];
+    if (n > 0) parts.push(n + ' lines');
+    if (ge > 0) parts.push(ge + ' email' + (ge !== 1 ? 's' : ''));
+    lbl.textContent = parts.join(' · ');
 }
 
 async function addFloatingChatContext(type) {
-    if (type === 'clear') { CONTEXT_LINES.splice(0); cutIdx = -1; _ctxGroups = []; _ctxGroupOpenId = null; _renderCtxGroupPanel(); _updateFchatContextLabel(); notify('Context cleared', '#888', 1500); return; }
+    if (type === 'clear') { CONTEXT_LINES.splice(0); cutIdx = -1; _ctxGroups = []; _updateFchatContextLabel(); refreshUI(); notify('Context cleared', '#888', 1500); return; }
     if (type === 'current') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
         notify('Adding current email to context…', '#007aff', 1800);
@@ -5734,10 +5723,9 @@ function _linkifyHtml(html) {
         </div>
         <div id="fchat-header-row2">
             <div id="fchat-context-label" style="font-size:10px; color:#888; white-space:nowrap; flex-shrink:0;">No context</div>
-            <div id="fchat-ctx-group-chips" style="display:flex; gap:3px; flex-shrink:0; align-items:center;"></div>
-            <div id="fchat-ctx-btns" style="display:flex; gap:3px; flex-shrink:0; margin-left:4px;"></div>
+            <div class="fchat-ctx-btn" onclick="closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI();" style="margin-right:2px; color:var(--text); background:rgba(128,128,128,0.12); border-color:rgba(128,128,128,0.2);">📋 Context</div>
+            <div id="fchat-ctx-btns" style="display:flex; gap:3px; flex-shrink:0;"></div>
         </div>
-        <div id="fchat-ctx-group-panel" style="display:none;"></div>
     </div>
 </div>
 
