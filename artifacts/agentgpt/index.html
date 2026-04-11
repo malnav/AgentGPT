@@ -466,7 +466,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .fchat-bubble-action-btn { width:22px; height:22px; border-radius:11px; background:rgba(20,20,30,0.82); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1.5px solid rgba(255,255,255,0.35); box-shadow:0 1px 6px rgba(0,0,0,0.3); }
 .fchat-bubble-label { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:9px; color:#888; white-space:nowrap; font-weight:600; pointer-events:none; }
 #home-screen { position:fixed; inset:0; z-index:500; background:var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); display:flex; flex-direction:column; overflow:hidden; }
-#hs-header { padding:max(14px, env(safe-area-inset-top)) 16px 10px 16px; display:flex; align-items:center; gap:10px; flex-shrink:0; border-bottom:0.5px solid var(--border); background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); }
+#hs-header { padding:max(14px, env(safe-area-inset-top)) 16px 8px 16px; display:flex; align-items:center; gap:10px; flex-shrink:0; background:transparent; }
 #hs-body { flex:1; overflow-y:auto; padding:14px 14px max(80px, calc(env(safe-area-inset-bottom) + 80px)) 14px; display:flex; flex-direction:column; }
 #hs-cards-wrap { display:flex; flex-direction:column; gap:14px; }
 .hs-col-div { flex:1; min-width:0; display:flex; flex-direction:column; gap:14px; }
@@ -5712,13 +5712,13 @@ function _linkifyHtml(html) {
             <div class="hs-greeting" id="hs-greeting">Good morning</div>
             <div class="hs-date" id="hs-date"></div>
         </div>
-        <div style="display:flex; gap:3px; align-items:center; background:var(--sec-bg); border-radius:12px; padding:3px;">
-            <button id="hs-col-btn-1" onclick="saveHsColumns(1)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;">1</button>
-            <button id="hs-col-btn-2" onclick="saveHsColumns(2)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;">2</button>
-            <button id="hs-col-btn-3" onclick="saveHsColumns(3)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;">3</button>
+        <div style="display:flex; gap:3px; align-items:center; background:rgba(0,0,0,0.07); border-radius:12px; padding:3px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);">
+            <button id="hs-col-btn-1" onclick="saveHsColumns(1)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">1</button>
+            <button id="hs-col-btn-2" onclick="saveHsColumns(2)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">2</button>
+            <button id="hs-col-btn-3" onclick="saveHsColumns(3)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">3</button>
         </div>
-        <div onclick="openModal('master-modal')" style="font-size:22px; cursor:pointer; opacity:0.6; padding:4px 6px;" title="Settings">⚙️</div>
-        <div onclick="hideHomeScreen()" style="font-size:13px; font-weight:700; color:var(--accent); cursor:pointer; padding:4px 8px; background:var(--sec-bg); border-radius:12px; white-space:nowrap;">💬 Chats</div>
+        <div onclick="openModal('master-modal')" style="font-size:20px; cursor:pointer; opacity:0.55; padding:4px 4px;" title="Settings">⚙️</div>
+        <div onclick="hideHomeScreen()" style="font-size:12px; font-weight:700; color:var(--accent); cursor:pointer; padding:5px 12px; background:rgba(0,0,0,0.07); border-radius:20px; white-space:nowrap; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);">Chats</div>
     </div>
     <div id="hs-body">
         <div id="hs-cards-wrap">
