@@ -596,9 +596,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #hs-body { padding-left: max(20px, calc((100vw - 640px) / 2)); padding-right: max(20px, calc((100vw - 640px) / 2)); }
   .hs-greeting { font-size: 24px; }
   #hs-header { padding-left: max(24px, calc((100vw - 640px) / 2)); padding-right: max(24px, calc((100vw - 640px) / 2)); }
-  /* Masonry-style column layout for 2+ columns (768px+) */
-  #hs-body.hs-cols-2, #hs-body.hs-cols-3 { display: block; columns: 2; column-gap: 14px; padding-left: max(20px, calc((100vw - 900px) / 2)); padding-right: max(20px, calc((100vw - 900px) / 2)); }
-  #hs-body.hs-cols-2 .hs-card, #hs-body.hs-cols-3 .hs-card { break-inside: avoid; -webkit-column-break-inside: avoid; margin-bottom: 14px; }
+  /* Multi-column layout (768px+) */
+  #hs-body.hs-cols-2, #hs-body.hs-cols-3 { flex-direction: row; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; padding-left: max(20px, calc((100vw - 900px) / 2)); padding-right: max(20px, calc((100vw - 900px) / 2)); }
+  #hs-body.hs-cols-2 > .hs-card { flex: 0 0 calc(50% - 7px); min-width: 0; }
+  #hs-body.hs-cols-3 > .hs-card { flex: 0 0 calc(33.333% - 10px); min-width: 0; }
 }
 
 /* ═══════════════════════════════════════════════
@@ -681,7 +682,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #hs-header { padding-left: max(32px, calc((100vw - 760px) / 2)); padding-right: max(32px, calc((100vw - 760px) / 2)); }
   #hs-body { padding-left: max(32px, calc((100vw - 760px) / 2)); padding-right: max(32px, calc((100vw - 760px) / 2)); }
   #hs-body.hs-cols-2, #hs-body.hs-cols-3 { padding-left: max(28px, calc((100vw - 1060px) / 2)); padding-right: max(28px, calc((100vw - 1060px) / 2)); }
-  #hs-body.hs-cols-3 { columns: 3; }
   .hs-greeting { font-size: 30px; }
   .hs-card { border-radius: 24px; }
   .hs-card-drag-clone { left: max(32px, calc((100vw - 760px) / 2)); right: max(32px, calc((100vw - 760px) / 2)); }
@@ -2685,7 +2685,7 @@ async function pushConfigToFirebase() {
     } catch(e) { addLog("SYNC", "Config Push Error", e.message); hideSyncIndicator(false); }
 }
 
-function _hsApplyColumns() { const b=document.getElementById('hs-body'); if(!b)return; b.classList.remove('hs-cols-2','hs-cols-3'); const c=parseInt(CONFIG.hs_columns)||1; if(c===2)b.classList.add('hs-cols-2'); else if(c>=3)b.classList.add('hs-cols-3'); }
+function _hsApplyColumns() { const b=document.getElementById('hs-body'); if(!b)return; b.classList.remove('hs-cols-2','hs-cols-3'); const c=parseInt(CONFIG.hs_columns)||1; if(c===2)b.classList.add('hs-cols-2'); else if(c>=3)b.classList.add('hs-cols-3'); [1,2,3].forEach(n=>{ const btn=document.getElementById('hs-col-btn-'+n); if(!btn)return; btn.style.background=n===c?'var(--accent)':'transparent'; btn.style.color=n===c?'#fff':'var(--text)'; }); }
 async function saveHsColumns(v) { CONFIG.hs_columns=parseInt(v)||1; await saveAll(true); _hsApplyColumns(); notify('Widget columns updated','#34c759',1200); }
 async function toggleHomeScreenSetting(enabled) {
     CONFIG.home_screen = !!enabled;
@@ -5688,6 +5688,11 @@ function _linkifyHtml(html) {
         <div style="flex:1; min-width:0;">
             <div class="hs-greeting" id="hs-greeting">Good morning</div>
             <div class="hs-date" id="hs-date"></div>
+        </div>
+        <div style="display:flex; gap:3px; align-items:center; background:var(--sec-bg); border-radius:12px; padding:3px;">
+            <button id="hs-col-btn-1" onclick="saveHsColumns(1)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;">1</button>
+            <button id="hs-col-btn-2" onclick="saveHsColumns(2)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;">2</button>
+            <button id="hs-col-btn-3" onclick="saveHsColumns(3)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;">3</button>
         </div>
         <div onclick="openModal('master-modal')" style="font-size:22px; cursor:pointer; opacity:0.6; padding:4px 6px;" title="Settings">⚙️</div>
         <div onclick="hideHomeScreen()" style="font-size:13px; font-weight:700; color:var(--accent); cursor:pointer; padding:4px 8px; background:var(--sec-bg); border-radius:12px; white-space:nowrap;">💬 Chats</div>
