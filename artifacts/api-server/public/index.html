@@ -600,7 +600,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #hs-body.hs-cols-2, #hs-body.hs-cols-3 { padding-left: max(20px, calc((100vw - 900px) / 2)); padding-right: max(20px, calc((100vw - 900px) / 2)); }
   #hs-body.hs-cols-2 #hs-cols-wrapper { columns: 2; column-gap: 14px; }
   #hs-body.hs-cols-3 #hs-cols-wrapper { columns: 3; column-gap: 14px; }
-  #hs-body.hs-cols-2 .hs-card, #hs-body.hs-cols-3 .hs-card { display: inline-block; width: 100%; box-sizing: border-box; break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; margin-bottom: 14px; }
+  #hs-body.hs-cols-2 .hs-card, #hs-body.hs-cols-3 .hs-card { overflow: clip; break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; margin-bottom: 14px; }
 }
 
 /* ═══════════════════════════════════════════════
