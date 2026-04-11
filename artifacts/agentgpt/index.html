@@ -486,6 +486,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .hs-mini-cal-day:active { background:var(--sec-bg); }
 .hs-todo-row { display:flex; align-items:flex-start; gap:8px; padding:8px 0; border-bottom:0.5px solid var(--border); }
 .hs-todo-row:last-child { border-bottom:none; }
+#hs-todo-quick-bar { display:flex; align-items:center; gap:8px; padding:8px 14px 12px 14px; border-top:0.5px solid var(--border); }
+#hs-todo-quick-input { flex:1; border:none; border-radius:12px; padding:8px 12px; font-size:13px; background:var(--sec-bg); color:var(--text); outline:none; font-family:inherit; }
+#hs-todo-quick-input::placeholder { color:#aaa; }
+#hs-todo-quick-btn { flex-shrink:0; width:30px; height:30px; border:none; border-radius:50%; background:var(--accent); color:#fff; font-size:18px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:300; }
 .hs-email-row { display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:0.5px solid var(--border); cursor:pointer; }
 .hs-email-row:last-child { border-bottom:none; }
 .hs-email-row:active { opacity:0.7; }
@@ -1897,6 +1901,7 @@ function openTodoEditModal(todoObj, onSave, preVid) { document.getElementById('t
 
 async function addTodo(fromGlobal, defaultVid) { let vid = defaultVid; if(!vid && !fromGlobal) { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); vid = (cur && cur.var_id) ? cur.var_id : _INBOX_VID; } openTodoEditModal({ text: '', date: null }, async (text, date, selectedVid) => { if(selectedVid === _INBOX_VID) { if(!GLOBAL_DATASETS[_INBOX_VID]) GLOBAL_DATASETS[_INBOX_VID] = { title: 'Inbox', data: {}, todos: [] }; } let ds = GLOBAL_DATASETS[selectedVid]; if(!ds) return; if(!ds.todos) ds.todos = []; ds.todos.push({ id: Date.now().toString(), text, done: false, date }); await saveAll(); renderChatTodos(); if(fromGlobal) { _populateGTodoFilters(); renderGlobalTodos(); } renderCalendar(); }, vid); }
 
+async function _hsQuickAddTodo() { const inp = document.getElementById('hs-todo-quick-input'); if(!inp) return; const text = inp.value.trim(); if(!text) { inp.focus(); return; } const dsSel = document.getElementById('hs-gtodo-ds-sel'); let vid = (dsSel && dsSel.value && dsSel.value !== 'all') ? dsSel.value : _INBOX_VID; if(vid === _INBOX_VID) { if(!GLOBAL_DATASETS[_INBOX_VID]) GLOBAL_DATASETS[_INBOX_VID] = { title: 'Inbox', data: {}, todos: [] }; } const ds = GLOBAL_DATASETS[vid]; if(!ds) return; if(!ds.todos) ds.todos = []; ds.todos.push({ id: Date.now().toString(), text, done: false, date: null }); inp.value = ''; await saveAll(); _populateGTodoFilters(); renderGlobalTodos(); renderChatTodos(); renderCalendar(); inp.focus(); }
 async function editTodo(vid, todoId) { let ds = GLOBAL_DATASETS[vid]; if(!ds || !ds.todos) return; let t = ds.todos.find(x => String(x.id) === String(todoId)); if(!t) return; openTodoEditModal(t, async (text, date, newVid) => { if(String(newVid) !== String(vid)) { ds.todos = ds.todos.filter(x => String(x.id) !== String(todoId)); if(newVid === _INBOX_VID && !GLOBAL_DATASETS[_INBOX_VID]) GLOBAL_DATASETS[_INBOX_VID] = { title: 'Inbox', data: {}, todos: [] }; let newDs = GLOBAL_DATASETS[newVid]; if(!newDs) return; if(!newDs.todos) newDs.todos = []; newDs.todos.push({ ...t, text, date }); } else { t.text = text; t.date = date; } await saveAll(); renderChatTodos(); renderGlobalTodos(); renderCalendar(); }, vid); }
 
 async function toggleTodo(vid, todoId) { let ds = GLOBAL_DATASETS[vid]; if(!ds || !ds.todos) return; let t = ds.todos.find(x => String(x.id) === String(todoId)); if(t) t.done = !t.done; await saveAll(); renderChatTodos(); renderGlobalTodos(); }
@@ -5770,6 +5775,10 @@ function _linkifyHtml(html) {
                 </div>
             </div>
             <div id="hs-todos-anchor" style="min-height:120px; overflow-y:auto; padding:8px 14px 10px;"></div>
+            <div id="hs-todo-quick-bar">
+                <input id="hs-todo-quick-input" type="text" placeholder="Add a todo…" maxlength="300" autocomplete="off" onkeydown="if(event.key==='Enter')_hsQuickAddTodo()">
+                <button id="hs-todo-quick-btn" onclick="_hsQuickAddTodo()" title="Add todo">+</button>
+            </div>
         </div>
         <div class="hs-card" data-card-id="dataset">
             <div class="hs-card-header">
