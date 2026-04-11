@@ -596,10 +596,11 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #hs-body { padding-left: max(20px, calc((100vw - 640px) / 2)); padding-right: max(20px, calc((100vw - 640px) / 2)); }
   .hs-greeting { font-size: 24px; }
   #hs-header { padding-left: max(24px, calc((100vw - 640px) / 2)); padding-right: max(24px, calc((100vw - 640px) / 2)); }
-  /* Multi-column layout (768px+) */
-  #hs-body.hs-cols-2, #hs-body.hs-cols-3 { flex-direction: row; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; padding-left: max(20px, calc((100vw - 900px) / 2)); padding-right: max(20px, calc((100vw - 900px) / 2)); }
-  #hs-body.hs-cols-2 > .hs-card { flex: 0 0 calc(50% - 7px); min-width: 0; }
-  #hs-body.hs-cols-3 > .hs-card { flex: 0 0 calc(33.333% - 10px); min-width: 0; }
+  /* Multi-column masonry layout (768px+) */
+  #hs-body.hs-cols-2, #hs-body.hs-cols-3 { padding-left: max(20px, calc((100vw - 900px) / 2)); padding-right: max(20px, calc((100vw - 900px) / 2)); }
+  #hs-body.hs-cols-2 #hs-cols-wrapper { columns: 2; column-gap: 14px; }
+  #hs-body.hs-cols-3 #hs-cols-wrapper { columns: 3; column-gap: 14px; }
+  #hs-body.hs-cols-2 .hs-card, #hs-body.hs-cols-3 .hs-card { break-inside: avoid; -webkit-column-break-inside: avoid; margin-bottom: 14px; }
 }
 
 /* ═══════════════════════════════════════════════
@@ -4816,7 +4817,7 @@ function hideHomeScreen() {
 function _hsApplyCardOrder() {
     const order = CONFIG.hs_card_order;
     if (!order || !Array.isArray(order) || order.length < 2) return;
-    const body = document.getElementById('hs-body'); if (!body) return;
+    const body = document.getElementById('hs-cols-wrapper') || document.getElementById('hs-body'); if (!body) return;
     const cards = {};
     body.querySelectorAll('.hs-card[data-card-id]').forEach(c => { cards[c.dataset.cardId] = c; });
     order.forEach(id => { if (cards[id]) body.appendChild(cards[id]); });
@@ -4883,7 +4884,7 @@ async function _hsRenderDataset() {
 let _hsDragInited = false;
 function _hsInitCardDrag() {
     if (_hsDragInited) return; _hsDragInited = true;
-    const body = document.getElementById('hs-body'); if (!body) return;
+    const body = document.getElementById('hs-cols-wrapper') || document.getElementById('hs-body'); if (!body) return;
     let _drag = null;
     const getCards = () => [...body.querySelectorAll('.hs-card')];
     const startDrag = (card, clientX, clientY) => {
@@ -5698,6 +5699,7 @@ function _linkifyHtml(html) {
         <div onclick="hideHomeScreen()" style="font-size:13px; font-weight:700; color:var(--accent); cursor:pointer; padding:4px 8px; background:var(--sec-bg); border-radius:12px; white-space:nowrap;">💬 Chats</div>
     </div>
     <div id="hs-body">
+        <div id="hs-cols-wrapper">
         <div class="hs-card" data-card-id="weather">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
@@ -5771,6 +5773,7 @@ function _linkifyHtml(html) {
                 <div onclick="openModal('gmail-modal')" style="cursor:pointer; font-size:12px; color:var(--accent);">Full View →</div>
             </div>
             <div id="hs-email-anchor" style="height:580px; display:flex; flex-direction:column; position:relative; overflow:hidden;"></div>
+        </div>
         </div>
     </div>
     <button class="hs-chats-btn" onclick="openBubblePicker()" title="Start new chat">💬</button>
