@@ -600,7 +600,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #hs-body.hs-cols-2, #hs-body.hs-cols-3 { padding-left: max(20px, calc((100vw - 900px) / 2)); padding-right: max(20px, calc((100vw - 900px) / 2)); }
   #hs-body.hs-cols-2 #hs-cols-wrapper { columns: 2; column-gap: 14px; }
   #hs-body.hs-cols-3 #hs-cols-wrapper { columns: 3; column-gap: 14px; }
-  #hs-body.hs-cols-2 .hs-card, #hs-body.hs-cols-3 .hs-card { break-inside: avoid; -webkit-column-break-inside: avoid; margin-bottom: 14px; }
+  #hs-body.hs-cols-2 .hs-card, #hs-body.hs-cols-3 .hs-card { display: inline-block; width: 100%; box-sizing: border-box; break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; margin-bottom: 14px; }
 }
 
 /* ═══════════════════════════════════════════════
@@ -4911,9 +4911,10 @@ function _hsInitCardDrag() {
         const cards = getCards().filter(c => c !== _drag.card);
         let best = null, bestDist = Infinity;
         cards.forEach(c => { const r = c.getBoundingClientRect(); const dx = cx - (r.left + r.width / 2); const dy = cy - (r.top + r.height / 2); const d = Math.sqrt(dx*dx + dy*dy); if (d < bestDist) { bestDist = d; best = c; } });
-        if (best && bestDist < 300) {
-            const allCards = getCards(); const dragIdx = allCards.indexOf(_drag.card); const targetIdx = allCards.indexOf(best);
-            if (dragIdx < targetIdx) body.insertBefore(best, _drag.card); else body.insertBefore(_drag.card, best);
+        if (best && bestDist < 320) {
+            const bestRect = best.getBoundingClientRect();
+            const insertAfter = cy > bestRect.top + bestRect.height / 2;
+            if (insertAfter) body.insertBefore(_drag.card, best.nextSibling); else body.insertBefore(_drag.card, best);
         }
         const newOrder = getCards().map(c => c.dataset.cardId).filter(Boolean);
         if (newOrder.length) { CONFIG.hs_card_order = newOrder; saveAll(true); }
