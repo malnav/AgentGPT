@@ -600,7 +600,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #hs-body.hs-cols-2, #hs-body.hs-cols-3 { padding-left: max(20px, calc((100vw - 900px) / 2)); padding-right: max(20px, calc((100vw - 900px) / 2)); }
   #hs-body.hs-cols-2 #hs-cols-wrapper { columns: 2; column-gap: 14px; }
   #hs-body.hs-cols-3 #hs-cols-wrapper { columns: 3; column-gap: 14px; }
-  #hs-body.hs-cols-2 .hs-card, #hs-body.hs-cols-3 .hs-card { overflow: clip; break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; margin-bottom: 14px; }
+  #hs-body.hs-cols-2 .hs-card-col-wrap, #hs-body.hs-cols-3 .hs-card-col-wrap { break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; margin-bottom: 14px; }
 }
 
 /* ═══════════════════════════════════════════════
@@ -4820,7 +4820,7 @@ function _hsApplyCardOrder() {
     const body = document.getElementById('hs-cols-wrapper') || document.getElementById('hs-body'); if (!body) return;
     const cards = {};
     body.querySelectorAll('.hs-card[data-card-id]').forEach(c => { cards[c.dataset.cardId] = c; });
-    order.forEach(id => { if (cards[id]) body.appendChild(cards[id]); });
+    order.forEach(id => { if (cards[id]) { const wrap = cards[id].closest('.hs-card-col-wrap') || cards[id]; body.appendChild(wrap); } });
 }
 
 let _hsWeatherCache = null, _hsWeatherDate = '';
@@ -4914,7 +4914,9 @@ function _hsInitCardDrag() {
         if (best && bestDist < 320) {
             const bestRect = best.getBoundingClientRect();
             const insertAfter = cy > bestRect.top + bestRect.height / 2;
-            if (insertAfter) body.insertBefore(_drag.card, best.nextSibling); else body.insertBefore(_drag.card, best);
+            const dragWrap = _drag.card.closest('.hs-card-col-wrap') || _drag.card;
+            const bestWrap = best.closest('.hs-card-col-wrap') || best;
+            if (insertAfter) body.insertBefore(dragWrap, bestWrap.nextSibling); else body.insertBefore(dragWrap, bestWrap);
         }
         const newOrder = getCards().map(c => c.dataset.cardId).filter(Boolean);
         if (newOrder.length) { CONFIG.hs_card_order = newOrder; saveAll(true); }
@@ -5701,23 +5703,23 @@ function _linkifyHtml(html) {
     </div>
     <div id="hs-body">
         <div id="hs-cols-wrapper">
-        <div class="hs-card" data-card-id="weather">
+        <div class="hs-card-col-wrap"><div class="hs-card" data-card-id="weather">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">🌤 Weather</span>
                 <div onclick="_hsWeatherCache=null;_hsRenderWeather();" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 8px;background:var(--sec-bg);border-radius:8px;">Refresh</div>
             </div>
             <div id="hs-weather-body"></div>
-        </div>
-        <div class="hs-card" data-card-id="quote">
+        </div></div>
+        <div class="hs-card-col-wrap"><div class="hs-card" data-card-id="quote">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">✨ Quote of the Day</span>
                 <div onclick="_hsQuoteCache=null;_hsRenderQuote();" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 8px;background:var(--sec-bg);border-radius:8px;">New</div>
             </div>
             <div id="hs-quote-body"></div>
-        </div>
-        <div class="hs-card" data-card-id="calendar">
+        </div></div>
+        <div class="hs-card-col-wrap"><div class="hs-card" data-card-id="calendar">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">📅 Calendar</span>
@@ -5742,8 +5744,8 @@ function _linkifyHtml(html) {
                     <div id="hs-cal-list-anchor" style="min-height:80px; overflow-y:auto;"></div>
                 </div>
             </div>
-        </div>
-        <div class="hs-card" data-card-id="todos">
+        </div></div>
+        <div class="hs-card-col-wrap"><div class="hs-card" data-card-id="todos">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">✅ Todos</span>
@@ -5754,8 +5756,8 @@ function _linkifyHtml(html) {
                 </div>
             </div>
             <div id="hs-todos-anchor" style="min-height:120px; overflow-y:auto; padding:8px 14px 10px;"></div>
-        </div>
-        <div class="hs-card" data-card-id="dataset">
+        </div></div>
+        <div class="hs-card-col-wrap"><div class="hs-card" data-card-id="dataset">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">🗂 Dataset</span>
@@ -5766,15 +5768,15 @@ function _linkifyHtml(html) {
                 <div id="hs-dataset-body" style="display:flex;flex-direction:row;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none;"></div>
                 <div id="hs-ds-gradient" style="position:absolute;right:0;top:0;bottom:0;width:52px;pointer-events:none;background:linear-gradient(to right,transparent,var(--glass,rgba(255,255,255,0.78)));border-radius:0 0 20px 0;transition:opacity 0.25s;"></div>
             </div>
-        </div>
-        <div class="hs-card" data-card-id="email" style="overflow:hidden;">
+        </div></div>
+        <div class="hs-card-col-wrap"><div class="hs-card" data-card-id="email" style="overflow:hidden;">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">📧 Email</span>
                 <div onclick="openModal('gmail-modal')" style="cursor:pointer; font-size:12px; color:var(--accent);">Full View →</div>
             </div>
             <div id="hs-email-anchor" style="height:580px; display:flex; flex-direction:column; position:relative; overflow:hidden;"></div>
-        </div>
+        </div></div>
         </div>
     </div>
     <button class="hs-chats-btn" onclick="openBubblePicker()" title="Start new chat">💬</button>
