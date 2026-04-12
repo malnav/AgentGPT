@@ -761,6 +761,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
         <div id="wtab-data-btns" style="display:none; gap:8px; align-items:center; margin-left:8px;">
+            <button class="chip" id="ds-select-btn" style="font-size:11px; padding:3px 9px;" onclick="_dsToggleSelectMode()" title="Select datasets">☑ Select</button>
             <button class="chip" style="font-size:18px; padding:2px 10px; background:var(--accent); color:#fff; font-weight:bold;" onclick="createNewDataset()" title="New Dataset">+</button>
             <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
@@ -772,6 +773,13 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <ul id="sessions-list" style="list-style:none; padding:0; margin:0;"></ul>
     </div>
     <div id="wview-data" style="flex:1; overflow-y:auto; padding:12px; display:none; flex-direction:column;">
+        <div id="ds-bulk-bar" style="display:none; flex-wrap:wrap; gap:6px; padding:4px 0 10px; align-items:center; border-bottom:0.5px solid var(--border); margin-bottom:6px;">
+            <span id="ds-bulk-count" style="font-size:12px; font-weight:700; color:var(--accent); flex:1;"></span>
+            <button class="chip" style="font-size:11px; padding:4px 9px;" onclick="_dsSelectAllActive()">All</button>
+            <button class="chip" style="font-size:11px; padding:4px 9px; background:rgba(255,149,0,0.1); color:#ff9500;" onclick="_dsBulkArchive()">🗄️ Archive</button>
+            <button class="chip" style="font-size:11px; padding:4px 9px; background:rgba(255,59,48,0.1); color:#ff3b30;" onclick="_dsBulkDelete()">🗑️ Delete</button>
+            <button class="chip" style="font-size:11px; padding:4px 9px;" onclick="_dsToggleSelectMode()">Done</button>
+        </div>
         <ul id="datasets-list" style="list-style:none; padding:0; margin:0;"></ul>
     </div>
 </div>
@@ -1959,19 +1967,32 @@ async function resetCurrentSession(forced = false) {
     chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); showInlineDatasetsToChat(); refreshUI(); document.getElementById('note-input').focus(); await saveAll(); setTimeout(() => document.getElementById('note-input').focus(), 150);
 }
 
+let _dsSelectMode = false; let _dsSelected = new Set();
+function _dsToggleSelectMode() { _dsSelectMode = !_dsSelectMode; if(!_dsSelectMode) _dsSelected = new Set(); const btn = document.getElementById('ds-select-btn'); if(btn) { btn.style.background = _dsSelectMode ? 'var(--accent)' : ''; btn.style.color = _dsSelectMode ? '#fff' : ''; } renderDatasetsList(); }
+function _dsToggleSel(vid) { if(_dsSelected.has(vid)) _dsSelected.delete(vid); else _dsSelected.add(vid); _dsUpdateBulkBar(); renderDatasetsList(); }
+function _dsSelectAllActive() { const vids = Object.keys(GLOBAL_DATASETS).filter(vid => !GLOBAL_DATASETS[vid].archived && vid !== _INBOX_VID); if(_dsSelected.size === vids.length) _dsSelected = new Set(); else vids.forEach(v => _dsSelected.add(v)); _dsUpdateBulkBar(); renderDatasetsList(); }
+function _dsUpdateBulkBar() { const bar = document.getElementById('ds-bulk-bar'); const cnt = document.getElementById('ds-bulk-count'); if(!bar || !cnt) return; bar.style.display = _dsSelectMode ? 'flex' : 'none'; cnt.textContent = _dsSelected.size > 0 ? `${_dsSelected.size} selected` : 'None selected'; }
+async function _dsBulkArchive() { if(!_dsSelected.size) { notify('Select at least one dataset', '#888'); return; } openConfirm(`Archive ${_dsSelected.size} dataset${_dsSelected.size!==1?'s':''}? Linked chats and todos will also be archived.`, async () => { _dsSelected.forEach(vid => { const ds = GLOBAL_DATASETS[vid]; if(!ds) return; ds.archived = true; ds.archived_at = Date.now(); delete ds.cal_date_var; Object.values(chatHistories).forEach(s => { if(s.list) s.list.forEach(c => { if(String(c.var_id) === String(vid)) c.archived = true; }); }); if(ds.todos) ds.todos.forEach(t => { t.archived = true; }); }); _dsSelected = new Set(); await saveAll(); renderDatasetsList(); renderWorkspaceLists(); renderCalendar(); renderGlobalTodos(); renderChatTodos(); notify('Datasets archived', '#ff9500', 2500); }); }
+async function _dsBulkDelete() { if(!_dsSelected.size) { notify('Select at least one dataset', '#888'); return; } openConfirm(`Delete ${_dsSelected.size} dataset${_dsSelected.size!==1?'s':''}? All linked chats will be archived.`, async () => { _dsSelected.forEach(vid => { delete GLOBAL_DATASETS[vid]; Object.values(chatHistories).forEach(s => { if(s.list) s.list.forEach(c => { if(String(c.var_id) === String(vid)) { c.archived = true; c.var_id = null; } }); }); }); _dsSelected = new Set(); await saveAll(); renderDatasetsList(); renderWorkspaceLists(); renderSessionVariables(); notify('Datasets deleted', '#ff3b30', 2500); }); }
+
 function renderDatasetsList() {
     let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current));
     let existingProfiles = new Set((AI_PROFILES || []).map(p => p.label));
     let sortedVids = Object.keys(GLOBAL_DATASETS).sort((a,b) => { let ua = GLOBAL_DATASETS[a]._updated || Number(a); let ub = GLOBAL_DATASETS[b]._updated || Number(b); return ub - ua; });
-    let activeVids = sortedVids.filter(vid => !GLOBAL_DATASETS[vid].archived);
+    let activeVids = sortedVids.filter(vid => !GLOBAL_DATASETS[vid].archived && vid !== _INBOX_VID);
     let archivedVids = sortedVids.filter(vid => GLOBAL_DATASETS[vid].archived);
     const _togBtn = `style="cursor:pointer; padding:6px 8px; font-size:14px; opacity:0.5; transition:opacity 0.2s; flex-shrink:0;" onclick="event.stopPropagation(); this.parentElement.nextElementSibling.style.display = this.parentElement.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.style.opacity = this.parentElement.nextElementSibling.style.display === 'none' ? '0.5' : '0.8';"`;
+    _dsUpdateBulkBar();
     let html = activeVids.map(vid => {
         let ds = GLOBAL_DATASETS[vid]; let isCurrent = cur && String(vid) === String(cur.var_id);
         let varCount = Object.keys(ds.data || {}).length;
         let linkedChats = []; Object.keys(chatHistories).forEach(pName => { let s = chatHistories[pName]; if(s.list) s.list.forEach(c => { if(String(c.var_id) === String(vid) && !c.archived) { c._profile = pName; linkedChats.push(c); } }); });
         if(!isCurrent && varCount === 0 && linkedChats.length === 0) return '';
         if(!isCurrent && linkedChats.length > 0 && !linkedChats.some(c => existingProfiles.has(c._profile))) return '';
+        const isSel = _dsSelected.has(vid);
+        if(_dsSelectMode) {
+            return `<li class="list-item" data-vid="${vid}" style="flex-direction:row; align-items:center; background:${isSel?'rgba(0,122,255,0.08)':''}; cursor:pointer;" onclick="_dsToggleSel('${vid}')"><div onclick="event.stopPropagation(); _dsToggleSel('${vid}')" style="width:22px;height:22px;border-radius:7px;border:2px solid ${isSel?'var(--accent)':'var(--border)'};background:${isSel?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:#fff;margin-right:10px;cursor:pointer;transition:all 0.15s;">${isSel?'✓':''}</div><div style="flex:1;min-width:0;"><strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">${_eh(ds.title||'Untitled Dataset')}</strong>${isCurrent?'<span style="font-size:10px;color:var(--accent);"> (Active)</span>':''}<div style="font-size:10px;color:#888;margin-top:3px;">${varCount} vars | ${linkedChats.length} chat${linkedChats.length!==1?'s':''} linked</div></div></li>`;
+        }
         let chatsHtml = linkedChats.map(c => `<div draggable="true" ondragstart="_chatDragStart(event,'${c._profile}','${c.id}','${(c.title||'').replace(/'/g,"&#39;")}')" ontouchstart="_chatTouchStart(event,'${c._profile}','${c.id}','${(c.title||'').replace(/'/g,"&#39;")}',this)" ontouchmove="_chatTouchMove(event)" ontouchend="_chatTouchEnd(event)" style="font-size:12px; padding:10px 12px; border-top:0.5px solid var(--border); color:var(--accent); cursor:grab; background:var(--bg); margin-top:2px; display:flex; align-items:center; gap:6px; user-select:none; -webkit-user-select:none;"><span style="opacity:0.4; font-size:14px; flex-shrink:0;">⠿</span><span style="flex:1;" onclick="event.stopPropagation(); jumpToSession('${c._profile}','${c.id}')">💬 ${c.title} <span style="color:#888; font-size:10px;">(${c._profile})</span></span></div>`).join('');
         return `<li class="list-item" data-vid="${vid}" style="flex-direction:column; align-items:stretch;" ondragover="_chatDragOver(event,'${vid}')" ondrop="_chatDrop(event,'${vid}')"><div style="display:flex; justify-content:space-between; align-items:center; width:100%;"><div style="flex:1; cursor:pointer; min-width:0;" onclick="openDatasetFirstChat('${vid}')"><strong style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;">${_eh(ds.title||'Untitled Dataset')}</strong>${isCurrent?'<span style="font-size:10px; color:var(--accent);"> (Active)</span>':''}<div style="font-size:10px; color:#888; margin-top:4px;">${varCount} vars | ${linkedChats.length} chat${linkedChats.length!==1?'s':''} linked</div></div><div ${_togBtn}>▼</div><div class="btn-row">${isCurrent?`<div class="inline-btn" onclick="event.stopPropagation(); unlinkFromDataset()" title="Unlink">🔓</div>`:`<div class="inline-btn" onclick="event.stopPropagation(); linkToDataset('${vid}')" title="Link active chat">🔗</div>`}<div class="inline-btn" data-vid="${vid}" onclick="event.stopPropagation(); openDatasetMenu(event, this)" style="font-size:18px; font-weight:700; letter-spacing:1px;">⋯</div></div></div><div style="display:none; background:var(--sec-bg); margin-top:8px; border-radius:8px; overflow:hidden;">${chatsHtml||'<div style="padding:8px 12px; font-size:11px; color:#888;">No chats linked. Drag a chat here.</div>'}</div></li>`;
     }).join('');
