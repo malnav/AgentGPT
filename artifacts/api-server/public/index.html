@@ -4928,12 +4928,14 @@ function _hsRenderGmailConnectIfNeeded() {
 
 function hideHomeScreen() {
     _hsActive = false;
+    _calPreviewVid = null;
     const hs = document.getElementById('home-screen'); if (!hs) return;
     hs.style.display = 'none';
     const pb = document.getElementById('profile-bubble'); if (pb) pb.style.display = '';
     _hsMoveFromHomeScreen();
     renderChatHistory();
     scrollToLastRequest();
+    const vp = document.getElementById('vars-slide-panel'); if(vp && vp.classList.contains('open')) renderSessionVariables();
 }
 
 function _hsApplyCardOrder() {
