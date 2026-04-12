@@ -4823,8 +4823,6 @@ function renderFchatHeader(session) {
     const p = AI_PROFILES.find(x => x.label === session.profileLabel) || AI_PROFILES[0];
     const avatarEl = document.getElementById('fchat-avatar');
     if (avatarEl) avatarEl.textContent = p ? p.label[0].toUpperCase() : '?';
-    const profNameEl = document.getElementById('fchat-profile-name');
-    if (profNameEl) profNameEl.textContent = p ? p.label : '';
     const ctxBtns = document.getElementById('fchat-ctx-btns');
     if (ctxBtns) {
         const enabled = (session.bubbleConfig||{}).contexts || _CTX_OPTS.map(o => o.id);
@@ -5244,7 +5242,7 @@ function minimizeFloatingChat(e) {
     if (e && e.stopPropagation) e.stopPropagation();
     if (_fchatActiveId === null) return;
     const session = _fchatSessions.find(s => s.id === _fchatActiveId);
-    if (session) session.chatId = getSessions().current;
+    if (session) { session.chatId = getSessions().current; session.profileLabel = activeProfileLabel; }
     _fchatActiveId = null;
     const el = document.getElementById('floating-chat');
     const wrapper = document.getElementById('main-chat-wrapper');
@@ -5832,7 +5830,6 @@ function _linkifyHtml(html) {
         </div>
         <div onclick="openModal('master-modal')" style="font-size:20px; cursor:pointer; opacity:0.55; padding:4px 4px;" title="Settings">⚙️</div>
         <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="font-size:16px; cursor:pointer; padding:5px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Open Workspace">🗂️</div>
-        <div onclick="openFloatingChat()" style="font-size:12px; font-weight:700; color:var(--accent); cursor:pointer; padding:5px 12px; background:rgba(0,0,0,0.07); border-radius:20px; white-space:nowrap; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);">Chats</div>
     </div>
     <div id="hs-body">
         <div id="hs-cards-wrap">
@@ -5937,16 +5934,15 @@ function _linkifyHtml(html) {
 <div id="floating-chat" style="display:none;">
     <div id="fchat-header">
         <div id="fchat-header-row1">
-            <div onclick="openFchatProfilePicker(event)" style="display:flex; align-items:center; gap:5px; flex-shrink:0; cursor:pointer;" title="Switch profile">
-                <div id="fchat-avatar" style="width:26px; height:26px; border-radius:13px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:800;">?</div>
-                <span id="fchat-profile-name" style="font-size:10px; font-weight:700; color:var(--text); max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
-            </div>
             <div id="fchat-reply-indicator" style="display:none; flex-shrink:0; font-size:10px; font-weight:800; color:#fff; background:var(--accent); border-radius:8px; padding:3px 8px; cursor:pointer; white-space:nowrap;" onclick="_clearReplyAiTarget()" title="Click to unlink reply box">✏️ → Reply ✕</div>
             <div style="flex:1;"></div>
             <div onclick="goHomeFromFloatingChat(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0;" title="Minimize">🏠</div>
             <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0;" title="Close">✕</div>
         </div>
         <div id="fchat-header-row2">
+            <div onclick="openFchatProfilePicker(event)" style="display:flex; align-items:center; flex-shrink:0; cursor:pointer; margin-right:6px;" title="Switch profile">
+                <div id="fchat-avatar" style="width:26px; height:26px; border-radius:13px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:800;">?</div>
+            </div>
             <div id="fchat-context-label" style="font-size:10px; color:#888; white-space:nowrap; flex-shrink:0;">No context</div>
             <div class="fchat-ctx-btn" onclick="closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI();" style="margin-right:2px; color:var(--text); background:rgba(128,128,128,0.12); border-color:rgba(128,128,128,0.2);">📋 Context</div>
             <div id="fchat-ctx-btns" style="display:flex; gap:3px; flex-shrink:0;"></div>
