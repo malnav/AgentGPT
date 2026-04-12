@@ -2342,22 +2342,24 @@ async function autoExtractVariables(isManual = false) {
     if(!p || !p.expected_vars || p.expected_vars.length === 0) { if(isManual) notify("No variables defined to extract.", "#ff3b30"); return; }
     let vars = getActiveVars(); let unlockedVars = p.expected_vars.filter(k => { let vObj = vars[k]; if(typeof vObj === 'string') return true; return !vObj || !vObj.locked; });
     if(unlockedVars.length === 0) { if(isManual) notify("All variables are locked.", "#888"); return; }
-    let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); 
-    let linkedChats = []; Object.values(chatHistories).forEach(s => { if(s.list) s.list.forEach(c => { if(String(c.var_id) === String(cur.var_id)) linkedChats.push(c); }) });
-    let allUserMsgs = []; linkedChats.forEach(chat => { let msgs = (chat.msgs || []).filter(m => m.role !== 'developer'); if(msgs.length > 0) { allUserMsgs.push(`--- Session: ${chat.title} ---`); msgs.forEach(m => allUserMsgs.push(`${m.role}: ${getTextFromContent(m.content)}`)); } });
+    let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current));
+    let activeVid = _calPreviewVid || (cur && cur.var_id) || null;
+    let linkedChats = []; let linkedCount = 0;
+    if(activeVid) { Object.values(chatHistories).forEach(s => { if(s.list) s.list.forEach(c => { if(String(c.var_id) === String(activeVid)) { linkedChats.push(c); linkedCount++; } }); }); }
+    let allUserMsgs = []; linkedChats.forEach(chat => { let msgs = (chat.msgs || []).filter(m => m.role !== 'developer'); if(msgs.length > 0) { allUserMsgs.push(`--- Chat: ${chat.title||'Untitled'} ---`); msgs.forEach(m => allUserMsgs.push(`${m.role}: ${getTextFromContent(m.content)}`)); } });
     let historyText = ''; if(allUserMsgs.length > 0) { historyText = allUserMsgs.join('\n'); } else { if(cutIdx >= 0 && cutIdx < CONTEXT_LINES.length) { historyText = CONTEXT_LINES.slice(0, cutIdx + 1).join('\n'); } else if(cutIdx === -1 && CONTEXT_LINES.length > 0) { historyText = CONTEXT_LINES.join('\n'); } if(!historyText) { if(isManual) notify("No chats or context available.", "#ff3b30"); return; } }
-    if(isManual) notify("Auto-extracting...", "#007aff"); let sysPrompt = _getAiPrompt('var_extract').replace('[VARS]', JSON.stringify(unlockedVars)).replace('[PROFILE]', p ? p.text : 'N/A').replace('[DATA]', JSON.stringify(Object.fromEntries(Object.entries(vars).map(([k,v]) => [k, typeof v === 'string' ? v : (v.value || '')]))).substring(0, 100));
+    if(isManual) notify(`Extracting from ${linkedCount} linked chat${linkedCount!==1?'s':''}…`, "#007aff"); let sysPrompt = _getAiPrompt('var_extract').replace('[VARS]', JSON.stringify(unlockedVars)).replace('[PROFILE]', p ? p.text : 'N/A').replace('[DATA]', JSON.stringify(Object.fromEntries(Object.entries(vars).map(([k,v]) => [k, typeof v === 'string' ? v : (v.value || '')]))).substring(0, 100));
     if(p.extraction_rules) { sysPrompt += `\n\nFollow these specific rules for extraction:\n${p.extraction_rules}`; }
-    let mdl = _getAiModel('var_extract', getExtractModel()); addLog('AI_PROMPTS', 'Var Extract', `Model: ${mdl}\nPrompt:\n${sysPrompt}`);
+    let mdl = _getAiModel('var_extract', getExtractModel()); addLog('AI_PROMPTS', 'Var Extract', `Model: ${mdl}\nChats: ${linkedCount}\nPrompt:\n${sysPrompt}`);
     try {
-        const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: mdl, messages: [{ role: "system", content: sysPrompt }, { role: "user", content: `Conversation:\n${historyText}` }], response_format: { type: "json_object" } }) });
+        const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: mdl, messages: [{ role: "system", content: sysPrompt }, { role: "user", content: `Conversation history (${linkedCount} linked chat${linkedCount!==1?'s':''}):\n${historyText}` }], response_format: { type: "json_object" } }) });
         if(!res.ok) throw new Error("API Limit/Failure");
         const d = await res.json(); if (d.error) throw new Error(d.error.message); if (!d.choices) throw new Error("Invalid API response");
         let rawContent = d.choices[0].message.content.trim(); addLog('AI_PROMPTS', 'Var Extract Response', rawContent); let extractedObj;
         try { extractedObj = JSON.parse(rawContent); } catch(parseErr) { const match = rawContent.match(/\{[\s\S]*\}/); if(match) extractedObj = JSON.parse(match[0]); else throw new Error("Could not parse JSON."); }
         let updatedList = [];
         for(let k of unlockedVars) { if(extractedObj[k] != null && extractedObj[k] !== '') { let rawStr = _extractStrVal(extractedObj[k]); if(!rawStr.trim()) continue; let htmlVal = rawStr.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); let oldVal = vars[k] && typeof vars[k] === 'object' ? vars[k].value : vars[k]; if(oldVal !== htmlVal) { vars[k] = { value: htmlVal, locked: false }; updatedList.push(k); } } }
-        if(updatedList.length > 0) { _dsTakeSnapshot(cur.var_id, 'AI extract'); await saveAll(); renderSessionVariables(); await generateDatasetTitleAI(cur.var_id); notify(`Variables updated: ${updatedList.join(', ')}`, "#34c759", 4000); addLog("VARS", "Auto-Updated", updatedList); } else { if(isManual) notify("No new data found.", "#888"); }
+        if(updatedList.length > 0) { if(activeVid) _dsTakeSnapshot(activeVid, 'AI extract'); await saveAll(); renderSessionVariables(); if(activeVid) await generateDatasetTitleAI(activeVid); notify(`Updated ${updatedList.length} var${updatedList.length!==1?'s':''} from ${linkedCount} chat${linkedCount!==1?'s':''}: ${updatedList.join(', ')}`, "#34c759", 5000); addLog("VARS", "Auto-Updated", updatedList); } else { if(isManual) notify("No new data found across all linked chats.", "#888"); }
     } catch(e) { if(isManual) notify("Extraction failed.", "#ff3b30"); addLog("VARS", "Extract Fail", e.message); }
 }
 
