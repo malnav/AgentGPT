@@ -728,7 +728,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <div class="top-nav">
     <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
         <div id="chat-nav-back-btn" onclick="_chatNavBack()" style="display:none; cursor:pointer; align-items:center; gap:5px; font-size:13px; font-weight:700; color:var(--accent); padding:6px 12px; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow); white-space:nowrap; max-width:180px; overflow:hidden; text-overflow:ellipsis;">◀ Back</div>
-        <select id="main-profile-sel" class="main-profile-dropdown" onchange="switchProfileSession(this.value)"></select>
     </div>
     <div class="sys-icons">
         <div onclick="openModal('master-modal')" style="cursor:pointer; font-size:16px; line-height:1;" title="Settings">⚙️</div>
@@ -1805,8 +1804,6 @@ async function refreshUI() {
     if (CONFIG.def_profile && !AI_PROFILES.find(p => p.label === CONFIG.def_profile)) { CONFIG.def_profile = AI_PROFILES[0] ? AI_PROFILES[0].label : ""; }
     if (CONFIG.def_model && !AI_MODELS.find(m => m.text === CONFIG.def_model)) { CONFIG.def_model = AI_MODELS[0] ? AI_MODELS[0].text : ""; }
     const currentGlobalModel = document.getElementById('chatModel').value || CONFIG.def_model;
-    let profOptions = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); profOptions += `<option value="_new_" style="color:var(--accent); font-weight:bold;">+ Create New Profile</option>`;
-    document.getElementById('main-profile-sel').innerHTML = profOptions; document.getElementById('main-profile-sel').value = activeProfileLabel;
     const mH = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); const mHopt = `<option value="">(chat)</option>` + mH; document.getElementById('chatModel').innerHTML = mH; document.getElementById('ai-gen-model').innerHTML = mH; document.getElementById('p-model-set').innerHTML = `<option value="">(Keep Global Model)</option>` + mH; ['title-model-f','extract-model-f','suggest-model-f'].forEach(id => document.getElementById(id).innerHTML = mHopt);
     if(currentGlobalModel) document.getElementById('chatModel').value = currentGlobalModel;
     renderSessionVariables(); renderInlinePrompts();
@@ -2452,7 +2449,7 @@ function editAIResponse(idx) {
 }
 
 async function switchProfileSession(newLabel) { 
-    if (newLabel === '_new_') { document.getElementById('main-profile-sel').value = activeProfileLabel; closeAllPanels(); openModal('master-modal'); switchMasterTab('profiles'); manageSection('profiles'); setTimeout(() => document.getElementById('entry-l').focus(), 100); return; }
+    if (newLabel === '_new_') { closeAllPanels(); openModal('master-modal'); switchMasterTab('profiles'); manageSection('profiles'); setTimeout(() => document.getElementById('entry-l').focus(), 100); return; }
     _freshSessionActive = true;
     activeProfileLabel = newLabel; activeTagFilter = "";
     addLog("SESSION", "Switch Profile", newLabel);
