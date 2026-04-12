@@ -1979,7 +1979,7 @@ async function _dsBulkDelete() { if(!_dsSelected.size) { notify('Select at least
 function _dsMergePrompt() {
     if(_dsSelected.size < 2) { notify('Select at least 2 datasets to merge', '#888'); return; }
     const selVids = [..._dsSelected];
-    const cur = getCurrentSession();
+    const _sd = getSessions(); const cur = _sd.list ? _sd.list.find(x => String(x.id) === String(_sd.current)) : null;
     const itemsHtml = selVids.map(vid => {
         const ds = GLOBAL_DATASETS[vid]; if(!ds) return '';
         const varCount = Object.keys(ds.data||{}).length;
@@ -1999,8 +1999,8 @@ async function _dsMergeExecute(keepVid) {
         Object.values(chatHistories).forEach(s => { if(s.list) s.list.forEach(c => { if(String(c.var_id) === String(vid) && !c.archived) c.var_id = keepVid; }); });
         ds.archived = true; ds.archived_at = Date.now(); delete ds.cal_date_var;
     });
-    const cur = getCurrentSession();
-    if(cur && toArchive.some(vid => String(vid) === String(cur.var_id))) { cur.var_id = keepVid; await saveCurrentSession(); }
+    const _sd2 = getSessions(); const cur2 = _sd2.list ? _sd2.list.find(x => String(x.id) === String(_sd2.current)) : null;
+    if(cur2 && toArchive.some(vid => String(vid) === String(cur2.var_id))) { cur2.var_id = keepVid; }
     _dsSelected = new Set(); _dsSelectMode = false;
     const btn = document.getElementById('ds-select-btn'); if(btn) { btn.style.background=''; btn.style.color=''; }
     document.getElementById('ds-merge-modal')?.remove();
