@@ -5929,6 +5929,9 @@ function _linkifyHtml(html) {
             <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0;" title="Close">✕</div>
         </div>
         <div id="fchat-header-row2">
+            <div onclick="openFchatProfilePicker(event)" style="display:flex; align-items:center; flex-shrink:0; cursor:pointer; margin-right:6px;" title="Switch profile">
+                <div id="fchat-avatar" style="width:26px; height:26px; border-radius:13px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:800;">?</div>
+            </div>
             <div id="fchat-context-label" style="font-size:10px; color:#888; white-space:nowrap; flex-shrink:0;">No context</div>
             <div class="fchat-ctx-btn" onclick="closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI();" style="margin-right:2px; color:var(--text); background:rgba(128,128,128,0.12); border-color:rgba(128,128,128,0.2);">📋 Context</div>
             <div id="fchat-ctx-btns" style="display:flex; gap:3px; flex-shrink:0;"></div>
