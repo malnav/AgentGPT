@@ -4844,6 +4844,8 @@ function changeFchatProfile(profileLabel) {
     const session = _fchatSessions.find(s => s.id === _fchatActiveId); if (!session) return;
     session.profileLabel = profileLabel;
     activeProfileLabel = profileLabel;
+    const matchingBc = BUBBLE_CONFIGS.find(bc => bc.profileLabel === profileLabel);
+    if (matchingBc) { session.bubbleConfig = matchingBc; } else { session.bubbleConfig = Object.assign({}, session.bubbleConfig || {}, { profileLabel: profileLabel, emoji: '🤖', label: profileLabel }); }
     const p = AI_PROFILES.find(x => x.label === profileLabel);
     if (p) {
         if (chatHistory.length > 0 && chatHistory[0].role === 'developer') {
@@ -4853,6 +4855,7 @@ function changeFchatProfile(profileLabel) {
         }
     }
     renderFchatHeader(session);
+    renderFchatBubbles();
     refreshUI();
     notify('Switched to ' + profileLabel, '#007aff', 1500);
 }
