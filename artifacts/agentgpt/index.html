@@ -1584,7 +1584,7 @@ function getSessions() {
     return sData;
 }
 
-function getActiveVars() { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur || !cur.var_id || !GLOBAL_DATASETS[cur.var_id]) return {}; return GLOBAL_DATASETS[cur.var_id].data; }
+function getActiveVars() { if(_calPreviewVid && GLOBAL_DATASETS[_calPreviewVid]) return GLOBAL_DATASETS[_calPreviewVid].data || {}; let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur || !cur.var_id || !GLOBAL_DATASETS[cur.var_id]) return {}; return GLOBAL_DATASETS[cur.var_id].data; }
 
 async function autoCleanupEmptyChats() {
     let changed = false; let count = 0; let activeVids = new Set();
@@ -1734,7 +1734,7 @@ function initGestures() {
     document.querySelectorAll('.side-panel, .ctx-panel, .modal').forEach(lockPanelScroll);
 }
 function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
-function toggleVarsPanel() { closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); }
+function toggleVarsPanel() { _calPreviewVid = null; closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); if(document.getElementById('vars-slide-panel').classList.contains('open')) renderSessionVariables(); }
 function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
 function ctxSwitchTab(tab) {
     ['context','gmail','whatsapp'].forEach(t => {
@@ -2071,9 +2071,13 @@ let _varDragKey = null;
 
 function renderSessionVariables() {
     let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current));
-    let activeDs = (cur && cur.var_id) ? GLOBAL_DATASETS[cur.var_id] : null; let dsTitle = activeDs ? (activeDs.title || "Data Set") : "No Dataset"; document.getElementById('active-dataset-title').innerText = dsTitle; let noteInEl = document.getElementById('note-input'); if(noteInEl) noteInEl.placeholder = 'Draft text...';
+    let previewDs = _calPreviewVid ? GLOBAL_DATASETS[_calPreviewVid] : null;
+    let activeDs = previewDs || ((cur && cur.var_id) ? GLOBAL_DATASETS[cur.var_id] : null);
+    let dsTitle = activeDs ? (activeDs.title || "Data Set") : "No Dataset"; document.getElementById('active-dataset-title').innerText = dsTitle; let noteInEl = document.getElementById('note-input'); if(noteInEl) noteInEl.placeholder = 'Draft text...';
+    const _previewBanner = previewDs ? `<div style="display:flex; align-items:center; gap:8px; padding:7px 12px 9px; margin-bottom:4px; background:rgba(0,122,255,0.07); border-radius:10px; border:1px solid rgba(0,122,255,0.18);"><span style="font-size:13px; flex:1; font-weight:700; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📅 ${dsTitle}</span><button class="chip" onclick="_calPreviewVid=null; renderSessionVariables();" style="font-size:11px; padding:3px 10px; flex-shrink:0; background:rgba(0,0,0,0.08);">✕ Back</button></div>` : '';
     if(!activeDs) { document.getElementById('session-vars-list').innerHTML = `<ul style="list-style:none;padding:0;margin:0;"><div style="font-size:13px;color:#888;text-align:center;padding:28px 12px;"><div style="font-size:30px;margin-bottom:8px;">📂</div><div>No dataset linked to this chat.</div><div style="margin-top:12px;display:flex;gap:8px;justify-content:center;"><button class="chip" onclick="showDatasetsPicker()" style="background:var(--accent);color:#fff;font-size:12px;padding:7px 16px;">Link Dataset</button><button class="chip" onclick="closeAllPanels();createNewDataset().then(()=>renderDatasetsList())" style="font-size:12px;padding:7px 12px;">+ New</button></div></div></ul>`; initVarDragDrop(); return; }
-    let vars = getActiveVars(); let allKeys = [...(p.expected_vars || [])]; let meta = p.var_meta || {};
+    let vars = getActiveVars();
+    let allKeys = previewDs ? Object.keys(vars) : [...(p.expected_vars || [])]; let meta = p.var_meta || {};
     let roots = allKeys.filter(k => !meta[k] || !meta[k].parent || !allKeys.includes(meta[k].parent));
     let ordered = [];
     roots.forEach(rk => { ordered.push({ k: rk, indent: false }); allKeys.forEach(ck => { if(meta[ck] && meta[ck].parent === rk) ordered.push({ k: ck, indent: true }); }); });
@@ -2097,8 +2101,16 @@ function renderSessionVariables() {
         return `<li data-vk="${k}" ${liClick} style="cursor:${_varSelectMode?'pointer':'default'}; display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; padding:${parentPad} 0; border-bottom:0.5px solid var(--border); transition:background 0.15s; ${activeBg}${borderL}${pl}${indentMargin}">${checkEl}<div style="flex:1; word-break:break-word; min-width:0;" ${centerClick}><strong style="color:${isLocked ? 'var(--accent)' : 'var(--text)'};">${capName}</strong>${isDateVar ? '<span style="font-size:10px; color:var(--accent); font-weight:700; margin-left:5px;">📅 date</span>' : ''}${valDisp}</div>${menuEl}</li>`;
     }).join('');
     if(html === "") html = `<div style="font-size:12px; color:#888; text-align:center; padding:10px;">No variables defined.</div>`;
-    document.getElementById('session-vars-list').innerHTML = `<ul style="list-style:none; padding:0; margin:0;">${html}</ul>`;
+    document.getElementById('session-vars-list').innerHTML = `${_previewBanner}<ul style="list-style:none; padding:0; margin:0;">${html}</ul>`;
     initVarDragDrop();
+}
+
+function openVarsPanelForDataset(vid) {
+    _calPreviewVid = vid;
+    closeAllPanels('vars-slide-panel');
+    document.getElementById('vars-slide-panel').classList.add('open');
+    switchVarsSubTab('vars');
+    renderSessionVariables();
 }
 
 function toggleVarExpand(k) { let inner = document.getElementById('vrv-' + k); let tog = document.getElementById('vrv-tog-' + k); if(!inner || !tog) return; let expanded = inner.dataset.expanded === '1'; if(expanded) { inner.style.maxHeight = '68px'; inner.style.overflow = 'hidden'; tog.textContent = '▼ Show more'; inner.dataset.expanded = '0'; } else { inner.style.maxHeight = ''; inner.style.overflow = ''; tog.textContent = '▲ Show less'; inner.dataset.expanded = '1'; } }
@@ -4587,7 +4599,7 @@ function renderCalendar() {
     _updateCalFilterBtn();
 }
 
-function showDatasetDetails(base64Data) { try { let ds = JSON.parse(decodeURIComponent(escape(atob(base64Data)))); let vid = ds.id; let dateKey = ds.dateKey || ''; _curDsDetail = { vid, dateKey }; _dsModalSel = new Set(); document.getElementById('ds-detail-title').innerText = (ds.title || 'Event') + (dateKey ? ' · ' + dateKey : ''); document.getElementById('ds-detail-content').style.display = ''; document.getElementById('ds-activity-content').style.display = 'none'; const _histEl = document.getElementById('ds-history-content'); if(_histEl) _histEl.style.display = 'none'; document.getElementById('ds-tab-vars').className = 'ds-tab-btn active'; document.getElementById('ds-tab-activity').className = 'ds-tab-btn'; const _tH = document.getElementById('ds-tab-history'); if(_tH) _tH.className = 'ds-tab-btn'; _renderDsDetailContent(); openModal('dataset-detail-modal'); } catch(e) { console.error(e); } }
+function showDatasetDetails(base64Data) { try { let ds = JSON.parse(decodeURIComponent(escape(atob(base64Data)))); let vid = ds.id; openVarsPanelForDataset(vid); } catch(e) { console.error(e); } }
 
 function _renderDsDetailContent() { const {vid,dateKey}=_curDsDetail||{}; if(!vid)return; const realDs=GLOBAL_DATASETS[vid]; if(!realDs)return; const byDate=(realDs.cal_display_vars_by_date&&dateKey&&realDs.cal_display_vars_by_date[dateKey])||realDs.cal_display_vars||[]; const data=realDs.data||{}; const keys=Object.keys(data); const selCount=_dsModalSel.size; const bulkBar=selCount>0?`<div style="display:flex;align-items:center;gap:6px;padding:8px 0 10px;flex-wrap:wrap;border-bottom:0.5px solid var(--border);margin-bottom:4px;"><span style="font-size:12px;font-weight:700;color:var(--accent);flex:1;">${selCount} selected</span><button class="chip" style="font-size:11px;padding:4px 8px;" onclick="_dsModalSelectAll()">All</button><button class="chip" style="font-size:11px;padding:4px 8px;background:rgba(0,122,255,0.1);color:var(--accent);" onclick="_dsModalBulkLock(true)">🔒 Lock</button><button class="chip" style="font-size:11px;padding:4px 8px;" onclick="_dsModalBulkLock(false)">🔓 Unlock</button><button class="chip" style="font-size:11px;padding:4px 8px;background:rgba(255,59,48,0.1);color:#ff3b30;" onclick="_dsModalBulkDelete()">🗑️ Del</button><button class="chip" style="font-size:11px;padding:4px 8px;" onclick="_dsModalSel=new Set();_renderDsDetailContent()">✕</button></div>`:`<div style="padding:6px 0 10px;border-bottom:0.5px solid var(--border);margin-bottom:4px;"><button class="chip" style="font-size:11px;padding:4px 8px;" onclick="_dsModalSelectAll()">☑ Select all</button></div>`; let html=keys.map(k=>{ let vObj=data[k]; let v=typeof vObj==='object'?vObj.value:vObj; if(v){let tmp=document.createElement('div');tmp.innerHTML=v;v=tmp.innerText||tmp.textContent||v;} let isLocked=vObj&&typeof vObj==='object'&&vObj.locked===true; let checked=byDate.includes(k); let isDateKey=realDs.cal_date_var===k; let isSel=_dsModalSel.has(k); return`<div style="display:flex;align-items:center;gap:8px;padding:10px 4px;border-bottom:0.5px solid var(--border);border-radius:8px;transition:background 0.15s;${isLocked?'background:rgba(0,122,255,0.04);border-left:3px solid rgba(0,122,255,0.3);':''}" onmouseenter="this.style.background='rgba(0,122,255,0.06)'" onmouseleave="this.style.background='${isLocked?'rgba(0,122,255,0.04)':''}'"><div onclick="toggleCalDisplayVar('${vid}','${k}','${dateKey}')" style="width:20px;height:20px;border-radius:6px;border:2px solid ${checked?'var(--accent)':'var(--border)'};background:${checked?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;color:#fff;cursor:pointer;transition:all 0.15s;">${checked?'✓':''}</div><div onclick="toggleCalDisplayVar('${vid}','${k}','${dateKey}')" style="flex:1;min-width:0;cursor:pointer;"><div style="font-size:12px;font-weight:700;color:${isLocked?'var(--accent)':'var(--text)'};">${k}${isLocked?' 🔒':''}</div><div style="font-size:12px;color:#888;margin-top:2px;word-break:break-word;white-space:pre-line;">${v||'<em style="opacity:0.5">Empty</em>'}</div></div><div onclick="event.stopPropagation();_dsToggleDateVar('${vid}','${k}')" style="cursor:pointer;font-size:15px;padding:4px 5px;flex-shrink:0;opacity:${isDateKey?'1':'0.25'};" title="${isDateKey?'Unlink calendar date':'Set as calendar date'}">📅</div><div onclick="event.stopPropagation();editDatasetVarQuick('${k}')" style="cursor:pointer;font-size:15px;opacity:0.35;padding:4px 5px;flex-shrink:0;" title="Edit value">✏️</div><div onclick="event.stopPropagation();_dsModalToggleSel('${k}')" style="width:20px;height:20px;border-radius:6px;border:2px solid ${isSel?'var(--accent)':'var(--border)'};background:${isSel?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;color:#fff;cursor:pointer;transition:all 0.15s;margin-left:2px;">${isSel?'✓':''}</div></div>`; }).join(''); if(!html)html='<em>Empty dataset</em>'; const archiveBtn=`<div style="margin-top:20px;padding-top:16px;border-top:0.5px solid var(--border);text-align:center;"><button onclick="archiveDataset('${vid}')" class="chip" style="font-size:12px;padding:8px 20px;background:rgba(255,149,0,0.12);color:#ff9500;border:1px solid rgba(255,149,0,0.3);">🗄️ Archive Dataset</button></div>`; document.getElementById('ds-detail-content').innerHTML=bulkBar+html+archiveBtn; }
 
@@ -4939,6 +4951,7 @@ let _hsQuoteCache = null, _hsQuoteDate = '';
 let _hsDsIndex = 0;
 let _hsDsSummaryCache = {}, _hsDsSummaryDate = '';
 let _varSelectMode = false, _varSelected = new Set();
+let _calPreviewVid = null;
 let _dsModalSel = new Set();
 
 function _hsWeatherIcon(code) { if(code===0)return'☀️'; if([1,2].includes(code))return'⛅'; if(code===3)return'☁️'; if([45,48].includes(code))return'🌫️'; if([51,53,55,80,81].includes(code))return'🌦️'; if([61,63,65,82].includes(code))return'🌧️'; if([95,96,99].includes(code))return'⛈️'; if([71,73,75,77,85,86].includes(code))return'🌨️'; return'🌤️'; }
