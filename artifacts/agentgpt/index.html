@@ -1056,7 +1056,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     <div class="modal-tabs">
         <button id="mtab-config" class="tab-btn active" onclick="switchMasterTab('config')">🔧 CONFIG</button>
         <button id="mtab-ai" class="tab-btn" onclick="switchMasterTab('ai')">🤖 AI</button>
-        <button id="mtab-bubbles" class="tab-btn" onclick="switchMasterTab('bubbles')">🫧 BUBBLES</button>
         <button id="mtab-email" class="tab-btn" onclick="switchMasterTab('email')">📧 EMAIL</button>
         <button id="mtab-logs" class="tab-btn" onclick="switchMasterTab('logs')">📜 LOGS</button>
     </div>
@@ -1145,6 +1144,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     <div id="mview-ai" class="modal-content closed" style="padding:0;">
         <div style="display:flex; gap:0; border-bottom:0.5px solid var(--border);">
             <button id="maitab-profiles" class="tab-btn active" style="flex:1; border-radius:0; border-right:0.5px solid var(--border);" onclick="switchAiTab('profiles')">🤖 PROFILES</button>
+            <button id="maitab-bubbles" class="tab-btn" style="flex:1; border-radius:0; border-right:0.5px solid var(--border);" onclick="switchAiTab('bubbles')">🫧 BUBBLES</button>
             <button id="maitab-models" class="tab-btn" style="flex:1; border-radius:0; border-right:0.5px solid var(--border);" onclick="switchAiTab('models')">🧠 MODELS</button>
             <button id="maitab-prompts" class="tab-btn" style="flex:1; border-radius:0;" onclick="switchAiTab('prompts')">🪄 PROMPTS</button>
         </div>
@@ -1176,6 +1176,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <small style="font-weight:800; font-size:11px; color:#888; display:block; margin-bottom:12px;">Customize the system prompts used by each background AI feature. Placeholders like <code>[PROFILE]</code>, <code>[VARS]</code>, <code>[DATA]</code> are replaced automatically at runtime.</small>
             <div id="ai-prompt-cards"></div>
         </div>
+        <div id="mview-bubbles" class="modal-content closed" style="border-radius:0; padding-top:4px;">
+            <small style="font-weight:800; font-size:11px; color:#888; display:block; margin-bottom:12px;">Each AI profile is automatically a floating chat bubble. Set its emoji and which context buttons appear.</small>
+            <div id="bubble-settings-list"></div>
+        </div>
     </div>
     <div id="mview-logs" class="modal-content closed" style="background:var(--log-bg); color:var(--log-text); font-family:monospace; font-size:11px; padding-top:10px;"><div id="log-viewer" style="white-space:pre-wrap;"></div></div>
     <div id="mview-email" class="modal-content closed">
@@ -1201,13 +1205,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             </div>
             <div id="email-settings-imap-list" style="border-top:0.5px solid var(--border);"></div>
         </div>
-    </div>
-    <div id="mview-bubbles" class="modal-content closed" style="padding-top:4px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-            <small style="font-weight:800; font-size:11px; color:#888;">Configure the floating chat bubbles: emoji, label, default profile, and which context buttons appear.</small>
-            <button onclick="addBubbleConfig()" class="action-btn" style="font-size:11px; padding:6px 12px; white-space:nowrap; margin-left:8px;">+ Add</button>
-        </div>
-        <div id="bubble-settings-list"></div>
     </div>
 </div>
 
@@ -1653,7 +1650,7 @@ function renderAttachmentPreview() {
     }).join(''); setTimeout(updateInputHeightVar, 50);
 }
 
-async function quickDel(type, idx) { activeCrud = type; openConfirm("Delete this item?", async () => { getActiveData().splice(idx, 1); addLog("CRUD", "Delete", `${type} index ${idx}`); await saveAll(); refreshUI(); renderEntryList(); if(type === 'profiles') renderProfileList(); if(type === 'models') renderModelList(); }); }
+async function quickDel(type, idx) { activeCrud = type; openConfirm("Delete this item?", async () => { getActiveData().splice(idx, 1); addLog("CRUD", "Delete", `${type} index ${idx}`); await saveAll(); refreshUI(); renderEntryList(); if(type === 'profiles') { renderProfileList(); _syncBubbleConfigs(); } if(type === 'models') renderModelList(); }); }
 async function deleteSession(id) { openConfirm("Delete this chat session?", async () => { let sData = getSessions(); const wasActive = String(sData.current) === String(id); sData.list = sData.list.filter(s => String(s.id) !== String(id)); addLog("SESSION", "Delete Chat", id); if(sData.list.length === 0) { closeAllPanels(); await resetCurrentSession(); } else { if(wasActive) { const sorted = [...sData.list].sort((a,b) => Number(b.id) - Number(a.id)); sData.current = sorted[0].id; chatHistory = sorted[0].msgs || []; } chatHistories[activeProfileLabel] = sData; await saveAll(); renderWorkspaceLists(); if(wasActive) await switchProfileSession(activeProfileLabel); } }); }
 
 async function jumpToSession(profileLabel, sessionId) {
@@ -1776,7 +1773,7 @@ async function saveAll(skipCloud = false) {
     try {
         let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { cur.msgs = chatHistory; if(GLOBAL_DATASETS[cur.var_id]) GLOBAL_DATASETS[cur.var_id]._updated = Date.now(); } }
         CONFIG._ts = Date.now();
-        await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS, 'bubble_configs': BUBBLE_CONFIGS });
+        await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
         if(!skipCloud) triggerAutoSync(); 
     } catch(e) { console.error("DB Save Error:", e); notify("⚠️ DB Error: " + (e.name || "Write Failed"), "#ff3b30", 4000); }
 }
@@ -1787,7 +1784,7 @@ async function init() {
         await dbHelper.set('profiles', JSON.parse(localStorage.getItem(DB_KEY+'_ap'))); await dbHelper.set('prompts', JSON.parse(localStorage.getItem(DB_KEY+'_p'))); await dbHelper.set('templates', JSON.parse(localStorage.getItem(DB_KEY+'_t'))); await dbHelper.set('tools', JSON.parse(localStorage.getItem(DB_KEY+'_tools'))); await dbHelper.set('models', JSON.parse(localStorage.getItem(DB_KEY+'_am'))); await dbHelper.set('config', JSON.parse(localStorage.getItem(DB_KEY+'_cfg'))); await dbHelper.set('histories', JSON.parse(localStorage.getItem(DB_KEY+'_histories'))); await dbHelper.set('activeProfile', localStorage.getItem(DB_KEY+'_cur_ap'));
         localStorage.clear(); addLog("SYS", "Migration", "Local Storage to IDB");
     }
-    AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {}; BUBBLE_CONFIGS = await dbHelper.get('bubble_configs') || []; if (!BUBBLE_CONFIGS.length) BUBBLE_CONFIGS = _defaultBubbleConfigs();
+    AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {}; _syncBubbleConfigs();
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
     CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1 };
@@ -2660,7 +2657,7 @@ async function saveEntry() {
     if(activeCrud==='links'){ const url = document.getElementById('links-f-url').value.trim(); if(!url) { notify('URL is required','#ff3b30'); return; } const tags = document.getElementById('links-f-tags').value.split(',').map(t=>t.trim()).filter(Boolean); item = { id: editIdx>-1?d[editIdx].id:'lk_'+Date.now(), title: l, url: url, tags: tags, category: document.getElementById('links-f-cat').value.trim() }; } else { item = { label: l, profile: profSet }; if(activeCrud === 'tools') { item.method = document.getElementById('api-method').value; item.text = document.getElementById('entry-url').value; item.headers = document.getElementById('api-headers').value; item.body = document.getElementById('api-body').value; item.extract = document.getElementById('api-extract').value; item.use_oauth = document.getElementById('api-oauth-toggle').checked; item.oauth_url = document.getElementById('api-oauth-url').value; item.oauth_client = document.getElementById('api-oauth-client').value; item.oauth_secret = document.getElementById('api-oauth-secret').value; } else if(activeCrud === 'models') { item = { label: l, text: document.getElementById('entry-t').value }; } else if(activeCrud === 'profiles') { item.text = document.getElementById('entry-t').value; item.expected_vars = editIdx > -1 ? [...(d[editIdx].expected_vars||[])] : []; item.extraction_rules = editIdx > -1 ? d[editIdx].extraction_rules : ""; if(window._aiGenProfileVars) { window._aiGenProfileVars.forEach(v => { if(!item.expected_vars.includes(v)) item.expected_vars.push(v); }); window._aiGenProfileVars = null; } } else { item.text = document.getElementById('entry-t').value; if(activeCrud === 'prompts') item.model = document.getElementById('p-model-set').value; if(activeCrud === 'templates') { item.tags = document.getElementById('temp-tags').value; item.fav = (editIdx > -1 && d[editIdx]) ? d[editIdx].fav : false; item.lastUsed = (editIdx > -1 && d[editIdx]) ? (d[editIdx].lastUsed || 0) : 0; } } }
     if (editIdx > -1) d[editIdx] = item; else d.push(item); 
     addLog("CRUD", "Save Details", `${activeCrud}: ${item.label||item.title}`); await saveAll(); refreshUI(); renderEntryList(); 
-    if(activeCrud === 'models') renderModelList(); if(activeCrud === 'profiles') renderProfileList(); notify("Saved!", "#34c759"); 
+    if(activeCrud === 'models') renderModelList(); if(activeCrud === 'profiles') { renderProfileList(); _syncBubbleConfigs(); } notify("Saved!", "#34c759"); 
 }
 
 function exportSection() { document.getElementById('section-exchange').value = JSON.stringify(getActiveData(), null, 2); notify("Exported to text box!", "#34c759"); }
@@ -2693,6 +2690,7 @@ function importGlobalFile(event) {
             const data = JSON.parse(e.target.result);
             if(data.profiles) AI_PROFILES = sanitizeImport(data.profiles, 'profiles'); if(data.prompts) PROMPTS = sanitizeImport(data.prompts, 'prompts'); if(data.templates) TEMPLATES = sanitizeImport(data.templates, 'templates'); if(data.tools) API_SERVICES = sanitizeImport(data.tools, 'tools'); if(data.models) AI_MODELS = sanitizeImport(data.models, 'models'); if(data.config) CONFIG = data.config; if(data.histories) chatHistories = data.histories; if(data.datasets) GLOBAL_DATASETS = data.datasets;
             if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0] ? AI_PROFILES[0].label : ""; }
+            _syncBubbleConfigs();
             addLog("DATA", "Global Import File", file.name);
             stopRealtimeSync();
             await saveAll(true);
@@ -2884,8 +2882,8 @@ async function openModal(id) {
     if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); } 
 }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; if (id === 'gmail-modal' && _fchatActiveId !== null) fchatClearAndClose(null); }
-function switchMasterTab(t) { const realT = (t==='profiles'||t==='models'||t==='prompts') ? 'ai' : t; ['config','ai','logs','email','bubbles'].forEach(tab => { const btn = document.getElementById('mtab-'+tab); const view = document.getElementById('mview-'+tab); if(btn) btn.classList.toggle('active', realT===tab); if(view) view.classList.toggle('closed', realT!==tab); }); if(realT==='ai') { renderProfileList(); renderModelList(); if(t==='models') switchAiTab('models'); else if(t==='prompts') switchAiTab('prompts'); else switchAiTab('profiles'); } if(realT==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(realT==='config') renderBgSwatches(); if(realT==='email') renderEmailSettingsTab(); if(realT==='bubbles') renderBubbleSettings(); }
-function switchAiTab(sub) { ['profiles','models','prompts'].forEach(s => { const btn = document.getElementById('maitab-'+s); const view = document.getElementById('mview-'+s); if(btn) btn.classList.toggle('active', s===sub); if(view) view.classList.toggle('closed', s!==sub); }); if(sub==='models') renderModelList(); if(sub==='profiles') renderProfileList(); if(sub==='prompts') renderAiPromptCards(); }
+function switchMasterTab(t) { const realT = (t==='profiles'||t==='models'||t==='prompts'||t==='bubbles') ? 'ai' : t; ['config','ai','logs','email'].forEach(tab => { const btn = document.getElementById('mtab-'+tab); const view = document.getElementById('mview-'+tab); if(btn) btn.classList.toggle('active', realT===tab); if(view) view.classList.toggle('closed', realT!==tab); }); if(realT==='ai') { renderProfileList(); renderModelList(); if(t==='models') switchAiTab('models'); else if(t==='prompts') switchAiTab('prompts'); else if(t==='bubbles') switchAiTab('bubbles'); else switchAiTab('profiles'); } if(realT==='logs') document.getElementById('log-viewer').innerText = APP_LOGS.join('\n'); if(realT==='config') renderBgSwatches(); if(realT==='email') renderEmailSettingsTab(); }
+function switchAiTab(sub) { ['profiles','bubbles','models','prompts'].forEach(s => { const btn = document.getElementById('maitab-'+s); const view = document.getElementById('mview-'+s); if(btn) btn.classList.toggle('active', s===sub); if(view) view.classList.toggle('closed', s!==sub); }); if(sub==='models') renderModelList(); if(sub==='profiles') renderProfileList(); if(sub==='prompts') renderAiPromptCards(); if(sub==='bubbles') renderBubbleSettings(); }
 function switchModalTab(t) { document.getElementById('tab-editor').classList.toggle('active', t==='editor'); document.getElementById('tab-bulk').classList.toggle('active', t==='bulk'); document.getElementById('view-editor').classList.toggle('closed', t!=='editor'); document.getElementById('view-bulk').classList.toggle('closed', t!=='bulk'); }
 function closeItemMenu() { document.querySelectorAll('.item-popup-menu').forEach(m => m.remove()); }
 function _showItemMenu(event, items) { closeItemMenu(); event.stopPropagation(); const rect = (event.currentTarget || event.target).getBoundingClientRect(); const menu = document.createElement('div'); menu.className = 'item-popup-menu'; items.forEach(item => { const d = document.createElement('div'); d.className = 'item-popup-menu-item' + (item.cls ? ' '+item.cls : ''); d.textContent = item.label; d.onclick = (e) => { e.stopPropagation(); menu.remove(); item.fn(); }; menu.appendChild(d); }); document.body.appendChild(menu); const menuH = items.length * 50 + 8; let top = rect.bottom + 6; if (top + menuH > window.innerHeight - 20) top = rect.top - menuH - 6; let left = Math.min(rect.right - 170, window.innerWidth - 180); if(left < 8) left = 8; menu.style.top = top + 'px'; menu.style.left = left + 'px'; setTimeout(() => { const dismiss = (e) => { if (!e.target.closest('.item-popup-menu')) { menu.remove(); document.removeEventListener('click', dismiss); document.removeEventListener('touchstart', dismiss); } }; document.addEventListener('click', dismiss); document.addEventListener('touchstart', dismiss); }, 50); }
@@ -4749,22 +4747,20 @@ function updateProfileBubble() {
     }
 }
 
-function _defaultBubbleConfigs() { const defP = (AI_PROFILES[0] || {}).label || 'Agent'; return [{ id: 'default', emoji: '🤖', label: 'Assistant', profileLabel: defP, contexts: ['email','thread','selected','clear'] }]; }
+function _defaultBubbleConfigs() { return AI_PROFILES.map(p => ({ id: p.label, emoji: p.emoji || '🤖', label: p.label, profileLabel: p.label, contexts: p.contexts || ['email','thread','selected','clear'] })); }
+
+function _syncBubbleConfigs() { BUBBLE_CONFIGS = AI_PROFILES.map(p => ({ id: p.label, emoji: p.emoji || '🤖', label: p.label, profileLabel: p.label, contexts: p.contexts || ['email','thread','selected','clear'] })); }
 
 function renderBubbleSettings() {
     const el = document.getElementById('bubble-settings-list'); if (!el) return;
-    if (!BUBBLE_CONFIGS.length) BUBBLE_CONFIGS = _defaultBubbleConfigs();
-    el.innerHTML = BUBBLE_CONFIGS.map((bc, i) => {
-        const profOpts = AI_PROFILES.map(p => `<option value="${p.label}" ${p.label === bc.profileLabel ? 'selected' : ''}>${p.label}</option>`).join('');
-        const ctxChecks = _CTX_OPTS.map(o => `<label style="display:flex; align-items:center; gap:6px; padding:6px 0; border-bottom:0.5px solid var(--border); cursor:pointer;"><input type="checkbox" value="${o.id}" ${(bc.contexts||[]).includes(o.id)?'checked':''} style="width:16px; height:16px; accent-color:var(--accent); flex-shrink:0;">${o.icon} ${o.label||'Clear context'}</label>`).join('');
+    if (!AI_PROFILES.length) { el.innerHTML = '<p style="color:#888; text-align:center; padding:20px; font-size:13px;">Add an AI Profile first.</p>'; return; }
+    el.innerHTML = AI_PROFILES.map((p, i) => {
+        const ctxChecks = _CTX_OPTS.map(o => `<label style="display:flex; align-items:center; gap:6px; padding:6px 0; border-bottom:0.5px solid var(--border); cursor:pointer;"><input type="checkbox" value="${o.id}" ${(p.contexts||['email','thread','selected','clear']).includes(o.id)?'checked':''} style="width:16px; height:16px; accent-color:var(--accent); flex-shrink:0;">${o.icon} ${o.label||'Clear context'}</label>`).join('');
         return `<div style="background:var(--sec-bg); border-radius:16px; padding:14px; margin-bottom:10px;">
             <div style="display:flex; gap:8px; margin-bottom:10px; align-items:center;">
-                <input type="text" id="be-emoji-${i}" value="${bc.emoji||'🤖'}" maxlength="2" class="pp-input" style="width:48px; text-align:center; font-size:20px; padding:6px 4px;" placeholder="🤖">
-                <input type="text" id="be-label-${i}" value="${bc.label||'Assistant'}" class="pp-input" style="flex:1;" placeholder="Bubble name">
-                <div class="inline-btn" onclick="deleteBubbleConfig(${i})" style="color:#ff3b30; flex-shrink:0;">🗑</div>
+                <input type="text" id="be-emoji-${i}" value="${p.emoji||'🤖'}" maxlength="2" class="pp-input" style="width:48px; text-align:center; font-size:20px; padding:6px 4px;" placeholder="🤖">
+                <span style="flex:1; font-size:14px; font-weight:700;">${p.label}</span>
             </div>
-            <small style="font-size:10px; font-weight:700; color:#888; display:block; margin-bottom:6px;">DEFAULT PROFILE</small>
-            <select id="be-prof-${i}" class="pp-input" style="margin-bottom:10px;">${profOpts}</select>
             <small style="font-size:10px; font-weight:700; color:#888; display:block; margin-bottom:4px;">AVAILABLE CONTEXT BUTTONS</small>
             <div id="be-ctx-${i}">${ctxChecks}</div>
             <button onclick="saveBubbleConfig(${i})" class="action-btn" style="width:100%; margin-top:10px; font-size:12px;">💾 Save</button>
@@ -4772,23 +4768,16 @@ function renderBubbleSettings() {
     }).join('');
 }
 
-async function addBubbleConfig() { const defP = (AI_PROFILES[0]||{}).label||'Agent'; BUBBLE_CONFIGS.push({ id: Date.now().toString(), emoji:'🤖', label:'New Bubble', profileLabel: defP, contexts:['email','thread','selected','clear'] }); renderBubbleSettings(); }
-
 async function saveBubbleConfig(i) {
-    const bc = BUBBLE_CONFIGS[i]; if (!bc) return;
-    bc.emoji = document.getElementById('be-emoji-'+i)?.value || '🤖';
-    bc.label = document.getElementById('be-label-'+i)?.value || 'Assistant';
-    bc.profileLabel = document.getElementById('be-prof-'+i)?.value || activeProfileLabel;
+    const p = AI_PROFILES[i]; if (!p) return;
+    p.emoji = document.getElementById('be-emoji-'+i)?.value || '🤖';
     const ctxEl = document.getElementById('be-ctx-'+i);
-    bc.contexts = ctxEl ? Array.from(ctxEl.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value) : ['email','thread','selected','clear'];
-    await saveAll(); notify('Bubble saved!', '#34c759', 1500); renderBubbleSettings();
-}
-
-async function deleteBubbleConfig(i) {
-    openConfirm('Delete this bubble config?', async () => { BUBBLE_CONFIGS.splice(i, 1); if (!BUBBLE_CONFIGS.length) BUBBLE_CONFIGS = _defaultBubbleConfigs(); await saveAll(); renderBubbleSettings(); });
+    p.contexts = ctxEl ? Array.from(ctxEl.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value) : ['email','thread','selected','clear'];
+    _syncBubbleConfigs(); await saveAll(); notify('Bubble saved!', '#34c759', 1500); renderBubbleSettings();
 }
 
 function openBubblePicker() {
+    _syncBubbleConfigs();
     _bubblePickerConfigs = BUBBLE_CONFIGS.length ? [...BUBBLE_CONFIGS] : _defaultBubbleConfigs();
     const listEl = document.getElementById('pbm-profile-list'); if (!listEl) return;
     const subEl = document.getElementById('pbm-email-count');
