@@ -1568,9 +1568,9 @@ function getSessions() {
     let sData = chatHistories[activeProfileLabel];
     if(!sData || Array.isArray(sData)) { const defId = Date.now().toString(); sData = { current: defId, list: [{ id: defId, title: "Initial Session", msgs: Array.isArray(sData)?sData:[], var_id: defId }] }; chatHistories[activeProfileLabel] = sData; }
     sData.list.forEach(s => { 
-        if(!s.msgs) s.msgs = []; if(!s.var_id) s.var_id = s.id; 
-        if(s.variables) { if(!GLOBAL_DATASETS[s.var_id]) GLOBAL_DATASETS[s.var_id] = { title: "Data Set " + String(s.var_id).substring(String(s.var_id).length-4), data: s.variables }; delete s.variables; } 
-        if(!GLOBAL_DATASETS[s.var_id]) GLOBAL_DATASETS[s.var_id] = { title: "Data Set " + String(s.var_id).substring(String(s.var_id).length-4), data: {} };
+        if(!s.msgs) s.msgs = []; if(s.var_id === undefined) s.var_id = s.id; 
+        if(s.var_id && s.variables) { if(!GLOBAL_DATASETS[s.var_id]) GLOBAL_DATASETS[s.var_id] = { title: "Data Set " + String(s.var_id).substring(String(s.var_id).length-4), data: s.variables }; delete s.variables; } 
+        if(s.var_id && !GLOBAL_DATASETS[s.var_id]) GLOBAL_DATASETS[s.var_id] = { title: "Data Set " + String(s.var_id).substring(String(s.var_id).length-4), data: {} };
     });
     return sData;
 }
@@ -1581,7 +1581,7 @@ async function autoCleanupEmptyChats() {
     let changed = false; let count = 0; let activeVids = new Set();
     Object.keys(chatHistories).forEach(prof => {
         let sData = chatHistories[prof]; if(!sData || !sData.list) return;
-        sData.list.forEach(s => { if(!s.msgs) s.msgs = []; if(!s.var_id) { s.var_id = s.id; changed = true; } });
+        sData.list.forEach(s => { if(!s.msgs) s.msgs = []; if(s.var_id === undefined) { s.var_id = s.id; changed = true; } });
         if(!sData.list.find(x => String(x.id) === String(sData.current))) {
             const firstWithMsgs = sData.list.find(c => (c.msgs||[]).some(m => m.role !== 'developer'));
             const fallback = firstWithMsgs || sData.list[0];
@@ -1589,7 +1589,7 @@ async function autoCleanupEmptyChats() {
         }
         for(let i = sData.list.length - 1; i >= 0; i--) {
             let chat = sData.list[i]; let userMsgs = (chat.msgs || []).filter(m => m.role !== 'developer');
-            if(userMsgs.length === 0 && String(sData.current) !== String(chat.id)) { sData.list.splice(i, 1); changed = true; count++; } else { activeVids.add(String(chat.var_id)); }
+            if(userMsgs.length === 0 && String(sData.current) !== String(chat.id)) { sData.list.splice(i, 1); changed = true; count++; } else { if(chat.var_id) activeVids.add(String(chat.var_id)); }
         }
         if(sData.list.length === 0) { const defId = Date.now().toString() + Math.floor(Math.random()*1000); sData.list.push({ id: defId, title: "Chat", msgs: [], var_id: defId }); sData.current = defId; changed = true; }
     });
