@@ -2527,7 +2527,7 @@ function editAIResponse(idx) {
     window._editAiMsg = msg; window._editAiMsgIdx = idx;
     document.getElementById('edit-ai-input').innerHTML = marked.parse(currentText); openModal('edit-ai-modal');
     const ruleIn = document.getElementById('edit-ai-rule-input'); if(ruleIn) ruleIn.value = '';
-    document.getElementById('save-ai-edit-btn').onclick = async () => { msg.content = [{ type: "output_text", text: document.getElementById('edit-ai-input').innerHTML }]; await saveAll(); renderChatHistory(); closeModal('edit-ai-modal'); };
+    document.getElementById('save-ai-edit-btn').onclick = async () => { const _editHtml = document.getElementById('edit-ai-input').innerHTML; const _editTxt = document.getElementById('edit-ai-input').innerText; msg.content = [{ type: "output_text", text: _editHtml }]; await saveAll(); renderChatHistory(); closeModal('edit-ai-modal'); const _eSess = _fchatSessions.find(s => s.id === _fchatActiveId); const _eAtT = _eSess && _eSess.atTarget; if(_eAtT && _eAtT.el) { if(_eAtT.isTA){_eAtT.el.value=_editTxt;}else{_eAtT.el.innerText=_editTxt;} } };
 }
 
 async function applyRuleToResponse() { const rule = (document.getElementById('edit-ai-rule-input').value||'').trim(); if(!rule) { notify('Enter a rule first','#ff3b30'); return; } if(!CONFIG.ai_key) { notify('Add OpenAI key in Settings','#ff3b30'); return; } const currentText = document.getElementById('edit-ai-input').innerText; const btn = document.getElementById('apply-rule-btn'); if(btn) { btn.textContent='⏳'; btn.disabled=true; } try { const r = await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+CONFIG.ai_key},body:JSON.stringify({model:CONFIG.def_model||'gpt-4o-mini',messages:[{role:'system',content:'You are a text editor. Apply the user instruction to the provided text. Return ONLY the updated text, preserving format. No explanations.'},{role:'user',content:'Instruction: '+rule+'\n\nText:\n'+currentText}],max_tokens:2000})}); const d = await r.json(); const updated = (d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||'').trim(); if(updated) { document.getElementById('edit-ai-input').innerHTML = marked.parse(updated); document.getElementById('edit-ai-rule-input').value=''; notify('Response updated','#34c759',1200); } else { notify('No result returned','#ff3b30'); } } catch(e) { notify('Failed: '+e.message,'#ff3b30'); } if(btn) { btn.textContent='Apply'; btn.disabled=false; } }
@@ -3106,7 +3106,7 @@ async function sendToAI() {
                             if (fullR === "") aiB.innerHTML = `<div class="bubble-content"></div>`; 
                             fullR += data.delta; aiB.querySelector('.bubble-content').innerHTML = marked.parse(fullR); 
                             if(_replyAiTargetBoxId){const _rb=document.getElementById(_replyAiTargetBoxId);if(_rb){_rb.innerHTML=marked.parse(fullR);_rb.scrollTop=_rb.scrollHeight;}}
-                            if(_atMentionTargetEl){if(_atMentionIsTextArea){_atMentionTargetEl.value=fullR;}else{_atMentionTargetEl.innerText=fullR;}}
+                            const _actSess=_fchatSessions.find(s=>s.id===_fchatActiveId); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.el){if(_atT.isTA){_atT.el.value=fullR;}else{_atT.el.innerText=fullR;}}
                             if(!userScrolledDuringGen) scrollToLastRequest();
                         } 
                     } catch(e){}
@@ -4370,7 +4370,7 @@ async function gmailPreview(i, src) {
     if(fromEl) { fromEl.style.cursor='pointer'; fromEl.title='Compose new email to this address'; fromEl.onclick=()=>gmailComposeToAddress(dispEmail); }
     document.getElementById(ids.subject).textContent = em.subject;
     document.getElementById(ids.body).textContent = "Loading…";
-    document.getElementById(ids.reply).innerHTML = "";
+    const _rplySig = _getDefaultSig(); document.getElementById(ids.reply).innerHTML = _rplySig ? '<div class="email-sig-block" contenteditable="false" style="color:#888;border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px;font-size:12px;pointer-events:none;">' + _rplySig.replace(/\n/g,'<br>') + '</div>' : '';
     const ov = document.getElementById(ids.overlay);
     ov.style.cssText = 'display:flex; flex-direction:column; position:absolute; inset:0; background:var(--bg); z-index:10; overflow:hidden;';
     try {
@@ -5268,7 +5268,8 @@ function createFchatSession(profileLabel, bubbleConfig) {
         if (wrapper) wrapper.style.display = '';
         if (el) el.style.display = 'none';
     }
-    const session = { id: Date.now().toString(), profileLabel: profileLabel || activeProfileLabel, chatId: null, bubbleConfig: bubbleConfig || null };
+    const session = { id: Date.now().toString(), profileLabel: profileLabel || activeProfileLabel, chatId: null, bubbleConfig: bubbleConfig || null, atTarget: null };
+    if (_atMentionTargetEl) { session.atTarget = { el: _atMentionTargetEl, isTA: _atMentionIsTextArea, label: _atMentionTargetLabel }; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; }
     _fchatSessions.push(session);
     _fchatActiveId = session.id;
     renderFchatBubbles();
@@ -5861,6 +5862,7 @@ function _initAtMention() {
         if(!val.endsWith('@')) return;
         e.stopPropagation();
         const draft = val.slice(0,-1).trim();
+        if (_fchatActiveId !== null) { const _aS = _fchatSessions.find(s => s.id === _fchatActiveId); if (_aS && _aS.atTarget && _aS.atTarget.el) { notify('This chat is linked to "' + _aS.atTarget.label + '" — tap ✕ to unlink first', '#ff9500', 2800); return; } }
         _showAtMentionPicker(el, draft, isTA||isInp);
     });
 }
@@ -6298,8 +6300,8 @@ function _clearReplyAiTarget() {
     _replyAiTargetBoxId = '';
     _updateReplyAiIndicator();
 }
-function _clearAtMentionTarget() { _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; const ind = document.getElementById('fchat-at-indicator'); if(ind) ind.style.display = 'none'; }
-function _updateAtMentionIndicator() { const ind = document.getElementById('fchat-at-indicator'); const lbl = document.getElementById('fchat-at-indicator-label'); if(!ind || !lbl) return; if(_atMentionTargetEl && _atMentionTargetLabel) { lbl.textContent = _atMentionTargetLabel; ind.style.display = ''; } else { ind.style.display = 'none'; } }
+function _clearAtMentionTarget() { const sess = _fchatSessions.find(s => s.id === _fchatActiveId); if(sess) sess.atTarget = null; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; const ind = document.getElementById('fchat-at-indicator'); if(ind) ind.style.display = 'none'; }
+function _updateAtMentionIndicator() { const ind = document.getElementById('fchat-at-indicator'); const lbl = document.getElementById('fchat-at-indicator-label'); if(!ind || !lbl) return; const sess = _fchatSessions.find(s => s.id === _fchatActiveId); const atT = sess && sess.atTarget; if(atT && atT.el && atT.label) { lbl.textContent = atT.label; ind.style.display = ''; } else { ind.style.display = 'none'; } }
 
 let NOTES = [];
 function _loadNotes() { try { NOTES = JSON.parse(localStorage.getItem('app_notes') || '[]'); } catch(e) { NOTES = []; } }
