@@ -702,7 +702,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .note-item-preview { font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .note-jump-btn { font-size:16px; cursor:pointer; padding:2px 0; flex-shrink:0; opacity:0.7; }
 .fav-btn { cursor:pointer; }
-#notes-modal { background: var(--sec-bg) !important; }
+#notes-modal { background: #fffef5 !important; color: #1c1c1e !important; }
+@media (prefers-color-scheme: dark) { #notes-modal { background: #1c1c28 !important; color: #f2f2f7 !important; } }
 #notes-modal-content { flex:1; min-height:300px; width:100%; box-sizing:border-box; background:transparent; border:none; color:var(--text); font-size:14px; line-height:1.6; resize:none; outline:none; font-family:inherit; padding:0; }
 #notes-modal-rendered { font-size:14px; line-height:1.6; }
 </style>
@@ -1480,12 +1481,12 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div onclick="_deleteCurrentNote()" id="notes-modal-delete" style="cursor:pointer; font-size:18px; opacity:0.4; padding:2px 4px; flex-shrink:0;">🗑️</div>
     </div>
     <div id="notes-modal-edit" style="flex:1; display:flex; flex-direction:column; overflow-y:auto; padding:18px 20px 40px;">
-        <input id="notes-modal-title" type="text" placeholder="Title" style="background:transparent; border:none; font-size:24px; font-weight:800; color:var(--text); outline:none; padding:0; width:100%; font-family:inherit; margin-bottom:4px;">
+        <input id="notes-modal-title" type="text" placeholder="Title" style="background:transparent; border:none; font-size:24px; font-weight:800; color:inherit; outline:none; padding:0; width:100%; font-family:inherit; margin-bottom:4px;">
         <div id="notes-modal-date-label" style="font-size:11px; color:#888; margin-bottom:18px; font-weight:500;"></div>
-        <textarea id="notes-modal-content" oninput="_noteAutoSave()" placeholder="Start writing…" style="flex:1; border:none; background:transparent; color:var(--text); font-size:15.5px; line-height:1.8; resize:none; outline:none; font-family:Georgia, 'Times New Roman', serif; min-height:300px; padding:0;"></textarea>
+        <textarea id="notes-modal-content" oninput="_noteAutoSave()" placeholder="Start writing…" style="flex:1; border:none; background:transparent; color:inherit; font-size:15.5px; line-height:1.8; resize:none; outline:none; font-family:Georgia, 'Times New Roman', serif; min-height:300px; padding:0;"></textarea>
     </div>
     <div id="notes-modal-read" style="flex:1; overflow-y:auto; display:none; padding:18px 20px 40px;">
-        <div id="notes-modal-title-read" style="font-size:24px; font-weight:800; color:var(--text); margin-bottom:4px;"></div>
+        <div id="notes-modal-title-read" style="font-size:24px; font-weight:800; color:inherit; margin-bottom:4px;"></div>
         <div id="notes-modal-date-label-read" style="font-size:11px; color:#888; margin-bottom:18px;"></div>
         <div id="notes-modal-rendered" class="bubble-content" style="font-size:15.5px; line-height:1.8;"></div>
     </div>
