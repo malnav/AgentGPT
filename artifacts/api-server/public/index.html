@@ -667,6 +667,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     box-shadow: 0 24px 80px rgba(0,0,0,0.32) !important;
   }
   #master-modal { width: min(720px, 92vw) !important; }
+  #email-compose-modal { width: min(680px, 96vw) !important; max-height: 92vh !important; min-height: 72vh !important; }
   /* Backdrop dim via pseudo-element on the modal */
   #master-modal::before, #notes-modal::before, #email-compose-modal::before, #ds-detail-modal::before, #todo-edit-modal::before, #confirm-modal::before, #var-picker-modal::before {
     content: '';
@@ -851,6 +852,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <span class="chip" style="font-size:10px; padding:5px 9px; color:#ff3b30;" onclick="gmailSignOut()">Sign Out</span>
                 <span class="chip" style="font-size:10px; padding:5px 9px;" onclick="gmailLoadEmails()">↻</span>
             </div>
+            <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px; opacity:0.55; flex-shrink:0;">✕</div>
         </div>
         <div class="sub-tabs" style="margin:0; border:none; background:rgba(128,128,128,0.12); padding:3px; border-radius:10px; gap:2px;">
             <div class="sub-tab-btn active" id="ctx-tab-btn-context" onclick="ctxSwitchTab('context')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📋 Context</div>
@@ -946,6 +948,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <div id="tpl-slide-panel" class="ctx-panel" style="z-index: 156;">
     <div class="panel-header" style="padding:8px 14px; flex-direction:column; gap:6px; align-items:stretch;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">
+            <span style="font-size:13px; font-weight:800; color:var(--accent);">Templates & Tools</span>
+            <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px; opacity:0.55;">✕</div>
+        </div>
         <div class="sub-tabs" style="margin:0; border:none; background:rgba(128,128,128,0.12); padding:3px; border-radius:10px; gap:2px;">
             <div class="sub-tab-btn active" id="tpl-panel-tab-btn-templates" onclick="tplPanelSwitch('templates')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📄 Templates</div>
             <div class="sub-tab-btn" id="tpl-panel-tab-btn-services" onclick="tplPanelSwitch('services')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">🔌 Services</div>
@@ -2505,7 +2511,7 @@ function editAIResponse(idx) {
     window._editAiMsg = msg; window._editAiMsgIdx = idx;
     document.getElementById('edit-ai-input').innerHTML = marked.parse(currentText); openModal('edit-ai-modal');
     const ruleIn = document.getElementById('edit-ai-rule-input'); if(ruleIn) ruleIn.value = '';
-    document.getElementById('save-ai-edit-btn').onclick = async () => { const _editHtml = document.getElementById('edit-ai-input').innerHTML; const _editTxt = document.getElementById('edit-ai-input').innerText; msg.content = [{ type: "output_text", text: _editHtml }]; await saveAll(); renderChatHistory(); closeModal('edit-ai-modal'); const _eSess = _fchatSessions.find(s => s.id === _fchatActiveId); const _eAtT = _eSess && _eSess.atTarget; if(_eAtT && _eAtT.el) { if(_eAtT.isTA){_eAtT.el.value=_editTxt;}else{_eAtT.el.innerText=_editTxt;} } };
+    document.getElementById('save-ai-edit-btn').onclick = async () => { const _editHtml = document.getElementById('edit-ai-input').innerHTML; const _editTxt = document.getElementById('edit-ai-input').innerText; msg.content = [{ type: "output_text", text: _editHtml }]; await saveAll(); renderChatHistory(); closeModal('edit-ai-modal'); const _eSess = _fchatSessions.find(s => s.id === _fchatActiveId); const _eAtT = _eSess && _eSess.atTarget; if(_eAtT && _eAtT.el) { _writeToTargetPreserveSig(_eAtT.el, _eAtT.isTA ? _editTxt : _editHtml, _eAtT.isTA); } };
 }
 
 async function applyRuleToResponse() { const rule = (document.getElementById('edit-ai-rule-input').value||'').trim(); if(!rule) { notify('Enter a rule first','#ff3b30'); return; } if(!CONFIG.ai_key) { notify('Add OpenAI key in Settings','#ff3b30'); return; } const currentText = document.getElementById('edit-ai-input').innerText; const btn = document.getElementById('apply-rule-btn'); if(btn) { btn.textContent='⏳'; btn.disabled=true; } try { const r = await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+CONFIG.ai_key},body:JSON.stringify({model:CONFIG.def_model||'gpt-4o-mini',messages:[{role:'system',content:'You are a text editor. Apply the user instruction to the provided text. Return ONLY the updated text, preserving format. No explanations.'},{role:'user',content:'Instruction: '+rule+'\n\nText:\n'+currentText}],max_tokens:2000})}); const d = await r.json(); const updated = (d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||'').trim(); if(updated) { document.getElementById('edit-ai-input').innerHTML = marked.parse(updated); document.getElementById('edit-ai-rule-input').value=''; notify('Response updated','#34c759',1200); } else { notify('No result returned','#ff3b30'); } } catch(e) { notify('Failed: '+e.message,'#ff3b30'); } if(btn) { btn.textContent='Apply'; btn.disabled=false; } }
@@ -3083,8 +3089,8 @@ async function sendToAI() {
                         if (data.type === "response.output_text.delta") { 
                             if (fullR === "") aiB.innerHTML = `<div class="bubble-content"></div>`; 
                             fullR += data.delta; aiB.querySelector('.bubble-content').innerHTML = marked.parse(fullR); 
-                            if(_replyAiTargetBoxId){const _rb=document.getElementById(_replyAiTargetBoxId);if(_rb){_rb.innerHTML=marked.parse(fullR);_rb.scrollTop=_rb.scrollHeight;}}
-                            const _actSess=_fchatSessions.find(s=>s.id===_fchatActiveId); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.el){if(_atT.isTA){_atT.el.value=fullR;}else{_atT.el.innerText=fullR;}}
+                            if(_replyAiTargetBoxId){const _rb=document.getElementById(_replyAiTargetBoxId);if(_rb){_writeToTargetPreserveSig(_rb,marked.parse(fullR),false);_rb.scrollTop=_rb.scrollHeight;}}
+                            const _actSess=_fchatSessions.find(s=>s.id===_fchatActiveId); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.el){_writeToTargetPreserveSig(_atT.el,fullR,_atT.isTA);}
                             if(!userScrolledDuringGen) scrollToLastRequest();
                         } 
                     } catch(e){}
@@ -3997,6 +4003,7 @@ function gmailThreadHtml(group, src) {
                 <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">
                     <span class="spark-from${hasUnread?' unread':''}">${sendersLabel}</span>
                     <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+                        ${group.some(g=>g.em._replied)?'<span style="font-size:10px;font-weight:800;color:#34c759;background:rgba(52,199,89,0.14);border-radius:5px;padding:1px 5px;" title="Replied">↩</span>':''}
                         <span class="spark-time">${gmailRelTime(latest.date)}</span>
                         ${count>1?`<span class="spark-count-badge">${count}</span>`:''}
                     </div>
@@ -4439,7 +4446,9 @@ async function gmailSendReply(src) {
             if(!r.ok) throw new Error("Send failed: " + r.status);
         }
         replyEl.innerHTML = "";
-        notify("Reply sent!", "#34c759", 3000);
+        em._replied = true;
+        gmailRenderEmails();
+        notify("Reply sent! ↩", "#34c759", 3000);
         gmailClosePreview(src);
     } catch(e) { notify("Failed to send: " + e.message, "#ff3b30", 5000); }
 }
@@ -5841,6 +5850,25 @@ let _atMentionActive = false;
 let _atMentionTargetEl = null;
 let _atMentionIsTextArea = false;
 let _atMentionTargetLabel = '';
+function _writeToTargetPreserveSig(el, content, isTA) {
+    if(isTA) { el.value = content; return; }
+    const sigEl = el.querySelector('.email-sig-block');
+    const sigHtml = sigEl ? sigEl.outerHTML : null;
+    el.innerHTML = content;
+    if(sigHtml) el.insertAdjacentHTML('beforeend', sigHtml);
+    el.scrollTop = el.scrollHeight;
+}
+function _onComposeBodyInput(e) {
+    const el = e.target;
+    const text = el.innerText || el.textContent || '';
+    const atIdx = text.lastIndexOf('@');
+    if(atIdx === -1) return;
+    if(atIdx > 0 && !/[\s\n]/.test(text[atIdx-1])) return;
+    if(_atMentionActive) return;
+    if(!AI_PROFILES || AI_PROFILES.length < 2) return;
+    const draft = text.slice(0, atIdx).trim();
+    _showAtMentionPicker(el, draft, false);
+}
 function _initAtMention() {
     document.addEventListener('keyup', function(e) {
         if(e.key !== '@') return;
@@ -5945,39 +5973,52 @@ function _linkifyHtml(html) {
 </script>
 
 <div id="email-compose-modal" class="modal" style="z-index:3500;">
-    <div class="modal-header">
-        <h3 id="email-compose-title" style="color:var(--accent);">📨 Draft New Email</h3>
-        <div onclick="closeModal('email-compose-modal')" style="font-size:24px; cursor:pointer;">✕</div>
-    </div>
-    <div id="email-compose-picker" class="modal-content" style="display:none; padding:0; flex-direction:column;">
-        <div style="padding:12px 16px; font-size:12px; font-weight:800; color:#888; border-bottom:0.5px solid var(--border);">SELECT EMAIL TO REPLY TO</div>
-        <ul id="email-compose-pick-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto;"></ul>
-    </div>
-    <div id="email-compose-form" class="modal-content" style="display:flex; flex-direction:column; padding:14px; gap:10px;">
-        <select id="email-compose-from" class="pp-input" style="font-size:13px; display:none;"></select>
-        <div style="display:flex; gap:6px; align-items:center;">
-            <input id="email-compose-to" class="pp-input" placeholder="To" style="font-size:13px; flex:1;" list="email-to-suggestions" autocomplete="off">
-            <datalist id="email-to-suggestions"></datalist>
-            <button type="button" onclick="document.getElementById('email-compose-cc-row').style.display = document.getElementById('email-compose-cc-row').style.display === 'none' ? 'flex' : 'none';" style="font-size:11px; color:var(--accent); cursor:pointer; background:none; border:none; padding:4px 6px; font-weight:700; white-space:nowrap; flex-shrink:0;">CC/BCC</button>
+    <div style="display:flex; flex-direction:column; height:100%; background:var(--bg); border-radius:inherit; overflow:hidden;">
+        <div style="display:flex; align-items:center; gap:10px; padding:14px 18px 12px; border-bottom:0.5px solid var(--border); flex-shrink:0;">
+            <div onclick="closeModal('email-compose-modal')" style="font-size:22px; cursor:pointer; opacity:0.5; padding:2px 4px; flex-shrink:0; line-height:1;">✕</div>
+            <h3 id="email-compose-title" style="flex:1; font-size:16px; font-weight:800; color:var(--text); margin:0;">📨 New Email</h3>
+            <button class="chip" style="background:var(--accent); color:#fff; font-weight:800; font-size:14px; padding:9px 22px; flex-shrink:0; border-radius:20px;" onclick="sendComposedEmail()">Send ↑</button>
         </div>
-        <div id="email-compose-cc-row" style="display:none; flex-direction:column; gap:8px;">
-            <input id="email-compose-cc" class="pp-input" placeholder="CC" style="font-size:13px;">
-            <input id="email-compose-bcc" class="pp-input" placeholder="BCC" style="font-size:13px;">
+        <div id="email-compose-picker" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+            <div style="padding:12px 18px; font-size:11px; font-weight:800; color:#888; border-bottom:0.5px solid var(--border); letter-spacing:0.5px;">SELECT EMAIL TO REPLY TO</div>
+            <ul id="email-compose-pick-list" style="list-style:none; padding:0; margin:0; flex:1; overflow-y:auto;"></ul>
         </div>
-        <input id="email-compose-subject" class="pp-input" placeholder="Subject" style="font-size:13px;">
-        <div style="display:flex; gap:6px; background:var(--sec-bg); padding:6px 8px; border-radius:10px; flex-wrap:wrap;">
-            <button class="chip" style="font-size:12px; font-weight:900; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('bold')"><b>B</b></button>
-            <button class="chip" style="font-size:12px; font-style:italic; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('italic')"><i>I</i></button>
-            <button class="chip" style="font-size:12px; text-decoration:underline; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('underline')"><u>U</u></button>
-            <button class="chip" style="font-size:12px; padding:3px 9px;" onmousedown="event.preventDefault(); document.execCommand('insertUnorderedList')">• List</button>
-            <button class="chip" style="font-size:12px; padding:3px 9px;" onmousedown="event.preventDefault(); _composeInsertLink()">🔗 Link</button>
-            <button class="chip" style="font-size:12px; padding:3px 9px; color:var(--accent);" onmousedown="event.preventDefault(); _composeInsertSignature()">✍️ Sig</button>
-        </div>
-        <div id="email-compose-body" contenteditable="true" data-ph="Email body…" style="flex:1; min-height:160px; max-height:38vh; overflow-y:auto; background:var(--bg); border:0.5px solid var(--border); border-radius:12px; padding:12px; font-size:13px; line-height:1.6; outline:none; word-break:break-word;"></div>
-        <div id="email-compose-reply-ref" style="display:none; font-size:11px; color:#888; padding:6px 10px; background:var(--sec-bg); border-radius:8px; border-left:3px solid var(--accent);"></div>
-        <div style="display:flex; gap:8px;">
-            <button type="button" class="chip" style="flex:1; background:var(--sec-bg); color:#ff3b30; padding:12px; font-size:13px; border:0.5px solid var(--border);" onclick="closeModal('email-compose-modal')">Discard</button>
-            <button class="chip" style="flex:2; background:var(--accent); color:#fff; padding:13px; font-weight:bold; font-size:14px;" onclick="sendComposedEmail()">Send ↑</button>
+        <div id="email-compose-form" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+            <select id="email-compose-from" style="display:none; font-size:13px; margin:10px 18px 0; padding:8px 12px; border-radius:10px; border:0.5px solid var(--border); background:var(--sec-bg); color:var(--text); outline:none;"></select>
+            <div style="border-bottom:0.5px solid var(--border);">
+                <div style="display:flex; align-items:center; padding:10px 18px; gap:8px;">
+                    <span style="font-size:11px; font-weight:700; color:#888; width:44px; flex-shrink:0;">TO</span>
+                    <input id="email-compose-to" placeholder="Recipients" style="flex:1; border:none; background:transparent; font-size:14px; color:var(--text); outline:none; font-family:inherit;" list="email-to-suggestions" autocomplete="off">
+                    <datalist id="email-to-suggestions"></datalist>
+                    <button type="button" onclick="document.getElementById('email-compose-cc-row').style.display = document.getElementById('email-compose-cc-row').style.display === 'none' ? 'flex' : 'none';" style="font-size:11px; color:var(--accent); cursor:pointer; background:none; border:none; padding:3px 6px; font-weight:700; white-space:nowrap; flex-shrink:0; opacity:0.7;">Cc/Bcc</button>
+                </div>
+                <div id="email-compose-cc-row" style="display:none; flex-direction:column;">
+                    <div style="display:flex; align-items:center; padding:8px 18px; gap:8px; border-top:0.5px solid var(--border);">
+                        <span style="font-size:11px; font-weight:700; color:#888; width:44px; flex-shrink:0;">CC</span>
+                        <input id="email-compose-cc" placeholder="" style="flex:1; border:none; background:transparent; font-size:14px; color:var(--text); outline:none; font-family:inherit;">
+                    </div>
+                    <div style="display:flex; align-items:center; padding:8px 18px; gap:8px; border-top:0.5px solid var(--border);">
+                        <span style="font-size:11px; font-weight:700; color:#888; width:44px; flex-shrink:0;">BCC</span>
+                        <input id="email-compose-bcc" placeholder="" style="flex:1; border:none; background:transparent; font-size:14px; color:var(--text); outline:none; font-family:inherit;">
+                    </div>
+                </div>
+            </div>
+            <div style="border-bottom:0.5px solid var(--border); padding:10px 18px; display:flex; align-items:center; gap:8px;">
+                <span style="font-size:11px; font-weight:700; color:#888; width:44px; flex-shrink:0;">SUBJ</span>
+                <input id="email-compose-subject" placeholder="Subject" style="flex:1; border:none; background:transparent; font-size:14px; font-weight:600; color:var(--text); outline:none; font-family:inherit;">
+            </div>
+            <div id="email-compose-reply-ref" style="display:none; font-size:11px; color:#888; padding:8px 18px; background:var(--sec-bg); border-bottom:0.5px solid var(--border); border-left:3px solid var(--accent);"></div>
+            <div id="email-compose-body" contenteditable="true" data-ph="Write your message… (type @ to draft with AI)" oninput="_onComposeBodyInput(event)" style="flex:1; overflow-y:auto; padding:14px 18px; font-size:14px; line-height:1.75; outline:none; word-break:break-word; color:var(--text); min-height:160px;"></div>
+            <div style="display:flex; align-items:center; gap:6px; padding:8px 14px; border-top:0.5px solid var(--border); flex-shrink:0; flex-wrap:wrap;">
+                <button class="chip" style="font-size:12px; font-weight:900; padding:4px 10px;" onmousedown="event.preventDefault(); document.execCommand('bold')"><b>B</b></button>
+                <button class="chip" style="font-size:12px; font-style:italic; padding:4px 10px;" onmousedown="event.preventDefault(); document.execCommand('italic')"><i>I</i></button>
+                <button class="chip" style="font-size:12px; text-decoration:underline; padding:4px 10px;" onmousedown="event.preventDefault(); document.execCommand('underline')"><u>U</u></button>
+                <button class="chip" style="font-size:12px; padding:4px 10px;" onmousedown="event.preventDefault(); document.execCommand('insertUnorderedList')">• List</button>
+                <button class="chip" style="font-size:12px; padding:4px 10px;" onmousedown="event.preventDefault(); _composeInsertLink()">🔗</button>
+                <button class="chip" style="font-size:12px; padding:4px 10px; color:var(--accent);" onmousedown="event.preventDefault(); _composeInsertSignature()">✍️ Sig</button>
+                <span style="flex:1;"></span>
+                <button type="button" style="font-size:12px; color:#888; background:none; border:none; cursor:pointer; padding:4px 8px;" onclick="closeModal('email-compose-modal')">Discard</button>
+            </div>
         </div>
     </div>
 </div>
