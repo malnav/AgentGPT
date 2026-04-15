@@ -625,88 +625,63 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 @media (min-width: 1100px) {
   body { position: relative; }
 
-  /* ── Persistent left sidebar ── */
-  #workspace-panel {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    width: 272px !important;
-    border-radius: 0 14px 14px 0 !important;
-    z-index: 10 !important;
-    display: flex !important;
-    transition: none !important;
-    border-right: 0.5px solid var(--glass-border);
-  }
+  /* ── Panels: full-height overlays (not persistent) ── */
+  .side-panel, .ctx-panel { width: min(360px, 85%) !important; top: 0 !important; bottom: 0 !important; }
+  .ctx-panel { border-radius: 14px 0 0 14px !important; }
 
-  /* Hide the hamburger toggle for workspace (always visible) */
-  [title="Workspace"] { display: none !important; }
+  /* ── Chat: nicely centered, not full-width ── */
+  .bubble { min-width: 28%; max-width: 58%; }
+  #chat-container { max-width: 760px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 
-  /* ── Shift main content to account for sidebar ── */
-  .scroll-area   { padding-left: 272px; }
-  .top-nav       { left: 272px; padding-right: 320px; }
-  .input-zone    { left: 272px !important; transform: none !important; max-width: none !important; }
-  #scroll-bottom-btn { left: calc(272px + 14px); transform: none; }
-  #floating-actions  { right: 14px; }
-  .global-pull       { display: none; }
-  #sync-indicator    { left: 272px; right: auto; bottom: 76px; }
+  /* ── Floating chat: centered panel ── */
+  #floating-chat { left: 50%; transform: translateX(-50%); right: auto; width: min(760px, 100vw); border-radius: 0; }
+  #floating-chat .top-nav { left: 0; }
+  #fchat-bubble-bar { left: 50%; transform: translateX(-50%); max-width: min(720px, 92vw); }
 
-  /* ── Right panels: variables panel always visible, others as overlay ── */
-  .ctx-panel, #tpl-slide-panel {
-    width: min(380px, 38%) !important;
-    top: 0 !important;
-    border-radius: 14px 0 0 14px !important;
-    bottom: 0 !important;
-  }
-
-  /* Variables panel: persistent, always visible, no overlay ── */
-  #vars-slide-panel {
-    position: fixed !important;
-    right: 0 !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    width: 320px !important;
-    z-index: 11 !important;
-    border-radius: 14px 0 0 14px !important;
-    display: flex !important;
-    transform: none !important;
-    transition: none !important;
-    border-left: 0.5px solid var(--glass-border);
-  }
-
-  /* Adjust main content to account for right vars panel ── */
-  .scroll-area { padding-right: 320px; }
-  .input-zone { right: 320px !important; }
-  #floating-actions { right: 360px; }
-
-  /* ── Chat bubbles: better proportions ── */
-  .bubble { min-width: 28%; max-width: 60%; }
-  #chat-container { max-width: 820px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
-
-  /* ── Modals: inset from sidebar on desktop ── */
-  .modal { left: 272px; }
-
-  /* Hide ✕ close buttons inside the workspace panel (it's a fixed sidebar now) */
-  #workspace-panel .panel-header > div[id$="-btns"] > div[onclick] { display: none !important; }
-
-  /* Hide pull indicator on desktop (sidebar always visible) ── */
-  .pull-indicator { display: none !important; }
-
-  /* Profile dropdown — more width available */
+  /* Profile dropdown */
   .main-profile-dropdown { max-width: 220px; }
 
-  /* Home screen: full-screen (covers sidebars), centered content */
+  /* Home screen: full-screen, centered content */
   #hs-header { padding-left: max(32px, calc((100vw - 760px) / 2)); padding-right: max(32px, calc((100vw - 760px) / 2)); }
   #hs-body { padding-left: max(32px, calc((100vw - 760px) / 2)); padding-right: max(32px, calc((100vw - 760px) / 2)); }
   #hs-body.hs-cols-2, #hs-body.hs-cols-3 { padding-left: max(28px, calc((100vw - 1060px) / 2)); padding-right: max(28px, calc((100vw - 1060px) / 2)); }
   .hs-greeting { font-size: 30px; }
   .hs-card { border-radius: 24px; }
   .hs-card-drag-clone { left: max(32px, calc((100vw - 760px) / 2)); right: max(32px, calc((100vw - 760px) / 2)); }
-
-  /* Floating chat: constrained between both sidebars */
-  #floating-chat { left: 272px; right: 320px; border-radius: 0; }
-  #floating-chat .top-nav { left: 0; }
-  #fchat-bubble-bar { left: calc(272px + (100vw - 272px - 320px) / 2); max-width: calc(100vw - 272px - 380px); }
+}
+/* ═══════════════════════════════════════════════
+   TABLET+ ≥ 768px — Dialog-style modals
+   ═══════════════════════════════════════════════ */
+@media (min-width: 768px) {
+  /* Settings, Notes, and other non-fullscreen modals: centered card */
+  #master-modal, #notes-modal, #email-compose-modal, #ds-detail-modal, #notes-create-modal, #todo-edit-modal, #confirm-modal, #var-picker-modal {
+    top: 50% !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: min(640px, 92vw) !important;
+    max-height: 88vh !important;
+    transform: translate(-50%, -50%) !important;
+    border-radius: 22px !important;
+    overflow: hidden !important;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.32) !important;
+  }
+  #master-modal { width: min(720px, 92vw) !important; }
+  /* Backdrop dim via pseudo-element on the modal */
+  #master-modal::before, #notes-modal::before, #email-compose-modal::before, #ds-detail-modal::before, #todo-edit-modal::before, #confirm-modal::before, #var-picker-modal::before {
+    content: '';
+    position: fixed;
+    inset: -100vh -100vw;
+    background: rgba(0,0,0,0.45);
+    z-index: -1;
+    pointer-events: none;
+  }
+  /* Larger form inputs on big screen */
+  .pp-input { font-size: 15px !important; padding: 13px 16px !important; }
+  .modal-header h3 { font-size: 20px !important; }
+  .chip { font-size: 13px !important; }
+  /* Notes modal: more space for the textarea */
+  #notes-modal-content { font-size: 15px !important; line-height: 1.7 !important; }
 }
 #gmail-reply-box a, #gmail-modal-reply-box a, #email-compose-body a { color: var(--accent); text-decoration: underline; cursor: pointer; }
 .note-item { display:flex; align-items:flex-start; gap:8px; padding:9px 10px; margin-bottom:6px; border-radius:12px; background:var(--sec-bg); cursor:pointer; transition:background 0.15s; }
@@ -4373,7 +4348,7 @@ async function gmailPreview(i, src) {
     if(fromEl) { fromEl.style.cursor='pointer'; fromEl.title='Compose new email to this address'; fromEl.onclick=()=>gmailComposeToAddress(dispEmail); }
     document.getElementById(ids.subject).textContent = em.subject;
     document.getElementById(ids.body).textContent = "Loading…";
-    const _rplySig = _getDefaultSig(); document.getElementById(ids.reply).innerHTML = _rplySig ? '<p style="min-height:1em;"><br></p><div class="email-sig-block" contenteditable="false" style="color:#888;border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px;font-size:12px;pointer-events:none;">' + _rplySig.replace(/\n/g,'<br>') + '</div>' : ''; try { const _rb=document.getElementById(ids.reply); const _range=document.createRange(); const _sel=window.getSelection(); _range.setStart(_rb.firstChild||_rb,0); _range.collapse(true); _sel.removeAllRanges(); _sel.addRange(_range); } catch(e) {}
+    const _rplySig = _getDefaultSig(); document.getElementById(ids.reply).innerHTML = _rplySig ? '<div class="email-sig-block" contenteditable="false" style="color:#888;border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px;font-size:12px;pointer-events:none;">' + _rplySig.replace(/\n/g,'<br>') + '</div>' : ''; try { const _rb=document.getElementById(ids.reply); const _range=document.createRange(); const _sel=window.getSelection(); _range.setStart(_rb,0); _range.collapse(true); _sel.removeAllRanges(); _sel.addRange(_range); } catch(e) {}
     const ov = document.getElementById(ids.overlay);
     ov.style.cssText = 'display:flex; flex-direction:column; position:absolute; inset:0; background:var(--bg); z-index:10; overflow:hidden;';
     try {
@@ -5012,6 +4987,7 @@ function showHomeScreen() {
     if (_hsActive) {
         _hsUpdateGreeting();
         _hsApplyCardOrder();
+        _hsApplyColumns();
         return;
     }
     _hsActive = true;
@@ -5095,7 +5071,7 @@ function _hsDsVarValue(raw) { if(raw===null||raw===undefined)return'—'; if(typ
 
 function _hsFindTodayDatasets() { const today=new Date(); const todayMs=new Date(today.getFullYear(),today.getMonth(),today.getDate()).getTime(); const seen=new Set(); const all=[]; Object.entries(chatHistories||{}).forEach(([prof,pData])=>{ if(!pData||!pData.list)return; pData.list.forEach(session=>{ const vid=session.var_id; if(!vid)return; const ds=GLOBAL_DATASETS[vid]; if(!ds||ds.archived||!ds.cal_date_var)return; const valObj=ds.data&&ds.data[ds.cal_date_var]; if(!valObj&&valObj!==0)return; const rawStr=_hsDsVarValue(valObj); const lines=rawStr.split(/\n/).map(s=>s.trim()).filter(Boolean); lines.forEach(line=>{ const d=parseCustomDate(line); if(isNaN(d.getTime()))return; const dMs=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(); const diff=dMs-todayMs; if(!seen.has(vid)){ seen.add(vid); all.push({ds,vid,date:d,profile:prof,diffDays:Math.round(diff/86400000)}); } }); }); }); all.sort((a,b)=>a.diffDays-b.diffDays); const future=all.filter(x=>x.diffDays>=0); return (future.length?future:all).slice(0,3); }
 
-async function _hsFetchDsSummary(ds,vid) { const today=new Date().toDateString(); if(_hsDsSummaryCache[vid]&&_hsDsSummaryDate===today)return _hsDsSummaryCache[vid]; const apiKey=typeof CONFIG!=='undefined'&&CONFIG.ai_key; if(!apiKey)return null; const data=ds.data||{}; const lines=Object.entries(data).map(([k,v])=>`${k}: ${_hsDsVarValue(v)}`).join('\n'); if(!lines.trim())return null; try{ const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'system',content:'You are a concise assistant summarizing a dataset for a daily briefing. Reply in 2-3 short natural sentences. No markdown.'},{role:'user',content:`Dataset: "${ds.title||ds.name||vid}"\n\n${lines}`}],max_tokens:120,temperature:0.4})}); if(!r.ok)return null; const d=await r.json(); const s=d.choices?.[0]?.message?.content?.trim()||null; if(s){_hsDsSummaryCache[vid]=s;_hsDsSummaryDate=today;} return s; }catch(e){return null;} }
+async function _hsFetchDsSummary(ds,vid) { const today=new Date().toDateString(); const lsKey='_hs_ds_sum_'+vid+'_'+today; if(_hsDsSummaryCache[vid])return _hsDsSummaryCache[vid]; try{const stored=localStorage.getItem(lsKey);if(stored){_hsDsSummaryCache[vid]=stored;return stored;}}catch(e){} const apiKey=typeof CONFIG!=='undefined'&&CONFIG.ai_key; if(!apiKey)return null; const data=ds.data||{}; const lines=Object.entries(data).map(([k,v])=>`${k}: ${_hsDsVarValue(v)}`).join('\n'); if(!lines.trim())return null; try{ const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'system',content:'You are a concise assistant summarizing a dataset for a daily briefing. Reply in 2-3 short natural sentences. No markdown.'},{role:'user',content:`Dataset: "${ds.title||ds.name||vid}"\n\n${lines}`}],max_tokens:120,temperature:0.4})}); if(!r.ok)return null; const d=await r.json(); const s=d.choices?.[0]?.message?.content?.trim()||null; if(s){_hsDsSummaryCache[vid]=s;try{localStorage.setItem(lsKey,s);}catch(e){}} return s; }catch(e){return null;} }
 
 async function _hsRenderDataset() {
     const el=document.getElementById('hs-dataset-body'); if(!el)return;
@@ -6075,7 +6051,7 @@ function _linkifyHtml(html) {
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">🗂 Dataset</span>
                 <span id="hs-ds-nav" style="flex:1;display:flex;justify-content:center;gap:5px;align-items:center;"></span>
-                <div onclick="_hsDsSummaryCache={};_hsRenderDataset();" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 8px;background:var(--sec-bg);border-radius:8px;">Refresh</div>
+                <div onclick="_hsDsSummaryCache={};try{const today=new Date().toDateString();Object.keys(localStorage).filter(k=>k.startsWith('_hs_ds_sum_')).forEach(k=>{if(k.endsWith(today))localStorage.removeItem(k);});}catch(e){}; _hsRenderDataset();" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 8px;background:var(--sec-bg);border-radius:8px;">🔄 Refresh</div>
             </div>
             <div style="position:relative;overflow:hidden;border-radius:0 0 20px 20px;">
                 <div id="hs-dataset-body" style="display:flex;flex-direction:row;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none;"></div>
