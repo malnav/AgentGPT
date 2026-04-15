@@ -3106,6 +3106,7 @@ async function sendToAI() {
                             if (fullR === "") aiB.innerHTML = `<div class="bubble-content"></div>`; 
                             fullR += data.delta; aiB.querySelector('.bubble-content').innerHTML = marked.parse(fullR); 
                             if(_replyAiTargetBoxId){const _rb=document.getElementById(_replyAiTargetBoxId);if(_rb){_rb.innerHTML=marked.parse(fullR);_rb.scrollTop=_rb.scrollHeight;}}
+                            if(_atMentionTargetEl){if(_atMentionIsTextArea){_atMentionTargetEl.value=fullR;}else{_atMentionTargetEl.innerText=fullR;}}
                             if(!userScrolledDuringGen) scrollToLastRequest();
                         } 
                     } catch(e){}
@@ -3114,6 +3115,7 @@ async function sendToAI() {
         }
         addLog("AI_CHAT", activeProfileLabel, "Response Generated"); 
         chatHistory.push({ role: "assistant", content: [{ type: "output_text", text: fullR }] }); await saveAll(); await autoExtractVariables(false); renderChatHistory(); 
+        if(_atMentionTargetEl) { _atMentionTargetEl = null; _atMentionIsTextArea = false; }
         if(!userScrolledDuringGen) scrollToLastRequest();
         
         try { const htmlBlob = new Blob([marked.parse(fullR)], {type: 'text/html'}); const textBlob = new Blob([fullR], {type: 'text/plain'}); const data = new ClipboardItem({'text/html': htmlBlob, 'text/plain': textBlob}); await navigator.clipboard.write([data]); notify("Response Auto-Copied!", "#34c759"); } catch(e) {}
@@ -5841,6 +5843,8 @@ async function sendComposedEmail() {
 window.onload = init;
 
 let _atMentionActive = false;
+let _atMentionTargetEl = null;
+let _atMentionIsTextArea = false;
 function _initAtMention() {
     document.addEventListener('keyup', function(e) {
         if(e.key !== '@') return;
@@ -5848,7 +5852,7 @@ function _initAtMention() {
         const el = e.target;
         const isTA = el.tagName === 'TEXTAREA';
         const isInp = el.tagName === 'INPUT' && el.type !== 'password' && el.type !== 'checkbox' && el.type !== 'range';
-        const isCE = el.isContentEditable && el.id !== 'edit-ai-input' && el.id !== 'email-compose-body' && !el.classList.contains('pp-input');
+        const isCE = el.isContentEditable && el.id !== 'edit-ai-input' && el.id !== 'email-compose-body' && el.id !== 'gmail-reply-box' && el.id !== 'gmail-modal-reply-box' && !el.classList.contains('pp-input');
         if(!isTA && !isInp && !isCE) return;
         if(!AI_PROFILES || AI_PROFILES.length < 2) return;
         const val = isTA||isInp ? el.value : el.innerText;
@@ -5860,6 +5864,8 @@ function _initAtMention() {
 }
 function _showAtMentionPicker(el, draft, isTextArea) {
     _atMentionActive = true;
+    _atMentionTargetEl = el;
+    _atMentionIsTextArea = isTextArea;
     const menu = document.createElement('div');
     menu.id = '_at-mention-menu';
     menu.style.cssText = 'position:fixed;inset:0;z-index:9500;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);';
@@ -5881,7 +5887,7 @@ function _showAtMentionPicker(el, draft, isTextArea) {
         listEl.appendChild(d);
     });
 }
-function _closeAtMention(keepAt) { _atMentionActive = false; const m = document.getElementById('_at-mention-menu'); if(m) m.remove(); }
+function _closeAtMention(keepAt) { _atMentionActive = false; if(keepAt) { _atMentionTargetEl = null; _atMentionIsTextArea = false; } const m = document.getElementById('_at-mention-menu'); if(m) m.remove(); }
 _initAtMention();
 
 function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -6290,7 +6296,7 @@ function _clearReplyAiTarget() {
 
 let NOTES = [];
 function _loadNotes() { try { NOTES = JSON.parse(localStorage.getItem('app_notes') || '[]'); } catch(e) { NOTES = []; } }
-function _saveNotes() { try { localStorage.setItem('app_notes', JSON.stringify(NOTES)); } catch(e) {} }
+function _saveNotes() { try { localStorage.setItem('app_notes', JSON.stringify(NOTES)); } catch(e) {} triggerAutoSync(); }
 
 function _hsRenderNotes() { const el = document.getElementById('hs-notes-body'); if (!el) return; if (!NOTES.length) { el.innerHTML = '<div style="text-align:center;color:#888;font-size:12px;padding:24px 0;">No notes yet — tap + Add or save a chat response with ☆</div>'; return; } el.innerHTML = [...NOTES].sort((a,b)=>b.id-a.id).map(n => { const isFav = n.type === 'favorite'; const preview = (n.content || '').replace(/#+\s/g,'').replace(/\*+/g,'').replace(/`/g,'').slice(0, 80); const dateStr = new Date(n.id).toLocaleDateString([], {month:'short', day:'numeric'}); const jumpBtn = isFav && n.chatId ? `<div class="note-jump-btn" onclick="event.stopPropagation();_noteJumpToChat('${n.profileLabel}','${n.chatId}',${n.msgIdx})" title="Jump to chat">💬</div>` : ''; return `<div class="note-item" onclick="openNoteById(${n.id})"><div class="note-item-body"><div class="note-item-title"><span style="font-size:12px;">${isFav ? '⭐' : '📝'}</span><span class="note-item-name">${_ehNotes(n.title || 'Untitled')}</span><span class="note-item-date">${dateStr}</span></div><div class="note-item-preview">${_ehNotes(preview) || 'No content'}</div></div>${jumpBtn}</div>`; }).join(''); }
 
@@ -6311,7 +6317,7 @@ function _deleteCurrentNote() { if (!_currentNoteId) return; openConfirm('Delete
 
 function saveAsFavorite(msgIdx) { const chatId = String(getSessions().current); const already = NOTES.find(n => n.type === 'favorite' && n.msgIdx === msgIdx && n.chatId === chatId && n.profileLabel === activeProfileLabel); if (already) { NOTES = NOTES.filter(x => x.id !== already.id); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Removed from Notes', '#888', 1200); return; } const text = getTextFromContent(chatHistory[msgIdx].content); const title = text.replace(/#+\s/g,'').replace(/\*+/g,'').trim().slice(0, 60) || 'AI Response'; const id = Date.now(); NOTES.push({ id, type: 'favorite', title, content: text, createdAt: id, profileLabel: activeProfileLabel, chatId, msgIdx }); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Saved to Notes ⭐', '#34c759', 1200); }
 
-function _noteJumpToChat(profileLabel, chatId, msgIdx) { _openLinkedChat(profileLabel, chatId); setTimeout(() => { const el = document.getElementById('msg-' + msgIdx); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.transition = 'background 0.4s'; el.style.background = 'rgba(255,204,0,0.18)'; setTimeout(() => { el.style.background = ''; }, 1600); } }, 500); }
+function _noteJumpToChat(profileLabel, chatId, msgIdx) { _openLinkedChat(profileLabel, chatId); function _tryHighlight(attemptsLeft) { const el = document.getElementById('msg-' + msgIdx); if(el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.transition = 'background 0.4s'; el.style.background = 'rgba(255,204,0,0.18)'; setTimeout(() => { el.style.background = ''; }, 1600); } else if(attemptsLeft > 0) { setTimeout(() => _tryHighlight(attemptsLeft - 1), 400); } } setTimeout(() => _tryHighlight(5), 600); }
 </script>
 </body>
 </html>
