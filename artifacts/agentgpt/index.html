@@ -392,9 +392,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .cal-event { font-size: 9px; background: var(--accent); color: #fff; border-radius: 5px; padding: 2px 4px; white-space: normal; word-break: break-word; overflow: hidden; cursor: pointer; font-weight: 600; }
 
 /* ── MODALS ── */
-.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 200; display: none; flex-direction: column; overflow: hidden; }
+.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 200; display: none; flex-direction: column; overflow: hidden; padding-top: env(safe-area-inset-top, 0px); }
 .modal-header {
-  padding: max(14px, env(safe-area-inset-top)) 18px 13px 18px;
+  padding: 14px 18px 13px 18px;
   border-bottom: 0.5px solid var(--border);
   display: flex;
   justify-content: space-between;
@@ -1237,7 +1237,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <div id="gmail-modal" class="modal" style="z-index:3100;">
     <div class="modal-header" style="flex-direction:column; gap:0; align-items:stretch; padding:0;">
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:max(14px, env(safe-area-inset-top)) 16px 8px 16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px 8px 16px;">
             <span style="font-size:16px; font-weight:800;">📧 Email</span>
             <div style="display:flex; gap:8px; align-items:center;">
                 <span class="chip" id="gmail-modal-add-btn" style="font-size:11px; padding:5px 12px; background:var(--accent); color:#fff; display:none;" onclick="gmailAddToContext()">+ Add to Context</span>
