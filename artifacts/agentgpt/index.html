@@ -682,6 +682,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   .modal-header h3 { font-size: 20px !important; }
   .chip { font-size: 13px !important; }
   /* Notes modal: more space for the textarea */
+  #notes-modal { width: min(700px, 96vw) !important; max-height: 90vh !important; min-height: 70vh !important; }
   #notes-modal-content { font-size: 15px !important; line-height: 1.7 !important; }
 }
 #gmail-reply-box a, #gmail-modal-reply-box a, #email-compose-body a { color: var(--accent); text-decoration: underline; cursor: pointer; }
@@ -1463,22 +1464,22 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </div>
 
 <div id="notes-modal" class="modal" style="z-index:3500; display:none;">
-    <div class="modal-header" style="flex-direction:column; gap:0; padding:0;">
-        <div style="display:flex; align-items:center; gap:8px; padding:16px 16px 10px;">
-            <div onclick="closeModal('notes-modal')" style="cursor:pointer; font-size:22px; color:var(--accent); line-height:1;">←</div>
-            <input id="notes-modal-title" type="text" placeholder="Title…" style="flex:1; background:transparent; border:none; font-size:18px; font-weight:700; color:var(--text); outline:none; padding:0;">
-            <div onclick="_toggleNoteMode()" id="notes-modal-toggle" style="cursor:pointer; font-size:12px; color:var(--accent); padding:5px 12px; background:var(--sec-bg); border-radius:8px; font-weight:700;">Read</div>
-            <div onclick="_deleteCurrentNote()" id="notes-modal-delete" style="cursor:pointer; font-size:12px; color:#ff3b30; padding:5px 12px; background:var(--sec-bg); border-radius:8px; font-weight:700;">Delete</div>
-        </div>
+    <div style="display:flex; align-items:center; gap:8px; padding:max(14px,env(safe-area-inset-top)) 14px 10px; border-bottom:0.5px solid var(--border); flex-shrink:0;">
+        <div onclick="closeModal('notes-modal')" style="cursor:pointer; font-size:22px; color:var(--accent); line-height:1; padding:2px 4px; flex-shrink:0;">←</div>
+        <span style="flex:1;"></span>
+        <div onclick="_toggleNoteMode()" id="notes-modal-toggle" style="cursor:pointer; font-size:12px; color:var(--accent); padding:5px 12px; background:rgba(0,122,255,0.1); border-radius:10px; font-weight:700;">Preview</div>
+        <div onclick="_saveCurrentNote()" style="cursor:pointer; font-size:12px; color:#fff; padding:5px 14px; background:var(--accent); border-radius:10px; font-weight:700; flex-shrink:0;">Done</div>
+        <div onclick="_deleteCurrentNote()" id="notes-modal-delete" style="cursor:pointer; font-size:18px; opacity:0.4; padding:2px 4px; flex-shrink:0;">🗑️</div>
     </div>
-    <div class="modal-content" style="display:flex; flex-direction:column; padding:0 16px 14px; overflow:hidden;">
-        <div id="notes-modal-edit" style="flex:1; display:flex; flex-direction:column; overflow-y:auto;">
-            <textarea id="notes-modal-content" placeholder="Write your note here… Markdown is supported.&#10;&#10;**bold**, *italic*, # Heading, - list, `code`"></textarea>
-        </div>
-        <div id="notes-modal-read" style="flex:1; overflow-y:auto; display:none;">
-            <div id="notes-modal-rendered" class="bubble-content" style="padding:4px 0;"></div>
-        </div>
-        <button onclick="_saveCurrentNote()" style="width:100%; margin-top:14px; padding:14px; background:var(--accent); color:#fff; border:none; border-radius:14px; font-size:15px; font-weight:700; cursor:pointer; flex-shrink:0;">Save</button>
+    <div id="notes-modal-edit" style="flex:1; display:flex; flex-direction:column; overflow-y:auto; padding:18px 20px 40px;">
+        <input id="notes-modal-title" type="text" placeholder="Title" style="background:transparent; border:none; font-size:24px; font-weight:800; color:var(--text); outline:none; padding:0; width:100%; font-family:inherit; margin-bottom:4px;">
+        <div id="notes-modal-date-label" style="font-size:11px; color:#888; margin-bottom:18px; font-weight:500;"></div>
+        <textarea id="notes-modal-content" oninput="_noteAutoSave()" placeholder="Start writing…" style="flex:1; border:none; background:transparent; color:var(--text); font-size:15.5px; line-height:1.8; resize:none; outline:none; font-family:Georgia, 'Times New Roman', serif; min-height:300px; padding:0;"></textarea>
+    </div>
+    <div id="notes-modal-read" style="flex:1; overflow-y:auto; display:none; padding:18px 20px 40px;">
+        <div id="notes-modal-title-read" style="font-size:24px; font-weight:800; color:var(--text); margin-bottom:4px;"></div>
+        <div id="notes-modal-date-label-read" style="font-size:11px; color:#888; margin-bottom:18px;"></div>
+        <div id="notes-modal-rendered" class="bubble-content" style="font-size:15.5px; line-height:1.8;"></div>
     </div>
 </div>
 
@@ -3090,7 +3091,7 @@ async function sendToAI() {
                             if (fullR === "") aiB.innerHTML = `<div class="bubble-content"></div>`; 
                             fullR += data.delta; aiB.querySelector('.bubble-content').innerHTML = marked.parse(fullR); 
                             if(_replyAiTargetBoxId){const _rb=document.getElementById(_replyAiTargetBoxId);if(_rb){_writeToTargetPreserveSig(_rb,marked.parse(fullR),false);_rb.scrollTop=_rb.scrollHeight;}}
-                            const _actSess=_fchatSessions.find(s=>s.id===_fchatActiveId); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.el){_writeToTargetPreserveSig(_atT.el,fullR,_atT.isTA);}
+                            const _actSess=_fchatSessions.find(s=>s.id===_fchatActiveId); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.el){_writeToTargetPreserveSig(_atT.el,_atT.isTA?fullR:marked.parse(fullR),_atT.isTA);}
                             if(!userScrolledDuringGen) scrollToLastRequest();
                         } 
                     } catch(e){}
@@ -4381,7 +4382,10 @@ async function gmailPreview(i, src) {
             else { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = em.snippet; }
         }
     } catch(e) { document.getElementById(ids.body).textContent = em.snippet; }
+    const _bEl = document.getElementById(ids.body); if(_bEl) { _bEl.addEventListener('click', function(ev) { const a = ev.target.closest('a'); if(a && a.href && (a.href.startsWith('mailto:') || a.protocol === 'mailto:')) { ev.preventDefault(); const addr = decodeURIComponent(a.href.replace(/^mailto:/i,'').split('?')[0]); if(addr) gmailComposeToAddress(addr); } }, { capture: true }); }
 }
+
+function _getDsPhone(vid) { const ds = GLOBAL_DATASETS[vid]; if(!ds) return null; for(const v of Object.values(ds.data||{})) { const val = (typeof v === 'object' ? v.value : v) || ''; const plain = val.replace(/<[^>]+>/g,'').trim(); if(/^\+?[\d][\d\s\-\(\)]{5,18}[\d]$/.test(plain) && plain.replace(/\D/g,'').length >= 7) return plain.replace(/\D/g,''); } return null; }
 
 function gmailDecodeB64(data) {
     try {
@@ -4694,7 +4698,7 @@ function renderCalendar() {
         let today = new Date(); today.setHours(0,0,0,0);
         let datasets = getDatasetsWithDates().filter(ds => ds.date >= today);
         let todos = getTodosWithDates().filter(td => td.date >= today);
-        let futureEvents = [...datasets.map(ds => { let realDs = GLOBAL_DATASETS[ds.id]; let dk = _localDateIso(ds.date); let evLabel = _getCalLabel(ds, realDs, dk); let snap = Object.assign({}, ds, { dateKey: dk }); let sumId = 'ev-sum-'+ds.id+'-'+dk.replace(/[^a-z0-9]/gi,''); return { sortDate: ds.date, html: `<div style="font-size:13px; border-bottom:0.5px solid var(--border);"><div style="display:flex;align-items:center;gap:6px;padding:8px 14px;"><div style="flex:1;cursor:pointer;" onclick="showDatasetDetails('${btoa(unescape(encodeURIComponent(JSON.stringify(snap))))}')"><strong>${ds.date.toLocaleString('default', {month:'short', day:'numeric', year:ds.date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined})}:</strong> ${evLabel} <span style="color:#888;font-size:10px;">(${ds.profile})</span></div><button onclick="event.stopPropagation();_summarizeCalEvent('${ds.id}','${dk}',this)" style="font-size:10px;padding:3px 7px;border:none;background:rgba(0,122,255,0.1);color:var(--accent);border-radius:6px;cursor:pointer;flex-shrink:0;font-weight:700;white-space:nowrap;">🤖 AI</button></div><div id="${sumId}" style="max-height:0;overflow:hidden;padding:0 14px;transition:max-height 0.3s ease;"></div></div>` }; }), ...todos.map(td => ({ sortDate: td.date, html: `<div style="font-size:13px; padding:8px 14px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; gap:8px;"><span onclick="toggleCalTodo('${td.vid}','${td.todoId}')" style="cursor:pointer; font-size:16px; flex-shrink:0;" title="${td.done?'Mark undone':'Mark done'}">${td.done?'✅':'⬜'}</span><span onclick="editTodo('${td.vid}','${td.todoId}')" style="flex:1; cursor:pointer; ${td.done?'text-decoration:line-through;opacity:0.6;':''}"><strong>${td.date.toLocaleString('default', {month:'short', day:'numeric', year:td.date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined})}:</strong> ${td.text} <span style="color:#888;font-size:10px;">(${td.datasetTitle})</span></span></div>` })) ].sort((a,b) => a.sortDate - b.sortDate);
+        let futureEvents = [...datasets.map(ds => { let realDs = GLOBAL_DATASETS[ds.id]; let dk = _localDateIso(ds.date); let evLabel = _getCalLabel(ds, realDs, dk); let snap = Object.assign({}, ds, { dateKey: dk }); let sumId = 'ev-sum-'+ds.id+'-'+dk.replace(/[^a-z0-9]/gi,''); const _dsPhoneF = _getDsPhone(ds.id); return { sortDate: ds.date, html: `<div style="font-size:13px; border-bottom:0.5px solid var(--border);"><div style="display:flex;align-items:center;gap:6px;padding:8px 14px;"><div style="flex:1;cursor:pointer;" onclick="showDatasetDetails('${btoa(unescape(encodeURIComponent(JSON.stringify(snap))))}')"><strong>${ds.date.toLocaleString('default', {month:'short', day:'numeric', year:ds.date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined})}:</strong> ${evLabel} <span style="color:#888;font-size:10px;">(${ds.profile})</span></div>${_dsPhoneF?`<a href="https://wa.me/${_dsPhoneF}" target="_blank" onclick="event.stopPropagation();" style="font-size:11px;padding:4px 8px;background:rgba(37,211,102,0.12);color:#25d366;border-radius:6px;cursor:pointer;flex-shrink:0;font-weight:700;white-space:nowrap;text-decoration:none;">💬 WA</a>`:''}<button onclick="event.stopPropagation();_summarizeCalEvent('${ds.id}','${dk}',this)" style="font-size:10px;padding:3px 7px;border:none;background:rgba(0,122,255,0.1);color:var(--accent);border-radius:6px;cursor:pointer;flex-shrink:0;font-weight:700;white-space:nowrap;">🤖 AI</button></div><div id="${sumId}" style="max-height:0;overflow:hidden;padding:0 14px;transition:max-height 0.3s ease;"></div></div>` }; }), ...todos.map(td => ({ sortDate: td.date, html: `<div style="font-size:13px; padding:8px 14px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; gap:8px;"><span onclick="toggleCalTodo('${td.vid}','${td.todoId}')" style="cursor:pointer; font-size:16px; flex-shrink:0;" title="${td.done?'Mark undone':'Mark done'}">${td.done?'✅':'⬜'}</span><span onclick="editTodo('${td.vid}','${td.todoId}')" style="flex:1; cursor:pointer; ${td.done?'text-decoration:line-through;opacity:0.6;':''}"><strong>${td.date.toLocaleString('default', {month:'short', day:'numeric', year:td.date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined})}:</strong> ${td.text} <span style="color:#888;font-size:10px;">(${td.datasetTitle})</span></span></div>` })) ].sort((a,b) => a.sortDate - b.sortDate);
         calGrid.style.display = 'none'; calList.innerHTML = futureEvents.length > 0 ? futureEvents.map(e => e.html).join('') : `<div style="padding:14px; text-align:center; color:#888; font-size:12px;">No upcoming events.</div>`;
         let datedIds = new Set(getDatasetsWithDates().map(d => d.id));
         let noDatDs = Object.keys(GLOBAL_DATASETS).filter(vid => { if(datedIds.has(vid)) return false; let ds = GLOBAL_DATASETS[vid]; let hasVars = Object.keys(ds.data || {}).length > 0; let hasLinked = Object.values(chatHistories).some(h => (h.list||[]).some(c => String(c.var_id) === String(vid))); return hasVars || hasLinked; });
@@ -4710,7 +4714,7 @@ function renderCalendar() {
             todos.forEach(td => { if(td.date.getFullYear() === y && td.date.getMonth() === m && td.date.getDate() === i) { let doneStyle = td.done ? 'text-decoration:line-through; opacity:0.6;' : ''; evHtml += `<div class="cal-event" style="background:#34c759; ${doneStyle} display:flex; align-items:flex-start; gap:3px; padding:2px 4px;"><span onclick="event.stopPropagation(); toggleCalTodo('${td.vid}','${td.todoId}')" style="cursor:pointer; font-size:12px; flex-shrink:0;" title="${td.done?'Mark undone':'Mark done'}">${td.done?'✅':'⬜'}</span><span onclick="event.stopPropagation(); editTodo('${td.vid}','${td.todoId}')" style="flex:1; word-break:break-word; white-space:normal;">${td.text}</span></div>`; } });
             let isToday = new Date().toDateString() === new Date(y, m, i).toDateString(); html += `<div class="cal-day"><div class="cal-date-num" style="color:${isToday?'var(--accent)':'var(--text)'};">${i}</div>${evHtml}</div>`;
         }
-        calGrid.innerHTML = html; calGrid.style.display = ''; let allEvents = [...datasets.filter(ds => ds.date.getFullYear() === y && ds.date.getMonth() === m).map(ds => { let realDs2 = GLOBAL_DATASETS[ds.id]; let dk2 = _localDateIso(ds.date); let evLabel2 = _getCalLabel(ds, realDs2, dk2); let snap2 = Object.assign({}, ds, { dateKey: dk2 }); return { sortDate: ds.date, html: `<div style="font-size:13px; padding:8px 14px; border-bottom:0.5px solid var(--border); cursor:pointer;" onclick="showDatasetDetails('${btoa(unescape(encodeURIComponent(JSON.stringify(snap2))))}')"><strong>${ds.date.getDate()} ${new Date(y,m,1).toLocaleString('default', {month:'short'})}:</strong> ${evLabel2} <span style="color:#888;font-size:10px;">(${ds.profile})</span></div>` }; }), ...todos.filter(td => td.date.getFullYear() === y && td.date.getMonth() === m).map(td => ({ sortDate: td.date, html: `<div style="font-size:13px; padding:8px 14px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; gap:8px;"><span onclick="toggleCalTodo('${td.vid}','${td.todoId}')" style="cursor:pointer; font-size:16px; flex-shrink:0;" title="${td.done?'Mark undone':'Mark done'}">${td.done?'✅':'⬜'}</span><span onclick="editTodo('${td.vid}','${td.todoId}')" style="flex:1; cursor:pointer; ${td.done?'text-decoration:line-through;opacity:0.6;':''}"><strong>${td.date.getDate()} ${new Date(y,m,1).toLocaleString('default', {month:'short'})}:</strong> ${td.text} <span style="color:#888;font-size:10px;">(${td.datasetTitle})</span></span></div>` })) ].sort((a,b) => a.sortDate - b.sortDate);
+        calGrid.innerHTML = html; calGrid.style.display = ''; let allEvents = [...datasets.filter(ds => ds.date.getFullYear() === y && ds.date.getMonth() === m).map(ds => { let realDs2 = GLOBAL_DATASETS[ds.id]; let dk2 = _localDateIso(ds.date); let evLabel2 = _getCalLabel(ds, realDs2, dk2); let snap2 = Object.assign({}, ds, { dateKey: dk2 }); const _dsPhoneM = _getDsPhone(ds.id); return { sortDate: ds.date, html: `<div style="font-size:13px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; gap:6px; padding:8px 14px;"><div style="flex:1;cursor:pointer;" onclick="showDatasetDetails('${btoa(unescape(encodeURIComponent(JSON.stringify(snap2))))}')"><strong>${ds.date.getDate()} ${new Date(y,m,1).toLocaleString('default', {month:'short'})}:</strong> ${evLabel2} <span style="color:#888;font-size:10px;">(${ds.profile})</span></div>${_dsPhoneM?`<a href="https://wa.me/${_dsPhoneM}" target="_blank" onclick="event.stopPropagation();" style="font-size:11px;padding:4px 8px;background:rgba(37,211,102,0.12);color:#25d366;border-radius:6px;cursor:pointer;flex-shrink:0;font-weight:700;white-space:nowrap;text-decoration:none;">💬 WA</a>`:''}</div>` }; }), ...todos.filter(td => td.date.getFullYear() === y && td.date.getMonth() === m).map(td => ({ sortDate: td.date, html: `<div style="font-size:13px; padding:8px 14px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; gap:8px;"><span onclick="toggleCalTodo('${td.vid}','${td.todoId}')" style="cursor:pointer; font-size:16px; flex-shrink:0;" title="${td.done?'Mark undone':'Mark done'}">${td.done?'✅':'⬜'}</span><span onclick="editTodo('${td.vid}','${td.todoId}')" style="flex:1; cursor:pointer; ${td.done?'text-decoration:line-through;opacity:0.6;':''}"><strong>${td.date.getDate()} ${new Date(y,m,1).toLocaleString('default', {month:'short'})}:</strong> ${td.text} <span style="color:#888;font-size:10px;">(${td.datasetTitle})</span></span></div>` })) ].sort((a,b) => a.sortDate - b.sortDate);
         calList.innerHTML = allEvents.length > 0 ? allEvents.map(e => e.html).join('') : `<div style="padding:14px; text-align:center; color:#888; font-size:12px;">No events this month.</div>`;
     }
     _updateCalFilterBtn();
@@ -5839,12 +5843,16 @@ async function sendComposedEmail() {
             if (!r.ok) throw new Error('Send failed: ' + r.status);
         }
         notify(_emailComposeMode === 'reply' ? 'Reply sent!' : 'Email sent!', '#34c759', 3000);
+        const _sentAccts = emailGetAllAccounts(); const _sentFromId = fromSel && fromSel.style.display !== 'none' ? fromSel.value : (_sentAccts[0] && _sentAccts[0].id) || 'gmail'; const _sentAcct = _sentAccts.find(a => a.id === _sentFromId); const _sentFromStr = _sentAcct ? `${_sentAcct.name||_sentAcct.user||_sentAcct.id} <${_sentAcct.user||_sentAcct.id}>` : 'Me'; const _sentEmail = { id: 'sent_' + Date.now(), threadId: (_emailComposeReplyTarget && _emailComposeReplyTarget.threadId) || ('sent_' + Date.now()), subject: subject || '(no subject)', from: _sentFromStr, to, cc: cc || undefined, date: new Date().toUTCString(), snippet: bodyText.slice(0, 120), unread: false, _accountId: replyAcctId, _sent: true }; if (_emailComposeReplyTarget) { _emailComposeReplyTarget._replied = true; _sentEmail.threadId = _emailComposeReplyTarget.threadId; } gmailEmails.unshift(_sentEmail); gmailRenderEmails();
         closeModal('email-compose-modal');
         _emailComposeReplyTarget = null;
     } catch (e) { notify('Failed to send: ' + e.message, '#ff3b30', 5000); }
 }
 
 window.onload = init;
+
+function _initDraggableBubbleBar() { const bar = document.getElementById('fchat-bubble-bar'); if(!bar) return; let startY = 0, startBottom = 0, dragging = false; const _getBottom = () => parseInt(bar.style.bottom || '22', 10) || 22; const _clamp = v => Math.max(8, Math.min(window.innerHeight - 80, v)); bar.style.transition = 'none'; bar.addEventListener('touchstart', e => { if(e.target.closest('.fchat-bubble-action-btn,.fchat-bubble-label')) return; if(e.touches.length !== 1) return; startY = e.touches[0].clientY; startBottom = _getBottom(); dragging = true; bar.style.transition = 'none'; }, { passive: true }); bar.addEventListener('touchmove', e => { if(!dragging) return; const dy = startY - e.touches[0].clientY; const nb = _clamp(startBottom + dy); bar.style.bottom = nb + 'px'; bar.style.left = '50%'; bar.style.transform = 'translateX(-50%)'; }, { passive: true }); bar.addEventListener('touchend', () => { dragging = false; try { localStorage.setItem('_fcbb', bar.style.bottom); } catch(e){} }); try { const saved = localStorage.getItem('_fcbb'); if(saved) { bar.style.bottom = saved; bar.style.left = '50%'; bar.style.transform = 'translateX(-50%)'; } } catch(e){} }
+setTimeout(_initDraggableBubbleBar, 800);
 
 let _atMentionActive = false;
 let _atMentionTargetEl = null;
@@ -5973,7 +5981,7 @@ function _linkifyHtml(html) {
 </script>
 
 <div id="email-compose-modal" class="modal" style="z-index:3500;">
-    <div style="display:flex; flex-direction:column; height:100%; background:var(--bg); border-radius:inherit; overflow:hidden;">
+    <div style="display:flex; flex-direction:column; flex:1; min-height:0; background:var(--bg); border-radius:inherit; overflow:hidden;">
         <div style="display:flex; align-items:center; gap:10px; padding:14px 18px 12px; border-bottom:0.5px solid var(--border); flex-shrink:0;">
             <div onclick="closeModal('email-compose-modal')" style="font-size:22px; cursor:pointer; opacity:0.5; padding:2px 4px; flex-shrink:0; line-height:1;">✕</div>
             <h3 id="email-compose-title" style="flex:1; font-size:16px; font-weight:800; color:var(--text); margin:0;">📨 New Email</h3>
@@ -6042,7 +6050,7 @@ function _linkifyHtml(html) {
         <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="font-size:16px; cursor:pointer; padding:5px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Open Workspace">🗂️</div>
     </div>
     <div id="hs-body">
-        <div id="hs-cards-wrap">
+        <div id="hs-cards-wrap" style="margin-top:8px;">
         <div class="hs-card" data-card-id="weather">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
@@ -6106,7 +6114,7 @@ function _linkifyHtml(html) {
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">🗂 Dataset</span>
                 <span id="hs-ds-nav" style="flex:1;display:flex;justify-content:center;gap:5px;align-items:center;"></span>
-                <div onclick="_hsDsSummaryCache={};try{const today=new Date().toDateString();Object.keys(localStorage).filter(k=>k.startsWith('_hs_ds_sum_')).forEach(k=>{if(k.endsWith(today))localStorage.removeItem(k);});}catch(e){}; _hsRenderDataset();" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 8px;background:var(--sec-bg);border-radius:8px;">🔄 Refresh</div>
+                <div onclick="_hsDsSummaryCache={};try{Object.keys(localStorage).filter(k=>k.startsWith('_hs_ds_sum_')).forEach(k=>localStorage.removeItem(k));}catch(e){}; _hsRenderDataset();" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 8px;background:var(--sec-bg);border-radius:8px;">🔄 Refresh</div>
             </div>
             <div style="position:relative;overflow:hidden;border-radius:0 0 20px 20px;">
                 <div id="hs-dataset-body" style="display:flex;flex-direction:row;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none;"></div>
@@ -6348,11 +6356,13 @@ function _ehNotes(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'
 let _currentNoteId = null;
 let _noteEditMode = true;
 
-function openNoteById(id) { const n = NOTES.find(x => x.id === id); if (!n) return; _currentNoteId = id; _noteEditMode = true; document.getElementById('notes-modal-title').value = n.title || ''; document.getElementById('notes-modal-content').value = n.content || ''; document.getElementById('notes-modal-edit').style.display = 'flex'; document.getElementById('notes-modal-read').style.display = 'none'; document.getElementById('notes-modal-toggle').textContent = 'Read'; const delBtn = document.getElementById('notes-modal-delete'); if (delBtn) delBtn.style.display = n.type === 'favorite' ? 'none' : ''; openModal('notes-modal'); }
+function _noteSetDateLabel(n) { const dateStr = n ? new Date(n.id).toLocaleDateString([], {weekday:'long', year:'numeric', month:'long', day:'numeric'}) : ''; const el = document.getElementById('notes-modal-date-label'); const elR = document.getElementById('notes-modal-date-label-read'); if (el) el.textContent = dateStr; if (elR) elR.textContent = dateStr; }
+function _noteAutoSave() { if (!_currentNoteId) return; const n = NOTES.find(x => x.id === _currentNoteId); if (!n) return; n.title = document.getElementById('notes-modal-title').value.trim() || 'Untitled'; n.content = document.getElementById('notes-modal-content').value; _saveNotes(); _hsRenderNotes(); }
+function openNoteById(id) { const n = NOTES.find(x => x.id === id); if (!n) return; _currentNoteId = id; _noteEditMode = true; document.getElementById('notes-modal-title').value = n.title || ''; document.getElementById('notes-modal-content').value = n.content || ''; document.getElementById('notes-modal-edit').style.display = 'flex'; document.getElementById('notes-modal-read').style.display = 'none'; document.getElementById('notes-modal-toggle').textContent = 'Preview'; const delBtn = document.getElementById('notes-modal-delete'); if (delBtn) delBtn.style.display = n.type === 'favorite' ? 'none' : ''; _noteSetDateLabel(n); openModal('notes-modal'); setTimeout(() => document.getElementById('notes-modal-content').focus(), 200); }
 
-function _hsAddNote() { const id = Date.now(); NOTES.push({ id, type: 'note', title: '', content: '', createdAt: id }); _saveNotes(); _currentNoteId = id; _noteEditMode = true; document.getElementById('notes-modal-title').value = ''; document.getElementById('notes-modal-content').value = ''; document.getElementById('notes-modal-edit').style.display = 'flex'; document.getElementById('notes-modal-read').style.display = 'none'; document.getElementById('notes-modal-toggle').textContent = 'Read'; const delBtn = document.getElementById('notes-modal-delete'); if (delBtn) delBtn.style.display = ''; openModal('notes-modal'); setTimeout(() => document.getElementById('notes-modal-title').focus(), 200); }
+function _hsAddNote() { const id = Date.now(); NOTES.push({ id, type: 'note', title: '', content: '', createdAt: id }); _saveNotes(); _currentNoteId = id; _noteEditMode = true; document.getElementById('notes-modal-title').value = ''; document.getElementById('notes-modal-content').value = ''; document.getElementById('notes-modal-edit').style.display = 'flex'; document.getElementById('notes-modal-read').style.display = 'none'; document.getElementById('notes-modal-toggle').textContent = 'Preview'; const delBtn = document.getElementById('notes-modal-delete'); if (delBtn) delBtn.style.display = ''; _noteSetDateLabel({id}); openModal('notes-modal'); setTimeout(() => document.getElementById('notes-modal-title').focus(), 200); }
 
-function _toggleNoteMode() { if (_noteEditMode) { _saveCurrentNote(true); const n = NOTES.find(x => x.id === _currentNoteId); const content = (n && n.content) || ''; document.getElementById('notes-modal-rendered').innerHTML = marked.parse(content); document.getElementById('notes-modal-edit').style.display = 'none'; document.getElementById('notes-modal-read').style.display = 'block'; document.getElementById('notes-modal-toggle').textContent = 'Edit'; _noteEditMode = false; } else { document.getElementById('notes-modal-content').value = (NOTES.find(x=>x.id===_currentNoteId)||{}).content||''; document.getElementById('notes-modal-edit').style.display = 'flex'; document.getElementById('notes-modal-read').style.display = 'none'; document.getElementById('notes-modal-toggle').textContent = 'Read'; _noteEditMode = true; setTimeout(() => document.getElementById('notes-modal-content').focus(), 100); } }
+function _toggleNoteMode() { if (_noteEditMode) { _saveCurrentNote(true); const n = NOTES.find(x => x.id === _currentNoteId); const content = (n && n.content) || ''; const titleReadEl = document.getElementById('notes-modal-title-read'); if (titleReadEl) titleReadEl.textContent = n ? (n.title || 'Untitled') : ''; document.getElementById('notes-modal-rendered').innerHTML = marked.parse(content); document.getElementById('notes-modal-edit').style.display = 'none'; document.getElementById('notes-modal-read').style.display = 'flex'; document.getElementById('notes-modal-toggle').textContent = 'Edit'; _noteEditMode = false; } else { document.getElementById('notes-modal-content').value = (NOTES.find(x=>x.id===_currentNoteId)||{}).content||''; document.getElementById('notes-modal-edit').style.display = 'flex'; document.getElementById('notes-modal-read').style.display = 'none'; document.getElementById('notes-modal-toggle').textContent = 'Preview'; _noteEditMode = true; setTimeout(() => document.getElementById('notes-modal-content').focus(), 100); } }
 
 function _saveCurrentNote(silent) { if (!_currentNoteId) return; const n = NOTES.find(x => x.id === _currentNoteId); if (!n) return; n.title = document.getElementById('notes-modal-title').value.trim() || 'Untitled'; n.content = document.getElementById('notes-modal-content').value; _saveNotes(); _hsRenderNotes(); if (!silent) { closeModal('notes-modal'); notify('Note saved', '#34c759', 1200); } }
 
