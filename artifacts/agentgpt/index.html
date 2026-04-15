@@ -1224,13 +1224,11 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div id="email-settings-imap-list" style="border-top:0.5px solid var(--border);"></div>
         </div>
         <div style="background:var(--sec-bg); border-radius:16px; overflow:hidden; margin-bottom:12px;">
-            <div style="padding:12px 14px 8px;">
-                <small style="font-weight:800; font-size:11px; color:var(--accent);">✍️ EMAIL SIGNATURE</small>
+            <div style="padding:12px 14px 8px; display:flex; align-items:center; justify-content:space-between;">
+                <small style="font-weight:800; font-size:11px; color:var(--accent);">✍️ EMAIL SIGNATURES</small>
+                <span class="chip" style="font-size:11px; padding:4px 12px; color:var(--accent); font-weight:700; cursor:pointer;" onclick="_sigShowAdd()">+ Add</span>
             </div>
-            <div style="padding:0 14px 14px; display:flex; flex-direction:column; gap:8px;">
-                <textarea id="email-signature-f" class="pp-input" placeholder="Your email signature…" rows="4" style="font-size:13px; resize:none; line-height:1.5;" onchange="saveEmailSignature()"></textarea>
-                <button class="chip" style="font-size:12px; padding:8px; background:var(--accent); color:#fff; font-weight:700;" onclick="saveEmailSignature()">Save Signature</button>
-            </div>
+            <div id="email-signatures-list" style="border-top:0.5px solid var(--border);"></div>
         </div>
     </div>
 </div>
@@ -3578,13 +3576,25 @@ function renderEmailSettingsTab() {
             ? accts.map(a => `<div style="display:flex; align-items:center; gap:8px; padding:11px 14px; border-bottom:0.5px solid var(--border);"><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${a.name}</div><div style="font-size:11px; color:#888; margin-top:2px;">${a.user} · ${a.host}:${a.port}</div></div><span class="chip" style="font-size:11px; padding:5px 10px; flex-shrink:0; cursor:pointer;" onclick="emailShowAddImap('${a.id}')">Edit</span></div>`).join('')
             : '<div style="padding:14px; color:#888; font-size:13px; text-align:center;">No IMAP accounts yet.</div>';
     }
-    const sigEl = document.getElementById('email-signature-f');
-    if(sigEl) sigEl.value = CONFIG.email_signature || '';
+    const sigListEl = document.getElementById('email-signatures-list');
+    if(sigListEl) { const sigs = CONFIG.email_signatures||[]; sigListEl.innerHTML = sigs.length ? sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:0.5px solid var(--border);"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name}${s.isDefault?' <span style="font-size:10px;color:var(--accent);font-weight:800;">DEFAULT</span>':''}</div><div style="font-size:11px;color:#888;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(s.text||'').split('\n')[0].slice(0,55)}</div></div><span class="chip" style="font-size:10px;padding:3px 8px;flex-shrink:0;cursor:pointer;color:var(--accent);" onclick="_sigSetDefault('${s.id}')">★</span><span class="chip" style="font-size:11px;padding:5px 10px;flex-shrink:0;cursor:pointer;" onclick="_sigShowAdd('${s.id}')">Edit</span></div>`).join('') : '<div style="padding:14px;color:#888;font-size:13px;text-align:center;">No signatures yet — tap + Add.</div>'; }
 }
 
-function saveEmailSignature() { const el = document.getElementById('email-signature-f'); if(!el) return; CONFIG.email_signature = el.value; saveAll(); notify('Signature saved','#34c759',1200); }
+function _getDefaultSig() { const sigs = CONFIG.email_signatures||[]; if(!sigs.length) return CONFIG.email_signature||''; const def = sigs.find(s=>s.isDefault)||sigs[0]; return def?def.text:''; }
 
-function _composeInsertSignature() { const sig = CONFIG.email_signature||''; if(!sig) { notify('No signature set — add one in Email Settings','#ff9f0a',2000); return; } const body = document.getElementById('email-compose-body'); if(!body) return; const existing = body.querySelector('.email-sig-block'); if(existing) existing.remove(); const sigDiv = document.createElement('div'); sigDiv.className='email-sig-block'; sigDiv.style.cssText='color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;'; sigDiv.innerHTML=sig.replace(/\n/g,'<br>'); body.appendChild(document.createElement('br')); body.appendChild(sigDiv); }
+function _sigShowAdd(id) { const sigs = CONFIG.email_signatures||[]; const sig = id ? sigs.find(s=>String(s.id)===String(id)) : null; const ov = document.createElement('div'); ov.id='sig-edit-overlay'; ov.style.cssText='position:fixed;inset:0;z-index:9900;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);'; ov.innerHTML=`<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px 16px max(24px,env(safe-area-inset-bottom));"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><span style="font-size:16px;font-weight:800;color:var(--text);">${sig?'Edit':'New'} Signature</span><div onclick="document.getElementById('sig-edit-overlay').remove();" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><input id="sig-name-f" class="pp-input" placeholder="Name (e.g. Casual, Formal)" value="${sig?sig.name.replace(/"/g,'&quot;'):''}" style="margin-bottom:10px;font-size:13px;"><textarea id="sig-text-f" class="pp-input" rows="4" placeholder="Signature text…" style="font-size:13px;resize:none;">${sig?sig.text:''}</textarea><div style="display:flex;gap:8px;margin-top:12px;">${sig?`<button class="chip" onclick="_sigDelete('${sig.id}')" style="flex:1;font-size:13px;padding:12px;color:#ff3b30;background:transparent;border:0.5px solid #ff3b30;">Delete</button>`:''}<button class="chip" onclick="_sigSave('${sig?sig.id:''}')" style="flex:2;font-size:13px;padding:12px;background:var(--accent);color:#fff;font-weight:700;">Save</button></div></div>`; ov.onclick=(e)=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov); setTimeout(()=>{const f=document.getElementById('sig-name-f');if(f)f.focus();},200); }
+
+function _sigSave(id) { const name=(document.getElementById('sig-name-f').value||'').trim()||'Signature'; const text=document.getElementById('sig-text-f').value||''; if(!CONFIG.email_signatures) CONFIG.email_signatures=[]; if(id) { const s=CONFIG.email_signatures.find(x=>String(x.id)===String(id)); if(s){s.name=name;s.text=text;} } else { CONFIG.email_signatures.push({id:String(Date.now()),name,text,isDefault:CONFIG.email_signatures.length===0}); } saveAll(); renderEmailSettingsTab(); const ov=document.getElementById('sig-edit-overlay'); if(ov) ov.remove(); notify('Signature saved','#34c759',1200); }
+
+function _sigDelete(id) { CONFIG.email_signatures=(CONFIG.email_signatures||[]).filter(s=>String(s.id)!==String(id)); saveAll(); renderEmailSettingsTab(); const ov=document.getElementById('sig-edit-overlay'); if(ov) ov.remove(); notify('Signature deleted','#888',1200); }
+
+function _sigSetDefault(id) { (CONFIG.email_signatures||[]).forEach(s=>{s.isDefault=String(s.id)===String(id);}); saveAll(); renderEmailSettingsTab(); notify('Default signature set','#34c759',1200); }
+
+function _composeInsertSignature() { const sigs = CONFIG.email_signatures||[]; const defSig = _getDefaultSig(); if(!sigs.length && !defSig) { notify('No signature set — add one in Email Settings','#ff9f0a',2000); return; } if(sigs.length<=1) { _insertSigText(defSig); return; } const menu=document.createElement('div'); menu.style.cssText='position:fixed;inset:0;z-index:9200;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);'; menu.innerHTML='<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:16px 16px 36px;"><div style="font-size:15px;font-weight:800;margin-bottom:12px;color:var(--text);">Choose Signature</div><div id="sig-pick-list" style="display:flex;flex-direction:column;gap:8px;"></div><button onclick="this.closest(\'[style*=inset:0]\').remove();" style="width:100%;margin-top:12px;padding:12px;background:transparent;border:none;font-size:14px;color:#888;cursor:pointer;">Cancel</button></div>'; menu.onclick=(e)=>{if(e.target===menu)menu.remove();}; document.body.appendChild(menu); const listEl=document.getElementById('sig-pick-list'); sigs.forEach(s=>{const d=document.createElement('div'); d.style.cssText='padding:12px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;'; d.innerHTML=`<div style="font-size:13px;font-weight:700;color:var(--text);">${s.name}${s.isDefault?' ★':''}</div><div style="font-size:11px;color:#888;margin-top:3px;">${(s.text||'').split('\n')[0].slice(0,60)}</div>`; d.onclick=(e)=>{e.stopPropagation();menu.remove();_insertSigText(s.text);}; listEl.appendChild(d); }); }
+
+function _insertSigText(text) { if(!text) return; const body=document.getElementById('email-compose-body'); if(!body) return; const existing=body.querySelector('.email-sig-block'); if(existing) existing.remove(); const sigDiv=document.createElement('div'); sigDiv.className='email-sig-block'; sigDiv.style.cssText='color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;'; sigDiv.innerHTML=text.replace(/\n/g,'<br>'); body.appendChild(document.createElement('br')); body.appendChild(sigDiv); }
+
+function saveEmailSignature() { notify('Use + Add to manage signatures','#007aff',2000); }
 
 function gmailSignInFromSettings() { closeModal('master-modal'); setTimeout(() => { openGmailModal(); }, 200); }
 
@@ -3980,7 +3990,7 @@ function gmailThreadHtml(group, src) {
         return `<li class="spark-msg-row">
             <input type="checkbox" class="gmail-chk ctx-checkbox" data-idx="${i}" onclick="event.stopPropagation();gmailUpdateAddBtns();gmailUpdateThreadChk(this);" style="flex-shrink:0;width:15px;height:15px;accent-color:var(--accent);">
             <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;">${(name||'?')[0].toUpperCase()}</div>
-            <div style="flex:1;min-width:0;cursor:pointer;" onclick="event.stopPropagation();gmailTapEmailCompose(${i},'${src}');">
+            <div style="flex:1;min-width:0;cursor:pointer;" onclick="event.stopPropagation();gmailPreview(${i},'${src}');">
                 <div style="font-size:13px;font-weight:${em.unread?700:500};color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
                 <div style="font-size:12px;color:#aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;">${em.snippet||''}</div>
             </div>
@@ -3993,7 +4003,7 @@ function gmailThreadHtml(group, src) {
         : `<input type="checkbox" class="gmail-thread-chk ctx-checkbox" onclick="event.stopPropagation();gmailThreadChkChange(this);" style="width:15px;height:15px;accent-color:var(--accent);flex-shrink:0;">`;
 
     const onclickHdr = count === 1
-        ? `gmailTapEmailCompose(${group[0].idx},'${src}')`
+        ? `gmailPreview(${group[0].idx},'${src}')`
         : `gmailToggleThread(this.closest('.gmail-thread'))`;
 
     const unreadBar = hasUnread ? `style="border-left:3px solid var(--accent);padding-left:9px;"` : `style="padding-left:12px;"`;
@@ -4354,7 +4364,9 @@ async function gmailPreview(i, src) {
     const dateEl = document.getElementById(ids.date);
     if(dateEl) dateEl.textContent = em.date;
     const senderEmailEl = document.getElementById(ids.senderEmail);
-    if(senderEmailEl) senderEmailEl.textContent = nameMatch && dispName ? dispEmail : '';
+    if(senderEmailEl) { senderEmailEl.textContent = nameMatch && dispName ? dispEmail : ''; senderEmailEl.style.cursor='pointer'; senderEmailEl.title='Compose new email to this address'; senderEmailEl.onclick=()=>gmailComposeToAddress(dispEmail); }
+    const fromEl = document.getElementById(ids.from);
+    if(fromEl) { fromEl.style.cursor='pointer'; fromEl.title='Compose new email to this address'; fromEl.onclick=()=>gmailComposeToAddress(dispEmail); }
     document.getElementById(ids.subject).textContent = em.subject;
     document.getElementById(ids.body).textContent = "Loading…";
     document.getElementById(ids.reply).innerHTML = "";
@@ -4560,7 +4572,7 @@ function gmailOpenCompose() {
     document.getElementById('email-compose-title').textContent = '📨 New Email';
     document.getElementById('email-compose-to').value = '';
     document.getElementById('email-compose-subject').value = '';
-    const sig = CONFIG.email_signature || '';
+    const sig = _getDefaultSig();
     document.getElementById('email-compose-body').innerHTML = sig ? '<br><br><div class="email-sig-block" style="color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">'+sig.replace(/\n/g,'<br>')+'</div>' : '';
     document.getElementById('email-compose-reply-ref').style.display = 'none';
     document.getElementById('email-compose-picker').style.display = 'none';
@@ -4577,7 +4589,9 @@ function gmailOpenCompose() {
     openModal('email-compose-modal');
 }
 
-async function gmailTapEmailCompose(i, src) { await gmailPreview(i, src); const em = gmailCurrentEmail; if(!em) return; const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts — add Gmail or IMAP first','#ff3b30'); return; } document.getElementById('email-compose-title').textContent = '↩️ Reply'; document.getElementById('email-compose-to').value = em.from||''; document.getElementById('email-compose-subject').value = (em.subject||'').startsWith('Re:') ? em.subject : 'Re: '+(em.subject||''); const sig = CONFIG.email_signature||''; document.getElementById('email-compose-body').innerHTML = sig ? '<br><br><div class="email-sig-block" style="color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">'+sig.replace(/\n/g,'<br>')+'</div>' : ''; const refEl = document.getElementById('email-compose-reply-ref'); refEl.style.display=''; refEl.textContent=(em.subject||'')+(em.from?' — from '+em.from:''); document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; const cc=document.getElementById('email-compose-cc'); if(cc) cc.value=''; _emailComposeMode='reply'; _emailComposeReplyTarget=em; const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); }
+function gmailComposeToAddress(addr) { const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts configured','#ff3b30'); return; } document.getElementById('email-compose-title').textContent = '📨 New Email'; document.getElementById('email-compose-to').value = addr||''; document.getElementById('email-compose-subject').value = ''; const sig = _getDefaultSig(); document.getElementById('email-compose-body').innerHTML = sig ? '<br><br><div class="email-sig-block" style="color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">'+sig.replace(/\n/g,'<br>')+'</div>' : ''; document.getElementById('email-compose-reply-ref').style.display='none'; document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; _emailComposeMode='new'; _emailComposeReplyTarget=null; const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); }
+
+async function gmailTapEmailCompose(i, src) { await gmailPreview(i, src); const em = gmailCurrentEmail; if(!em) return; const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts — add Gmail or IMAP first','#ff3b30'); return; } document.getElementById('email-compose-title').textContent = '↩️ Reply'; document.getElementById('email-compose-to').value = em.from||''; document.getElementById('email-compose-subject').value = (em.subject||'').startsWith('Re:') ? em.subject : 'Re: '+(em.subject||''); const sig = _getDefaultSig(); document.getElementById('email-compose-body').innerHTML = sig ? '<br><br><div class="email-sig-block" style="color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">'+sig.replace(/\n/g,'<br>')+'</div>' : ''; const refEl = document.getElementById('email-compose-reply-ref'); refEl.style.display=''; refEl.textContent=(em.subject||'')+(em.from?' — from '+em.from:''); document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; const cc=document.getElementById('email-compose-cc'); if(cc) cc.value=''; _emailComposeMode='reply'; _emailComposeReplyTarget=em; const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); }
 
 function gmailClosePreview(src) {
     src = src || 'panel';
@@ -5826,6 +5840,50 @@ async function sendComposedEmail() {
 
 window.onload = init;
 
+let _atMentionActive = false;
+function _initAtMention() {
+    document.addEventListener('keyup', function(e) {
+        if(e.key !== '@') return;
+        if(_atMentionActive) return;
+        const el = e.target;
+        const isTA = el.tagName === 'TEXTAREA';
+        const isInp = el.tagName === 'INPUT' && el.type !== 'password' && el.type !== 'checkbox' && el.type !== 'range';
+        const isCE = el.isContentEditable && el.id !== 'edit-ai-input' && el.id !== 'email-compose-body' && !el.classList.contains('pp-input');
+        if(!isTA && !isInp && !isCE) return;
+        if(!AI_PROFILES || AI_PROFILES.length < 2) return;
+        const val = isTA||isInp ? el.value : el.innerText;
+        if(!val.endsWith('@')) return;
+        e.stopPropagation();
+        const draft = val.slice(0,-1).trim();
+        _showAtMentionPicker(el, draft, isTA||isInp);
+    });
+}
+function _showAtMentionPicker(el, draft, isTextArea) {
+    _atMentionActive = true;
+    const menu = document.createElement('div');
+    menu.id = '_at-mention-menu';
+    menu.style.cssText = 'position:fixed;inset:0;z-index:9500;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);';
+    menu.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px 16px max(36px,env(safe-area-inset-bottom));"><div style="font-size:15px;font-weight:800;margin-bottom:6px;color:var(--text);">@ Chat with…</div><div style="font-size:11px;color:#888;margin-bottom:12px;">Opens a floating chat with this profile. Your current text becomes the context.</div><div id="at-mention-list" style="display:flex;flex-direction:column;gap:8px;"></div><button onclick="_closeAtMention(true);" style="width:100%;margin-top:14px;padding:12px;background:transparent;border:none;font-size:14px;color:#888;cursor:pointer;">Cancel (keep @)</button></div>';
+    menu.onclick = (e) => { if(e.target===menu) _closeAtMention(true); };
+    document.body.appendChild(menu);
+    const listEl = document.getElementById('at-mention-list');
+    AI_PROFILES.forEach(p => {
+        const d = document.createElement('div');
+        d.style.cssText = 'padding:12px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:10px;';
+        d.innerHTML = `<span style="font-size:22px;flex-shrink:0;">${p.emoji||'🤖'}</span><span>${p.label}</span>`;
+        d.onclick = (ev) => {
+            ev.stopPropagation();
+            _closeAtMention(false);
+            if(isTextArea) { el.value = draft; } else { el.innerText = draft; }
+            if(draft) { const lines = draft.split('\n').filter(l=>l.trim()).slice(0,40); lines.forEach(l=>{ if(!CONTEXT_LINES.includes(l)) CONTEXT_LINES.push(l); }); cutIdx=CONTEXT_LINES.length-1; saveAll(true); }
+            createFchatSession(p.label);
+        };
+        listEl.appendChild(d);
+    });
+}
+function _closeAtMention(keepAt) { _atMentionActive = false; const m = document.getElementById('_at-mention-menu'); if(m) m.remove(); }
+_initAtMention();
+
 function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!lk) return; insertAtCursor(`**${lk.title}**\n${lk.url}`,true,false); notify('Link inserted!','#34c759',1500); }
 function _mimeBase64(str) { const b64 = btoa(unescape(encodeURIComponent(str))); return b64.match(/.{1,76}/g).join('\r\n'); }
@@ -6253,7 +6311,7 @@ function _deleteCurrentNote() { if (!_currentNoteId) return; openConfirm('Delete
 
 function saveAsFavorite(msgIdx) { const chatId = String(getSessions().current); const already = NOTES.find(n => n.type === 'favorite' && n.msgIdx === msgIdx && n.chatId === chatId && n.profileLabel === activeProfileLabel); if (already) { NOTES = NOTES.filter(x => x.id !== already.id); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Removed from Notes', '#888', 1200); return; } const text = getTextFromContent(chatHistory[msgIdx].content); const title = text.replace(/#+\s/g,'').replace(/\*+/g,'').trim().slice(0, 60) || 'AI Response'; const id = Date.now(); NOTES.push({ id, type: 'favorite', title, content: text, createdAt: id, profileLabel: activeProfileLabel, chatId, msgIdx }); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Saved to Notes ⭐', '#34c759', 1200); }
 
-function _noteJumpToChat(profileLabel, chatId, msgIdx) { hideHomeScreen(); loadSessionFromProfile(profileLabel, chatId).then(() => { setTimeout(() => { const el = document.getElementById('msg-' + msgIdx); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.transition = 'background 0.4s'; el.style.background = 'rgba(255,204,0,0.18)'; setTimeout(() => { el.style.background = ''; }, 1600); } }, 420); }); }
+function _noteJumpToChat(profileLabel, chatId, msgIdx) { _openLinkedChat(profileLabel, chatId); setTimeout(() => { const el = document.getElementById('msg-' + msgIdx); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.transition = 'background 0.4s'; el.style.background = 'rgba(255,204,0,0.18)'; setTimeout(() => { el.style.background = ''; }, 1600); } }, 500); }
 </script>
 </body>
 </html>
