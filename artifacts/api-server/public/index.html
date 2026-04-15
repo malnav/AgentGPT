@@ -693,7 +693,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #notes-modal-content { font-size: 15px !important; line-height: 1.7 !important; }
 }
 #gmail-reply-box a, #gmail-modal-reply-box a, #email-compose-body a { color: var(--accent); text-decoration: underline; cursor: pointer; }
-.note-item { display:flex; align-items:flex-start; gap:8px; padding:9px 10px; margin-bottom:6px; border-radius:12px; background:var(--sec-bg); cursor:pointer; transition:background 0.15s; }
+#hs-notes-body { display:flex !important; flex-direction:column !important; }
+.note-item { display:flex; align-items:flex-start; gap:8px; padding:9px 10px; margin-bottom:6px; border-radius:12px; background:var(--sec-bg); cursor:pointer; transition:background 0.15s; width:100%; box-sizing:border-box; }
 .note-item:active { background:var(--border); }
 .note-item-body { flex:1; min-width:0; }
 .note-item-title { display:flex; align-items:center; gap:5px; margin-bottom:2px; }
@@ -705,7 +706,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #notes-modal { background: #fffef5 !important; color: #1c1c1e !important; }
 @media (prefers-color-scheme: dark) { #notes-modal { background: #1c1c28 !important; color: #f2f2f7 !important; } }
 #notes-modal-content { flex:1; min-height:300px; width:100%; box-sizing:border-box; background:transparent; border:none; color:var(--text); font-size:14px; line-height:1.6; resize:none; outline:none; font-family:inherit; padding:0; }
-#notes-modal-rendered { font-size:14px; line-height:1.6; }
+#notes-modal-rendered { font-size:14px; line-height:1.6; display:block !important; column-count:1 !important; }
+#notes-modal-read { display:flex; flex-direction:column; }
+#notes-modal-edit { display:flex; flex-direction:column; }
 </style>
 <script>!function(){var e=document.createElement('div');e.style.cssText='position:fixed;top:env(safe-area-inset-top,0px);pointer-events:none;opacity:0;height:0;';document.documentElement.appendChild(e);var v=parseFloat(window.getComputedStyle(e).top)||0;document.documentElement.removeChild(e);if(v>0)document.documentElement.style.setProperty('--sat',v+'px');}();</script>
 </head>
