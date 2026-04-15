@@ -4348,7 +4348,7 @@ async function gmailPreview(i, src) {
     if(fromEl) { fromEl.style.cursor='pointer'; fromEl.title='Compose new email to this address'; fromEl.onclick=()=>gmailComposeToAddress(dispEmail); }
     document.getElementById(ids.subject).textContent = em.subject;
     document.getElementById(ids.body).textContent = "Loading…";
-    const _rplySig = _getDefaultSig(); document.getElementById(ids.reply).innerHTML = _rplySig ? '<div class="email-sig-block" contenteditable="false" style="color:#888;border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px;font-size:12px;pointer-events:none;">' + _rplySig.replace(/\n/g,'<br>') + '</div>' : ''; try { const _rb=document.getElementById(ids.reply); const _range=document.createRange(); const _sel=window.getSelection(); _range.setStart(_rb,0); _range.collapse(true); _sel.removeAllRanges(); _sel.addRange(_range); } catch(e) {}
+    const _rplySig = _getDefaultSig(); document.getElementById(ids.reply).innerHTML = _rplySig ? '<br><div class="email-sig-block" contenteditable="false" style="color:#888;border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px;font-size:12px;pointer-events:none;">' + _rplySig.replace(/\n/g,'<br>') + '</div>' : ''; try { const _rb=document.getElementById(ids.reply); const _range=document.createRange(); const _sel=window.getSelection(); if(_rb.firstChild){_range.setStartBefore(_rb.firstChild);}else{_range.setStart(_rb,0);} _range.collapse(true); _sel.removeAllRanges(); _sel.addRange(_range); } catch(e) {}
     const ov = document.getElementById(ids.overlay);
     ov.style.cssText = 'display:flex; flex-direction:column; position:absolute; inset:0; background:var(--bg); z-index:10; overflow:hidden;';
     try {
@@ -4444,11 +4444,25 @@ async function gmailSendReply(src) {
     } catch(e) { notify("Failed to send: " + e.message, "#ff3b30", 5000); }
 }
 
-function gmailExpandReply(src) { const id = src === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box'; const el = document.getElementById(id); if (!el) return; const isExp = el.dataset.expanded === '1'; if (isExp) { el.style.maxHeight = src === 'panel' ? '200px' : '220px'; el.dataset.expanded = '0'; } else { el.style.maxHeight = '52vh'; el.dataset.expanded = '1'; } el.focus(); }
+function gmailExpandReply(src) { const id = src === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box'; const el = document.getElementById(id); if (!el) return; const isExp = el.dataset.expanded === '1'; const replySection = el.closest('div[style*="border-top"]'); const overlayId = src === 'panel' ? 'gmail-preview-overlay' : 'gmail-modal-preview'; const overlay = document.getElementById(overlayId) || el.parentElement.parentElement.parentElement.parentElement; const emailBody = overlay ? Array.from(overlay.children).find(c => c.style && (c.style.flex === '1' || c.style.flex.startsWith('1 '))) : null; if (isExp) { el.style.minHeight = src === 'panel' ? '120px' : '140px'; el.style.maxHeight = src === 'panel' ? '200px' : '220px'; el.dataset.expanded = '0'; if (replySection) replySection.style.flex = ''; if (emailBody) emailBody.style.flex = '1'; } else { el.style.minHeight = '38vh'; el.style.maxHeight = '60vh'; el.dataset.expanded = '1'; if (replySection) replySection.style.flex = '1'; if (emailBody) emailBody.style.flex = '0 0 auto'; } el.focus(); }
 function gmailClearReply(src) {
     src = src || 'panel';
     const el = document.getElementById(gmailIds(src).reply);
-    if(el) el.innerHTML = "";
+    if(!el) return;
+    el.innerHTML = "";
+    if(el.dataset.expanded === '1') {
+        el.dataset.expanded = '0';
+        el.style.minHeight = src === 'panel' ? '120px' : '140px';
+        el.style.maxHeight = src === 'panel' ? '200px' : '220px';
+        const overlayId = src === 'panel' ? 'gmail-preview-overlay' : 'gmail-modal-preview';
+        const overlay = document.getElementById(overlayId);
+        if(overlay) {
+            const emailBody = Array.from(overlay.children).find(c => c.style && (c.style.flex === '1' || c.style.flex.startsWith('1 ')));
+            const replySection = el.closest('div[style*="border-top"]');
+            if(emailBody) emailBody.style.flex = '1';
+            if(replySection) replySection.style.flex = '';
+        }
+    }
 }
 
 async function gmailStarToggle(idx, src) {
