@@ -1861,6 +1861,7 @@ async function init() {
     setTimeout(hideInitOverlay, 30000);
     gmailSilentAuth();
     setTimeout(gmailSilentAuth, 2000);
+    const _hsScrollBody = document.getElementById('hs-body'); const _hsScrollHdr = document.getElementById('hs-header'); if(_hsScrollBody && _hsScrollHdr) { _hsScrollBody.addEventListener('scroll', function(){ _hsScrollHdr.classList.toggle('hs-scrolled', _hsScrollBody.scrollTop > 36); }, { passive: true }); }
 }
 
 async function refreshUI() {
@@ -4372,7 +4373,7 @@ async function gmailPreview(i, src) {
     if(fromEl) { fromEl.style.cursor='pointer'; fromEl.title='Compose new email to this address'; fromEl.onclick=()=>gmailComposeToAddress(dispEmail); }
     document.getElementById(ids.subject).textContent = em.subject;
     document.getElementById(ids.body).textContent = "Loading…";
-    const _rplySig = _getDefaultSig(); document.getElementById(ids.reply).innerHTML = _rplySig ? '<div class="email-sig-block" contenteditable="false" style="color:#888;border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px;font-size:12px;pointer-events:none;">' + _rplySig.replace(/\n/g,'<br>') + '</div>' : '';
+    const _rplySig = _getDefaultSig(); document.getElementById(ids.reply).innerHTML = _rplySig ? '<p style="min-height:1em;"><br></p><div class="email-sig-block" contenteditable="false" style="color:#888;border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px;font-size:12px;pointer-events:none;">' + _rplySig.replace(/\n/g,'<br>') + '</div>' : ''; try { const _rb=document.getElementById(ids.reply); const _range=document.createRange(); const _sel=window.getSelection(); _range.setStart(_rb.firstChild||_rb,0); _range.collapse(true); _sel.removeAllRanges(); _sel.addRange(_range); } catch(e) {}
     const ov = document.getElementById(ids.overlay);
     ov.style.cssText = 'display:flex; flex-direction:column; position:absolute; inset:0; background:var(--bg); z-index:10; overflow:hidden;';
     try {
@@ -5897,7 +5898,6 @@ function _showAtMentionPicker(el, draft, isTextArea) {
 }
 function _closeAtMention(keepAt) { _atMentionActive = false; if(keepAt) { _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; } const m = document.getElementById('_at-mention-menu'); if(m) m.remove(); if(!keepAt) setTimeout(_updateAtMentionIndicator, 300); }
 _initAtMention();
-(function(){ const hsb = document.getElementById('hs-body'); const hsh = document.getElementById('hs-header'); if(!hsb || !hsh) return; hsb.addEventListener('scroll', function(){ if(hsb.scrollTop > 36) { hsh.classList.add('hs-scrolled'); } else { hsh.classList.remove('hs-scrolled'); } }, { passive: true }); })();
 
 function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!lk) return; insertAtCursor(`**${lk.title}**\n${lk.url}`,true,false); notify('Link inserted!','#34c759',1500); }
