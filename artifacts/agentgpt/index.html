@@ -707,6 +707,17 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #fchat-bubble-bar { left: calc(272px + (100vw - 272px - 320px) / 2); max-width: calc(100vw - 272px - 380px); }
 }
 #gmail-reply-box a, #gmail-modal-reply-box a, #email-compose-body a { color: var(--accent); text-decoration: underline; cursor: pointer; }
+.note-item { display:flex; align-items:flex-start; gap:8px; padding:9px 10px; margin-bottom:6px; border-radius:12px; background:var(--sec-bg); cursor:pointer; transition:background 0.15s; }
+.note-item:active { background:var(--border); }
+.note-item-body { flex:1; min-width:0; }
+.note-item-title { display:flex; align-items:center; gap:5px; margin-bottom:2px; }
+.note-item-name { font-size:13px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.note-item-date { margin-left:auto; font-size:10px; color:#888; flex-shrink:0; }
+.note-item-preview { font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.note-jump-btn { font-size:16px; cursor:pointer; padding:2px 0; flex-shrink:0; opacity:0.7; }
+.fav-btn { cursor:pointer; }
+#notes-modal-content { flex:1; min-height:300px; width:100%; box-sizing:border-box; background:transparent; border:none; color:var(--text); font-size:14px; line-height:1.6; resize:none; outline:none; font-family:inherit; padding:0; }
+#notes-modal-rendered { font-size:14px; line-height:1.6; }
 </style>
 <script>!function(){var e=document.createElement('div');e.style.cssText='position:fixed;top:env(safe-area-inset-top,0px);pointer-events:none;opacity:0;height:0;';document.documentElement.appendChild(e);var v=parseFloat(window.getComputedStyle(e).top)||0;document.documentElement.removeChild(e);if(v>0)document.documentElement.style.setProperty('--sat',v+'px');}();</script>
 </head>
@@ -1456,6 +1467,26 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 </div>
 
+<div id="notes-modal" class="modal" style="z-index:3500; display:none;">
+    <div class="modal-header" style="flex-direction:column; gap:0; padding:0;">
+        <div style="display:flex; align-items:center; gap:8px; padding:16px 16px 10px;">
+            <div onclick="closeModal('notes-modal')" style="cursor:pointer; font-size:22px; color:var(--accent); line-height:1;">←</div>
+            <input id="notes-modal-title" type="text" placeholder="Title…" style="flex:1; background:transparent; border:none; font-size:18px; font-weight:700; color:var(--text); outline:none; padding:0;">
+            <div onclick="_toggleNoteMode()" id="notes-modal-toggle" style="cursor:pointer; font-size:12px; color:var(--accent); padding:5px 12px; background:var(--sec-bg); border-radius:8px; font-weight:700;">Read</div>
+            <div onclick="_deleteCurrentNote()" id="notes-modal-delete" style="cursor:pointer; font-size:12px; color:#ff3b30; padding:5px 12px; background:var(--sec-bg); border-radius:8px; font-weight:700;">Delete</div>
+        </div>
+    </div>
+    <div class="modal-content" style="display:flex; flex-direction:column; padding:0 16px 14px; overflow:hidden;">
+        <div id="notes-modal-edit" style="flex:1; display:flex; flex-direction:column; overflow-y:auto;">
+            <textarea id="notes-modal-content" placeholder="Write your note here… Markdown is supported.&#10;&#10;**bold**, *italic*, # Heading, - list, `code`"></textarea>
+        </div>
+        <div id="notes-modal-read" style="flex:1; overflow-y:auto; display:none;">
+            <div id="notes-modal-rendered" class="bubble-content" style="padding:4px 0;"></div>
+        </div>
+        <button onclick="_saveCurrentNote()" style="width:100%; margin-top:14px; padding:14px; background:var(--accent); color:#fff; border:none; border-radius:14px; font-size:15px; font-weight:700; cursor:pointer; flex-shrink:0;">Save</button>
+    </div>
+</div>
+
 <div id="var-picker-modal" class="modal" style="z-index: 500;"><div class="modal-header"><h3>Select Variable</h3><div onclick="closeModal('var-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="var-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div>
 
 <div id="datasets-picker-modal" class="modal" style="z-index: 505;"><div class="modal-header"><h3>Select Data Set</h3><div onclick="closeModal('datasets-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="datasets-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div>
@@ -1804,6 +1835,7 @@ async function init() {
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
     CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1 };
+    _loadNotes(); if (CONFIG.home_screen) { const _hsEl = document.getElementById('home-screen'); if (_hsEl) _hsEl.style.display = 'flex'; const _pbEl = document.getElementById('profile-bubble'); if (_pbEl) _pbEl.style.display = 'none'; }
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
@@ -2594,7 +2626,7 @@ function renderChatHistory() {
             
             const toolsDiv = document.createElement('div'); toolsDiv.className = 'bubble-tools';
             if(side === 'user') { toolsDiv.innerHTML = `<div onclick="previewPayload(${idx})" title="View Payload">📦</div><div onclick="editChatMsg(${idx})" title="Edit">✏️</div><div onclick="savePromptFromChat(${idx})" title="Save Prompt">💾</div>`; } 
-            else { toolsDiv.innerHTML = `<div onclick="editAIResponse(${idx})" title="Edit Response">✏️</div><div onclick="copyFormattedText(this.closest('.bubble'))" title="Copy Formatted">📋</div><div onclick="copyRawText(${idx})" title="Copy Raw">📄</div><div onclick="draftEmailFromBubble(${idx},'new')" title="Draft New Email">📨</div><div onclick="draftEmailFromBubble(${idx},'reply')" title="Reply to Email">↩️</div>`; }
+            else { const _isFaved = NOTES.some(n=>n.type==='favorite'&&n.msgIdx===idx&&n.chatId===String(getSessions().current)&&n.profileLabel===activeProfileLabel); toolsDiv.innerHTML = `<div onclick="editAIResponse(${idx})" title="Edit Response">✏️</div><div onclick="copyFormattedText(this.closest('.bubble'))" title="Copy Formatted">📋</div><div onclick="copyRawText(${idx})" title="Copy Raw">📄</div><div onclick="draftEmailFromBubble(${idx},'new')" title="Draft New Email">📨</div><div onclick="draftEmailFromBubble(${idx},'reply')" title="Reply to Email">↩️</div><div class="fav-btn" onclick="saveAsFavorite(${idx})" title="Save to Notes" style="${_isFaved?'color:#ffcc00;':''}">${_isFaved?'⭐':'☆'}</div>`; }
             b.appendChild(toolsDiv);
             container.appendChild(b); 
         }
@@ -4944,6 +4976,7 @@ function showHomeScreen() {
     _hsRenderWeather();
     _hsRenderQuote();
     _hsRenderDataset();
+    _hsRenderNotes();
     emailFetchEmails(null);
     setTimeout(_hsRenderGmailConnectIfNeeded, 800);
 }
@@ -5940,6 +5973,14 @@ function _linkifyHtml(html) {
                 <div id="hs-ds-gradient" style="position:absolute;right:0;top:0;bottom:0;width:52px;pointer-events:none;background:linear-gradient(to right,transparent,var(--glass,rgba(255,255,255,0.78)));border-radius:0 0 20px 0;transition:opacity 0.25s;"></div>
             </div>
         </div>
+        <div class="hs-card" data-card-id="notes">
+            <div class="hs-card-header">
+                <span class="hs-drag-handle">⠿</span>
+                <span class="hs-card-title">📝 Notes & Reading</span>
+                <button class="chip" style="font-size:10px; padding:3px 9px; background:var(--accent); color:#fff; border:none; cursor:pointer;" onclick="_hsAddNote()">+ Add</button>
+            </div>
+            <div id="hs-notes-body" style="min-height:80px; overflow-y:auto; max-height:320px; padding:8px 10px 10px;"></div>
+        </div>
         <div class="hs-card" data-card-id="email" style="overflow:hidden;">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
@@ -6152,6 +6193,31 @@ function _clearReplyAiTarget() {
     _replyAiTargetBoxId = '';
     _updateReplyAiIndicator();
 }
+
+let NOTES = [];
+function _loadNotes() { try { NOTES = JSON.parse(localStorage.getItem('app_notes') || '[]'); } catch(e) { NOTES = []; } }
+function _saveNotes() { try { localStorage.setItem('app_notes', JSON.stringify(NOTES)); } catch(e) {} }
+
+function _hsRenderNotes() { const el = document.getElementById('hs-notes-body'); if (!el) return; if (!NOTES.length) { el.innerHTML = '<div style="text-align:center;color:#888;font-size:12px;padding:24px 0;">No notes yet — tap + Add or save a chat response with ☆</div>'; return; } el.innerHTML = [...NOTES].sort((a,b)=>b.id-a.id).map(n => { const isFav = n.type === 'favorite'; const preview = (n.content || '').replace(/#+\s/g,'').replace(/\*+/g,'').replace(/`/g,'').slice(0, 80); const dateStr = new Date(n.id).toLocaleDateString([], {month:'short', day:'numeric'}); const jumpBtn = isFav && n.chatId ? `<div class="note-jump-btn" onclick="event.stopPropagation();_noteJumpToChat('${n.profileLabel}','${n.chatId}',${n.msgIdx})" title="Jump to chat">💬</div>` : ''; return `<div class="note-item" onclick="openNoteById(${n.id})"><div class="note-item-body"><div class="note-item-title"><span style="font-size:12px;">${isFav ? '⭐' : '📝'}</span><span class="note-item-name">${_ehNotes(n.title || 'Untitled')}</span><span class="note-item-date">${dateStr}</span></div><div class="note-item-preview">${_ehNotes(preview) || 'No content'}</div></div>${jumpBtn}</div>`; }).join(''); }
+
+function _ehNotes(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let _currentNoteId = null;
+let _noteEditMode = true;
+
+function openNoteById(id) { const n = NOTES.find(x => x.id === id); if (!n) return; _currentNoteId = id; _noteEditMode = true; document.getElementById('notes-modal-title').value = n.title || ''; document.getElementById('notes-modal-content').value = n.content || ''; document.getElementById('notes-modal-edit').style.display = 'flex'; document.getElementById('notes-modal-read').style.display = 'none'; document.getElementById('notes-modal-toggle').textContent = 'Read'; const delBtn = document.getElementById('notes-modal-delete'); if (delBtn) delBtn.style.display = n.type === 'favorite' ? 'none' : ''; openModal('notes-modal'); }
+
+function _hsAddNote() { const id = Date.now(); NOTES.push({ id, type: 'note', title: '', content: '', createdAt: id }); _saveNotes(); _currentNoteId = id; _noteEditMode = true; document.getElementById('notes-modal-title').value = ''; document.getElementById('notes-modal-content').value = ''; document.getElementById('notes-modal-edit').style.display = 'flex'; document.getElementById('notes-modal-read').style.display = 'none'; document.getElementById('notes-modal-toggle').textContent = 'Read'; const delBtn = document.getElementById('notes-modal-delete'); if (delBtn) delBtn.style.display = ''; openModal('notes-modal'); setTimeout(() => document.getElementById('notes-modal-title').focus(), 200); }
+
+function _toggleNoteMode() { if (_noteEditMode) { _saveCurrentNote(true); const n = NOTES.find(x => x.id === _currentNoteId); const content = (n && n.content) || ''; document.getElementById('notes-modal-rendered').innerHTML = marked.parse(content); document.getElementById('notes-modal-edit').style.display = 'none'; document.getElementById('notes-modal-read').style.display = 'block'; document.getElementById('notes-modal-toggle').textContent = 'Edit'; _noteEditMode = false; } else { document.getElementById('notes-modal-content').value = (NOTES.find(x=>x.id===_currentNoteId)||{}).content||''; document.getElementById('notes-modal-edit').style.display = 'flex'; document.getElementById('notes-modal-read').style.display = 'none'; document.getElementById('notes-modal-toggle').textContent = 'Read'; _noteEditMode = true; setTimeout(() => document.getElementById('notes-modal-content').focus(), 100); } }
+
+function _saveCurrentNote(silent) { if (!_currentNoteId) return; const n = NOTES.find(x => x.id === _currentNoteId); if (!n) return; n.title = document.getElementById('notes-modal-title').value.trim() || 'Untitled'; n.content = document.getElementById('notes-modal-content').value; _saveNotes(); _hsRenderNotes(); if (!silent) { closeModal('notes-modal'); notify('Note saved', '#34c759', 1200); } }
+
+function _deleteCurrentNote() { if (!_currentNoteId) return; openConfirm('Delete this note?', () => { NOTES = NOTES.filter(x => x.id !== _currentNoteId); _saveNotes(); _hsRenderNotes(); closeModal('notes-modal'); notify('Deleted', '#888', 1200); }); }
+
+function saveAsFavorite(msgIdx) { const chatId = String(getSessions().current); const already = NOTES.find(n => n.type === 'favorite' && n.msgIdx === msgIdx && n.chatId === chatId && n.profileLabel === activeProfileLabel); if (already) { NOTES = NOTES.filter(x => x.id !== already.id); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Removed from Notes', '#888', 1200); return; } const text = getTextFromContent(chatHistory[msgIdx].content); const title = text.replace(/#+\s/g,'').replace(/\*+/g,'').trim().slice(0, 60) || 'AI Response'; const id = Date.now(); NOTES.push({ id, type: 'favorite', title, content: text, createdAt: id, profileLabel: activeProfileLabel, chatId, msgIdx }); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Saved to Notes ⭐', '#34c759', 1200); }
+
+function _noteJumpToChat(profileLabel, chatId, msgIdx) { hideHomeScreen(); loadSessionFromProfile(profileLabel, chatId).then(() => { setTimeout(() => { const el = document.getElementById('msg-' + msgIdx); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.transition = 'background 0.4s'; el.style.background = 'rgba(255,204,0,0.18)'; setTimeout(() => { el.style.background = ''; }, 1600); } }, 420); }); }
 </script>
 </body>
 </html>
