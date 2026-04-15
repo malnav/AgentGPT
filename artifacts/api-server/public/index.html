@@ -3115,7 +3115,6 @@ async function sendToAI() {
         }
         addLog("AI_CHAT", activeProfileLabel, "Response Generated"); 
         chatHistory.push({ role: "assistant", content: [{ type: "output_text", text: fullR }] }); await saveAll(); await autoExtractVariables(false); renderChatHistory(); 
-        if(_atMentionTargetEl) { _atMentionTargetEl = null; _atMentionIsTextArea = false; }
         if(!userScrolledDuringGen) scrollToLastRequest();
         
         try { const htmlBlob = new Blob([marked.parse(fullR)], {type: 'text/html'}); const textBlob = new Blob([fullR], {type: 'text/plain'}); const data = new ClipboardItem({'text/html': htmlBlob, 'text/plain': textBlob}); await navigator.clipboard.write([data]); notify("Response Auto-Copied!", "#34c759"); } catch(e) {}
@@ -4941,6 +4940,7 @@ function renderFchatHeader(session) {
         ctxBtns.innerHTML = _CTX_OPTS.filter(o => enabled.includes(o.id)).map(o => `<div class="fchat-ctx-btn ${o.cls||''}" onclick="addFloatingChatContext('${o.ctxType}')">${o.icon}${o.label?' '+o.label:''}</div>`).join('');
     }
     _updateReplyAiIndicator();
+    _updateAtMentionIndicator();
 }
 
 function openFchatProfilePicker(e) {
@@ -5365,6 +5365,7 @@ function minimizeFloatingChat(e) {
     const session = _fchatSessions.find(s => s.id === _fchatActiveId);
     if (session) { session.chatId = getSessions().current; session.profileLabel = activeProfileLabel; }
     _fchatActiveId = null;
+    _clearAtMentionTarget();
     const el = document.getElementById('floating-chat');
     const wrapper = document.getElementById('main-chat-wrapper');
     const ref = document.getElementById('master-modal');
@@ -5396,6 +5397,7 @@ function fchatClearAndClose(e) {
         _fchatActiveId = null;
     }
     _clearReplyAiTarget();
+    _clearAtMentionTarget();
     const el = document.getElementById('floating-chat');
     const wrapper = document.getElementById('main-chat-wrapper');
     const ref = document.getElementById('master-modal');
@@ -5845,6 +5847,7 @@ window.onload = init;
 let _atMentionActive = false;
 let _atMentionTargetEl = null;
 let _atMentionIsTextArea = false;
+let _atMentionTargetLabel = '';
 function _initAtMention() {
     document.addEventListener('keyup', function(e) {
         if(e.key !== '@') return;
@@ -5862,10 +5865,12 @@ function _initAtMention() {
         _showAtMentionPicker(el, draft, isTA||isInp);
     });
 }
+function _getAtMentionFieldLabel(el) { const ph = el.placeholder || el.getAttribute('data-ph') || ''; if(ph && ph.length < 40) return ph.replace(/\s*\(.*\)/, '').trim().slice(0,28); if(el.id) { const nice = {'note-input':'Main input','note-content':'Note content','note-title':'Note title','email-compose-body':'Email body'}; if(nice[el.id]) return nice[el.id]; return el.id.replace(/[-_]/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,28); } return 'Input field'; }
 function _showAtMentionPicker(el, draft, isTextArea) {
     _atMentionActive = true;
     _atMentionTargetEl = el;
     _atMentionIsTextArea = isTextArea;
+    _atMentionTargetLabel = _getAtMentionFieldLabel(el);
     const menu = document.createElement('div');
     menu.id = '_at-mention-menu';
     menu.style.cssText = 'position:fixed;inset:0;z-index:9500;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);';
@@ -5887,7 +5892,7 @@ function _showAtMentionPicker(el, draft, isTextArea) {
         listEl.appendChild(d);
     });
 }
-function _closeAtMention(keepAt) { _atMentionActive = false; if(keepAt) { _atMentionTargetEl = null; _atMentionIsTextArea = false; } const m = document.getElementById('_at-mention-menu'); if(m) m.remove(); }
+function _closeAtMention(keepAt) { _atMentionActive = false; if(keepAt) { _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; } const m = document.getElementById('_at-mention-menu'); if(m) m.remove(); if(!keepAt) setTimeout(_updateAtMentionIndicator, 300); }
 _initAtMention();
 
 function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -6113,6 +6118,7 @@ function _linkifyHtml(html) {
     <div id="fchat-header">
         <div id="fchat-header-row1">
             <div id="fchat-reply-indicator" style="display:none; flex-shrink:0; font-size:10px; font-weight:800; color:#fff; background:var(--accent); border-radius:8px; padding:3px 8px; cursor:pointer; white-space:nowrap;" onclick="_clearReplyAiTarget()" title="Click to unlink reply box">✏️ → Reply ✕</div>
+            <div id="fchat-at-indicator" style="display:none; flex-shrink:0; font-size:10px; font-weight:800; color:#fff; background:#8e44ad; border-radius:8px; padding:3px 8px; cursor:pointer; white-space:nowrap; max-width:160px; overflow:hidden; text-overflow:ellipsis;" onclick="_clearAtMentionTarget()" title="Click to stop streaming to this field">✏️ → <span id="fchat-at-indicator-label"></span> ✕</div>
             <div onclick="openFchatProfilePicker(event)" style="display:flex; align-items:center; flex-shrink:0; cursor:pointer; margin-left:4px;" title="Switch profile">
                 <div id="fchat-avatar" style="width:24px; height:24px; border-radius:12px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:800;">?</div>
             </div>
@@ -6293,6 +6299,8 @@ function _clearReplyAiTarget() {
     _replyAiTargetBoxId = '';
     _updateReplyAiIndicator();
 }
+function _clearAtMentionTarget() { _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; const ind = document.getElementById('fchat-at-indicator'); if(ind) ind.style.display = 'none'; }
+function _updateAtMentionIndicator() { const ind = document.getElementById('fchat-at-indicator'); const lbl = document.getElementById('fchat-at-indicator-label'); if(!ind || !lbl) return; if(_atMentionTargetEl && _atMentionTargetLabel) { lbl.textContent = _atMentionTargetLabel; ind.style.display = ''; } else { ind.style.display = 'none'; } }
 
 let NOTES = [];
 function _loadNotes() { try { NOTES = JSON.parse(localStorage.getItem('app_notes') || '[]'); } catch(e) { NOTES = []; } }
