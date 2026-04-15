@@ -479,8 +479,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .hs-card-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px 10px 16px; border-bottom:0.5px solid var(--border); }
 .hs-card-title { font-size:13px; font-weight:800; color:var(--text); }
 .hs-card-body { padding:10px 14px 14px 14px; }
-.hs-greeting { font-size:20px; font-weight:800; color:var(--text); flex:1; }
-.hs-date { font-size:11px; color:#888; margin-top:2px; }
+.hs-greeting { font-size:20px; font-weight:800; color:var(--text); flex:1; transition:opacity 0.25s, transform 0.25s, max-height 0.25s; max-height:40px; overflow:hidden; }
+.hs-date { font-size:11px; color:#888; margin-top:2px; transition:opacity 0.25s, transform 0.25s, max-height 0.25s; max-height:24px; overflow:hidden; }
+#hs-header.hs-scrolled .hs-greeting { opacity:0; max-height:0; transform:translateY(-4px); pointer-events:none; }
+#hs-header.hs-scrolled .hs-date { opacity:0; max-height:0; transform:translateY(-4px); pointer-events:none; }
 .hs-mini-cal { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
 .hs-mini-cal-head { font-size:9px; font-weight:700; color:#888; text-align:center; padding:3px 0; }
 .hs-mini-cal-day { font-size:11px; text-align:center; padding:4px 2px; border-radius:8px; cursor:pointer; transition:background 0.15s; position:relative; min-height:26px; }
@@ -946,7 +948,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                     <span class="chip" style="font-size:12px; padding:3px 9px; color:#ff3b30;" onmousedown="event.preventDefault(); gmailClearReply('panel')">Clear</span>
                 </div>
                 <div style="position:relative;">
-                    <div id="gmail-reply-box" contenteditable="true" data-ph="Write a reply… (type @ for AI)" oninput="_onReplyBoxInput('panel',event)" style="min-height:54px; max-height:120px; overflow-y:auto; border:0.5px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
+                    <div id="gmail-reply-box" contenteditable="true" data-ph="Write a reply… (type @ for AI)" oninput="_onReplyBoxInput('panel',event)" style="min-height:120px; max-height:200px; overflow-y:auto; border:0.5px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
                     <button onclick="gmailExpandReply('panel')" style="position:absolute; bottom:4px; right:4px; background:transparent; border:none; cursor:pointer; font-size:15px; opacity:0.45; color:var(--text); padding:5px; line-height:1; z-index:1;" title="Expand reply box">⤢</button>
                 </div>
                 <div style="display:flex; gap:6px;">
@@ -1300,7 +1302,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                     <span class="chip" style="font-size:12px; padding:3px 9px; color:#ff3b30;" onmousedown="event.preventDefault(); gmailClearReply('modal')">Clear</span>
                 </div>
                 <div style="position:relative;">
-                    <div id="gmail-modal-reply-box" contenteditable="true" data-ph="Write a reply… (type @ for AI)" oninput="_onReplyBoxInput('modal',event)" style="min-height:64px; max-height:160px; overflow-y:auto; border:0.5px solid var(--border); border-radius:12px; padding:10px 12px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
+                    <div id="gmail-modal-reply-box" contenteditable="true" data-ph="Write a reply… (type @ for AI)" oninput="_onReplyBoxInput('modal',event)" style="min-height:140px; max-height:220px; overflow-y:auto; border:0.5px solid var(--border); border-radius:12px; padding:10px 12px; background:var(--sec-bg); color:var(--text); font-size:13px; font-family:inherit; outline:none; line-height:1.5;"></div>
                     <button onclick="gmailExpandReply('modal')" style="position:absolute; bottom:4px; right:5px; background:transparent; border:none; cursor:pointer; font-size:15px; opacity:0.45; color:var(--text); padding:5px; line-height:1; z-index:1;" title="Expand reply box">⤢</button>
                 </div>
                 <div style="display:flex; gap:6px;">
@@ -4466,7 +4468,7 @@ async function gmailSendReply(src) {
     } catch(e) { notify("Failed to send: " + e.message, "#ff3b30", 5000); }
 }
 
-function gmailExpandReply(src) { const id = src === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box'; const el = document.getElementById(id); if (!el) return; const isExp = el.dataset.expanded === '1'; if (isExp) { el.style.maxHeight = src === 'panel' ? '120px' : '160px'; el.dataset.expanded = '0'; } else { el.style.maxHeight = '42vh'; el.dataset.expanded = '1'; } el.focus(); }
+function gmailExpandReply(src) { const id = src === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box'; const el = document.getElementById(id); if (!el) return; const isExp = el.dataset.expanded === '1'; if (isExp) { el.style.maxHeight = src === 'panel' ? '200px' : '220px'; el.dataset.expanded = '0'; } else { el.style.maxHeight = '52vh'; el.dataset.expanded = '1'; } el.focus(); }
 function gmailClearReply(src) {
     src = src || 'panel';
     const el = document.getElementById(gmailIds(src).reply);
@@ -5855,7 +5857,7 @@ function _initAtMention() {
         const el = e.target;
         const isTA = el.tagName === 'TEXTAREA';
         const isInp = el.tagName === 'INPUT' && el.type !== 'password' && el.type !== 'checkbox' && el.type !== 'range';
-        const isCE = el.isContentEditable && el.id !== 'edit-ai-input' && el.id !== 'email-compose-body' && el.id !== 'gmail-reply-box' && el.id !== 'gmail-modal-reply-box' && !el.classList.contains('pp-input');
+        const isCE = el.isContentEditable && el.id !== 'edit-ai-input' && el.id !== 'gmail-reply-box' && el.id !== 'gmail-modal-reply-box' && !el.classList.contains('pp-input');
         if(!isTA && !isInp && !isCE) return;
         if(!AI_PROFILES || AI_PROFILES.length < 2) return;
         const val = isTA||isInp ? el.value : el.innerText;
@@ -5866,7 +5868,7 @@ function _initAtMention() {
         _showAtMentionPicker(el, draft, isTA||isInp);
     });
 }
-function _getAtMentionFieldLabel(el) { const ph = el.placeholder || el.getAttribute('data-ph') || ''; if(ph && ph.length < 40) return ph.replace(/\s*\(.*\)/, '').trim().slice(0,28); if(el.id) { const nice = {'note-input':'Main input','note-content':'Note content','note-title':'Note title','email-compose-body':'Email body'}; if(nice[el.id]) return nice[el.id]; return el.id.replace(/[-_]/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,28); } return 'Input field'; }
+function _getAtMentionFieldLabel(el) { const ph = el.placeholder || el.getAttribute('data-ph') || ''; if(ph && ph.length < 40) return ph.replace(/\s*\(.*\)/, '').trim().slice(0,28); if(el.id) { const nice = {'note-input':'Main input','note-content':'Note content','note-title':'Note title','email-compose-body':'Email body','email-compose-to':'To field','email-compose-subject':'Subject','email-compose-cc':'CC field'}; if(nice[el.id]) return nice[el.id]; return el.id.replace(/[-_]/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,28); } return 'Input field'; }
 function _showAtMentionPicker(el, draft, isTextArea) {
     _atMentionActive = true;
     _atMentionTargetEl = el;
@@ -5895,6 +5897,7 @@ function _showAtMentionPicker(el, draft, isTextArea) {
 }
 function _closeAtMention(keepAt) { _atMentionActive = false; if(keepAt) { _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; } const m = document.getElementById('_at-mention-menu'); if(m) m.remove(); if(!keepAt) setTimeout(_updateAtMentionIndicator, 300); }
 _initAtMention();
+(function(){ const hsb = document.getElementById('hs-body'); const hsh = document.getElementById('hs-header'); if(!hsb || !hsh) return; hsb.addEventListener('scroll', function(){ if(hsb.scrollTop > 36) { hsh.classList.add('hs-scrolled'); } else { hsh.classList.remove('hs-scrolled'); } }, { passive: true }); })();
 
 function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!lk) return; insertAtCursor(`**${lk.title}**\n${lk.url}`,true,false); notify('Link inserted!','#34c759',1500); }
