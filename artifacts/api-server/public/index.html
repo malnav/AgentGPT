@@ -572,19 +572,28 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 @keyframes floatCloud { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
 @keyframes initBarAnim { 0% { width:0%; } 40% { width:65%; } 80% { width:88%; } 100% { width:92%; } }
 .spark-email-row { border-bottom:0.5px solid var(--border); list-style:none; }
-.em-conv-wrap { display:flex; flex-direction:column; gap:12px; padding:14px 14px 20px; }
-.em-conv-me { display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
-.em-conv-them { display:flex; align-items:flex-start; gap:9px; }
-.em-conv-bubble-me { background:var(--accent); color:#fff; border-radius:18px 18px 4px 18px; padding:10px 14px; max-width:88%; font-size:13px; line-height:1.55; cursor:pointer; word-break:break-word; }
-.em-conv-bubble-me:active { opacity:0.85; }
-.em-conv-bubble-them { background:var(--sec-bg); border:0.5px solid var(--border); border-radius:4px 18px 18px 18px; padding:10px 14px; max-width:88%; font-size:13px; line-height:1.55; cursor:pointer; word-break:break-word; color:var(--text); }
-.em-conv-bubble-them:active { opacity:0.85; }
-.em-conv-avatar { width:30px; height:30px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex-shrink:0; margin-top:18px; }
-.em-conv-meta { font-size:10px; color:#999; margin-bottom:3px; }
-.em-conv-time { font-size:10px; color:#999; padding-right:4px; }
-.em-conv-subj { font-size:17px; font-weight:800; color:var(--text); padding:14px 16px 10px; border-bottom:0.5px solid var(--border); line-height:1.3; }
-.em-conv-body-wrap { flex:1; overflow-y:auto; }
-.em-conv-expanded { margin-top:8px; padding:10px 12px; background:var(--bg); border-radius:10px; border:0.5px solid var(--border); font-size:12.5px; line-height:1.65; color:var(--text); white-space:pre-wrap; word-break:break-word; max-height:260px; overflow-y:auto; }
+.em-thread-wrap { display:flex; flex-direction:column; }
+.em-thread-subj { font-size:16px; font-weight:800; color:var(--text); padding:14px 16px 10px; border-bottom:0.5px solid var(--border); line-height:1.3; word-break:break-word; flex-shrink:0; }
+.em-thread-participants { font-size:11px; color:#888; margin-top:3px; }
+.em-thread-card { border-bottom:0.5px solid var(--border); }
+.em-thread-card-hdr { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; user-select:none; -webkit-user-select:none; }
+.em-thread-card-hdr:active { background:rgba(0,0,0,0.04); }
+.em-thread-avatar { width:34px; height:34px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex-shrink:0; }
+.em-thread-sender { font-size:13.5px; font-weight:600; color:var(--text); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.em-thread-snippet { font-size:12px; color:#999; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:2; min-width:0; }
+.em-thread-time { font-size:11px; color:#aaa; flex-shrink:0; }
+.em-thread-chevron { font-size:12px; color:#aaa; flex-shrink:0; transition:transform 0.2s; }
+.em-thread-card.open .em-thread-chevron { transform:rotate(90deg); }
+.em-thread-card-body { display:none; padding:0 14px 16px 58px; }
+.em-thread-card.open .em-thread-card-body { display:block; }
+.em-thread-meta { font-size:11px; color:#888; margin-bottom:10px; line-height:1.6; }
+.em-thread-body { font-size:13.5px; line-height:1.75; color:var(--text); white-space:pre-wrap; word-break:break-word; }
+.em-thread-body-html { font-size:13.5px; line-height:1.75; color:var(--text); word-break:break-word; }
+.em-thread-loading { font-size:13px; color:#888; padding:8px 0; }
+.em-thread-actions { display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
+.em-thread-action-btn { font-size:12px; padding:6px 13px; border-radius:20px; border:0.5px solid var(--border); background:var(--sec-bg); color:var(--text); cursor:pointer; font-weight:600; }
+.em-thread-action-btn:active { opacity:0.7; }
+.em-thread-unread-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; }
 .spark-row-hdr { display:flex; align-items:center; gap:10px; padding:11px 14px 11px 12px; cursor:pointer; transition:background 0.12s; position:relative; }
 .spark-row-hdr:active { background:rgba(0,122,255,0.06); }
 .spark-from { font-size:14px; font-weight:500; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
@@ -4359,35 +4368,55 @@ function _gmailIsMyEmail(fromStr) { const myAccts = emailGetAllAccounts(); const
 async function gmailShowThreadConversation(threadEmails, src) {
     const ids = gmailIds(src);
     const subject = (threadEmails[0] && threadEmails[0].em.subject) || '(no subject)';
-    const latest = threadEmails.filter(x => !x.em._sent).pop() || threadEmails[threadEmails.length-1];
+    const latest = threadEmails[threadEmails.length-1];
     gmailCurrentEmail = latest.em; gmailCurrentIdx = latest.idx;
     ['panel','modal'].forEach(s => { const b=document.getElementById(`gmail-preview-star-${s}`); if(b){b.textContent=latest.em._starred?'⭐':'☆';b.className='email-action-icon'+(latest.em._starred?' starred':'');} });
     const ov = document.getElementById(ids.overlay);
     ov.style.cssText = 'display:flex; flex-direction:column; position:absolute; inset:0; background:var(--bg); z-index:10; overflow:hidden;';
-    document.getElementById(ids.from).textContent = subject;
-    const senderEl = document.getElementById(ids.senderEmail); if(senderEl) senderEl.textContent = '';
-    const toEl = document.getElementById(ids.to); if(toEl) toEl.textContent = threadEmails.length + ' messages';
+    const senderNames = [...new Set(threadEmails.map(x => { const nm=x.em.from&&x.em.from.match(/^([^<]+?)\s*</); return nm?nm[1].trim().replace(/^["']|["']$/g,''):(x.em.from||'').split('@')[0]; }))].slice(0,3).join(', ');
+    document.getElementById(ids.from).textContent = threadEmails.length + ' messages';
+    const senderEl = document.getElementById(ids.senderEmail); if(senderEl){senderEl.textContent=senderNames; senderEl.style.cursor='default'; senderEl.onclick=null;}
+    const toEl = document.getElementById(ids.to); if(toEl) toEl.textContent = '';
     const dateEl = document.getElementById(ids.date); if(dateEl) dateEl.textContent = '';
-    const avEl = document.getElementById(ids.avatar); if(avEl) { avEl.style.background='var(--sec-bg)'; avEl.textContent='💬'; }
-    const subjEl = document.getElementById(ids.subject); if(subjEl) subjEl.textContent = '';
+    const avEl = document.getElementById(ids.avatar); if(avEl) { avEl.style.background='var(--accent)'; avEl.style.fontSize='18px'; avEl.textContent=''; avEl.style.display='none'; }
+    const subjEl = document.getElementById(ids.subject); if(subjEl) subjEl.textContent = subject;
     const bodyEl = document.getElementById(ids.body);
     bodyEl.style.cssText = 'padding:0; white-space:normal; overflow-y:auto; flex:1;';
-    let html = '<div class="em-conv-wrap">';
-    for(const {em, idx} of threadEmails) {
-        const isMe = em._sent || _gmailIsMyEmail(em.from);
+    let html = '<div class="em-thread-wrap">';
+    threadEmails.forEach(({em, idx}, i) => {
+        const isLast = i === threadEmails.length - 1;
+        const isOpen = isLast || em.unread;
         const nm = em.from && em.from.match(/^([^<]+?)\s*<([^>]+)>$/);
         const dispName = nm ? nm[1].trim().replace(/^["']|["']$/g,'') : (em.from||'?').split('@')[0]||'?';
+        const dispEmail = nm ? nm[2].trim() : (em.from||'');
         const initial = (dispName||'?')[0].toUpperCase();
         const color = gmailSenderColor(dispName);
         const timeStr = gmailRelTime(em.date);
-        const snippet = (em.snippet||'(no preview)').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        const bubbleId = `emcb_${idx}_${src}`;
-        if(isMe) {
-            html += `<div class="em-conv-me"><span class="em-conv-time">${timeStr}</span><div class="em-conv-bubble-me" id="${bubbleId}" onclick="gmailConvBubbleTap(${idx},'${src}','${bubbleId}')">${snippet}</div></div>`;
-        } else {
-            html += `<div class="em-conv-them"><div class="em-conv-avatar" style="background:${color};">${initial}</div><div><div class="em-conv-meta">${dispName} · ${timeStr}</div><div class="em-conv-bubble-them" id="${bubbleId}" onclick="gmailConvBubbleTap(${idx},'${src}','${bubbleId}')">${snippet}</div></div></div>`;
-        }
-    }
+        const snippet = (em.snippet||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const isMe = em._sent || _gmailIsMyEmail(em.from);
+        const unreadDot = em.unread ? `<div class="em-thread-unread-dot"></div>` : '';
+        html += `<div class="em-thread-card${isOpen?' open':''}" id="emtc_${idx}_${src}">
+            <div class="em-thread-card-hdr" onclick="gmailConvCardToggle(${idx},'${src}')">
+                <div class="em-thread-avatar" style="background:${isMe?'var(--accent)':color};">${isMe?'Me':initial}</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:6px;"><span class="em-thread-sender">${isMe?'Me':dispName}</span>${unreadDot}</div>
+                    <div class="em-thread-snippet">${isOpen?'':snippet}</div>
+                </div>
+                <span class="em-thread-time">${timeStr}</span>
+                <span class="em-thread-chevron">›</span>
+            </div>
+            <div class="em-thread-card-body" id="emtcb_${idx}_${src}">
+                <div class="em-thread-meta">From: ${dispName}${dispEmail&&dispEmail!==dispName?' &lt;'+dispEmail+'&gt;':''}<br>To: ${(em.to||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}<br>Date: ${em.date}</div>
+                <div class="em-thread-loading" id="emtcl_${idx}_${src}">Loading…</div>
+                <div class="em-thread-body" id="emtcbd_${idx}_${src}" style="display:none;"></div>
+                <div class="em-thread-actions">
+                    <span class="em-thread-action-btn" onclick="event.stopPropagation();gmailSetReplyTarget(${idx},'${src}')">↩ Reply</span>
+                    <span class="em-thread-action-btn" onclick="event.stopPropagation();gmailForwardFromThread(${idx},'${src}')">↪ Forward</span>
+                </div>
+            </div>
+        </div>`;
+        if(isOpen) setTimeout(()=>_gmailLoadThreadCardBody(idx,src),0);
+    });
     html += '</div>';
     bodyEl.innerHTML = html;
     bodyEl.scrollTop = bodyEl.scrollHeight;
@@ -4396,29 +4425,57 @@ async function gmailShowThreadConversation(threadEmails, src) {
     try { const _rb=document.getElementById(ids.reply); const _r=document.createRange(); const _s=window.getSelection(); if(_rb.firstChild){_r.setStartBefore(_rb.firstChild);}else{_r.setStart(_rb,0);} _r.collapse(true); _s.removeAllRanges(); _s.addRange(_r); } catch(e) {}
 }
 
-let _gmailConvBubbleCache = {};
-async function gmailConvBubbleTap(idx, src, bubbleId) {
-    const em = gmailEmails[idx]; if(!em) return;
-    const bEl = document.getElementById(bubbleId); if(!bEl) return;
-    const existingExp = bEl.nextElementSibling;
-    if(existingExp && existingExp.classList.contains('em-conv-expanded')) { existingExp.remove(); return; }
-    document.querySelectorAll('.em-conv-expanded').forEach(e => e.remove());
-    const expEl = document.createElement('div'); expEl.className = 'em-conv-expanded'; expEl.textContent = 'Loading…'; bEl.after(expEl);
+async function _gmailLoadThreadCardBody(idx, src) {
+    const loadEl = document.getElementById(`emtcl_${idx}_${src}`);
+    const bodyEl = document.getElementById(`emtcbd_${idx}_${src}`);
+    if(!loadEl || !bodyEl) return;
+    if(bodyEl.dataset.loaded) { loadEl.style.display='none'; bodyEl.style.display=''; return; }
+    const em = gmailEmails[idx]; if(!em) { if(loadEl) loadEl.style.display='none'; return; }
     try {
-        let bodyText = '';
         const acctId = em._accountId || 'gmail';
         const imapAcct = acctId !== 'gmail' ? (CONFIG.imap_accounts||[]).find(a => a.id === acctId) : null;
+        let html = '', text = '';
         if(imapAcct) {
             const r = await fetch('/api/imap/message', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({host:imapAcct.host,port:imapAcct.port,user:imapAcct.user,pass:imapAcct.pass,tls:imapAcct.tls,uid:em.id,mailbox:em._mailbox||'INBOX'}) });
-            if(r.ok) { const d = await r.json(); if(d.body && typeof d.body === 'object') { bodyText = d.body.text || d.body.html || ''; } else { bodyText = d.body || ''; } }
+            if(r.ok) { const d = await r.json(); if(d.body&&typeof d.body==='object'){html=d.body.html||'';text=d.body.text||'';} else {text=d.body||'';} }
         } else if(window.gmailAccessToken) {
             const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}?format=full`, { headers:{Authorization:`Bearer ${gmailAccessToken}`} });
-            if(r.ok) { const d = await r.json(); const ext = gmailExtractBody(d.payload); bodyText = ext.text || ext.html || ''; }
+            if(r.ok) { const d = await r.json(); const ext = gmailExtractBody(d.payload); html=ext.html||''; text=ext.text||''; }
         }
-        const stripped = gmailStripQuotedReply ? gmailStripQuotedReply(bodyText) : bodyText;
-        expEl.textContent = stripped.trim() || em.snippet || '(no content)';
-        expEl.scrollTop = 0;
-    } catch(e) { expEl.textContent = em.snippet || '(error loading body)'; }
+        if(html) { bodyEl.className='em-thread-body-html'; bodyEl.innerHTML=gmailSanitizeHtml(gmailStripQuotedHtml?gmailStripQuotedHtml(html):html); }
+        else { bodyEl.className='em-thread-body'; bodyEl.textContent=(gmailStripQuotedReply?gmailStripQuotedReply(text):text)||em.snippet||'(no content)'; }
+        bodyEl.dataset.loaded='1';
+    } catch(e) { bodyEl.className='em-thread-body'; bodyEl.textContent=em.snippet||'(error)'; bodyEl.dataset.loaded='1'; }
+    if(loadEl) loadEl.style.display='none';
+    bodyEl.style.display='';
+}
+
+function gmailConvCardToggle(idx, src) {
+    const card = document.getElementById(`emtc_${idx}_${src}`); if(!card) return;
+    const wasOpen = card.classList.contains('open');
+    card.classList.toggle('open');
+    const snippetEl = card.querySelector('.em-thread-snippet');
+    const em = gmailEmails[idx];
+    if(!wasOpen) {
+        if(snippetEl) snippetEl.textContent = '';
+        _gmailLoadThreadCardBody(idx, src);
+        gmailCurrentEmail = em; gmailCurrentIdx = idx;
+    } else {
+        if(snippetEl && em) snippetEl.textContent = em.snippet || '';
+    }
+}
+
+function gmailSetReplyTarget(idx, src) {
+    const em = gmailEmails[idx]; if(!em) return;
+    gmailCurrentEmail = em; gmailCurrentIdx = idx;
+    const replyEl = document.getElementById(gmailIds(src).reply);
+    if(replyEl) { replyEl.scrollIntoView({behavior:'smooth', block:'nearest'}); replyEl.focus(); }
+}
+
+function gmailForwardFromThread(idx, src) {
+    const em = gmailEmails[idx]; if(!em) return;
+    gmailCurrentEmail = em; gmailCurrentIdx = idx;
+    gmailForward(src);
 }
 
 async function gmailPreview(i, src) {
