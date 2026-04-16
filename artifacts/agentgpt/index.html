@@ -3949,11 +3949,11 @@ function gmailGroupByThread(emails, startIdx) {
     const base = startIdx || 0;
     const map = new Map();
     emails.forEach((em, i) => {
+        if(em._threadOnly) return;
         let key = em.threadId;
         if (em._accountId && em._accountId !== 'gmail' && String(em.threadId) === String(em.id)) {
             const normSubj = (em.subject || '').replace(/^(re|fwd|fw|aw|sv|vs|ref|回复|转发)[\s:：]+/gi, '').trim().toLowerCase();
-            const senderAddr = gmailExtractAddr(em.from || '').toLowerCase();
-            key = em._accountId + '\x00' + senderAddr + '\x00' + normSubj;
+            key = em._accountId + '\x00' + normSubj;
         }
         if (!map.has(key)) map.set(key, []);
         map.get(key).push({ em, idx: base + i });
@@ -4478,14 +4478,40 @@ function gmailForwardFromThread(idx, src) {
     gmailForward(src);
 }
 
+async function _gmailFetchFullThread(em, currentIdx) {
+    const localGroup = gmailEmails.map((e, idx) => ({em:e, idx})).filter(x => x.em.threadId === em.threadId);
+    if(!window.gmailAccessToken || em._accountId !== 'gmail' || !em.threadId) return localGroup;
+    try {
+        const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/threads/${em.threadId}?format=metadata&metadataHeaders=From,To,Subject,Date`, { headers:{Authorization:`Bearer ${gmailAccessToken}`} });
+        if(!r.ok) return localGroup;
+        const d = await r.json();
+        if(!d.messages || d.messages.length <= localGroup.length) return localGroup;
+        const existing = new Set(gmailEmails.map(e => e.id));
+        const result = d.messages.map(m => {
+            const getH = name => ((m.payload&&m.payload.headers)||[]).find(h=>h.name.toLowerCase()===name.toLowerCase());
+            const hdr = name => (getH(name)||{}).value||'';
+            const labels = m.labelIds||[];
+            if(existing.has(m.id)) {
+                const idx = gmailEmails.findIndex(e => e.id === m.id);
+                return { em: gmailEmails[idx], idx };
+            }
+            const newEm = { id:m.id, threadId:m.threadId||em.threadId, subject:hdr('Subject')||em.subject, from:hdr('From'), to:hdr('To'), date:hdr('Date'), snippet:'', unread:labels.includes('UNREAD'), _starred:labels.includes('STARRED'), _accountId:'gmail', _sent:labels.includes('SENT')&&!labels.includes('INBOX'), _threadOnly:true };
+            gmailEmails.push(newEm);
+            return { em:newEm, idx:gmailEmails.length-1 };
+        });
+        return result.sort((a,b) => new Date(a.em.date)-new Date(b.em.date));
+    } catch(e) { return localGroup; }
+}
+
 async function gmailPreview(i, src) {
     src = src || 'panel';
     const em = gmailEmails[i];
     gmailCurrentEmail = em;
     gmailCurrentIdx = i;
     if(em.threadId) {
-        const threadGroup = gmailEmails.map((e, idx) => ({em:e, idx})).filter(x => x.em.threadId === em.threadId).sort((a,b) => new Date(a.em.date)-new Date(b.em.date));
-        if(threadGroup.length > 1) { return await gmailShowThreadConversation(threadGroup, src); }
+        const threadGroup = await _gmailFetchFullThread(em, i);
+        const sorted = threadGroup.sort((a,b) => new Date(a.em.date)-new Date(b.em.date));
+        if(sorted.length > 1) { return await gmailShowThreadConversation(sorted, src); }
     }
     ['panel','modal'].forEach(s => {
         const btn = document.getElementById(`gmail-preview-star-${s}`);
