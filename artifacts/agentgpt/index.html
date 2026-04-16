@@ -3953,7 +3953,8 @@ function gmailGroupByThread(emails, startIdx) {
         let key = em.threadId;
         if (em._accountId && em._accountId !== 'gmail' && String(em.threadId) === String(em.id)) {
             const normSubj = (em.subject || '').replace(/^(re|fwd|fw|aw|sv|vs|ref|回复|转发)[\s:：]+/gi, '').trim().toLowerCase();
-            key = em._accountId + '\x00' + normSubj;
+            const senderAddr = gmailExtractAddr(em.from || '').toLowerCase();
+            key = em._accountId + '\x00' + senderAddr + '\x00' + normSubj;
         }
         if (!map.has(key)) map.set(key, []);
         map.get(key).push({ em, idx: base + i });
@@ -4378,10 +4379,10 @@ async function gmailShowThreadConversation(threadEmails, src) {
     const senderEl = document.getElementById(ids.senderEmail); if(senderEl){senderEl.textContent=senderNames; senderEl.style.cursor='default'; senderEl.onclick=null;}
     const toEl = document.getElementById(ids.to); if(toEl) toEl.textContent = '';
     const dateEl = document.getElementById(ids.date); if(dateEl) dateEl.textContent = '';
-    const avEl = document.getElementById(ids.avatar); if(avEl) { avEl.style.background='var(--accent)'; avEl.style.fontSize='18px'; avEl.textContent=''; avEl.style.display='none'; }
+    const avEl = document.getElementById(ids.avatar); if(avEl) { avEl.style.background='var(--accent)'; avEl.style.fontSize='16px'; avEl.textContent='✉'; avEl.style.display=''; }
     const subjEl = document.getElementById(ids.subject); if(subjEl) subjEl.textContent = subject;
     const bodyEl = document.getElementById(ids.body);
-    bodyEl.style.cssText = 'padding:0; white-space:normal; overflow-y:auto; flex:1;';
+    bodyEl.style.cssText = 'padding:0; white-space:normal;';
     let html = '<div class="em-thread-wrap">';
     threadEmails.forEach(({em, idx}, i) => {
         const isLast = i === threadEmails.length - 1;
@@ -4479,6 +4480,20 @@ function gmailForwardFromThread(idx, src) {
 }
 
 async function _gmailFetchFullThread(em, currentIdx) {
+    if(em._accountId && em._accountId !== 'gmail') {
+        const normSubj = (em.subject||'').replace(/^(re|fwd|fw|aw|sv|vs|ref|回复|转发)[\s:：]+/gi,'').trim().toLowerCase();
+        const emFrom = gmailExtractAddr(em.from||'').toLowerCase();
+        const emTo = gmailExtractAddr(em.to||'').toLowerCase();
+        return gmailEmails.map((e, idx) => ({em:e, idx})).filter(x => {
+            if(x.em._threadOnly) return false;
+            if(x.em._accountId !== em._accountId) return false;
+            const xNorm = (x.em.subject||'').replace(/^(re|fwd|fw|aw|sv|vs|ref|回复|转发)[\s:：]+/gi,'').trim().toLowerCase();
+            if(xNorm !== normSubj) return false;
+            const xFrom = gmailExtractAddr(x.em.from||'').toLowerCase();
+            const xTo = gmailExtractAddr(x.em.to||'').toLowerCase();
+            return xFrom===emFrom || xFrom===emTo || xTo===emFrom || xTo===emTo;
+        }).sort((a,b) => new Date(a.em.date)-new Date(b.em.date));
+    }
     const localGroup = gmailEmails.map((e, idx) => ({em:e, idx})).filter(x => x.em.threadId === em.threadId);
     if(!window.gmailAccessToken || em._accountId !== 'gmail' || !em.threadId) return localGroup;
     try {
