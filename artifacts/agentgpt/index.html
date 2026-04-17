@@ -501,6 +501,9 @@ body.embed-mode #profile-bubble,
 body.embed-mode #fchat-bubble-bar,
 body.embed-mode .fchat-mini-win,
 body.embed-mode .fchat-bubble,
+#floating-chat .sys-icons div[title="Settings"],
+body.embed-mode .top-nav .sys-icons div[title="Settings"] { display:none !important; }
+@media (max-width: 767px) { .fchat-mini-focus { display:none !important; } }
 body.embed-mode #floating-chat,
 body.embed-mode #sync-bar,
 body.embed-mode #embed-home-btn { display:none !important; }
@@ -1762,10 +1765,12 @@ function addSwipeListener(element, onSwipeLeft, onSwipeRight) {
 function initGestures() {
     addSwipeListener(document.body, 
         () => { 
+            if(!_isEmbedded && Array.isArray(_fchatSessions) && _fchatSessions.length > 0) return;
             if(document.getElementById('workspace-panel').classList.contains('open')) { closeAllPanels(); } 
             else { closeAllPanels(); document.getElementById('vars-slide-panel').classList.add('open'); refreshUI(); }
         }, 
         () => { 
+            if(!_isEmbedded && Array.isArray(_fchatSessions) && _fchatSessions.length > 0) return;
             let rightPanelsOpen = document.querySelectorAll('.side-panel:not(.left-panel).open, .ctx-panel.open').length > 0;
             if(rightPanelsOpen) { closeAllPanels(); } 
             else { closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); renderWorkspaceLists(); }
@@ -5471,7 +5476,7 @@ function renderFchatBubbles() {
             div.style.width = (pos.w || 320) + 'px';
             div.style.height = (pos.h || 240) + 'px';
             const iframeSrc = '?fcwin=1' + (s.profileLabel ? '&p=' + encodeURIComponent(s.profileLabel) : '') + (s.chatId ? '&c=' + encodeURIComponent(s.chatId) : '') + '&sid=' + encodeURIComponent(s.id);
-            div.innerHTML = `<div class="fchat-mini-header"><span class="fchat-mini-emoji">${emoji}</span><span class="fchat-mini-title">${_escSnap(label)}</span><span class="fchat-mini-btn fchat-mini-focus" title="Bring to main window">⤢</span><span class="fchat-mini-btn fchat-mini-min" title="Minimize">━</span><span class="fchat-mini-btn fchat-mini-close" title="Close">✕</span></div><div class="fchat-mini-body is-iframe"><div class="fchat-mini-loading">Loading chat…</div></div><div class="fchat-mini-resize">⌟</div>`;
+            div.innerHTML = `<div class="fchat-mini-header"><span class="fchat-mini-emoji">${emoji}</span><span class="fchat-mini-title">${_escSnap(label)}</span><span class="fchat-mini-btn fchat-mini-focus" title="Maximize">⤢</span><span class="fchat-mini-btn fchat-mini-min" title="Minimize">━</span><span class="fchat-mini-btn fchat-mini-close" title="Close">✕</span></div><div class="fchat-mini-body is-iframe"><div class="fchat-mini-loading">Loading chat…</div></div><div class="fchat-mini-resize">⌟</div>`;
             div.querySelector('.fchat-mini-close').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
             div.querySelector('.fchat-mini-min').onclick = (e) => { e.stopPropagation(); _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: true }); _saveMiniWinPositions(); renderFchatBubbles(); };
             div.querySelector('.fchat-mini-focus').onclick = async (e) => { e.stopPropagation(); try { await saveAll(true); } catch(_e){} fchatMaximize(s.id); };
