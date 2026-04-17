@@ -719,6 +719,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </div>
 <span id="init-overlay-label" style="display:none;"></span>
 <div id="toast"></div>
+<div id="sync-indicator" style="display:none; position:fixed; bottom:0; left:0; right:0; height:3px; z-index:9998; overflow:hidden; pointer-events:none; transition:opacity 0.4s;">
+    <div id="sync-bar-fill" style="height:100%; width:0%; background:var(--accent);"></div>
+</div>
 <span id="sync-spinner" style="display:none;"></span>
 <span id="sync-label" style="display:none;"></span>
 
@@ -6058,9 +6061,6 @@ function _linkifyHtml(html) {
 </div>
 
 <div id="home-screen" style="display:none;">
-    <div id="sync-indicator" style="display:none; position:absolute; top:0; left:0; right:0; height:3px; z-index:10; overflow:hidden; pointer-events:none; transition:opacity 0.4s;">
-        <div id="sync-bar-fill" style="height:100%; width:0%; background:var(--accent);"></div>
-    </div>
     <div id="hs-header">
         <div style="flex:1; min-width:0;">
             <div class="hs-greeting" id="hs-greeting">Good morning</div>
