@@ -5417,9 +5417,30 @@ function _fchatMiniInitResize(div, sessionId) {
     document.addEventListener('touchend', onUp);
 }
 function renderFchatBubbles() {
-    document.querySelectorAll('.fchat-bubble,.fchat-mini-win').forEach(b => b.remove());
     const minimized = _fchatSessions.filter(s => s.id !== _fchatActiveId);
+    const wantedIds = new Set(minimized.map(s => s.id));
+    document.querySelectorAll('.fchat-bubble,.fchat-mini-win').forEach(el => {
+        const id = el.id.replace(/^fchat-(bubble|mini)-/, '');
+        if (!wantedIds.has(id)) { el.remove(); return; }
+        const s = minimized.find(x => x.id === id);
+        const isBubble = _fchatMiniWinPos[s.id] && _fchatMiniWinPos[s.id].minimized;
+        const wantsBubble = !!isBubble;
+        const isCurBubble = el.classList.contains('fchat-bubble');
+        if (wantsBubble !== isCurBubble) el.remove();
+    });
     minimized.forEach((s, i) => {
+        const existing = document.getElementById('fchat-mini-' + s.id) || document.getElementById('fchat-bubble-' + s.id);
+        if (existing) {
+            const bc2 = s.bubbleConfig || BUBBLE_CONFIGS.find(b => b.profileLabel === s.profileLabel) || {};
+            const emoji2 = bc2.emoji || '🤖';
+            let label2 = s.profileLabel || '';
+            if (s.chatId && chatHistories) { const profH = chatHistories[s.profileLabel] || {}; const chat = (profH.list || []).find(c => String(c.id) === String(s.chatId)); if (chat && chat.var_id && GLOBAL_DATASETS[chat.var_id] && GLOBAL_DATASETS[chat.var_id].title) { label2 = GLOBAL_DATASETS[chat.var_id].title; } else if (chat && chat.title) { label2 = chat.title; } }
+            const titleEl = existing.querySelector('.fchat-mini-title') || existing.querySelector('.fchat-bubble-label');
+            if (titleEl && titleEl.textContent !== label2) titleEl.textContent = label2;
+            const emojiEl = existing.querySelector('.fchat-mini-emoji');
+            if (emojiEl && emojiEl.textContent !== emoji2) emojiEl.textContent = emoji2;
+            return;
+        }
         const bc = s.bubbleConfig || BUBBLE_CONFIGS.find(b => b.profileLabel === s.profileLabel) || {};
         const emoji = bc.emoji || '🤖';
         let label = s.profileLabel || '';
