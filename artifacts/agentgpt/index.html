@@ -462,7 +462,17 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #profile-bubble:active { transform:scale(0.93); }
 #profile-bubble-menu { position:fixed; z-index:3350; min-width:230px; max-width:88vw; background:var(--glass); border:0.5px solid var(--glass-border); border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,0.28); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; }
 #main-chat-wrapper { display:flex; flex-direction:column; flex:1; position:relative; min-height:0; overflow:hidden; }
-#floating-chat { position:fixed; z-index:9100; inset:0; background:var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); display:flex; flex-direction:column; overflow:hidden; }
+#floating-chat { position:fixed; z-index:9300; inset:0; background:var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); display:flex; flex-direction:column; overflow:hidden; }
+.fchat-bubble { display:flex; align-items:center; gap:4px; padding:4px 4px 4px 10px; height:42px; min-width:200px; max-width:300px; border-radius:21px; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); box-shadow:0 4px 18px rgba(0,0,0,0.18); cursor:pointer; user-select:none; -webkit-user-select:none; touch-action:none; transition:transform 0.1s, box-shadow 0.2s; }
+.fchat-bubble:active { transform:scale(0.97); }
+.fchat-bubble-emoji { font-size:18px; line-height:1; flex-shrink:0; pointer-events:none; }
+.fchat-bubble-input { flex:1; min-width:0; border:none; background:transparent; outline:none; font-size:13px; color:var(--text); padding:0 4px; height:30px; }
+.fchat-bubble-input::placeholder { opacity:0.5; font-size:12px; }
+.fchat-bubble-send { background:var(--accent); color:#fff; border:none; border-radius:14px; width:28px; height:28px; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; padding:0; }
+.fchat-bubble-close { background:transparent; border:none; cursor:pointer; font-size:13px; opacity:0.55; padding:4px 6px; flex-shrink:0; color:var(--text); }
+.fchat-bubble-close:hover { opacity:1; }
+.main-profile-dropdown { cursor:pointer; pointer-events:auto; }
+@media (min-width: 768px) { #floating-chat:not(.fc-windowed) { left:0 !important; right:0 !important; width:100% !important; transform:none !important; } }
 @media (prefers-color-scheme: dark) { #floating-chat { background:var(--bg-gradient, linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)); } }
 #floating-chat.fc-windowed { top:auto; left:auto; right:auto; bottom:auto; transform:none !important; width:auto; border-radius:18px !important; box-shadow:0 24px 80px rgba(0,0,0,0.38) !important; border:0.5px solid var(--glass-border) !important; overflow:hidden !important; }
 #floating-chat.fc-windowed #fchat-header { cursor:grab; }
@@ -770,9 +780,9 @@ body.embed-mode #main-chat-wrapper { position:fixed !important; inset:0 !importa
     <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
         <div id="chat-nav-back-btn" onclick="_chatNavBack()" style="display:none; cursor:pointer; align-items:center; gap:5px; font-size:13px; font-weight:700; color:var(--accent); padding:6px 12px; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow); white-space:nowrap; max-width:180px; overflow:hidden; text-overflow:ellipsis;">◀ Back</div>
     </div>
-    <div class="sys-icons">
-        <div onclick="openModal('master-modal')" style="cursor:pointer; font-size:16px; line-height:1;" title="Settings">⚙️</div>
-        <div onclick="goHomeFromMainChat()" style="cursor:pointer; font-size:16px; line-height:1;" title="Home">🏠</div>
+    <div class="sys-icons" style="gap:8px;">
+        <select id="main-profile-dropdown" class="main-profile-dropdown" onchange="_switchProfileFromTop(this.value)" style="pointer-events:auto;"></select>
+        <div onclick="_chatHomeOrMinimize()" style="cursor:pointer; font-size:18px; line-height:1; pointer-events:auto; padding:6px 10px; border-radius:14px; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); font-weight:800;" title="Minimize to bubble">━</div>
     </div>
 </div>
 
@@ -1930,6 +1940,11 @@ async function _handleSyncMessage(msg) {
             }
             if (!_isEmbedded) { try { renderFchatBubbles(); } catch(e){} try { if (typeof renderWorkspaceLists === 'function') renderWorkspaceLists(); } catch(e){} _schedulePropagatedCloudSync(); }
         } catch(e) { addLog('SYNC', 'Reload error', e.message); }
+    } else if (msg.type === 'bubble-send') {
+        if (_isEmbedded && msg.payload && String(msg.payload.sid) === String(_embedSessionId)) {
+            const inp = document.getElementById('note-input');
+            if (inp) { inp.value = msg.payload.text; try { sendToAI(); } catch(e){} }
+        }
     } else if (msg.type === 'settings-saved') {
         try {
             AI_PROFILES = await dbHelper.get('profiles') || AI_PROFILES;
@@ -1976,6 +1991,16 @@ async function init() {
     if (!_isEmbedded) startRealtimeSync();
     setTimeout(hideInitOverlay, _isEmbedded ? 1500 : 30000);
     if (!_isEmbedded) { gmailSilentAuth(); setTimeout(gmailSilentAuth, 2000); }
+    if (_isEmbedded && _embedSessionId) {
+        try {
+            const pendingKey = '_fcwin_pending_' + _embedSessionId;
+            const pendingText = localStorage.getItem(pendingKey);
+            if (pendingText) {
+                localStorage.removeItem(pendingKey);
+                setTimeout(() => { const inp = document.getElementById('note-input'); if (inp) { inp.value = pendingText; try { sendToAI(); } catch(e){} } }, 400);
+            }
+        } catch(e){}
+    }
     const _hsScrollBody = document.getElementById('hs-body'); const _hsScrollHdr = document.getElementById('hs-header'); if(_hsScrollBody && _hsScrollHdr) { _hsScrollBody.addEventListener('scroll', function(){ _hsScrollHdr.classList.toggle('hs-scrolled', _hsScrollBody.scrollTop > 36); }, { passive: true }); }
 }
 
@@ -1985,7 +2010,7 @@ async function refreshUI() {
     const currentGlobalModel = document.getElementById('chatModel').value || CONFIG.def_model;
     const mH = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); const mHopt = `<option value="">(chat)</option>` + mH; document.getElementById('chatModel').innerHTML = mH; document.getElementById('ai-gen-model').innerHTML = mH; document.getElementById('p-model-set').innerHTML = `<option value="">(Keep Global Model)</option>` + mH; ['title-model-f','extract-model-f','suggest-model-f'].forEach(id => document.getElementById(id).innerHTML = mHopt);
     if(currentGlobalModel) document.getElementById('chatModel').value = currentGlobalModel;
-    renderSessionVariables(); renderInlinePrompts();
+    renderSessionVariables(); renderInlinePrompts(); try { _renderMainProfileDropdown(); } catch(e){}
     const _eh = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const _ctxGroupsHtml = (_ctxGroups || []).map(g =>
         `<li style="list-style:none; padding:0; border-left:3px solid #34c759; background:rgba(52,199,89,0.06); margin:2px 0;">` +
@@ -5457,12 +5482,19 @@ function renderFchatBubbles() {
             div.id = 'fchat-bubble-' + s.id;
             div.style.position = 'fixed';
             div.style.zIndex = '9200';
-            div.innerHTML = `<span style="pointer-events:none; font-size:22px; line-height:1;">${emoji}</span><div class="fchat-bubble-actions"><div class="fchat-bubble-action-btn" title="Close">✕</div></div><div class="fchat-bubble-label">${_escSnap(label)}</div>`;
+            div.innerHTML = `<span class="fchat-bubble-emoji" title="${_escSnap(label)}">${emoji}</span><input class="fchat-bubble-input" type="text" placeholder="Message..." enterkeyhint="send"><button class="fchat-bubble-send" title="Send">↑</button><button class="fchat-bubble-close" title="Close">✕</button>`;
             const pos = _fchatBubblePositions[s.id];
             if (pos) { div.style.left = pos.x + 'px'; div.style.top = pos.y + 'px'; }
-            else { const bx = Math.max(8, window.innerWidth / 2 - 26 + (i - Math.floor(minimized.length / 2)) * 64); const by = window.innerHeight - 96; div.style.left = bx + 'px'; div.style.top = by + 'px'; _fchatBubblePositions[s.id] = { x: bx, y: by }; }
-            div.querySelector('.fchat-bubble-action-btn').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
-            div.onclick = () => { _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: false }); _saveMiniWinPositions(); renderFchatBubbles(); };
+            else { const bx = Math.max(8, window.innerWidth / 2 - 110 + (i - Math.floor(minimized.length / 2)) * 16); const by = window.innerHeight - 80; div.style.left = bx + 'px'; div.style.top = by + 'px'; _fchatBubblePositions[s.id] = { x: bx, y: by }; }
+            const _inEl = div.querySelector('.fchat-bubble-input');
+            const _sendEl = div.querySelector('.fchat-bubble-send');
+            const _closeEl = div.querySelector('.fchat-bubble-close');
+            const _emojiEl2 = div.querySelector('.fchat-bubble-emoji');
+            _closeEl.onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
+            _inEl.onclick = (e) => { e.stopPropagation(); };
+            _inEl.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _bubbleSend(s.id); } };
+            _sendEl.onclick = (e) => { e.stopPropagation(); _bubbleSend(s.id); };
+            _emojiEl2.onclick = (e) => { e.stopPropagation(); _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: false }); _saveMiniWinPositions(); renderFchatBubbles(); };
             _makeBubbleDraggable(div, s.id);
             document.body.appendChild(div);
         } else {
@@ -5619,6 +5651,56 @@ function goHomeFromFloatingChat(e) {
     showHomeScreen();
 }
 
+function _chatHomeOrMinimize() {
+    if (_fchatActiveId !== null) {
+        const id = _fchatActiveId;
+        const session = _fchatSessions.find(s => s.id === id);
+        try { if (session) session.chatId = getSessions().current; } catch(e){}
+        const el = document.getElementById('floating-chat');
+        const wr = document.getElementById('main-chat-wrapper');
+        const ref = document.getElementById('master-modal');
+        if (wr && ref && ref.parentNode) ref.parentNode.insertBefore(wr, ref); else if (wr) document.body.appendChild(wr);
+        if (wr) wr.style.display = '';
+        if (el) { el.style.display = 'none'; el.classList.remove('fc-windowed'); el.style.width=''; el.style.height=''; el.style.top=''; el.style.left=''; el.style.transform=''; }
+        _fchatActiveId = null;
+        _fchatMiniWinPos[id] = Object.assign({}, _fchatMiniWinPos[id] || {}, { minimized: true });
+        _saveMiniWinPositions();
+        renderFchatBubbles();
+        if (CONFIG && CONFIG.home_screen) showHomeScreen();
+        return;
+    }
+    goHomeFromMainChat();
+}
+async function _switchProfileFromTop(label) {
+    if (!label || label === activeProfileLabel) return;
+    if (_fchatActiveId !== null) { const sess = _fchatSessions.find(s => s.id === _fchatActiveId); if (sess) sess.profileLabel = label; }
+    activeProfileLabel = label;
+    if (!_isEmbedded) { try { await dbHelper.set('activeProfile', label); } catch(e){} }
+    try { await switchProfileSession(label); } catch(e){}
+    try { await refreshUI(); } catch(e){}
+    try { renderChatHistory(); } catch(e){}
+    try { renderFchatBubbles(); } catch(e){}
+}
+function _renderMainProfileDropdown() {
+    const sel = document.getElementById('main-profile-dropdown'); if (!sel) return;
+    const html = (AI_PROFILES||[]).map(p => `<option value="${(p.label||'').replace(/"/g,'&quot;')}" ${p.label === activeProfileLabel ? 'selected' : ''}>${(p.emoji||'🤖')} ${(p.label||'').replace(/</g,'&lt;')}</option>`).join('');
+    if (sel.innerHTML !== html) sel.innerHTML = html;
+    if (sel.value !== activeProfileLabel) sel.value = activeProfileLabel;
+}
+async function _bubbleSend(sessionId) {
+    const div = document.getElementById('fchat-bubble-' + sessionId); if (!div) return;
+    const inputEl = div.querySelector('.fchat-bubble-input'); if (!inputEl) return;
+    const text = (inputEl.value || '').trim(); if (!text) return;
+    inputEl.value = '';
+    const session = _fchatSessions.find(s => s.id === sessionId); if (!session) return;
+    try { localStorage.setItem('_fcwin_pending_' + sessionId, text); } catch(e){}
+    if (!_fchatMiniWinPos[sessionId]) _fchatMiniWinPos[sessionId] = {};
+    _fchatMiniWinPos[sessionId].minimized = false;
+    _saveMiniWinPositions();
+    renderFchatBubbles();
+    setTimeout(() => { try { _broadcastSync('bubble-send', { sid: sessionId, text: text }); } catch(e){} }, 600);
+    setTimeout(() => { try { _broadcastSync('bubble-send', { sid: sessionId, text: text }); } catch(e){} }, 1800);
+}
 function goHomeFromMainChat() {
     const profLabel = activeProfileLabel;
     const chatId = getSessions() && getSessions().current;
