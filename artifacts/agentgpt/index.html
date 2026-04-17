@@ -492,6 +492,20 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .snap-user { background:var(--accent); color:#fff; margin-left:auto; }
 .snap-ai { background:rgba(127,127,127,0.12); color:var(--text); margin-right:auto; }
 .fchat-mini-resize { position:absolute; bottom:2px; right:4px; font-size:14px; cursor:se-resize; color:var(--text); opacity:0.4; user-select:none; -webkit-user-select:none; line-height:1; pointer-events:auto; z-index:5; }
+.fchat-mini-iframe { width:100%; height:100%; border:0; display:block; background:transparent; }
+.fchat-mini-body.is-iframe { padding:0; cursor:default; overflow:hidden; }
+.fchat-mini-body.is-iframe:hover { background:transparent; }
+.fchat-mini-loading { display:flex; align-items:center; justify-content:center; height:100%; opacity:0.5; font-size:11px; }
+body.embed-mode #home-screen,
+body.embed-mode #profile-bubble,
+body.embed-mode #fchat-bubble-bar,
+body.embed-mode .fchat-mini-win,
+body.embed-mode .fchat-bubble,
+body.embed-mode #floating-chat,
+body.embed-mode #sync-bar,
+body.embed-mode #embed-home-btn { display:none !important; }
+body.embed-mode .top-nav .sys-icons div[title="Home"] { display:none !important; }
+body.embed-mode #main-chat-wrapper { position:fixed !important; inset:0 !important; z-index:1 !important; display:flex !important; }
 #home-screen { position:fixed; inset:0; z-index:500; background:var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); display:flex; flex-direction:column; overflow:hidden; }
 #hs-header { position:absolute; top:0; left:0; right:0; z-index:10; padding:max(14px, env(safe-area-inset-top)) 16px 8px 16px; display:flex; align-items:center; gap:10px; background:transparent; pointer-events:none; }
 #hs-header > * { pointer-events:auto; }
@@ -1844,15 +1858,90 @@ function renderInlinePrompts() {
 
 async function saveAll(skipCloud = false) { 
     try {
+        if (_isEmbedded) {
+            const latest = await dbHelper.get('histories') || {};
+            const latestDs = await dbHelper.get('datasets') || {};
+            let sData = latest[activeProfileLabel];
+            if (!sData || !sData.list) { sData = { current: _embedChatId || (chatHistories[activeProfileLabel]||{}).current, list: [] }; latest[activeProfileLabel] = sData; }
+            const targetId = _embedChatId || (chatHistories[activeProfileLabel]||{}).current;
+            let cur = sData.list.find(x => String(x.id) === String(targetId));
+            if (!cur) { cur = { id: targetId, title: 'Chat', msgs: chatHistory.slice(), var_id: targetId }; sData.list.push(cur); }
+            else { cur.msgs = chatHistory; }
+            if (cur.var_id && GLOBAL_DATASETS[cur.var_id]) { latestDs[cur.var_id] = GLOBAL_DATASETS[cur.var_id]; latestDs[cur.var_id]._updated = Date.now(); }
+            chatHistories = latest;
+            GLOBAL_DATASETS = latestDs;
+            await dbHelper.setMulti({ 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
+            _lastBroadcastTs = Date.now();
+            try { _broadcastSync('data-saved', { profile: activeProfileLabel, chatId: targetId }); } catch(e){}
+            return;
+        }
         let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { cur.msgs = chatHistory; if(GLOBAL_DATASETS[cur.var_id]) GLOBAL_DATASETS[cur.var_id]._updated = Date.now(); } }
         CONFIG._ts = Date.now();
         await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
+        _lastBroadcastTs = Date.now();
+        try { _broadcastSync('data-saved', { profile: activeProfileLabel }); } catch(e){}
         if(!skipCloud) triggerAutoSync(); 
     } catch(e) { console.error("DB Save Error:", e); notify("⚠️ DB Error: " + (e.name || "Write Failed"), "#ff3b30", 4000); }
 }
 
+const _embedParams = (function(){ try { return new URLSearchParams(location.search); } catch(e) { return new URLSearchParams(''); } })();
+const _isEmbedded = _embedParams.get('fcwin') === '1';
+const _embedProfile = _embedParams.get('p') || '';
+const _embedChatId = _embedParams.get('c') || '';
+const _windowSyncId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+let _bcChannel = null;
+try { _bcChannel = new BroadcastChannel('agentgpt-multiwin-sync'); } catch(e) { _bcChannel = null; }
+function _broadcastSync(type, payload) { if (!_bcChannel) return; try { _bcChannel.postMessage({ type: type, payload: payload || {}, src: _windowSyncId, ts: Date.now() }); } catch(e){} }
+let _lastBroadcastTs = 0;
+let _pendingCloudSyncTimer = null;
+function _schedulePropagatedCloudSync() { if (_isEmbedded) return; if (_pendingCloudSyncTimer) return; _pendingCloudSyncTimer = setTimeout(() => { _pendingCloudSyncTimer = null; try { if (typeof triggerAutoSync === 'function') triggerAutoSync(); } catch(e){} }, 1500); }
+async function _handleSyncMessage(msg) {
+    if (!msg || msg.src === _windowSyncId) return;
+    if (msg.type === 'data-saved') {
+        if (msg.ts && msg.ts < _lastBroadcastTs) return;
+        try {
+            const newHistories = await dbHelper.get('histories') || {};
+            const myProfile = activeProfileLabel;
+            const myChatId = _isEmbedded && _embedChatId ? _embedChatId : ((chatHistories[myProfile]||{}).current);
+            const myProfData = chatHistories[myProfile];
+            const myCurrentChat = (myProfData && myProfData.list) ? myProfData.list.find(c => String(c.id) === String(myChatId)) : null;
+            const myCurrentPointer = myProfData ? myProfData.current : null;
+            chatHistories = newHistories;
+            if (myCurrentChat && chatHistories[myProfile] && chatHistories[myProfile].list) {
+                const idx = chatHistories[myProfile].list.findIndex(c => String(c.id) === String(myChatId));
+                if (idx >= 0) { if (currentAborter || chatHistory === myCurrentChat.msgs) chatHistories[myProfile].list[idx] = myCurrentChat; }
+                else if (currentAborter) chatHistories[myProfile].list.push(myCurrentChat);
+                if (!_isEmbedded && myCurrentPointer) chatHistories[myProfile].current = myCurrentPointer;
+            }
+            if (!currentAborter) {
+                const sData = chatHistories[myProfile];
+                if (sData && sData.list) {
+                    const cur = sData.list.find(c => String(c.id) === String(myChatId));
+                    if (cur && Array.isArray(cur.msgs) && cur.msgs.length > chatHistory.length) {
+                        chatHistory = cur.msgs;
+                        try { renderChatHistory(); } catch(e){}
+                    }
+                }
+            }
+            if (!_isEmbedded) { try { renderFchatBubbles(); } catch(e){} try { if (typeof renderWorkspaceLists === 'function') renderWorkspaceLists(); } catch(e){} _schedulePropagatedCloudSync(); }
+        } catch(e) { addLog('SYNC', 'Reload error', e.message); }
+    } else if (msg.type === 'settings-saved') {
+        try {
+            AI_PROFILES = await dbHelper.get('profiles') || AI_PROFILES;
+            AI_MODELS = await dbHelper.get('models') || AI_MODELS;
+            const cfg = await dbHelper.get('config') || {};
+            if (cfg.ai_key) CONFIG.ai_key = cfg.ai_key;
+            try { refreshUI(); } catch(e){}
+        } catch(e){}
+    } else if (msg.type === 'embed-close' && _isEmbedded && msg.payload && msg.payload.sessionId === _embedSessionId) {
+        try { window.close(); } catch(e){}
+    }
+}
+if (_bcChannel) { _bcChannel.onmessage = e => _handleSyncMessage(e.data); }
+let _embedSessionId = _embedParams.get('sid') || '';
 async function init() { 
-    addLog("SYS", "Startup", "Initializing...");
+    addLog("SYS", "Startup", _isEmbedded ? "Embed Init..." : "Initializing...");
+    if (_isEmbedded) { document.body.classList.add('embed-mode'); }
     if (localStorage.getItem(DB_KEY + '_ap')) {
         await dbHelper.set('profiles', JSON.parse(localStorage.getItem(DB_KEY+'_ap'))); await dbHelper.set('prompts', JSON.parse(localStorage.getItem(DB_KEY+'_p'))); await dbHelper.set('templates', JSON.parse(localStorage.getItem(DB_KEY+'_t'))); await dbHelper.set('tools', JSON.parse(localStorage.getItem(DB_KEY+'_tools'))); await dbHelper.set('models', JSON.parse(localStorage.getItem(DB_KEY+'_am'))); await dbHelper.set('config', JSON.parse(localStorage.getItem(DB_KEY+'_cfg'))); await dbHelper.set('histories', JSON.parse(localStorage.getItem(DB_KEY+'_histories'))); await dbHelper.set('activeProfile', localStorage.getItem(DB_KEY+'_cur_ap'));
         localStorage.clear(); addLog("SYS", "Migration", "Local Storage to IDB");
@@ -1867,12 +1956,21 @@ async function init() {
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
     activeProfileLabel = await dbHelper.get('activeProfile') || (AI_PROFILES[0] ? AI_PROFILES[0].label : "Agent");
     if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0].label; }
+    if (_isEmbedded) {
+        CONFIG.home_screen = false;
+        if (_embedProfile && AI_PROFILES.find(p => p.label === _embedProfile)) { activeProfileLabel = _embedProfile; }
+        if (_embedChatId) {
+            let sData = chatHistories[activeProfileLabel];
+            if (!sData || !sData.list) { sData = { current: _embedChatId, list: [] }; chatHistories[activeProfileLabel] = sData; }
+            const chat = sData.list.find(c => String(c.id) === String(_embedChatId));
+            if (chat) { sData.current = _embedChatId; }
+        }
+    }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); await refreshUI(); if (CONFIG.home_screen) showHomeScreen(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
-    startRealtimeSync();
-    setTimeout(hideInitOverlay, 30000);
-    gmailSilentAuth();
-    setTimeout(gmailSilentAuth, 2000);
+    if (!_isEmbedded) startRealtimeSync();
+    setTimeout(hideInitOverlay, _isEmbedded ? 1500 : 30000);
+    if (!_isEmbedded) { gmailSilentAuth(); setTimeout(gmailSilentAuth, 2000); }
     const _hsScrollBody = document.getElementById('hs-body'); const _hsScrollHdr = document.getElementById('hs-header'); if(_hsScrollBody && _hsScrollHdr) { _hsScrollBody.addEventListener('scroll', function(){ _hsScrollHdr.classList.toggle('hs-scrolled', _hsScrollBody.scrollTop > 36); }, { passive: true }); }
 }
 
@@ -5351,11 +5449,18 @@ function renderFchatBubbles() {
             div.style.top = pos.y + 'px';
             div.style.width = (pos.w || 320) + 'px';
             div.style.height = (pos.h || 240) + 'px';
-            div.innerHTML = `<div class="fchat-mini-header"><span class="fchat-mini-emoji">${emoji}</span><span class="fchat-mini-title">${_escSnap(label)}</span><span class="fchat-mini-btn fchat-mini-focus" title="Focus">⤢</span><span class="fchat-mini-btn fchat-mini-min" title="Minimize">━</span><span class="fchat-mini-btn fchat-mini-close" title="Close">✕</span></div><div class="fchat-mini-body">${_renderSessionSnapshot(s)}</div><div class="fchat-mini-resize">⌟</div>`;
+            const iframeSrc = '?fcwin=1' + (s.profileLabel ? '&p=' + encodeURIComponent(s.profileLabel) : '') + (s.chatId ? '&c=' + encodeURIComponent(s.chatId) : '') + '&sid=' + encodeURIComponent(s.id);
+            div.innerHTML = `<div class="fchat-mini-header"><span class="fchat-mini-emoji">${emoji}</span><span class="fchat-mini-title">${_escSnap(label)}</span><span class="fchat-mini-btn fchat-mini-focus" title="Bring to main window">⤢</span><span class="fchat-mini-btn fchat-mini-min" title="Minimize">━</span><span class="fchat-mini-btn fchat-mini-close" title="Close">✕</span></div><div class="fchat-mini-body is-iframe"><div class="fchat-mini-loading">Loading chat…</div></div><div class="fchat-mini-resize">⌟</div>`;
             div.querySelector('.fchat-mini-close').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
             div.querySelector('.fchat-mini-min').onclick = (e) => { e.stopPropagation(); _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: true }); _saveMiniWinPositions(); renderFchatBubbles(); };
-            div.querySelector('.fchat-mini-focus').onclick = (e) => { e.stopPropagation(); fchatMaximize(s.id); };
-            div.querySelector('.fchat-mini-body').onclick = (e) => { if (div._suppressClick) { div._suppressClick = false; return; } fchatMaximize(s.id); };
+            div.querySelector('.fchat-mini-focus').onclick = async (e) => { e.stopPropagation(); try { await saveAll(true); } catch(_e){} fchatMaximize(s.id); };
+            const _bodyEl = div.querySelector('.fchat-mini-body');
+            const _iframeEl = document.createElement('iframe');
+            _iframeEl.className = 'fchat-mini-iframe';
+            _iframeEl.src = iframeSrc;
+            _iframeEl.setAttribute('loading', 'lazy');
+            _iframeEl.onload = () => { const ld = _bodyEl.querySelector('.fchat-mini-loading'); if (ld) ld.remove(); };
+            _bodyEl.appendChild(_iframeEl);
             _fchatMiniInitDrag(div, s.id);
             _fchatMiniInitResize(div, s.id);
             document.body.appendChild(div);
