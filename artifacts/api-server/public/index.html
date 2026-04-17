@@ -504,6 +504,8 @@ body.embed-mode .fchat-bubble,
 #floating-chat .sys-icons div[title="Settings"],
 body.embed-mode .top-nav .sys-icons div[title="Settings"] { display:none !important; }
 @media (max-width: 767px) { .fchat-mini-focus { display:none !important; } }
+.fchat-mini-win.fchat-mini-fullscreen { left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; border-radius:0 !important; z-index:9300 !important; }
+.fchat-mini-win.fchat-mini-fullscreen .fchat-mini-resize { display:none !important; }
 body.embed-mode #floating-chat,
 body.embed-mode #sync-bar,
 body.embed-mode #embed-home-btn { display:none !important; }
@@ -1967,8 +1969,9 @@ async function init() {
         if (_embedChatId) {
             let sData = chatHistories[activeProfileLabel];
             if (!sData || !sData.list) { sData = { current: _embedChatId, list: [] }; chatHistories[activeProfileLabel] = sData; }
-            const chat = sData.list.find(c => String(c.id) === String(_embedChatId));
-            if (chat) { sData.current = _embedChatId; }
+            let chat = sData.list.find(c => String(c.id) === String(_embedChatId));
+            if (!chat) { chat = { id: _embedChatId, title: 'New Chat', msgs: [], var_id: _embedChatId }; sData.list.push(chat); }
+            sData.current = _embedChatId;
         }
     }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
@@ -2140,7 +2143,7 @@ async function toggleCalTodo(vid, todoId) { let ds = GLOBAL_DATASETS[vid]; if(!d
 async function deleteTodo(vid, todoId) { let ds = GLOBAL_DATASETS[vid]; if(!ds || !ds.todos) return; ds.todos = ds.todos.filter(x => String(x.id) !== String(todoId)); await saveAll(); renderChatTodos(); renderGlobalTodos(); renderCalendar(); }
 
 async function aiGenTodos() { if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30"); notify("Generating todos from chat...", "#007aff"); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur) return; if(!cur.var_id) return notify("No dataset linked to this session.", "#ff3b30"); let ds = GLOBAL_DATASETS[cur.var_id]; if(!ds) return notify("Dataset not found.", "#ff3b30"); if(!ds.todos) ds.todos = []; let msgs = (cur.msgs || []).filter(m => m.role !== 'developer').map(m => `${m.role}: ${getTextFromContent(m.content)}`).join('\n').substring(0, 3000); if(!msgs) return notify("Chat is empty.", "#888"); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let sysPrompt = _getAiPrompt('todos_gen').replace('[PROFILE]', p ? p.text : 'N/A').replace('[VARS]', '(no dataset linked)').replace('[DATA]', 'N/A'); let mdl = _getAiModel('todos_gen', getSuggestModel()); addLog('AI_PROMPTS', 'Todos Gen', `Model: ${mdl}\nPrompt:\n${sysPrompt}`); try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: _getAiModel('todos_gen', getSuggestModel()), messages: [{ role: "system", content: sysPrompt }, { role: "user", content: msgs }] }) }); if(!res.ok) throw new Error("API error"); const d = await res.json(); let raw = d.choices[0].message.content.replace(/```json/g,'').replace(/```/g,'').trim(); addLog('AI_PROMPTS', 'Todos Gen Response', raw); let arr = JSON.parse(raw); let added = 0; const existingTexts = new Set((ds.todos||[]).map(t => t.text.toLowerCase().trim())); arr.forEach(item => { if(item.text && !existingTexts.has(item.text.toLowerCase().trim())) { ds.todos.push({ id: Date.now().toString() + added, text: item.text, done: false, date: item.date || null }); existingTexts.add(item.text.toLowerCase().trim()); added++; } }); await saveAll(); renderChatTodos(); renderCalendar(); notify(`Added ${added} todos!`, "#34c759"); } catch(e) { notify("Failed to generate todos.", "#ff3b30"); } }
-async function loadSession(id) { _calPreviewVid = null; if(_hsActive && _fchatActiveId === null) { closeAllPanels(); const existing=_fchatSessions.find(s=>String(s.chatId)===String(id)); if(existing){fchatMaximize(existing.id);return;} const sess={id:Date.now().toString(),profileLabel:activeProfileLabel,chatId:id,bubbleConfig:null}; _fchatSessions.push(sess); _fchatActiveId=sess.id; renderFchatBubbles(); _openFchatPanel(sess); return; } let sData = getSessions(); sData.current = String(id); let cur = sData.list.find(x => String(x.id) === String(id)); if(cur) { chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; addLog("SESSION", "Load Chat", cur.title); closeAllPanels(); await saveAll(true); refreshUI(); renderChatHistory(); requestAnimationFrame(() => scrollToLastRequest(true)); } }
+async function loadSession(id) { _calPreviewVid = null; closeAllPanels(); const existing=_fchatSessions.find(s=>String(s.chatId)===String(id)); if(existing){fchatMaximize(existing.id);return;} const sess={id:Date.now().toString(),profileLabel:activeProfileLabel,chatId:id,bubbleConfig:null}; _fchatSessions.push(sess); renderFchatBubbles(); }
 function renderSessionsList() { let sData = getSessions(); let sortedChats = [...sData.list].sort((a,b) => { if(a.pinned && !b.pinned) return -1; if(!a.pinned && b.pinned) return 1; return Number(b.id) - Number(a.id); }); let visible = sortedChats.filter(s => { let isCurrent = String(s.id) === String(sData.current); if(s.archived && !isCurrent) return false; let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; return isCurrent || msgCount > 0; }); document.getElementById('sessions-list').innerHTML = visible.map(s => { let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; let lockIcon = s.title_locked ? ' <span style="font-size:9px; opacity:0.5;" title="Title locked">🔒</span>' : ''; return `<li class="list-item ${String(s.id) === String(sData.current) ? 'in-cut' : ''}" onclick="loadSession('${s.id}')"><div style="flex:1; min-width:0; overflow:hidden;"><strong style="display:flex; align-items:center; gap:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.title}${lockIcon}</strong><span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div><div class="inline-btn" data-sid="${s.id}" data-prof="${activeProfileLabel}" data-pinned="${s.pinned?'1':'0'}" onclick="event.stopPropagation(); openSessionMenu(event, this)" style="font-size:18px; font-weight:700; letter-spacing:1px;">⋯</div></li>`; }).join(''); }
 async function togglePinCurrentChat(chatId) { let sData = getSessions(); let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat) return; chat.pinned = !chat.pinned; await saveAll(); renderSessionsList(); }
 
@@ -4882,7 +4885,7 @@ async function _genCalMonthSummary() { if(!CONFIG.ai_key){notify('Add OpenAI key
 function _clearCalMonthSummary() { localStorage.removeItem(_calMonthSumKey()); const area=document.getElementById('cal-month-summary-area'); const btn=document.getElementById('cal-ai-summary-btn'); if(area)area.style.display='none'; if(btn){btn.style.background='';btn.style.color='';} notify('Summary cleared','#888',1500); }
 
 function _showCalDayChooser(b64) { const snaps = JSON.parse(atob(b64)); const list = document.getElementById('cal-day-chooser-list'); const el = document.getElementById('cal-day-chooser'); if(!list || !el) return; list.innerHTML = snaps.map(sn => `<div onclick="document.getElementById('cal-day-chooser').style.display='none'; showDatasetDetails('${sn.data}')" style="padding:14px 16px; border-bottom:0.5px solid var(--border); cursor:pointer; font-size:14px; active:opacity:0.7;">${sn.label}</div>`).join(''); el.style.display = ''; }
-function _openLinkedChat(profLabel, chatId) { closeAllPanels(); closeModal('dataset-detail-modal'); const existing=_fchatSessions.find(s=>s.profileLabel===profLabel&&String(s.chatId)===String(chatId)); if(existing){fchatMaximize(existing.id);return;} const session={id:Date.now().toString(),profileLabel:profLabel||activeProfileLabel,chatId:chatId,bubbleConfig:null}; _fchatSessions.push(session); _fchatActiveId=session.id; renderFchatBubbles(); _openFchatPanel(session); }
+function _openLinkedChat(profLabel, chatId) { closeAllPanels(); closeModal('dataset-detail-modal'); const existing=_fchatSessions.find(s=>s.profileLabel===profLabel&&String(s.chatId)===String(chatId)); if(existing){fchatMaximize(existing.id);return;} const session={id:Date.now().toString(),profileLabel:profLabel||activeProfileLabel,chatId:chatId,bubbleConfig:null}; _fchatSessions.push(session); renderFchatBubbles(); }
 async function toggleCalDisplayVar(vid, key, dateKey) { let ds = GLOBAL_DATASETS[vid]; if(!ds) return; dateKey = dateKey || ''; if(dateKey) { if(!ds.cal_display_vars_by_date) ds.cal_display_vars_by_date = {}; if(!ds.cal_display_vars_by_date[dateKey]) ds.cal_display_vars_by_date[dateKey] = []; if(ds.cal_display_vars_by_date[dateKey].includes(key)) { ds.cal_display_vars_by_date[dateKey] = ds.cal_display_vars_by_date[dateKey].filter(k => k !== key); } else { ds.cal_display_vars_by_date[dateKey].push(key); } } else { if(!ds.cal_display_vars) ds.cal_display_vars = []; if(ds.cal_display_vars.includes(key)) { ds.cal_display_vars = ds.cal_display_vars.filter(k => k !== key); } else { ds.cal_display_vars.push(key); } } await saveAll(); renderCalendar(); _renderDsDetailContent(); }
 
 /* ── BACKGROUND THEMES ── */
@@ -5494,24 +5497,12 @@ function renderFchatBubbles() {
     });
 }
 
+function _newFloatingChatId() { return 'fc' + Date.now() + Math.floor(Math.random()*1000); }
 function createFchatSession(profileLabel, bubbleConfig) {
-    if (_fchatActiveId !== null) {
-        const cur = _fchatSessions.find(s => s.id === _fchatActiveId);
-        if (cur) cur.chatId = getSessions().current;
-        _fchatActiveId = null;
-        const el = document.getElementById('floating-chat');
-        const wrapper = document.getElementById('main-chat-wrapper');
-        const ref = document.getElementById('master-modal');
-        if (wrapper && ref && ref.parentNode) ref.parentNode.insertBefore(wrapper, ref); else if (wrapper) document.body.appendChild(wrapper);
-        if (wrapper) wrapper.style.display = '';
-        if (el) el.style.display = 'none';
-    }
-    const session = { id: Date.now().toString(), profileLabel: profileLabel || activeProfileLabel, chatId: null, bubbleConfig: bubbleConfig || null, atTarget: null };
+    const session = { id: Date.now().toString(), profileLabel: profileLabel || activeProfileLabel, chatId: _newFloatingChatId(), bubbleConfig: bubbleConfig || null, atTarget: null };
     if (_atMentionTargetEl) { session.atTarget = { el: _atMentionTargetEl, isTA: _atMentionIsTextArea, label: _atMentionTargetLabel }; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; }
     _fchatSessions.push(session);
-    _fchatActiveId = session.id;
     renderFchatBubbles();
-    _openFchatPanel(session);
 }
 
 function _openFchatPanel(session) {
@@ -5538,22 +5529,11 @@ function _openFchatPanel(session) {
 
 function fchatMaximize(sessionId) {
     const session = _fchatSessions.find(s => s.id === sessionId); if (!session) return;
-    if (_fchatActiveId !== null && _fchatActiveId !== sessionId) {
-        const cur = _fchatSessions.find(s => s.id === _fchatActiveId);
-        if (cur) cur.chatId = getSessions().current;
-        const el2 = document.getElementById('floating-chat');
-        const wr2 = document.getElementById('main-chat-wrapper');
-        const ref = document.getElementById('master-modal');
-        if (wr2 && ref && ref.parentNode) ref.parentNode.insertBefore(wr2, ref); else if (wr2) document.body.appendChild(wr2);
-        if (wr2) wr2.style.display = '';
-        if (el2) el2.style.display = 'none';
-        _fchatActiveId = null;
-    }
-    const bubbleEl = document.getElementById('fchat-bubble-' + sessionId);
-    if (bubbleEl) bubbleEl.remove();
-    _fchatActiveId = sessionId;
-    renderFchatBubbles();
-    _openFchatPanel(session);
+    if (_fchatMiniWinPos[sessionId] && _fchatMiniWinPos[sessionId].minimized) { _fchatMiniWinPos[sessionId] = Object.assign({}, _fchatMiniWinPos[sessionId], { minimized: false }); _saveMiniWinPositions(); renderFchatBubbles(); }
+    const winEl = document.getElementById('fchat-mini-' + sessionId);
+    if (!winEl) return;
+    document.querySelectorAll('.fchat-mini-win.fchat-mini-fullscreen').forEach(el => { if (el !== winEl) el.classList.remove('fchat-mini-fullscreen'); });
+    winEl.classList.toggle('fchat-mini-fullscreen');
 }
 
 function fchatCloseBubble(sessionId) {
