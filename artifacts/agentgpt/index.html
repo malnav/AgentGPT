@@ -496,6 +496,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .fchat-mini-body.is-iframe { padding:0; cursor:default; overflow:hidden; }
 .fchat-mini-body.is-iframe:hover { background:transparent; }
 .fchat-mini-loading { display:flex; align-items:center; justify-content:center; height:100%; opacity:0.5; font-size:11px; }
+body:not(.embed-mode) #main-chat-wrapper { display:none !important; }
 body.embed-mode #home-screen,
 body.embed-mode #profile-bubble,
 body.embed-mode #fchat-bubble-bar,
@@ -506,11 +507,12 @@ body.embed-mode .top-nav .sys-icons div[title="Settings"] { display:none !import
 @media (max-width: 767px) { .fchat-mini-focus { display:none !important; } }
 .fchat-mini-win.fchat-mini-fullscreen { left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; border-radius:0 !important; z-index:9300 !important; }
 .fchat-mini-win.fchat-mini-fullscreen .fchat-mini-resize { display:none !important; }
-body.embed-mode #floating-chat,
 body.embed-mode #sync-bar,
 body.embed-mode #embed-home-btn { display:none !important; }
-body.embed-mode .top-nav .sys-icons div[title="Home"] { display:none !important; }
-body.embed-mode #main-chat-wrapper { position:fixed !important; inset:0 !important; z-index:1 !important; display:flex !important; }
+body.embed-mode .top-nav { display:none !important; }
+body.embed-mode #floating-chat { display:flex !important; flex-direction:column !important; position:fixed !important; inset:0 !important; z-index:1 !important; }
+body.embed-mode #main-chat-wrapper { flex:1 !important; min-height:0 !important; display:flex !important; }
+body.embed-mode #fc-resize-handle, body.embed-mode #fc-win-toggle-btn, body.embed-mode #fchat-header [data-embed-hide] { display:none !important; }
 #home-screen { position:fixed; inset:0; z-index:500; background:var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); display:flex; flex-direction:column; overflow:hidden; }
 #hs-header { position:absolute; top:0; left:0; right:0; z-index:10; padding:max(14px, env(safe-area-inset-top)) 16px 8px 16px; display:flex; align-items:center; gap:10px; background:transparent; pointer-events:none; }
 #hs-header > * { pointer-events:auto; }
@@ -1973,6 +1975,12 @@ async function init() {
             if (!chat) { chat = { id: _embedChatId, title: 'New Chat', msgs: [], var_id: _embedChatId }; sData.list.push(chat); }
             sData.current = _embedChatId;
         }
+        const _emWrap = document.getElementById('main-chat-wrapper'); const _emPanel = document.getElementById('floating-chat');
+        if (_emWrap && _emPanel && _emWrap.parentNode !== _emPanel) _emPanel.appendChild(_emWrap);
+        if (_emPanel) _emPanel.style.display = 'flex';
+        const _emSess = { id: _embedSessionId || 'embed', profileLabel: activeProfileLabel, chatId: _embedChatId, bubbleConfig: (typeof BUBBLE_CONFIGS !== 'undefined' && BUBBLE_CONFIGS.find) ? (BUBBLE_CONFIGS.find(b => b.profileLabel === activeProfileLabel) || null) : null };
+        try { renderFchatHeader(_emSess); } catch(e){}
+        try { _updateFchatContextLabel(); } catch(e){}
     }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); await refreshUI(); if (CONFIG.home_screen) showHomeScreen(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
@@ -6389,9 +6397,9 @@ function _linkifyHtml(html) {
             </div>
             <div id="fchat-context-label" style="font-size:10px; color:#888; white-space:nowrap; flex-shrink:0; margin-left:5px;">No context</div>
             <div style="flex:1;"></div>
-            <div onclick="goHomeFromFloatingChat(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0;" title="Minimize">🏠</div>
+            <div data-embed-hide onclick="goHomeFromFloatingChat(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0;" title="Minimize">🏠</div>
             <div id="fc-win-toggle-btn" onclick="_fcToggleWindowed()" title="Toggle window mode">⛶</div>
-            <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0;" title="Close">✕</div>
+            <div data-embed-hide onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0;" title="Close">✕</div>
         </div>
         <div id="fchat-header-row2">
             <div class="fchat-ctx-btn" onclick="closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI();" style="margin-right:2px; color:var(--text); background:rgba(128,128,128,0.12); border-color:rgba(128,128,128,0.2);">📋 Context</div>
