@@ -1967,13 +1967,12 @@ window.addEventListener('message', function(e) {
             if (sess && sess.atTarget && sess.atTarget.el && document.contains(sess.atTarget.el)) {
                 try { _writeToTargetPreserveSig(sess.atTarget.el, sess.atTarget.isTA ? (msg.text||'') : (msg.html || marked.parse(msg.text||'')), sess.atTarget.isTA); if (sess.atTarget.isTA) sess.atTarget.el.scrollTop = sess.atTarget.el.scrollHeight; } catch(_e){}
             }
-        } else if (msg.type === 'fchat-stream' && msg.sessionId) {
-            const _bgIfr = document.getElementById('fchat-bg-' + msg.sessionId);
-            if (_bgIfr && msg.isFinal) { setTimeout(() => { try { _bgIfr.remove(); } catch(_e){} }, 300); }
         }
         if (msg.type === 'fchat-iframe-ready') {
             const sess = (typeof _fchatSessions !== 'undefined' ? _fchatSessions : []).find(s => String(s.id) === String(msg.sessionId));
-            if (sess && sess.pendingSend) { const txt = sess.pendingSend; sess.pendingSend = null; const ifr = document.querySelector('#fchat-mini-' + sess.id + ' iframe') || document.getElementById('fchat-bg-' + sess.id); if (ifr && ifr.contentWindow) { try { ifr.contentWindow.postMessage({ type: 'fchat-send-text', text: txt }, '*'); } catch(_e){} } }
+            const bgIfr = document.getElementById('fchat-bg-' + msg.sessionId);
+            if (bgIfr) bgIfr.dataset.ready = '1';
+            if (sess && sess.pendingSend) { const txt = sess.pendingSend; sess.pendingSend = null; const ifr = document.querySelector('#fchat-mini-' + sess.id + ' iframe') || bgIfr; if (ifr && ifr.contentWindow) { try { ifr.contentWindow.postMessage({ type: 'fchat-send-text', text: txt }, '*'); } catch(_e){} } }
         }
     } else {
         if (msg.type === 'fchat-send-text' && typeof msg.text === 'string') {
@@ -5524,10 +5523,10 @@ function renderFchatBubbles() {
             if (pos) { row.style.left = pos.x + 'px'; row.style.top = pos.y + 'px'; }
             else { const bx = Math.max(8, Math.min(window.innerWidth - 300, window.innerWidth / 2 - 150 + (i - Math.floor(minimized.length / 2)) * 12)); const by = window.innerHeight - 96; row.style.left = bx + 'px'; row.style.top = by + 'px'; _fchatBubblePositions[s.id] = { x: bx, y: by }; }
             bubble.querySelector('.fchat-bubble-action-btn').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
-            bubble.onclick = () => { _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: false }); _saveMiniWinPositions(); renderFchatBubbles(); };
+            bubble.onclick = () => { const _bgT = document.getElementById('fchat-bg-' + s.id); if (_bgT) { try { _bgT.remove(); } catch(_e){} } _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: false }); _saveMiniWinPositions(); renderFchatBubbles(); };
             const inpEl = inputWrap.querySelector('.fchat-bubble-row-input');
             const sendEl = inputWrap.querySelector('.fchat-bubble-row-send');
-            const _doSend = () => { const txt = (inpEl.value||'').trim(); if (!txt) return; const sess = _fchatSessions.find(x => x.id === s.id); if (!sess) return; sess.pendingSend = txt; inpEl.value = ''; _fchatSpawnBgIframe(sess); sendEl.textContent = '⋯'; sendEl.disabled = true; setTimeout(() => { sendEl.textContent = '↑'; sendEl.disabled = false; }, 1200); };
+            const _doSend = () => { const txt = (inpEl.value||'').trim(); if (!txt) return; const sess = _fchatSessions.find(x => x.id === s.id); if (!sess) return; inpEl.value = ''; const existingIfr = document.getElementById('fchat-bg-' + sess.id); if (existingIfr && existingIfr.contentWindow && existingIfr.dataset.ready === '1') { try { existingIfr.contentWindow.postMessage({ type: 'fchat-send-text', text: txt }, '*'); } catch(_e){} } else { sess.pendingSend = txt; if (!existingIfr) _fchatSpawnBgIframe(sess); } sendEl.textContent = '⋯'; sendEl.disabled = true; setTimeout(() => { sendEl.textContent = '↑'; sendEl.disabled = false; }, 1200); };
             sendEl.onclick = (e) => { e.stopPropagation(); _doSend(); };
             inpEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _doSend(); } });
             inpEl.addEventListener('mousedown', (e) => e.stopPropagation());
@@ -5607,6 +5606,7 @@ function fchatMaximize(sessionId) {
 }
 
 function fchatCloseBubble(sessionId) {
+    const _bgClose = document.getElementById('fchat-bg-' + sessionId); if (_bgClose) { try { _bgClose.remove(); } catch(_e){} }
     _fchatSessions = _fchatSessions.filter(s => s.id !== sessionId);
     if (_fchatActiveId === sessionId) {
         _fchatActiveId = null;
