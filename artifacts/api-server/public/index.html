@@ -467,12 +467,12 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #floating-chat.fc-windowed { top:auto; left:auto; right:auto; bottom:auto; transform:none !important; width:auto; border-radius:18px !important; box-shadow:0 24px 80px rgba(0,0,0,0.38) !important; border:0.5px solid var(--glass-border) !important; overflow:hidden !important; }
 #floating-chat.fc-windowed #fchat-header { cursor:grab; }
 #floating-chat.fc-windowed #fchat-header:active { cursor:grabbing; }
-#fc-resize-handle { position:absolute; bottom:4px; right:6px; font-size:18px; cursor:se-resize; color:var(--text); opacity:0.28; z-index:10; user-select:none; -webkit-user-select:none; line-height:1; display:none; }
+#fc-resize-handle { position:absolute; bottom:4px; right:6px; font-size:18px; cursor:se-resize; color:var(--text); opacity:0.5; z-index:300; user-select:none; -webkit-user-select:none; line-height:1; display:none; pointer-events:auto; }
 #floating-chat.fc-windowed #fc-resize-handle { display:block; }
 #fc-win-toggle-btn { font-size:16px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0; display:none; }
 @media (min-width:768px) { #fc-win-toggle-btn { display:block; } }
 #profile-bubble { z-index:9001 !important; }
-#fchat-bubble-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:8900; pointer-events:none; align-items:flex-end; flex-wrap:wrap; justify-content:center; max-width:calc(100vw - 100px); }
+#fchat-bubble-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:9200; pointer-events:none; align-items:flex-end; flex-wrap:wrap; justify-content:center; max-width:calc(100vw - 100px); }
 .fchat-bubble { pointer-events:all; width:52px; height:52px; border-radius:26px; background:var(--accent); color:#fff; font-size:20px; font-weight:800; display:flex; align-items:center; justify-content:center; position:relative; box-shadow:0 4px 20px rgba(0,122,255,0.45); cursor:pointer; user-select:none; -webkit-user-select:none; animation:fcbubble-in 0.28s cubic-bezier(0.34,1.56,0.64,1); transition:transform 0.1s; }
 .fchat-bubble:active { transform:scale(0.92); }
 .fchat-bubble-actions { position:absolute; top:-9px; right:-9px; display:flex; flex-direction:column; gap:3px; }
