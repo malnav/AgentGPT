@@ -392,7 +392,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .cal-event { font-size: 9px; background: var(--accent); color: #fff; border-radius: 5px; padding: 2px 4px; white-space: normal; word-break: break-word; overflow: hidden; cursor: pointer; font-weight: 600; }
 
 /* ── MODALS ── */
-.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 200; display: none; flex-direction: column; overflow: hidden; padding-top: env(safe-area-inset-top, 0px); }
+.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); z-index: 200; display: none; flex-direction: column; overflow: hidden; padding-top: env(safe-area-inset-top, 0px); }
+@media (prefers-color-scheme: dark) { .modal { background: var(--bg-gradient, linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)); } }
 .modal-header {
   padding: 14px 18px 13px 18px;
   border-bottom: 0.5px solid var(--border);
@@ -436,8 +437,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   right: 0;
   top: 100%;
   margin-top: 6px;
-  background: #ffffff;
-  border: 0.5px solid rgba(0,0,0,0.12);
+  background: var(--bg);
+  border: 0.5px solid var(--border);
   box-shadow: 0 12px 40px rgba(0,0,0,0.32);
   border-radius: 18px;
   display: flex;
@@ -461,7 +462,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #profile-bubble:active { transform:scale(0.93); }
 #profile-bubble-menu { position:fixed; z-index:3350; min-width:230px; max-width:88vw; background:var(--glass); border:0.5px solid var(--glass-border); border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,0.28); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; }
 #main-chat-wrapper { display:flex; flex-direction:column; flex:1; position:relative; min-height:0; overflow:hidden; }
-#floating-chat { position:fixed; z-index:9100; inset:0; background:var(--bg); display:flex; flex-direction:column; overflow:hidden; }
+#floating-chat { position:fixed; z-index:9100; inset:0; background:var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); display:flex; flex-direction:column; overflow:hidden; }
+@media (prefers-color-scheme: dark) { #floating-chat { background:var(--bg-gradient, linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)); } }
 #floating-chat.fc-windowed { inset:auto !important; border-radius:18px !important; box-shadow:0 24px 80px rgba(0,0,0,0.38) !important; border:0.5px solid var(--glass-border) !important; overflow:hidden !important; }
 #floating-chat.fc-windowed #fchat-header { cursor:grab; }
 #floating-chat.fc-windowed #fchat-header:active { cursor:grabbing; }
@@ -703,8 +705,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .note-item-preview { font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .note-jump-btn { font-size:16px; cursor:pointer; padding:2px 0; flex-shrink:0; opacity:0.7; }
 .fav-btn { cursor:pointer; }
-#notes-modal { background: #fffef5 !important; color: #1c1c1e !important; }
-@media (prefers-color-scheme: dark) { #notes-modal { background: #1c1c28 !important; color: #f2f2f7 !important; } }
+#notes-modal { background: var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)) !important; color: var(--text) !important; }
+@media (prefers-color-scheme: dark) { #notes-modal { background: var(--bg-gradient, linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)) !important; } }
 #notes-modal-content { flex:1; min-height:300px; width:100%; box-sizing:border-box; background:transparent; border:none; color:var(--text); font-size:14px; line-height:1.6; resize:none; outline:none; font-family:inherit; padding:0; }
 #notes-modal-rendered { font-size:14px; line-height:1.6; display:block !important; column-count:1 !important; }
 #notes-modal-read { display:flex; flex-direction:column; }
@@ -1444,7 +1446,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div onclick="closeModal('fullscreen-modal')" style="font-size:24px; cursor:pointer;">✕</div>
         </div>
     </div>
-    <div class="modal-content" id="fs-content" style="padding:0; flex:1; display:flex; flex-direction:column; background:#fff; height:calc(100vh - 60px);"></div>
+    <div class="modal-content" id="fs-content" style="padding:0; flex:1; display:flex; flex-direction:column; background:var(--bg); height:calc(100vh - 60px);"></div>
 </div>
 
 <div id="preview-modal" class="modal" style="z-index: 9300;"><div class="modal-header"><h3>Payload Preview</h3><div onclick="closeModal('preview-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><div id="preview-text" style="white-space:pre-wrap; background:var(--sec-bg); padding:14px; border-radius:12px; font-size:11px; font-family:monospace; line-height:1.5; word-break: break-all;"></div></div></div>
@@ -2595,7 +2597,7 @@ function openMermaidFullscreen(svgHtml) {
     document.getElementById('fs-title').innerText = "Chart Preview";
     document.getElementById('fs-export-pdf-btn').style.display = 'none';
     const container = document.getElementById('fs-content');
-    container.innerHTML = `<div style="width:100%; height:100%; overflow:auto; background:#fff; display:flex; align-items:center; justify-content:center; padding:20px;"><div style="transform:scale(1.2); transform-origin:center;">${svgHtml}</div></div>`;
+    container.innerHTML = `<div style="width:100%; height:100%; overflow:auto; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:20px;"><div style="transform:scale(1.2); transform-origin:center;">${svgHtml}</div></div>`;
     openModal('fullscreen-modal');
 }
 
