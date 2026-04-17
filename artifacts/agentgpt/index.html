@@ -555,6 +555,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #floating-chat .sys-icons { display:none !important; }
 #floating-chat .top-nav { top: 0 !important; }
 #floating-chat .scroll-area { padding-top: 12px !important; }
+#floating-chat.fc-windowed .input-zone { position:absolute; bottom:0; left:0; right:0; }
+#floating-chat.fc-windowed .scroll-area { padding-bottom:calc(var(--input-h, 130px) + 8px) !important; }
 .fchat-ctx-btn { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:var(--accent); background:rgba(0,122,255,0.10); border-radius:8px; padding:4px 9px; cursor:pointer; white-space:nowrap; flex-shrink:0; border:0.5px solid rgba(0,122,255,0.18); transition:background 0.15s; }
 .fchat-ctx-btn:active { background:rgba(0,122,255,0.22); }
 .fchat-ctx-btn.danger { color:#ff3b30; background:rgba(255,59,48,0.10); border-color:rgba(255,59,48,0.18); }
