@@ -1929,7 +1929,7 @@ async function _handleSyncMessage(msg) {
             chatHistories = newHistories;
             if (myCurrentChat && chatHistories[myProfile] && chatHistories[myProfile].list) {
                 const idx = chatHistories[myProfile].list.findIndex(c => String(c.id) === String(myChatId));
-                if (idx >= 0) { if (currentAborter || chatHistory === myCurrentChat.msgs) chatHistories[myProfile].list[idx] = myCurrentChat; }
+                if (idx >= 0) { if (currentAborter && chatHistory !== myCurrentChat.msgs) chatHistories[myProfile].list[idx] = myCurrentChat; }
                 else if (currentAborter) chatHistories[myProfile].list.push(myCurrentChat);
                 if (!_isEmbedded && myCurrentPointer) chatHistories[myProfile].current = myCurrentPointer;
             }
@@ -1937,7 +1937,7 @@ async function _handleSyncMessage(msg) {
                 const sData = chatHistories[myProfile];
                 if (sData && sData.list) {
                     const cur = sData.list.find(c => String(c.id) === String(myChatId));
-                    if (cur && Array.isArray(cur.msgs) && cur.msgs.length > chatHistory.length) {
+                    if (cur && Array.isArray(cur.msgs) && cur.msgs.length !== chatHistory.length) {
                         chatHistory = cur.msgs;
                         try { renderChatHistory(); } catch(e){}
                     }
