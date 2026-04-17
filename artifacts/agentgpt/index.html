@@ -3249,6 +3249,7 @@ async function sendToAI() {
     
     noteIn.value = ""; let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) cur.draft = "";
     sync(); noteIn.blur(); closeAllPanels(); activePromptIdx = -1; renderInlinePrompts();
+    try { await saveAll(true); } catch(_e){}
     
     const container = document.getElementById('chat-container'); 
     const aiB = document.createElement('div'); aiB.className = "bubble ai"; aiB.id = `msg-${chatHistory.length}`;
@@ -5523,7 +5524,7 @@ function renderFchatBubbles() {
             if (pos) { row.style.left = pos.x + 'px'; row.style.top = pos.y + 'px'; }
             else { const bx = Math.max(8, Math.min(window.innerWidth - 300, window.innerWidth / 2 - 150 + (i - Math.floor(minimized.length / 2)) * 12)); const by = window.innerHeight - 96; row.style.left = bx + 'px'; row.style.top = by + 'px'; _fchatBubblePositions[s.id] = { x: bx, y: by }; }
             bubble.querySelector('.fchat-bubble-action-btn').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
-            bubble.onclick = () => { const _bgT = document.getElementById('fchat-bg-' + s.id); if (_bgT) { try { _bgT.remove(); } catch(_e){} } _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: false }); _saveMiniWinPositions(); renderFchatBubbles(); };
+            bubble.onclick = () => { _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: false }); _saveMiniWinPositions(); renderFchatBubbles(); setTimeout(() => { const _bgT = document.getElementById('fchat-bg-' + s.id); if (_bgT) { try { _bgT.remove(); } catch(_e){} } }, 8000); };
             const inpEl = inputWrap.querySelector('.fchat-bubble-row-input');
             const sendEl = inputWrap.querySelector('.fchat-bubble-row-send');
             const _doSend = () => { const txt = (inpEl.value||'').trim(); if (!txt) return; const sess = _fchatSessions.find(x => x.id === s.id); if (!sess) return; inpEl.value = ''; const existingIfr = document.getElementById('fchat-bg-' + sess.id); if (existingIfr && existingIfr.contentWindow && existingIfr.dataset.ready === '1') { try { existingIfr.contentWindow.postMessage({ type: 'fchat-send-text', text: txt }, '*'); } catch(_e){} } else { sess.pendingSend = txt; if (!existingIfr) _fchatSpawnBgIframe(sess); } sendEl.textContent = '⋯'; sendEl.disabled = true; setTimeout(() => { sendEl.textContent = '↑'; sendEl.disabled = false; }, 1200); };
