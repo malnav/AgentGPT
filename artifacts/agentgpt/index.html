@@ -478,6 +478,20 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .fchat-bubble-actions { position:absolute; top:-9px; right:-9px; display:flex; flex-direction:column; gap:3px; }
 .fchat-bubble-action-btn { width:22px; height:22px; border-radius:11px; background:rgba(20,20,30,0.82); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1.5px solid rgba(255,255,255,0.35); box-shadow:0 1px 6px rgba(0,0,0,0.3); }
 .fchat-bubble-label { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:9px; color:#888; white-space:nowrap; font-weight:600; pointer-events:none; }
+.fchat-mini-win { position:fixed; z-index:9150; background:var(--bg-gradient, linear-gradient(145deg, #fffaf3 0%, #fff5ec 38%, #fff0e8 68%, #faf6f0 100%)); border:0.5px solid var(--glass-border); border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,0.22); display:flex; flex-direction:column; overflow:hidden; pointer-events:auto; min-width:240px; min-height:160px; backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); animation:fcbubble-in 0.22s cubic-bezier(0.34,1.56,0.64,1); }
+@media (prefers-color-scheme: dark) { .fchat-mini-win { background:var(--bg-gradient, linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)); } }
+.fchat-mini-header { display:flex; align-items:center; gap:6px; padding:6px 8px; background:rgba(127,127,127,0.08); border-bottom:0.5px solid var(--glass-border); cursor:grab; user-select:none; -webkit-user-select:none; flex-shrink:0; }
+.fchat-mini-header:active { cursor:grabbing; }
+.fchat-mini-emoji { font-size:16px; line-height:1; flex-shrink:0; }
+.fchat-mini-title { flex:1; font-size:11px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fchat-mini-btn { width:20px; height:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:11px; color:var(--text); opacity:0.6; border-radius:6px; flex-shrink:0; }
+.fchat-mini-btn:hover { opacity:1; background:rgba(127,127,127,0.15); }
+.fchat-mini-body { flex:1; overflow-y:auto; padding:8px 10px; cursor:pointer; font-size:11px; color:var(--text); line-height:1.4; min-height:0; }
+.fchat-mini-body:hover { background:rgba(127,127,127,0.04); }
+.snap-msg { padding:5px 8px; border-radius:8px; margin-bottom:4px; max-width:90%; word-wrap:break-word; }
+.snap-user { background:var(--accent); color:#fff; margin-left:auto; }
+.snap-ai { background:rgba(127,127,127,0.12); color:var(--text); margin-right:auto; }
+.fchat-mini-resize { position:absolute; bottom:2px; right:4px; font-size:14px; cursor:se-resize; color:var(--text); opacity:0.4; user-select:none; -webkit-user-select:none; line-height:1; pointer-events:auto; z-index:5; }
 #home-screen { position:fixed; inset:0; z-index:500; background:var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); display:flex; flex-direction:column; overflow:hidden; }
 #hs-header { position:absolute; top:0; left:0; right:0; z-index:10; padding:max(14px, env(safe-area-inset-top)) 16px 8px 16px; display:flex; align-items:center; gap:10px; background:transparent; pointer-events:none; }
 #hs-header > * { pointer-events:auto; }
@@ -5257,27 +5271,95 @@ function profileBubbleTap(e) {
     openBubblePicker();
 }
 
+let _fchatMiniWinPos = {};
+try { _fchatMiniWinPos = JSON.parse(localStorage.getItem('_fcMiniWinPos') || '{}'); } catch(e) { _fchatMiniWinPos = {}; }
+function _saveMiniWinPositions() { try { localStorage.setItem('_fcMiniWinPos', JSON.stringify(_fchatMiniWinPos)); } catch(e){} }
+function _escSnap(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function _renderSessionSnapshot(s) {
+    const profH = chatHistories[s.profileLabel] || {};
+    const chat = (profH.list || []).find(c => String(c.id) === String(s.chatId));
+    if (!chat || !Array.isArray(chat.msgs) || !chat.msgs.length) return '<div style="opacity:0.55; padding:14px 4px; text-align:center;">New chat — click to open</div>';
+    const msgs = chat.msgs.filter(m => m.role !== 'developer' && m.role !== 'system').slice(-6);
+    if (!msgs.length) return '<div style="opacity:0.55; padding:14px 4px; text-align:center;">No messages yet</div>';
+    return msgs.map(m => {
+        let text = '';
+        if (typeof m.content === 'string') text = m.content;
+        else if (Array.isArray(m.content)) text = m.content.map(c => c.text || c.input_text || '').join(' ');
+        text = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (text.length > 220) text = text.slice(0, 220) + '…';
+        const cls = m.role === 'user' ? 'snap-user' : 'snap-ai';
+        return '<div class="snap-msg ' + cls + '">' + _escSnap(text) + '</div>';
+    }).join('');
+}
+function _defaultMiniWinPos(i) { const W = window.innerWidth, H = window.innerHeight; const w = 320, h = 240; const cols = Math.max(1, Math.floor((W - 20) / (w + 12))); const col = i % cols; const row = Math.floor(i / cols); return { x: 12 + col * (w + 12), y: Math.max(12, H - 80 - h - row * (h + 12)), w: w, h: h }; }
+function _fchatMiniInitDrag(div, sessionId) {
+    const header = div.querySelector('.fchat-mini-header'); if (!header) return;
+    let sx = 0, sy = 0, sl = 0, st = 0, active = false, moved = false;
+    const onDown = e => { if (e.target.closest('.fchat-mini-btn')) return; const t = e.touches && e.touches[0]; sx = t ? t.clientX : e.clientX; sy = t ? t.clientY : e.clientY; sl = parseInt(div.style.left) || 0; st = parseInt(div.style.top) || 0; active = true; moved = false; };
+    const onMove = e => { if (!active) return; const t = e.touches && e.touches[0]; const cx = t ? t.clientX : e.clientX; const cy = t ? t.clientY : e.clientY; if (!moved && Math.abs(cx - sx) < 5 && Math.abs(cy - sy) < 5) return; moved = true; const W = window.innerWidth, H = window.innerHeight; const nl = Math.min(Math.max(sl + (cx - sx), 0), W - div.offsetWidth); const nt = Math.min(Math.max(st + (cy - sy), 0), H - 40); div.style.left = nl + 'px'; div.style.top = nt + 'px'; e.preventDefault(); };
+    const onUp = () => { if (!active) return; active = false; if (moved) { _fchatMiniWinPos[sessionId] = { x: parseInt(div.style.left) || 0, y: parseInt(div.style.top) || 0, w: div.offsetWidth, h: div.offsetHeight }; _saveMiniWinPositions(); } setTimeout(() => { div._suppressClick = false; }, 50); if (moved) div._suppressClick = true; };
+    header.addEventListener('mousedown', onDown);
+    header.addEventListener('touchstart', onDown, { passive: true });
+    document.addEventListener('mousemove', onMove, { passive: false });
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+}
+function _fchatMiniInitResize(div, sessionId) {
+    const rh = div.querySelector('.fchat-mini-resize'); if (!rh) return;
+    let sx = 0, sy = 0, sw = 0, sh = 0, active = false;
+    const onDown = e => { active = true; const t = e.touches && e.touches[0]; sx = t ? t.clientX : e.clientX; sy = t ? t.clientY : e.clientY; sw = div.offsetWidth; sh = div.offsetHeight; e.preventDefault(); e.stopPropagation(); };
+    const onMove = e => { if (!active) return; const t = e.touches && e.touches[0]; const cx = t ? t.clientX : e.clientX; const cy = t ? t.clientY : e.clientY; const W = window.innerWidth, H = window.innerHeight; const nl = parseInt(div.style.left) || 0; const nt = parseInt(div.style.top) || 0; div.style.width = Math.min(Math.max(sw + (cx - sx), 220), W - nl - 8) + 'px'; div.style.height = Math.min(Math.max(sh + (cy - sy), 140), H - nt - 8) + 'px'; e.preventDefault(); };
+    const onUp = () => { if (!active) return; active = false; _fchatMiniWinPos[sessionId] = { x: parseInt(div.style.left) || 0, y: parseInt(div.style.top) || 0, w: div.offsetWidth, h: div.offsetHeight }; _saveMiniWinPositions(); };
+    rh.addEventListener('mousedown', onDown);
+    rh.addEventListener('touchstart', onDown, { passive: false });
+    document.addEventListener('mousemove', onMove, { passive: false });
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+}
 function renderFchatBubbles() {
-    document.querySelectorAll('.fchat-bubble').forEach(b => b.remove());
+    document.querySelectorAll('.fchat-bubble,.fchat-mini-win').forEach(b => b.remove());
     const minimized = _fchatSessions.filter(s => s.id !== _fchatActiveId);
     minimized.forEach((s, i) => {
         const bc = s.bubbleConfig || BUBBLE_CONFIGS.find(b => b.profileLabel === s.profileLabel) || {};
         const emoji = bc.emoji || '🤖';
         let label = s.profileLabel || '';
-        if (s.chatId && chatHistories) { const profH = chatHistories[s.profileLabel] || {}; const chat = (profH.list || []).find(c => String(c.id) === String(s.chatId)); if (chat && chat.var_id && GLOBAL_DATASETS[chat.var_id] && GLOBAL_DATASETS[chat.var_id].title) { label = GLOBAL_DATASETS[chat.var_id].title; } }
-        const div = document.createElement('div');
-        div.className = 'fchat-bubble';
-        div.id = 'fchat-bubble-' + s.id;
-        div.style.position = 'fixed';
-        div.style.zIndex = '8900';
-        div.innerHTML = `<span style="pointer-events:none; font-size:22px; line-height:1;">${emoji}</span><div class="fchat-bubble-actions"><div class="fchat-bubble-action-btn" title="Close">✕</div></div><div class="fchat-bubble-label">${label}</div>`;
-        const pos = _fchatBubblePositions[s.id];
-        if (pos) { div.style.left = pos.x + 'px'; div.style.top = pos.y + 'px'; }
-        else { const bx = Math.max(8, window.innerWidth / 2 - 26 + (i - Math.floor(minimized.length / 2)) * 64); const by = window.innerHeight - 96; div.style.left = bx + 'px'; div.style.top = by + 'px'; _fchatBubblePositions[s.id] = { x: bx, y: by }; }
-        div.querySelector('.fchat-bubble-action-btn').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
-        div.onclick = () => fchatMaximize(s.id);
-        _makeBubbleDraggable(div, s.id);
-        document.body.appendChild(div);
+        if (s.chatId && chatHistories) { const profH = chatHistories[s.profileLabel] || {}; const chat = (profH.list || []).find(c => String(c.id) === String(s.chatId)); if (chat && chat.var_id && GLOBAL_DATASETS[chat.var_id] && GLOBAL_DATASETS[chat.var_id].title) { label = GLOBAL_DATASETS[chat.var_id].title; } else if (chat && chat.title) { label = chat.title; } }
+        const isBubble = _fchatMiniWinPos[s.id] && _fchatMiniWinPos[s.id].minimized;
+        if (isBubble) {
+            const div = document.createElement('div');
+            div.className = 'fchat-bubble';
+            div.id = 'fchat-bubble-' + s.id;
+            div.style.position = 'fixed';
+            div.style.zIndex = '9200';
+            div.innerHTML = `<span style="pointer-events:none; font-size:22px; line-height:1;">${emoji}</span><div class="fchat-bubble-actions"><div class="fchat-bubble-action-btn" title="Close">✕</div></div><div class="fchat-bubble-label">${_escSnap(label)}</div>`;
+            const pos = _fchatBubblePositions[s.id];
+            if (pos) { div.style.left = pos.x + 'px'; div.style.top = pos.y + 'px'; }
+            else { const bx = Math.max(8, window.innerWidth / 2 - 26 + (i - Math.floor(minimized.length / 2)) * 64); const by = window.innerHeight - 96; div.style.left = bx + 'px'; div.style.top = by + 'px'; _fchatBubblePositions[s.id] = { x: bx, y: by }; }
+            div.querySelector('.fchat-bubble-action-btn').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
+            div.onclick = () => { _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: false }); _saveMiniWinPositions(); renderFchatBubbles(); };
+            _makeBubbleDraggable(div, s.id);
+            document.body.appendChild(div);
+        } else {
+            const pos = _fchatMiniWinPos[s.id] && typeof _fchatMiniWinPos[s.id].x === 'number' ? _fchatMiniWinPos[s.id] : _defaultMiniWinPos(i);
+            if (!_fchatMiniWinPos[s.id]) { _fchatMiniWinPos[s.id] = pos; _saveMiniWinPositions(); }
+            const div = document.createElement('div');
+            div.className = 'fchat-mini-win';
+            div.id = 'fchat-mini-' + s.id;
+            div.style.left = pos.x + 'px';
+            div.style.top = pos.y + 'px';
+            div.style.width = (pos.w || 320) + 'px';
+            div.style.height = (pos.h || 240) + 'px';
+            div.innerHTML = `<div class="fchat-mini-header"><span class="fchat-mini-emoji">${emoji}</span><span class="fchat-mini-title">${_escSnap(label)}</span><span class="fchat-mini-btn fchat-mini-focus" title="Focus">⤢</span><span class="fchat-mini-btn fchat-mini-min" title="Minimize">━</span><span class="fchat-mini-btn fchat-mini-close" title="Close">✕</span></div><div class="fchat-mini-body">${_renderSessionSnapshot(s)}</div><div class="fchat-mini-resize">⌟</div>`;
+            div.querySelector('.fchat-mini-close').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
+            div.querySelector('.fchat-mini-min').onclick = (e) => { e.stopPropagation(); _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: true }); _saveMiniWinPositions(); renderFchatBubbles(); };
+            div.querySelector('.fchat-mini-focus').onclick = (e) => { e.stopPropagation(); fchatMaximize(s.id); };
+            div.querySelector('.fchat-mini-body').onclick = (e) => { if (div._suppressClick) { div._suppressClick = false; return; } fchatMaximize(s.id); };
+            _fchatMiniInitDrag(div, s.id);
+            _fchatMiniInitResize(div, s.id);
+            document.body.appendChild(div);
+        }
     });
 }
 
