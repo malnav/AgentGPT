@@ -464,7 +464,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #main-chat-wrapper { display:flex; flex-direction:column; flex:1; position:relative; min-height:0; overflow:hidden; }
 #floating-chat { position:fixed; z-index:9100; inset:0; background:var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); display:flex; flex-direction:column; overflow:hidden; }
 @media (prefers-color-scheme: dark) { #floating-chat { background:var(--bg-gradient, linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)); } }
-#floating-chat.fc-windowed { inset:auto !important; border-radius:18px !important; box-shadow:0 24px 80px rgba(0,0,0,0.38) !important; border:0.5px solid var(--glass-border) !important; overflow:hidden !important; }
+#floating-chat.fc-windowed { top:auto; left:auto; right:auto; bottom:auto; border-radius:18px !important; box-shadow:0 24px 80px rgba(0,0,0,0.38) !important; border:0.5px solid var(--glass-border) !important; overflow:hidden !important; }
 #floating-chat.fc-windowed #fchat-header { cursor:grab; }
 #floating-chat.fc-windowed #fchat-header:active { cursor:grabbing; }
 #fc-resize-handle { position:absolute; bottom:4px; right:6px; font-size:18px; cursor:se-resize; color:var(--text); opacity:0.28; z-index:10; user-select:none; -webkit-user-select:none; line-height:1; display:none; }
