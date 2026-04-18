@@ -3246,7 +3246,7 @@ async function sendToAI() {
                             if (fullR === "") aiB.innerHTML = `<div class="bubble-content"></div>`; 
                             fullR += data.delta; aiB.querySelector('.bubble-content').innerHTML = marked.parse(fullR); 
                             if(_replyAiTargetBoxId){const _rb=document.getElementById(_replyAiTargetBoxId);if(_rb){_writeToTargetPreserveSig(_rb,marked.parse(fullR),false);_rb.scrollTop=_rb.scrollHeight;}}
-                            const _actSess=_fchatSessions.find(s=>s.id===_fchatActiveId); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.el){_writeToTargetPreserveSig(_atT.el,_atT.isTA?fullR:marked.parse(fullR),_atT.isTA);}
+                            if(_isEmbedded){try{window.parent.postMessage({type:'fchat-stream',sid:_embedSessionId,text:fullR},'*');}catch(_pe){}} else {const _actSess=_fchatSessions.find(s=>s.id===_fchatActiveId); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.el){_writeToTargetPreserveSig(_atT.el,_atT.isTA?fullR:marked.parse(fullR),_atT.isTA);}}
                             if(!userScrolledDuringGen) scrollToLastRequest();
                         } 
                     } catch(e){}
@@ -6145,6 +6145,7 @@ function _showAtMentionPicker(el, draft, isTextArea) {
 }
 function _closeAtMention(keepAt) { _atMentionActive = false; if(keepAt) { _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; } const m = document.getElementById('_at-mention-menu'); if(m) m.remove(); if(!keepAt) setTimeout(_updateAtMentionIndicator, 300); }
 _initAtMention();
+window.addEventListener('message', (ev) => { if(!ev.data||ev.data.type!=='fchat-stream') return; const _mSess=_fchatSessions.find(s=>s.id===ev.data.sid); if(!_mSess||!_mSess.atTarget||!_mSess.atTarget.el) return; const _mAt=_mSess.atTarget; try { _writeToTargetPreserveSig(_mAt.el, _mAt.isTA ? ev.data.text : marked.parse(ev.data.text), _mAt.isTA); } catch(_me){} });
 
 function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!lk) return; insertAtCursor(`**${lk.title}**\n${lk.url}`,true,false); notify('Link inserted!','#34c759',1500); }
