@@ -3117,8 +3117,8 @@ async function sendToAI() {
                         if (data.type === "response.output_text.delta") { 
                             if (fullR === "") aiB.innerHTML = `<div class="bubble-content"></div>`; 
                             fullR += data.delta; aiB.querySelector('.bubble-content').innerHTML = marked.parse(fullR); 
-                            if(_replyAiTargetBoxId){const _rb=document.getElementById(_replyAiTargetBoxId);if(_rb){_writeToTargetPreserveSig(_rb,marked.parse(fullR),false);_rb.scrollTop=_rb.scrollHeight;}}
-                            const _actSess=_fchatSessions.find(s=>s.id===_fchatActiveId); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.el){_writeToTargetPreserveSig(_atT.el,_atT.isTA?fullR:marked.parse(fullR),_atT.isTA);}
+                            if(_replyAiTargetBoxId){const _rb=document.getElementById(_replyAiTargetBoxId);if(_rb){_insertOrReplaceSource(_rb,marked.parse(fullR),false,_replyInsState);}}
+                            const _actSess=_fchatSessions.find(s=>s.id===_fchatActiveId); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.el){_insertOrReplaceSource(_atT.el,_atT.isTA?fullR:marked.parse(fullR),_atT.isTA,_atT);}
                             if(!userScrolledDuringGen) scrollToLastRequest();
                         } 
                     } catch(e){}
@@ -5302,7 +5302,7 @@ function createFchatSession(profileLabel, bubbleConfig) {
         if (el) el.style.display = 'none';
     }
     const session = { id: Date.now().toString(), profileLabel: profileLabel || activeProfileLabel, chatId: null, bubbleConfig: bubbleConfig || null, atTarget: null };
-    if (_atMentionTargetEl) { session.atTarget = { el: _atMentionTargetEl, isTA: _atMentionIsTextArea, label: _atMentionTargetLabel }; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; }
+    if (_atMentionTargetEl) { session.atTarget = { el: _atMentionTargetEl, isTA: _atMentionIsTextArea, label: _atMentionTargetLabel, _insStart: _atMentionInsStart, _insEnd: _atMentionInsStart, _insSpanId: '', _savedRange: _atMentionSavedRange }; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; _atMentionInsStart = -1; _atMentionSavedRange = null; }
     _fchatSessions.push(session);
     _fchatActiveId = session.id;
     renderFchatBubbles();
@@ -5899,6 +5899,8 @@ let _atMentionActive = false;
 let _atMentionTargetEl = null;
 let _atMentionIsTextArea = false;
 let _atMentionTargetLabel = '';
+let _atMentionInsStart = -1;
+let _atMentionSavedRange = null;
 function _writeToTargetPreserveSig(el, content, isTA) {
     if(isTA) { el.value = content; return; }
     const sigEl = el.querySelector('.email-sig-block');
@@ -5908,6 +5910,27 @@ function _writeToTargetPreserveSig(el, content, isTA) {
     Array.from(el.childNodes).forEach(n => { if(n !== sigEl) n.remove(); });
     while(tmp.firstChild) el.insertBefore(tmp.firstChild, sigEl);
     el.scrollTop = el.scrollHeight;
+}
+function _insertOrReplaceSource(el, content, isTA, state) {
+    if (!el || !state) return;
+    if (isTA) {
+        if (state._insStart == null || state._insStart < 0) { state._insStart = el.value.length; state._insEnd = el.value.length; }
+        const s = state._insStart, e = state._insEnd;
+        el.value = el.value.slice(0, s) + content + el.value.slice(e);
+        state._insEnd = s + content.length;
+        el.scrollTop = el.scrollHeight;
+    } else {
+        let span = state._insSpanId ? document.getElementById(state._insSpanId) : null;
+        if (!span) {
+            span = document.createElement('span');
+            state._insSpanId = '_ai-ins-' + Date.now();
+            span.id = state._insSpanId;
+            const sr = state._savedRange;
+            if (sr) { try { sr.collapse(true); sr.insertNode(span); } catch(_e) { el.appendChild(span); } } else { el.appendChild(span); }
+        }
+        span.innerHTML = content;
+        el.scrollTop = el.scrollHeight;
+    }
 }
 function _onComposeBodyInput(e) {
     const el = e.target;
@@ -5958,7 +5981,7 @@ function _showAtMentionPicker(el, draft, isTextArea) {
         d.onclick = (ev) => {
             ev.stopPropagation();
             _closeAtMention(false);
-            if(isTextArea) { el.value = draft; } else { el.innerText = draft; }
+            if(isTextArea) { el.value = draft; _atMentionInsStart = el.value.length; _atMentionSavedRange = null; } else { el.innerText = draft; _atMentionInsStart = -1; try { const _r=document.createRange(); _r.selectNodeContents(el); _r.collapse(false); _atMentionSavedRange=_r; } catch(_e){ _atMentionSavedRange=null; } }
             if(draft) { const lines = draft.split('\n').filter(l=>l.trim()).slice(0,40); lines.forEach(l=>{ if(!CONTEXT_LINES.includes(l)) CONTEXT_LINES.push(l); }); cutIdx=CONTEXT_LINES.length-1; saveAll(true); }
             createFchatSession(p.label);
         };
@@ -6293,6 +6316,7 @@ function _linkifyHtml(html) {
 <script>
 let _replyAiSrc = 'panel';
 let _replyAiTargetBoxId = '';
+let _replyInsState = { spanId: '', savedRange: null };
 
 function _onReplyBoxInput(src, e) {
     const el = e.target;
@@ -6353,6 +6377,7 @@ function _pickReplyAiProfile(profileLabel) {
     _removeAtSymbolFromReply();
     const boxId = _replyAiSrc === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box';
     _replyAiTargetBoxId = boxId;
+    _replyInsState = { spanId: '', savedRange: null }; try { const _rEl=document.getElementById(boxId); if(_rEl){ const _r=document.createRange(); _r.selectNodeContents(_rEl); _r.collapse(false); _replyInsState.savedRange=_r; } } catch(_e){}
     _updateReplyAiIndicator();
     openFloatingChat(profileLabel);
     setTimeout(() => {
@@ -6385,6 +6410,7 @@ function _updateReplyAiIndicator() {
 
 function _clearReplyAiTarget() {
     _replyAiTargetBoxId = '';
+    _replyInsState = { spanId: '', savedRange: null };
     _updateReplyAiIndicator();
 }
 function _clearAtMentionTarget() { const sess = _fchatSessions.find(s => s.id === _fchatActiveId); if(sess) sess.atTarget = null; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; const ind = document.getElementById('fchat-at-indicator'); if(ind) ind.style.display = 'none'; }
