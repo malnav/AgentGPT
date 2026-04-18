@@ -1905,6 +1905,7 @@ const _embedParams = (function(){ try { return new URLSearchParams(location.sear
 const _isEmbedded = _embedParams.get('fcwin') === '1';
 const _embedProfile = _embedParams.get('p') || '';
 const _embedChatId = _embedParams.get('c') || '';
+const _embedNoteId = _embedParams.get('n') || '';
 const _windowSyncId = Math.random().toString(36).slice(2) + Date.now().toString(36);
 let _bcChannel = null;
 try { _bcChannel = new BroadcastChannel('agentgpt-multiwin-sync'); } catch(e) { _bcChannel = null; }
@@ -1977,17 +1978,32 @@ async function init() {
         CONFIG.home_screen = false;
         if (_embedProfile && AI_PROFILES.find(p => p.label === _embedProfile)) { activeProfileLabel = _embedProfile; }
         if (_embedChatId) {
-            let _eFoundChat = null; let _eFoundProf = activeProfileLabel;
+            let _eFoundChat = null; let _eFoundProf = activeProfileLabel; let _embedChatIdResolved = '';
             const _eSearch = (histories) => { for (const [prof, pData] of Object.entries(histories||{})) { if (!pData||!pData.list) continue; const c=pData.list.find(c=>String(c.id)===String(_embedChatId)); if(c){return {chat:c,prof};} } return null; };
             let _eRes = _eSearch(chatHistories);
             if (_eRes) { _eFoundChat=_eRes.chat; _eFoundProf=_eRes.prof; }
             if (!_eFoundChat) { try { if(window.parent!==window){const _pr=_eSearch(window.parent.chatHistories);if(_pr){_eFoundChat=JSON.parse(JSON.stringify(_pr.chat));_eFoundProf=_pr.prof;}} } catch(_pe){} }
+            const _hasUserMsgs = (chat) => chat && (chat.msgs||[]).some(m => m && m.role !== 'developer');
+            if ((!_eFoundChat || !_hasUserMsgs(_eFoundChat)) && _embedNoteId) {
+                try {
+                    let _allNotes = []; try { _allNotes = JSON.parse(localStorage.getItem('app_notes')||'[]'); } catch(_ne){}
+                    const _note = _allNotes.find(x => String(x.id) === String(_embedNoteId));
+                    if (_note && _note.content) {
+                        const _needle = String(_note.content).trim().slice(0, 80).toLowerCase();
+                        const _scan = (histories) => { for (const [prof, pData] of Object.entries(histories||{})) { if (!pData||!pData.list) continue; for (const c of pData.list) { if (!c.msgs) continue; for (const m of c.msgs) { if (!m || m.role === 'developer') continue; let txt=''; try { if (typeof m.content==='string') txt=m.content; else if (Array.isArray(m.content)) txt=m.content.map(p=>(p&&(p.text||p.input_text||''))||'').join(' '); } catch(_ge){} if (txt && txt.toLowerCase().includes(_needle)) { return {chat:c, prof}; } } } } return null; };
+                        let _scanRes = _scan(chatHistories);
+                        if (!_scanRes) { try { if(window.parent!==window) _scanRes = _scan(window.parent.chatHistories); } catch(_se){} if (_scanRes) _scanRes = {chat: JSON.parse(JSON.stringify(_scanRes.chat)), prof: _scanRes.prof}; }
+                        if (_scanRes) { _eFoundChat = _scanRes.chat; _eFoundProf = _scanRes.prof; _embedChatIdResolved = String(_scanRes.chat.id); }
+                    }
+                } catch(_fe){}
+            }
             if (_eFoundProf && _eFoundProf !== activeProfileLabel && AI_PROFILES.find(p=>p.label===_eFoundProf)) { activeProfileLabel = _eFoundProf; }
+            const _useId = _embedChatIdResolved || _embedChatId;
             let sData = chatHistories[activeProfileLabel];
-            if (!sData||!sData.list) { sData={current:_embedChatId,list:[]}; chatHistories[activeProfileLabel]=sData; }
-            if (_eFoundChat && !sData.list.find(c=>String(c.id)===String(_embedChatId))) { sData.list.push(_eFoundChat); }
-            if (!sData.list.find(c=>String(c.id)===String(_embedChatId))) { sData.list.push({id:_embedChatId,title:'New Chat',msgs:[],var_id:_embedChatId}); }
-            sData.current = _embedChatId;
+            if (!sData||!sData.list) { sData={current:_useId,list:[]}; chatHistories[activeProfileLabel]=sData; }
+            if (_eFoundChat && !sData.list.find(c=>String(c.id)===String(_useId))) { sData.list.push(_eFoundChat); }
+            if (!sData.list.find(c=>String(c.id)===String(_useId))) { sData.list.push({id:_useId,title:'New Chat',msgs:[],var_id:_useId}); }
+            sData.current = _useId;
         }
         const _emWrap = document.getElementById('main-chat-wrapper'); const _emPanel = document.getElementById('floating-chat');
         if (_emWrap && _emPanel && _emWrap.parentNode !== _emPanel) _emPanel.appendChild(_emWrap);
@@ -4913,7 +4929,7 @@ async function _genCalMonthSummary() { if(!CONFIG.ai_key){notify('Add OpenAI key
 function _clearCalMonthSummary() { localStorage.removeItem(_calMonthSumKey()); const area=document.getElementById('cal-month-summary-area'); const btn=document.getElementById('cal-ai-summary-btn'); if(area)area.style.display='none'; if(btn){btn.style.background='';btn.style.color='';} notify('Summary cleared','#888',1500); }
 
 function _showCalDayChooser(b64) { const snaps = JSON.parse(atob(b64)); const list = document.getElementById('cal-day-chooser-list'); const el = document.getElementById('cal-day-chooser'); if(!list || !el) return; list.innerHTML = snaps.map(sn => `<div onclick="document.getElementById('cal-day-chooser').style.display='none'; showDatasetDetails('${sn.data}')" style="padding:14px 16px; border-bottom:0.5px solid var(--border); cursor:pointer; font-size:14px; active:opacity:0.7;">${sn.label}</div>`).join(''); el.style.display = ''; }
-function _openLinkedChat(profLabel, chatId) { closeAllPanels(); closeModal('dataset-detail-modal'); const existing=_fchatSessions.find(s=>s.profileLabel===profLabel&&String(s.chatId)===String(chatId)); if(existing){ _fchatMiniWinPos[existing.id]=Object.assign({},_fchatMiniWinPos[existing.id]||{},{minimized:false}); _saveMiniWinPositions(); renderFchatBubbles(); const _exWin=document.getElementById('fchat-mini-'+existing.id); if(_exWin) _fchatBringToFront(_exWin); return; } const session={id:Date.now().toString(),profileLabel:profLabel||activeProfileLabel,chatId:chatId,bubbleConfig:null}; _fchatSessions.push(session); renderFchatBubbles(); }
+function _openLinkedChat(profLabel, chatId, noteId) { closeAllPanels(); closeModal('dataset-detail-modal'); const existing=_fchatSessions.find(s=>s.profileLabel===profLabel&&String(s.chatId)===String(chatId)); if(existing){ _fchatMiniWinPos[existing.id]=Object.assign({},_fchatMiniWinPos[existing.id]||{},{minimized:false}); _saveMiniWinPositions(); renderFchatBubbles(); const _exWin=document.getElementById('fchat-mini-'+existing.id); if(_exWin) _fchatBringToFront(_exWin); return; } const session={id:Date.now().toString(),profileLabel:profLabel||activeProfileLabel,chatId:chatId,bubbleConfig:null,noteId:noteId||null}; _fchatSessions.push(session); renderFchatBubbles(); }
 async function toggleCalDisplayVar(vid, key, dateKey) { let ds = GLOBAL_DATASETS[vid]; if(!ds) return; dateKey = dateKey || ''; if(dateKey) { if(!ds.cal_display_vars_by_date) ds.cal_display_vars_by_date = {}; if(!ds.cal_display_vars_by_date[dateKey]) ds.cal_display_vars_by_date[dateKey] = []; if(ds.cal_display_vars_by_date[dateKey].includes(key)) { ds.cal_display_vars_by_date[dateKey] = ds.cal_display_vars_by_date[dateKey].filter(k => k !== key); } else { ds.cal_display_vars_by_date[dateKey].push(key); } } else { if(!ds.cal_display_vars) ds.cal_display_vars = []; if(ds.cal_display_vars.includes(key)) { ds.cal_display_vars = ds.cal_display_vars.filter(k => k !== key); } else { ds.cal_display_vars.push(key); } } await saveAll(); renderCalendar(); _renderDsDetailContent(); }
 
 /* ── BACKGROUND THEMES ── */
@@ -5487,7 +5503,7 @@ function renderFchatBubbles() {
         div.id = 'fchat-mini-' + s.id;
         div.style.left = pos.x + 'px'; div.style.top = pos.y + 'px';
         div.style.width = (pos.w || 320) + 'px'; div.style.height = (pos.h || 240) + 'px';
-        const iframeSrc = '?fcwin=1' + (s.profileLabel ? '&p=' + encodeURIComponent(s.profileLabel) : '') + (s.chatId ? '&c=' + encodeURIComponent(s.chatId) : '') + '&sid=' + encodeURIComponent(s.id);
+        const iframeSrc = '?fcwin=1' + (s.profileLabel ? '&p=' + encodeURIComponent(s.profileLabel) : '') + (s.chatId ? '&c=' + encodeURIComponent(s.chatId) : '') + '&sid=' + encodeURIComponent(s.id) + (s.noteId ? '&n=' + encodeURIComponent(s.noteId) : '');
         div.innerHTML = `<div class="fchat-mini-header"><span class="fchat-mini-emoji">${emoji2}</span><span class="fchat-mini-title">${_escSnap(label2)}</span><span class="fchat-mini-btn fchat-mini-focus" title="Maximize">⤢</span><span class="fchat-mini-btn fchat-mini-min" title="Minimize">━</span><span class="fchat-mini-btn fchat-mini-close" title="Close">✕</span></div><div class="fchat-mini-body is-iframe"><div class="fchat-mini-loading">Loading chat…</div></div><div class="fchat-mini-resize">⌟</div>`;
         div.querySelector('.fchat-mini-close').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
         div.querySelector('.fchat-mini-min').onclick = (e) => { e.stopPropagation(); _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: true }); _saveMiniWinPositions(); renderFchatBubbles(); };
@@ -6592,7 +6608,7 @@ let NOTES = [];
 function _loadNotes() { try { NOTES = JSON.parse(localStorage.getItem('app_notes') || '[]'); } catch(e) { NOTES = []; } }
 function _saveNotes() { try { localStorage.setItem('app_notes', JSON.stringify(NOTES)); } catch(e) {} triggerAutoSync(); }
 
-function _hsRenderNotes() { const el = document.getElementById('hs-notes-body'); if (!el) return; if (!NOTES.length) { el.innerHTML = '<div style="text-align:center;color:#888;font-size:12px;padding:24px 0;">No notes yet — tap + Add or save a chat response with ☆</div>'; return; } el.innerHTML = [...NOTES].sort((a,b)=>b.id-a.id).map(n => { const isFav = n.type === 'favorite'; const preview = (n.content || '').replace(/#+\s/g,'').replace(/\*+/g,'').replace(/`/g,'').slice(0, 80); const dateStr = new Date(n.id).toLocaleDateString([], {month:'short', day:'numeric'}); const jumpBtn = isFav && n.chatId ? `<div class="note-jump-btn" onclick="event.stopPropagation();_noteJumpToChat('${_escA(n.profileLabel)}','${_escA(n.chatId)}',${n.msgIdx})" title="Jump to chat">💬</div>` : ''; return `<div class="note-item" onclick="openNoteById(${n.id})"><div class="note-item-body"><div class="note-item-title"><span style="font-size:12px;">${isFav ? '⭐' : '📝'}</span><span class="note-item-name">${_ehNotes(n.title || 'Untitled')}</span><span class="note-item-date">${dateStr}</span></div><div class="note-item-preview">${_ehNotes(preview) || 'No content'}</div></div>${jumpBtn}</div>`; }).join(''); }
+function _hsRenderNotes() { const el = document.getElementById('hs-notes-body'); if (!el) return; if (!NOTES.length) { el.innerHTML = '<div style="text-align:center;color:#888;font-size:12px;padding:24px 0;">No notes yet — tap + Add or save a chat response with ☆</div>'; return; } el.innerHTML = [...NOTES].sort((a,b)=>b.id-a.id).map(n => { const isFav = n.type === 'favorite'; const preview = (n.content || '').replace(/#+\s/g,'').replace(/\*+/g,'').replace(/`/g,'').slice(0, 80); const dateStr = new Date(n.id).toLocaleDateString([], {month:'short', day:'numeric'}); const jumpBtn = isFav && n.chatId ? `<div class="note-jump-btn" onclick="event.stopPropagation();_noteJumpToChat('${_escA(n.profileLabel)}','${_escA(n.chatId)}',${n.msgIdx},${n.id})" title="Jump to chat">💬</div>` : ''; return `<div class="note-item" onclick="openNoteById(${n.id})"><div class="note-item-body"><div class="note-item-title"><span style="font-size:12px;">${isFav ? '⭐' : '📝'}</span><span class="note-item-name">${_ehNotes(n.title || 'Untitled')}</span><span class="note-item-date">${dateStr}</span></div><div class="note-item-preview">${_ehNotes(preview) || 'No content'}</div></div>${jumpBtn}</div>`; }).join(''); }
 
 function _ehNotes(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -6613,7 +6629,7 @@ function _deleteCurrentNote() { if (!_currentNoteId) return; openConfirm('Delete
 
 function saveAsFavorite(msgIdx) { const chatId = String(getSessions().current); const already = NOTES.find(n => n.type === 'favorite' && n.msgIdx === msgIdx && n.chatId === chatId && n.profileLabel === activeProfileLabel); if (already) { NOTES = NOTES.filter(x => x.id !== already.id); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Removed from Notes', '#888', 1200); if (_isEmbedded) { try { window.parent.postMessage({ type: 'fchat-notes-updated' }, '*'); } catch(_ne){} } return; } const text = getTextFromContent(chatHistory[msgIdx].content); const title = text.replace(/#+\s/g,'').replace(/\*+/g,'').trim().slice(0, 60) || 'AI Response'; const id = Date.now(); NOTES.push({ id, type: 'favorite', title, content: text, createdAt: id, profileLabel: activeProfileLabel, chatId, msgIdx }); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Saved to Notes ⭐', '#34c759', 1200); if (_isEmbedded) { try { window.parent.postMessage({ type: 'fchat-notes-updated' }, '*'); } catch(_ne){} } }
 
-function _noteJumpToChat(profileLabel, chatId, msgIdx) { _openLinkedChat(profileLabel, chatId); if(msgIdx==null) return; function _tryPostMsg(n) { const sess=_fchatSessions.find(s=>s.profileLabel===profileLabel&&String(s.chatId)===String(chatId)); if(!sess){if(n>0)setTimeout(()=>_tryPostMsg(n-1),400);return;} const winEl=document.getElementById('fchat-mini-'+sess.id); if(!winEl){if(n>0)setTimeout(()=>_tryPostMsg(n-1),400);return;} const ifr=winEl.querySelector('iframe.fchat-mini-iframe'); if(!ifr||!ifr.contentWindow){if(n>0)setTimeout(()=>_tryPostMsg(n-1),400);return;} try{ifr.contentWindow.postMessage({type:'fchat-jump-to-msg',msgIdx:msgIdx},'*');}catch(_e){} } setTimeout(()=>_tryPostMsg(10),800); }
+function _noteJumpToChat(profileLabel, chatId, msgIdx, noteId) { _openLinkedChat(profileLabel, chatId, noteId); if(msgIdx==null) return; function _tryPostMsg(n) { const sess=_fchatSessions.find(s=>s.profileLabel===profileLabel&&String(s.chatId)===String(chatId)); if(!sess){if(n>0)setTimeout(()=>_tryPostMsg(n-1),400);return;} const winEl=document.getElementById('fchat-mini-'+sess.id); if(!winEl){if(n>0)setTimeout(()=>_tryPostMsg(n-1),400);return;} const ifr=winEl.querySelector('iframe.fchat-mini-iframe'); if(!ifr||!ifr.contentWindow){if(n>0)setTimeout(()=>_tryPostMsg(n-1),400);return;} try{ifr.contentWindow.postMessage({type:'fchat-jump-to-msg',msgIdx:msgIdx},'*');}catch(_e){} } setTimeout(()=>_tryPostMsg(10),800); }
 </script>
 </body>
 </html>
