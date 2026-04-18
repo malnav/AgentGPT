@@ -6332,23 +6332,16 @@ function _removeAtSymbolFromReply() {
     const id = _replyAiSrc === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box';
     const el = document.getElementById(id);
     if (!el) return;
-    const sigEl = el.querySelector('.email-sig-block');
-    const text = el.innerText || el.textContent || '';
-    const atIdx = text.lastIndexOf('@');
-    if (atIdx !== -1) {
-        const textBefore = text.substring(0, atIdx);
-        const tn = document.createTextNode(textBefore);
-        if (sigEl) {
-            Array.from(el.childNodes).forEach(n => { if (n !== sigEl) n.remove(); });
-            el.insertBefore(tn, sigEl);
-        } else {
-            el.innerHTML = '';
-            el.appendChild(tn);
-        }
-        const sel = window.getSelection();
-        if (sel) { const r = document.createRange(); r.setStartAfter(tn); r.collapse(true); sel.removeAllRanges(); sel.addRange(r); }
-    }
     el.focus();
+    const sigEl = el.querySelector('.email-sig-block');
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: function(n){ return (sigEl && sigEl.contains(n)) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; } });
+    let atNode = null, atOffset = -1, node;
+    while ((node = walker.nextNode())) { const idx = node.textContent.lastIndexOf('@'); if (idx !== -1) { atNode = node; atOffset = idx; } }
+    if (atNode !== null && atOffset !== -1) {
+        atNode.deleteData(atOffset, atNode.textContent.length - atOffset);
+        const sel = window.getSelection();
+        if (sel) { const r = document.createRange(); r.setStart(atNode, atOffset); r.collapse(true); sel.removeAllRanges(); sel.addRange(r); }
+    }
 }
 
 function _showReplyProfilePicker() {
