@@ -6332,12 +6332,19 @@ function _removeAtSymbolFromReply() {
     const id = _replyAiSrc === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box';
     const el = document.getElementById(id);
     if (!el) return;
+    const sigEl = el.querySelector('.email-sig-block');
     const text = el.innerText || el.textContent || '';
     const atIdx = text.lastIndexOf('@');
     if (atIdx !== -1) {
-        el.innerHTML = '';
-        const tn = document.createTextNode(text.substring(0, atIdx));
-        el.appendChild(tn);
+        const textBefore = text.substring(0, atIdx);
+        const tn = document.createTextNode(textBefore);
+        if (sigEl) {
+            Array.from(el.childNodes).forEach(n => { if (n !== sigEl) n.remove(); });
+            el.insertBefore(tn, sigEl);
+        } else {
+            el.innerHTML = '';
+            el.appendChild(tn);
+        }
         const sel = window.getSelection();
         if (sel) { const r = document.createRange(); r.setStartAfter(tn); r.collapse(true); sel.removeAllRanges(); sel.addRange(r); }
     }
@@ -6377,7 +6384,7 @@ function _pickReplyAiProfile(profileLabel) {
     _removeAtSymbolFromReply();
     const boxId = _replyAiSrc === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box';
     _replyAiTargetBoxId = boxId;
-    _replyInsState = { spanId: '', savedRange: null }; try { const _rEl=document.getElementById(boxId); if(_rEl){ const _r=document.createRange(); _r.selectNodeContents(_rEl); _r.collapse(false); _replyInsState.savedRange=_r; } } catch(_e){}
+    _replyInsState = { spanId: '', savedRange: null }; try { const _sel=window.getSelection(); if(_sel&&_sel.rangeCount){ _replyInsState.savedRange=_sel.getRangeAt(0).cloneRange(); } else { const _rEl=document.getElementById(boxId); if(_rEl){ const _sig=_rEl.querySelector('.email-sig-block'); const _r=document.createRange(); if(_sig){_r.setStartBefore(_sig);_r.collapse(true);}else{_r.selectNodeContents(_rEl);_r.collapse(false);} _replyInsState.savedRange=_r; } } } catch(_e){}
     _updateReplyAiIndicator();
     openFloatingChat(profileLabel);
     setTimeout(() => {
