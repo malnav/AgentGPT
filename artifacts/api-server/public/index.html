@@ -1882,8 +1882,9 @@ async function saveAll(skipCloud = false) {
             if (!sData || !sData.list) { sData = { current: _embedChatId || (chatHistories[activeProfileLabel]||{}).current, list: [] }; latest[activeProfileLabel] = sData; }
             const targetId = _embedChatId || (chatHistories[activeProfileLabel]||{}).current;
             let cur = sData.list.find(x => String(x.id) === String(targetId));
-            if (!cur) { cur = { id: targetId, title: 'Chat', msgs: chatHistory.slice(), var_id: targetId }; sData.list.push(cur); }
-            else { cur.msgs = chatHistory; }
+            const _memSd = chatHistories[activeProfileLabel]; const _memCur = _memSd && _memSd.list ? _memSd.list.find(x => String(x.id) === String(targetId)) : null;
+            if (!cur) { cur = _memCur ? Object.assign({}, _memCur, { id: targetId, msgs: chatHistory.slice() }) : { id: targetId, title: 'Chat', msgs: chatHistory.slice(), var_id: targetId }; sData.list.push(cur); }
+            else { if (_memCur) { for (const _k in _memCur) { if (_k !== 'msgs') cur[_k] = _memCur[_k]; } } cur.msgs = chatHistory; }
             if (cur.var_id && GLOBAL_DATASETS[cur.var_id]) { latestDs[cur.var_id] = GLOBAL_DATASETS[cur.var_id]; latestDs[cur.var_id]._updated = Date.now(); }
             chatHistories = latest;
             GLOBAL_DATASETS = latestDs;
