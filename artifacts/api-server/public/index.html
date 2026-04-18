@@ -6331,7 +6331,7 @@ function _onReplyBoxInput(src, e) {
 function _removeAtSymbolFromReply() {
     const id = _replyAiSrc === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box';
     const el = document.getElementById(id);
-    if (!el) return;
+    if (!el) return null;
     el.focus();
     const sigEl = el.querySelector('.email-sig-block');
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: function(n){ return (sigEl && sigEl.contains(n)) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; } });
@@ -6339,9 +6339,14 @@ function _removeAtSymbolFromReply() {
     while ((node = walker.nextNode())) { const idx = node.textContent.lastIndexOf('@'); if (idx !== -1) { atNode = node; atOffset = idx; } }
     if (atNode !== null && atOffset !== -1) {
         atNode.deleteData(atOffset, atNode.textContent.length - atOffset);
+        const r = document.createRange();
+        r.setStart(atNode, atOffset);
+        r.collapse(true);
         const sel = window.getSelection();
-        if (sel) { const r = document.createRange(); r.setStart(atNode, atOffset); r.collapse(true); sel.removeAllRanges(); sel.addRange(r); }
+        if (sel) { sel.removeAllRanges(); sel.addRange(r); }
+        return r;
     }
+    return null;
 }
 
 function _showReplyProfilePicker() {
@@ -6374,10 +6379,10 @@ function _closeReplyProfilePicker() {
 
 function _pickReplyAiProfile(profileLabel) {
     _closeReplyProfilePicker();
-    _removeAtSymbolFromReply();
+    const _atRange = _removeAtSymbolFromReply();
     const boxId = _replyAiSrc === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box';
     _replyAiTargetBoxId = boxId;
-    _replyInsState = { spanId: '', savedRange: null }; try { const _sel=window.getSelection(); if(_sel&&_sel.rangeCount){ _replyInsState.savedRange=_sel.getRangeAt(0).cloneRange(); } else { const _rEl=document.getElementById(boxId); if(_rEl){ const _sig=_rEl.querySelector('.email-sig-block'); const _r=document.createRange(); if(_sig){_r.setStartBefore(_sig);_r.collapse(true);}else{_r.selectNodeContents(_rEl);_r.collapse(false);} _replyInsState.savedRange=_r; } } } catch(_e){}
+    _replyInsState = { spanId: '', savedRange: null }; if(_atRange){ _replyInsState.savedRange=_atRange; } else { try { const _rEl=document.getElementById(boxId); if(_rEl){ const _sig=_rEl.querySelector('.email-sig-block'); const _r=document.createRange(); if(_sig){_r.setStartBefore(_sig);_r.collapse(true);}else{_r.selectNodeContents(_rEl);_r.collapse(false);} _replyInsState.savedRange=_r; } } catch(_e){} }
     _updateReplyAiIndicator();
     openFloatingChat(profileLabel);
     setTimeout(() => {
