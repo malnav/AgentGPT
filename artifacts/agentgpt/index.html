@@ -315,7 +315,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .left-panel.open { left: 0; right: auto; }
 #vars-slide-panel { bottom: 0; top: 0 !important; border-radius: 0; }
 #workspace-panel { top: 0 !important; bottom: 0 !important; border-radius: 0; }
-#workspace-panel.open { z-index: 510 !important; }
+#workspace-panel.open { z-index: 550 !important; }
 #workspace-panel > .panel-header,
 #vars-slide-panel > .panel-header { padding-top: max(8px, calc(var(--sat, env(safe-area-inset-top, 0px)) + 8px)) !important; }
 .ctx-panel {
@@ -5221,6 +5221,18 @@ function hideHomeScreen() {
     const vp = document.getElementById('vars-slide-panel'); if(vp && vp.classList.contains('open')) renderSessionVariables();
 }
 
+function _hsToggleWorkspace() {
+    const wp = document.getElementById('workspace-panel');
+    if (!wp) return;
+    const isOpen = wp.classList.contains('open');
+    if (isOpen) {
+        wp.classList.remove('open');
+    } else {
+        ['vars-slide-panel','ctx-slide-panel','tpl-slide-panel'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('open'); });
+        wp.classList.add('open');
+        try { renderWorkspaceLists(); } catch(e) {}
+    }
+}
 function _hsApplyCardOrder() {
     const order = CONFIG.hs_card_order;
     if (!order || !Array.isArray(order) || order.length < 2) return;
@@ -6269,7 +6281,7 @@ function _linkifyHtml(html) {
             <button id="hs-col-btn-3" onclick="saveHsColumns(3)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">3</button>
         </div>
         <div onclick="openModal('master-modal')" style="font-size:20px; cursor:pointer; opacity:0.55; padding:4px 4px;" title="Settings">⚙️</div>
-        <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="font-size:16px; cursor:pointer; padding:5px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Open Workspace">🗂️</div>
+        <div onclick="_hsToggleWorkspace()" style="font-size:16px; cursor:pointer; padding:5px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Open Workspace">🗂️</div>
     </div>
     <div id="hs-body">
         <div id="hs-cards-wrap" style="margin-top:8px;">
