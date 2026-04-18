@@ -1992,7 +1992,13 @@ async function init() {
         try { _updateFchatContextLabel(); } catch(e){}
     }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
-    await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); await refreshUI(); if (CONFIG.home_screen) showHomeScreen(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
+    await autoCleanupEmptyChats();
+    if (_isEmbedded && _embedChatId) {
+        const _esD = getSessions(); const _eC = _esD.list.find(c => String(c.id) === String(_embedChatId));
+        if (_eC) { _esD.current = _embedChatId; chatHistories[activeProfileLabel] = _esD; chatHistory = _eC.msgs || []; const _ep = AI_PROFILES.find(x => x.label === activeProfileLabel) || AI_PROFILES[0]; if (_ep && (!chatHistory.length || chatHistory[0].role !== 'developer')) { chatHistory.unshift({ role: 'developer', content: [{ type: 'input_text', text: _ep.text }] }); } }
+        await refreshUI();
+    } else { await switchProfileSession(activeProfileLabel); await refreshUI(); }
+    if (CONFIG.home_screen) showHomeScreen(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
     if (!_isEmbedded) startRealtimeSync();
     setTimeout(hideInitOverlay, _isEmbedded ? 1500 : 30000);
     if (!_isEmbedded) { gmailSilentAuth(); setTimeout(gmailSilentAuth, 2000); }
