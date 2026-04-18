@@ -644,8 +644,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   .bubble { min-width: 28%; max-width: 58%; }
   #chat-container { max-width: 760px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 
-  /* ── Floating chat: centered panel ── */
-  #floating-chat { left: 50%; transform: translateX(-50%); right: auto; width: min(760px, 100vw); border-radius: 0; }
+  /* ── Floating chat: full-screen (non-windowed) fills entire viewport ── */
+  #floating-chat:not(.fc-windowed) { left: 0 !important; right: 0 !important; top: 0 !important; bottom: 0 !important; width: 100% !important; transform: none !important; border-radius: 0 !important; }
   #floating-chat .top-nav { left: 0; }
   #fchat-bubble-bar { left: 50%; transform: translateX(-50%); max-width: min(720px, 92vw); }
 
