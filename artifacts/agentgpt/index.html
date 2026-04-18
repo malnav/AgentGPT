@@ -315,7 +315,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .left-panel.open { left: 0; right: auto; }
 #vars-slide-panel { bottom: 0; top: 0 !important; border-radius: 0; }
 #workspace-panel { top: 0 !important; bottom: 0 !important; border-radius: 0; }
-#workspace-panel.open { z-index: 550 !important; }
+#workspace-panel.open { z-index: 510 !important; }
 #workspace-panel > .panel-header,
 #vars-slide-panel > .panel-header { padding-top: max(8px, calc(var(--sat, env(safe-area-inset-top, 0px)) + 8px)) !important; }
 .ctx-panel {
@@ -467,60 +467,17 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #floating-chat.fc-windowed { top:auto; left:auto; right:auto; bottom:auto; transform:none !important; width:auto; border-radius:18px !important; box-shadow:0 24px 80px rgba(0,0,0,0.38) !important; border:0.5px solid var(--glass-border) !important; overflow:hidden !important; }
 #floating-chat.fc-windowed #fchat-header { cursor:grab; }
 #floating-chat.fc-windowed #fchat-header:active { cursor:grabbing; }
-#fc-resize-handle { position:absolute; bottom:4px; right:6px; font-size:18px; cursor:se-resize; color:var(--text); opacity:0.5; z-index:300; user-select:none; -webkit-user-select:none; line-height:1; display:none; pointer-events:auto; }
+#fc-resize-handle { position:absolute; bottom:4px; right:6px; font-size:18px; cursor:se-resize; color:var(--text); opacity:0.28; z-index:10; user-select:none; -webkit-user-select:none; line-height:1; display:none; }
 #floating-chat.fc-windowed #fc-resize-handle { display:block; }
 #fc-win-toggle-btn { font-size:16px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0; display:none; }
 @media (min-width:768px) { #fc-win-toggle-btn { display:block; } }
 #profile-bubble { z-index:9001 !important; }
-#fchat-bubble-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:9200; pointer-events:none; align-items:flex-end; flex-wrap:wrap; justify-content:center; max-width:calc(100vw - 100px); }
+#fchat-bubble-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:8900; pointer-events:none; align-items:flex-end; flex-wrap:wrap; justify-content:center; max-width:calc(100vw - 100px); }
 .fchat-bubble { pointer-events:all; width:52px; height:52px; border-radius:26px; background:var(--accent); color:#fff; font-size:20px; font-weight:800; display:flex; align-items:center; justify-content:center; position:relative; box-shadow:0 4px 20px rgba(0,122,255,0.45); cursor:pointer; user-select:none; -webkit-user-select:none; animation:fcbubble-in 0.28s cubic-bezier(0.34,1.56,0.64,1); transition:transform 0.1s; }
 .fchat-bubble:active { transform:scale(0.92); }
 .fchat-bubble-actions { position:absolute; top:-9px; right:-9px; display:flex; flex-direction:column; gap:3px; }
 .fchat-bubble-action-btn { width:22px; height:22px; border-radius:11px; background:rgba(20,20,30,0.82); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1.5px solid rgba(255,255,255,0.35); box-shadow:0 1px 6px rgba(0,0,0,0.3); }
 .fchat-bubble-label { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:9px; color:#888; white-space:nowrap; font-weight:600; pointer-events:none; }
-.fchat-mini-win { position:fixed; z-index:9150; background:var(--bg-gradient, linear-gradient(145deg, #fffaf3 0%, #fff5ec 38%, #fff0e8 68%, #faf6f0 100%)); border:0.5px solid var(--glass-border); border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,0.22); display:flex; flex-direction:column; overflow:hidden; pointer-events:auto; min-width:240px; min-height:160px; backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); animation:fcbubble-in 0.22s cubic-bezier(0.34,1.56,0.64,1); }
-.fchat-mini-win.fchat-mini-minimized { width:52px !important; height:52px !important; min-width:0 !important; min-height:0 !important; border-radius:26px !important; overflow:visible !important; background:var(--accent) !important; box-shadow:0 4px 20px rgba(0,122,255,0.45) !important; cursor:pointer !important; border:none !important; }
-.fchat-mini-win.fchat-mini-minimized .fchat-mini-body, .fchat-mini-win.fchat-mini-minimized .fchat-mini-resize, .fchat-mini-win.fchat-mini-minimized .fchat-mini-title, .fchat-mini-win.fchat-mini-minimized .fchat-mini-focus, .fchat-mini-win.fchat-mini-minimized .fchat-mini-min { display:none !important; }
-.fchat-mini-win.fchat-mini-minimized .fchat-mini-header { width:52px !important; height:52px !important; min-height:0 !important; border-radius:26px !important; border:none !important; background:none !important; justify-content:center !important; padding:0 !important; gap:0 !important; cursor:pointer !important; }
-.fchat-mini-win.fchat-mini-minimized .fchat-mini-emoji { font-size:24px !important; display:flex !important; }
-.fchat-mini-win.fchat-mini-minimized .fchat-mini-close { display:flex !important; position:absolute !important; top:-7px !important; right:-7px !important; width:20px !important; height:20px !important; border-radius:10px !important; background:rgba(20,20,30,0.82) !important; color:#fff !important; font-size:11px !important; align-items:center !important; justify-content:center !important; z-index:10 !important; border:1.5px solid rgba(255,255,255,0.35) !important; box-shadow:0 1px 6px rgba(0,0,0,0.3) !important; line-height:1 !important; }
-@media (prefers-color-scheme: dark) { .fchat-mini-win { background:var(--bg-gradient, linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)); } }
-.fchat-mini-header { display:flex; align-items:center; gap:6px; padding:6px 8px; background:rgba(127,127,127,0.08); border-bottom:0.5px solid var(--glass-border); cursor:grab; user-select:none; -webkit-user-select:none; flex-shrink:0; }
-.fchat-mini-header:active { cursor:grabbing; }
-.fchat-mini-emoji { font-size:16px; line-height:1; flex-shrink:0; }
-.fchat-mini-title { flex:1; font-size:11px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.fchat-mini-btn { width:20px; height:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:11px; color:var(--text); opacity:0.6; border-radius:6px; flex-shrink:0; }
-.fchat-mini-btn:hover { opacity:1; background:rgba(127,127,127,0.15); }
-.fchat-mini-body { flex:1; overflow-y:auto; padding:8px 10px; cursor:pointer; font-size:11px; color:var(--text); line-height:1.4; min-height:0; }
-.fchat-mini-body:hover { background:rgba(127,127,127,0.04); }
-.snap-msg { padding:5px 8px; border-radius:8px; margin-bottom:4px; max-width:90%; word-wrap:break-word; }
-.snap-user { background:var(--accent); color:#fff; margin-left:auto; }
-.snap-ai { background:rgba(127,127,127,0.12); color:var(--text); margin-right:auto; }
-.fchat-mini-resize { position:absolute; bottom:2px; right:4px; font-size:14px; cursor:se-resize; color:var(--text); opacity:0.4; user-select:none; -webkit-user-select:none; line-height:1; pointer-events:auto; z-index:5; }
-.fchat-mini-iframe { width:100%; height:100%; border:0; display:block; background:transparent; }
-.fchat-mini-body.is-iframe { padding:0; cursor:default; overflow:hidden; }
-.fchat-mini-body.is-iframe:hover { background:transparent; }
-.fchat-mini-loading { display:flex; align-items:center; justify-content:center; height:100%; opacity:0.5; font-size:11px; }
-body:not(.embed-mode) #main-chat-wrapper { display:none !important; }
-body.embed-mode #home-screen,
-body.embed-mode #profile-bubble,
-body.embed-mode #fchat-bubble-bar,
-body.embed-mode .fchat-mini-win,
-body.embed-mode .fchat-bubble,
-#floating-chat .sys-icons div[title="Settings"],
-body.embed-mode .top-nav .sys-icons div[title="Settings"] { display:none !important; }
-@media (max-width: 767px) { .fchat-mini-focus { display:none !important; } .fchat-mini-win:not(.fchat-mini-minimized) { left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; border-radius:0 !important; } .fchat-mini-resize { display:none !important; } .fchat-mini-win:not(.fchat-mini-minimized) .fchat-mini-header { position:absolute !important; top:max(8px,env(safe-area-inset-top)) !important; right:8px !important; left:auto !important; bottom:auto !important; background:rgba(0,0,0,0.45) !important; border:none !important; border-radius:12px !important; padding:4px 6px !important; gap:2px !important; z-index:50 !important; cursor:default !important; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); } .fchat-mini-win:not(.fchat-mini-minimized) .fchat-mini-emoji, .fchat-mini-win:not(.fchat-mini-minimized) .fchat-mini-title { display:none !important; } .fchat-mini-win:not(.fchat-mini-minimized) .fchat-mini-btn { color:#fff !important; opacity:0.95 !important; width:28px !important; height:28px !important; font-size:14px !important; } }
-.fchat-mini-win.fchat-mini-fullscreen { left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; border-radius:0 !important; z-index:9300 !important; }
-.fchat-mini-win.fchat-mini-fullscreen .fchat-mini-resize { display:none !important; }
-.fchat-mini-win.fchat-mini-fullscreen .fchat-mini-header { position:absolute !important; top:max(8px,env(safe-area-inset-top)) !important; right:8px !important; left:auto !important; bottom:auto !important; background:rgba(0,0,0,0.45) !important; border:none !important; border-radius:12px !important; padding:4px 6px !important; gap:2px !important; z-index:50 !important; cursor:default !important; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
-.fchat-mini-win.fchat-mini-fullscreen .fchat-mini-emoji, .fchat-mini-win.fchat-mini-fullscreen .fchat-mini-title { display:none !important; }
-.fchat-mini-win.fchat-mini-fullscreen .fchat-mini-btn { color:#fff !important; opacity:0.95 !important; width:28px !important; height:28px !important; font-size:14px !important; }
-body.embed-mode #sync-bar,
-body.embed-mode #embed-home-btn { display:none !important; }
-body.embed-mode .top-nav { display:none !important; }
-body.embed-mode #floating-chat { display:flex !important; flex-direction:column !important; position:fixed !important; inset:0 !important; z-index:1 !important; width:100vw !important; height:100vh !important; transform:none !important; border-radius:0 !important; }
-body.embed-mode #main-chat-wrapper { flex:1 !important; min-height:0 !important; display:flex !important; }
-body.embed-mode #fc-resize-handle, body.embed-mode #fc-win-toggle-btn, body.embed-mode #fchat-header [data-embed-hide] { display:none !important; }
 #home-screen { position:fixed; inset:0; z-index:500; background:var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); display:flex; flex-direction:column; overflow:hidden; }
 #hs-header { position:absolute; top:0; left:0; right:0; z-index:10; padding:max(14px, env(safe-area-inset-top)) 16px 8px 16px; display:flex; align-items:center; gap:10px; background:transparent; pointer-events:none; }
 #hs-header > * { pointer-events:auto; }
@@ -1528,7 +1485,7 @@ body.embed-mode #fc-resize-handle, body.embed-mode #fc-win-toggle-btn, body.embe
         <span style="flex:1;"></span>
         <div onclick="_toggleNoteMode()" id="notes-modal-toggle" style="cursor:pointer; font-size:12px; color:var(--accent); padding:5px 12px; background:rgba(0,122,255,0.1); border-radius:10px; font-weight:700;">Preview</div>
         <div onclick="_saveCurrentNote()" style="cursor:pointer; font-size:12px; color:#fff; padding:5px 14px; background:var(--accent); border-radius:10px; font-weight:700; flex-shrink:0;">Done</div>
-        <div onclick="_deleteCurrentNote()" id="notes-modal-delete" style="cursor:pointer; font-size:13px; font-weight:700; color:#ff3b30; padding:5px 11px; background:rgba(255,59,48,0.1); border-radius:10px; flex-shrink:0;">Delete</div>
+        <div onclick="_deleteCurrentNote()" id="notes-modal-delete" style="cursor:pointer; font-size:18px; opacity:0.4; padding:2px 4px; flex-shrink:0;">🗑️</div>
     </div>
     <div id="notes-modal-edit" style="flex:1; display:flex; flex-direction:column; overflow-y:auto; padding:18px 20px 40px;">
         <input id="notes-modal-title" type="text" placeholder="Title" style="background:transparent; border:none; font-size:24px; font-weight:800; color:inherit; outline:none; padding:0; width:100%; font-family:inherit; margin-bottom:4px;">
@@ -1777,12 +1734,10 @@ function addSwipeListener(element, onSwipeLeft, onSwipeRight) {
 function initGestures() {
     addSwipeListener(document.body, 
         () => { 
-            if(!_isEmbedded && Array.isArray(_fchatSessions) && _fchatSessions.length > 0) return;
             if(document.getElementById('workspace-panel').classList.contains('open')) { closeAllPanels(); } 
             else { closeAllPanels(); document.getElementById('vars-slide-panel').classList.add('open'); refreshUI(); }
         }, 
         () => { 
-            if(!_isEmbedded && Array.isArray(_fchatSessions) && _fchatSessions.length > 0) return;
             let rightPanelsOpen = document.querySelectorAll('.side-panel:not(.left-panel).open, .ctx-panel.open').length > 0;
             if(rightPanelsOpen) { closeAllPanels(); } 
             else { closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); renderWorkspaceLists(); }
@@ -1875,90 +1830,15 @@ function renderInlinePrompts() {
 
 async function saveAll(skipCloud = false) { 
     try {
-        if (_isEmbedded) {
-            const latest = await dbHelper.get('histories') || {};
-            const latestDs = await dbHelper.get('datasets') || {};
-            let sData = latest[activeProfileLabel];
-            if (!sData || !sData.list) { sData = { current: _embedChatId || (chatHistories[activeProfileLabel]||{}).current, list: [] }; latest[activeProfileLabel] = sData; }
-            const targetId = _embedChatId || (chatHistories[activeProfileLabel]||{}).current;
-            let cur = sData.list.find(x => String(x.id) === String(targetId));
-            if (!cur) { cur = { id: targetId, title: 'Chat', msgs: chatHistory.slice(), var_id: targetId }; sData.list.push(cur); }
-            else { cur.msgs = chatHistory; }
-            if (cur.var_id && GLOBAL_DATASETS[cur.var_id]) { latestDs[cur.var_id] = GLOBAL_DATASETS[cur.var_id]; latestDs[cur.var_id]._updated = Date.now(); }
-            chatHistories = latest;
-            GLOBAL_DATASETS = latestDs;
-            await dbHelper.setMulti({ 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
-            _lastBroadcastTs = Date.now();
-            try { _broadcastSync('data-saved', { profile: activeProfileLabel, chatId: targetId }); } catch(e){}
-            return;
-        }
         let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { cur.msgs = chatHistory; if(GLOBAL_DATASETS[cur.var_id]) GLOBAL_DATASETS[cur.var_id]._updated = Date.now(); } }
         CONFIG._ts = Date.now();
         await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
-        _lastBroadcastTs = Date.now();
-        try { _broadcastSync('data-saved', { profile: activeProfileLabel }); } catch(e){}
         if(!skipCloud) triggerAutoSync(); 
     } catch(e) { console.error("DB Save Error:", e); notify("⚠️ DB Error: " + (e.name || "Write Failed"), "#ff3b30", 4000); }
 }
 
-const _embedParams = (function(){ try { return new URLSearchParams(location.search); } catch(e) { return new URLSearchParams(''); } })();
-const _isEmbedded = _embedParams.get('fcwin') === '1';
-const _embedProfile = _embedParams.get('p') || '';
-const _embedChatId = _embedParams.get('c') || '';
-const _windowSyncId = Math.random().toString(36).slice(2) + Date.now().toString(36);
-let _bcChannel = null;
-try { _bcChannel = new BroadcastChannel('agentgpt-multiwin-sync'); } catch(e) { _bcChannel = null; }
-function _broadcastSync(type, payload) { if (!_bcChannel) return; try { _bcChannel.postMessage({ type: type, payload: payload || {}, src: _windowSyncId, ts: Date.now() }); } catch(e){} }
-let _lastBroadcastTs = 0;
-let _pendingCloudSyncTimer = null;
-function _schedulePropagatedCloudSync() { if (_isEmbedded) return; if (_pendingCloudSyncTimer) return; _pendingCloudSyncTimer = setTimeout(() => { _pendingCloudSyncTimer = null; try { if (typeof triggerAutoSync === 'function') triggerAutoSync(); } catch(e){} }, 1500); }
-async function _handleSyncMessage(msg) {
-    if (!msg || msg.src === _windowSyncId) return;
-    if (msg.type === 'data-saved') {
-        if (msg.ts && msg.ts < _lastBroadcastTs) return;
-        try {
-            const newHistories = await dbHelper.get('histories') || {};
-            const myProfile = activeProfileLabel;
-            const myChatId = _isEmbedded && _embedChatId ? _embedChatId : ((chatHistories[myProfile]||{}).current);
-            const myProfData = chatHistories[myProfile];
-            const myCurrentChat = (myProfData && myProfData.list) ? myProfData.list.find(c => String(c.id) === String(myChatId)) : null;
-            const myCurrentPointer = myProfData ? myProfData.current : null;
-            chatHistories = newHistories;
-            if (myCurrentChat && chatHistories[myProfile] && chatHistories[myProfile].list) {
-                const idx = chatHistories[myProfile].list.findIndex(c => String(c.id) === String(myChatId));
-                if (idx >= 0) { if (currentAborter || chatHistory === myCurrentChat.msgs) chatHistories[myProfile].list[idx] = myCurrentChat; }
-                else if (currentAborter) chatHistories[myProfile].list.push(myCurrentChat);
-                if (!_isEmbedded && myCurrentPointer) chatHistories[myProfile].current = myCurrentPointer;
-            }
-            if (!currentAborter) {
-                const sData = chatHistories[myProfile];
-                if (sData && sData.list) {
-                    const cur = sData.list.find(c => String(c.id) === String(myChatId));
-                    if (cur && Array.isArray(cur.msgs) && cur.msgs.length > chatHistory.length) {
-                        chatHistory = cur.msgs;
-                        try { renderChatHistory(); } catch(e){}
-                    }
-                }
-            }
-            if (!_isEmbedded) { try { renderFchatBubbles(); } catch(e){} try { if (typeof renderWorkspaceLists === 'function') renderWorkspaceLists(); } catch(e){} _schedulePropagatedCloudSync(); }
-        } catch(e) { addLog('SYNC', 'Reload error', e.message); }
-    } else if (msg.type === 'settings-saved') {
-        try {
-            AI_PROFILES = await dbHelper.get('profiles') || AI_PROFILES;
-            AI_MODELS = await dbHelper.get('models') || AI_MODELS;
-            const cfg = await dbHelper.get('config') || {};
-            if (cfg.ai_key) CONFIG.ai_key = cfg.ai_key;
-            try { refreshUI(); } catch(e){}
-        } catch(e){}
-    } else if (msg.type === 'embed-close' && _isEmbedded && msg.payload && msg.payload.sessionId === _embedSessionId) {
-        try { window.close(); } catch(e){}
-    }
-}
-if (_bcChannel) { _bcChannel.onmessage = e => _handleSyncMessage(e.data); }
-let _embedSessionId = _embedParams.get('sid') || '';
 async function init() { 
-    addLog("SYS", "Startup", _isEmbedded ? "Embed Init..." : "Initializing...");
-    if (_isEmbedded) { document.body.classList.add('embed-mode'); }
+    addLog("SYS", "Startup", "Initializing...");
     if (localStorage.getItem(DB_KEY + '_ap')) {
         await dbHelper.set('profiles', JSON.parse(localStorage.getItem(DB_KEY+'_ap'))); await dbHelper.set('prompts', JSON.parse(localStorage.getItem(DB_KEY+'_p'))); await dbHelper.set('templates', JSON.parse(localStorage.getItem(DB_KEY+'_t'))); await dbHelper.set('tools', JSON.parse(localStorage.getItem(DB_KEY+'_tools'))); await dbHelper.set('models', JSON.parse(localStorage.getItem(DB_KEY+'_am'))); await dbHelper.set('config', JSON.parse(localStorage.getItem(DB_KEY+'_cfg'))); await dbHelper.set('histories', JSON.parse(localStorage.getItem(DB_KEY+'_histories'))); await dbHelper.set('activeProfile', localStorage.getItem(DB_KEY+'_cur_ap'));
         localStorage.clear(); addLog("SYS", "Migration", "Local Storage to IDB");
@@ -1973,28 +1853,12 @@ async function init() {
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
     activeProfileLabel = await dbHelper.get('activeProfile') || (AI_PROFILES[0] ? AI_PROFILES[0].label : "Agent");
     if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0].label; }
-    if (_isEmbedded) {
-        CONFIG.home_screen = false;
-        if (_embedProfile && AI_PROFILES.find(p => p.label === _embedProfile)) { activeProfileLabel = _embedProfile; }
-        if (_embedChatId) {
-            let sData = chatHistories[activeProfileLabel];
-            if (!sData || !sData.list) { sData = { current: _embedChatId, list: [] }; chatHistories[activeProfileLabel] = sData; }
-            let chat = sData.list.find(c => String(c.id) === String(_embedChatId));
-            if (!chat) { chat = { id: _embedChatId, title: 'New Chat', msgs: [], var_id: _embedChatId }; sData.list.push(chat); }
-            sData.current = _embedChatId;
-        }
-        const _emWrap = document.getElementById('main-chat-wrapper'); const _emPanel = document.getElementById('floating-chat');
-        if (_emWrap && _emPanel && _emWrap.parentNode !== _emPanel) _emPanel.appendChild(_emWrap);
-        if (_emPanel) _emPanel.style.display = 'flex';
-        const _emSess = { id: _embedSessionId || 'embed', profileLabel: activeProfileLabel, chatId: _embedChatId, bubbleConfig: (typeof BUBBLE_CONFIGS !== 'undefined' && BUBBLE_CONFIGS.find) ? (BUBBLE_CONFIGS.find(b => b.profileLabel === activeProfileLabel) || null) : null };
-        try { renderFchatHeader(_emSess); } catch(e){}
-        try { _updateFchatContextLabel(); } catch(e){}
-    }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); await refreshUI(); if (CONFIG.home_screen) showHomeScreen(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
-    if (!_isEmbedded) startRealtimeSync();
-    setTimeout(hideInitOverlay, _isEmbedded ? 1500 : 30000);
-    if (!_isEmbedded) { gmailSilentAuth(); setTimeout(gmailSilentAuth, 2000); }
+    startRealtimeSync();
+    setTimeout(hideInitOverlay, 30000);
+    gmailSilentAuth();
+    setTimeout(gmailSilentAuth, 2000);
     const _hsScrollBody = document.getElementById('hs-body'); const _hsScrollHdr = document.getElementById('hs-header'); if(_hsScrollBody && _hsScrollHdr) { _hsScrollBody.addEventListener('scroll', function(){ _hsScrollHdr.classList.toggle('hs-scrolled', _hsScrollBody.scrollTop > 36); }, { passive: true }); }
 }
 
@@ -2159,7 +2023,7 @@ async function toggleCalTodo(vid, todoId) { let ds = GLOBAL_DATASETS[vid]; if(!d
 async function deleteTodo(vid, todoId) { let ds = GLOBAL_DATASETS[vid]; if(!ds || !ds.todos) return; ds.todos = ds.todos.filter(x => String(x.id) !== String(todoId)); await saveAll(); renderChatTodos(); renderGlobalTodos(); renderCalendar(); }
 
 async function aiGenTodos() { if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30"); notify("Generating todos from chat...", "#007aff"); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur) return; if(!cur.var_id) return notify("No dataset linked to this session.", "#ff3b30"); let ds = GLOBAL_DATASETS[cur.var_id]; if(!ds) return notify("Dataset not found.", "#ff3b30"); if(!ds.todos) ds.todos = []; let msgs = (cur.msgs || []).filter(m => m.role !== 'developer').map(m => `${m.role}: ${getTextFromContent(m.content)}`).join('\n').substring(0, 3000); if(!msgs) return notify("Chat is empty.", "#888"); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let sysPrompt = _getAiPrompt('todos_gen').replace('[PROFILE]', p ? p.text : 'N/A').replace('[VARS]', '(no dataset linked)').replace('[DATA]', 'N/A'); let mdl = _getAiModel('todos_gen', getSuggestModel()); addLog('AI_PROMPTS', 'Todos Gen', `Model: ${mdl}\nPrompt:\n${sysPrompt}`); try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: _getAiModel('todos_gen', getSuggestModel()), messages: [{ role: "system", content: sysPrompt }, { role: "user", content: msgs }] }) }); if(!res.ok) throw new Error("API error"); const d = await res.json(); let raw = d.choices[0].message.content.replace(/```json/g,'').replace(/```/g,'').trim(); addLog('AI_PROMPTS', 'Todos Gen Response', raw); let arr = JSON.parse(raw); let added = 0; const existingTexts = new Set((ds.todos||[]).map(t => t.text.toLowerCase().trim())); arr.forEach(item => { if(item.text && !existingTexts.has(item.text.toLowerCase().trim())) { ds.todos.push({ id: Date.now().toString() + added, text: item.text, done: false, date: item.date || null }); existingTexts.add(item.text.toLowerCase().trim()); added++; } }); await saveAll(); renderChatTodos(); renderCalendar(); notify(`Added ${added} todos!`, "#34c759"); } catch(e) { notify("Failed to generate todos.", "#ff3b30"); } }
-async function loadSession(id) { _calPreviewVid = null; closeAllPanels(); const existing=_fchatSessions.find(s=>String(s.chatId)===String(id)); if(existing){fchatMaximize(existing.id);return;} const sess={id:Date.now().toString(),profileLabel:activeProfileLabel,chatId:id,bubbleConfig:null}; _fchatSessions.push(sess); renderFchatBubbles(); }
+async function loadSession(id) { _calPreviewVid = null; if(_hsActive && _fchatActiveId === null) { closeAllPanels(); const existing=_fchatSessions.find(s=>String(s.chatId)===String(id)); if(existing){fchatMaximize(existing.id);return;} const sess={id:Date.now().toString(),profileLabel:activeProfileLabel,chatId:id,bubbleConfig:null}; _fchatSessions.push(sess); _fchatActiveId=sess.id; renderFchatBubbles(); _openFchatPanel(sess); return; } let sData = getSessions(); sData.current = String(id); let cur = sData.list.find(x => String(x.id) === String(id)); if(cur) { chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; addLog("SESSION", "Load Chat", cur.title); closeAllPanels(); await saveAll(true); refreshUI(); renderChatHistory(); requestAnimationFrame(() => scrollToLastRequest(true)); } }
 function renderSessionsList() { let sData = getSessions(); let sortedChats = [...sData.list].sort((a,b) => { if(a.pinned && !b.pinned) return -1; if(!a.pinned && b.pinned) return 1; return Number(b.id) - Number(a.id); }); let visible = sortedChats.filter(s => { let isCurrent = String(s.id) === String(sData.current); if(s.archived && !isCurrent) return false; let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; return isCurrent || msgCount > 0; }); document.getElementById('sessions-list').innerHTML = visible.map(s => { let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; let lockIcon = s.title_locked ? ' <span style="font-size:9px; opacity:0.5;" title="Title locked">🔒</span>' : ''; return `<li class="list-item ${String(s.id) === String(sData.current) ? 'in-cut' : ''}" onclick="loadSession('${s.id}')"><div style="flex:1; min-width:0; overflow:hidden;"><strong style="display:flex; align-items:center; gap:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.title}${lockIcon}</strong><span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div><div class="inline-btn" data-sid="${s.id}" data-prof="${activeProfileLabel}" data-pinned="${s.pinned?'1':'0'}" onclick="event.stopPropagation(); openSessionMenu(event, this)" style="font-size:18px; font-weight:700; letter-spacing:1px;">⋯</div></li>`; }).join(''); }
 async function togglePinCurrentChat(chatId) { let sData = getSessions(); let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat) return; chat.pinned = !chat.pinned; await saveAll(); renderSessionsList(); }
 
@@ -3246,7 +3110,7 @@ async function sendToAI() {
                             if (fullR === "") aiB.innerHTML = `<div class="bubble-content"></div>`; 
                             fullR += data.delta; aiB.querySelector('.bubble-content').innerHTML = marked.parse(fullR); 
                             if(_replyAiTargetBoxId){const _rb=document.getElementById(_replyAiTargetBoxId);if(_rb){_writeToTargetPreserveSig(_rb,marked.parse(fullR),false);_rb.scrollTop=_rb.scrollHeight;}}
-                            if(_isEmbedded){try{window.parent.postMessage({type:'fchat-stream',sid:_embedSessionId,text:fullR},'*');}catch(_pe){}} else {const _actSess=_fchatSessions.find(s=>s.id===_fchatActiveId); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.el){_writeToTargetPreserveSig(_atT.el,_atT.isTA?fullR:marked.parse(fullR),_atT.isTA);}}
+                            const _actSess=_fchatSessions.find(s=>s.id===_fchatActiveId); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.el){_writeToTargetPreserveSig(_atT.el,_atT.isTA?fullR:marked.parse(fullR),_atT.isTA);}
                             if(!userScrolledDuringGen) scrollToLastRequest();
                         } 
                     } catch(e){}
@@ -4901,7 +4765,7 @@ async function _genCalMonthSummary() { if(!CONFIG.ai_key){notify('Add OpenAI key
 function _clearCalMonthSummary() { localStorage.removeItem(_calMonthSumKey()); const area=document.getElementById('cal-month-summary-area'); const btn=document.getElementById('cal-ai-summary-btn'); if(area)area.style.display='none'; if(btn){btn.style.background='';btn.style.color='';} notify('Summary cleared','#888',1500); }
 
 function _showCalDayChooser(b64) { const snaps = JSON.parse(atob(b64)); const list = document.getElementById('cal-day-chooser-list'); const el = document.getElementById('cal-day-chooser'); if(!list || !el) return; list.innerHTML = snaps.map(sn => `<div onclick="document.getElementById('cal-day-chooser').style.display='none'; showDatasetDetails('${sn.data}')" style="padding:14px 16px; border-bottom:0.5px solid var(--border); cursor:pointer; font-size:14px; active:opacity:0.7;">${sn.label}</div>`).join(''); el.style.display = ''; }
-function _openLinkedChat(profLabel, chatId) { closeAllPanels(); closeModal('dataset-detail-modal'); const existing=_fchatSessions.find(s=>s.profileLabel===profLabel&&String(s.chatId)===String(chatId)); if(existing){fchatMaximize(existing.id);return;} const session={id:Date.now().toString(),profileLabel:profLabel||activeProfileLabel,chatId:chatId,bubbleConfig:null}; _fchatSessions.push(session); renderFchatBubbles(); }
+function _openLinkedChat(profLabel, chatId) { closeAllPanels(); closeModal('dataset-detail-modal'); const existing=_fchatSessions.find(s=>s.profileLabel===profLabel&&String(s.chatId)===String(chatId)); if(existing){fchatMaximize(existing.id);return;} const session={id:Date.now().toString(),profileLabel:profLabel||activeProfileLabel,chatId:chatId,bubbleConfig:null}; _fchatSessions.push(session); _fchatActiveId=session.id; renderFchatBubbles(); _openFchatPanel(session); }
 async function toggleCalDisplayVar(vid, key, dateKey) { let ds = GLOBAL_DATASETS[vid]; if(!ds) return; dateKey = dateKey || ''; if(dateKey) { if(!ds.cal_display_vars_by_date) ds.cal_display_vars_by_date = {}; if(!ds.cal_display_vars_by_date[dateKey]) ds.cal_display_vars_by_date[dateKey] = []; if(ds.cal_display_vars_by_date[dateKey].includes(key)) { ds.cal_display_vars_by_date[dateKey] = ds.cal_display_vars_by_date[dateKey].filter(k => k !== key); } else { ds.cal_display_vars_by_date[dateKey].push(key); } } else { if(!ds.cal_display_vars) ds.cal_display_vars = []; if(ds.cal_display_vars.includes(key)) { ds.cal_display_vars = ds.cal_display_vars.filter(k => k !== key); } else { ds.cal_display_vars.push(key); } } await saveAll(); renderCalendar(); _renderDsDetailContent(); }
 
 /* ── BACKGROUND THEMES ── */
@@ -5108,28 +4972,24 @@ function openFchatProfilePicker(e) {
     _showItemMenu(e, AI_PROFILES.map(p => ({ label: p.label[0].toUpperCase() + ' ' + p.label, fn: () => changeFchatProfile(p.label) })));
 }
 
-async function changeFchatProfile(profileLabel) {
-    const p = AI_PROFILES.find(x => x.label === profileLabel); if (!p) return;
-    if (_isEmbedded) {
-        const oldProfile = activeProfileLabel; const chatId = _embedChatId || (chatHistories[oldProfile]||{}).current;
-        if (oldProfile !== profileLabel) {
-            const oldData = chatHistories[oldProfile]; if (oldData && oldData.list && chatId) { const idx = oldData.list.findIndex(c => String(c.id) === String(chatId)); if (idx >= 0) { const moving = oldData.list.splice(idx, 1)[0]; if (!chatHistories[profileLabel]) chatHistories[profileLabel] = { current: moving.id, list: [] }; chatHistories[profileLabel].list.push(moving); chatHistories[profileLabel].current = moving.id; if (oldData.current === moving.id) oldData.current = oldData.list[0] ? oldData.list[0].id : null; } }
-            activeProfileLabel = profileLabel; await dbHelper.set('activeProfile', activeProfileLabel);
-        }
-        const sData = chatHistories[profileLabel]; const cur = sData && sData.list ? sData.list.find(c => String(c.id) === String(chatId)) : null;
-        if (cur) { cur.msgs = cur.msgs || []; if (cur.msgs.length > 0 && cur.msgs[0].role === 'developer') { cur.msgs[0].content = [{ type: 'input_text', text: p.text }]; } else { cur.msgs.unshift({ role: 'developer', content: [{ type: 'input_text', text: p.text }] }); } chatHistory = cur.msgs; }
-        await saveAll(true);
-        const sess = { id: _embedSessionId || 'embed', profileLabel: profileLabel, chatId: chatId, bubbleConfig: BUBBLE_CONFIGS.find(b => b.profileLabel === profileLabel) || null };
-        try { renderFchatHeader(sess); } catch(e){} try { _updateFchatContextLabel(); } catch(e){} try { await refreshUI(); } catch(e){} try { renderChatHistory(); } catch(e){}
-        notify('Switched to ' + profileLabel, '#007aff', 1500); return;
-    }
+function changeFchatProfile(profileLabel) {
     if (_fchatActiveId === null) return;
     const session = _fchatSessions.find(s => s.id === _fchatActiveId); if (!session) return;
-    session.profileLabel = profileLabel; activeProfileLabel = profileLabel;
+    session.profileLabel = profileLabel;
+    activeProfileLabel = profileLabel;
     const matchingBc = BUBBLE_CONFIGS.find(bc => bc.profileLabel === profileLabel);
     if (matchingBc) { session.bubbleConfig = matchingBc; } else { session.bubbleConfig = Object.assign({}, session.bubbleConfig || {}, { profileLabel: profileLabel, emoji: '🤖', label: profileLabel }); }
-    if (chatHistory.length > 0 && chatHistory[0].role === 'developer') { chatHistory[0].content = [{ type: 'input_text', text: p.text }]; } else { chatHistory.unshift({ role: 'developer', content: [{ type: 'input_text', text: p.text }] }); }
-    renderFchatHeader(session); renderFchatBubbles(); refreshUI();
+    const p = AI_PROFILES.find(x => x.label === profileLabel);
+    if (p) {
+        if (chatHistory.length > 0 && chatHistory[0].role === 'developer') {
+            chatHistory[0].content = [{ type: 'input_text', text: p.text }];
+        } else {
+            chatHistory.unshift({ role: 'developer', content: [{ type: 'input_text', text: p.text }] });
+        }
+    }
+    renderFchatHeader(session);
+    renderFchatBubbles();
+    refreshUI();
     notify('Switched to ' + profileLabel, '#007aff', 1500);
 }
 
@@ -5221,24 +5081,6 @@ function hideHomeScreen() {
     const vp = document.getElementById('vars-slide-panel'); if(vp && vp.classList.contains('open')) renderSessionVariables();
 }
 
-function _hsToggleWorkspace() {
-    const wp = document.getElementById('workspace-panel');
-    if (!wp) return;
-    const isOpen = wp.dataset.hsOpen === '1';
-    if (isOpen) {
-        wp.dataset.hsOpen = '0';
-        wp.style.left = '';
-        wp.style.zIndex = '';
-        wp.classList.remove('open');
-    } else {
-        ['vars-slide-panel','ctx-slide-panel','tpl-slide-panel'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('open'); });
-        wp.dataset.hsOpen = '1';
-        wp.style.zIndex = '9900';
-        wp.style.left = '0px';
-        wp.classList.add('open');
-        try { renderWorkspaceLists(); } catch(e) {}
-    }
-}
 function _hsApplyCardOrder() {
     const order = CONFIG.hs_card_order;
     if (!order || !Array.isArray(order) || order.length < 2) return;
@@ -5415,111 +5257,48 @@ function profileBubbleTap(e) {
     openBubblePicker();
 }
 
-let _fchatMiniWinPos = {};
-try { _fchatMiniWinPos = JSON.parse(localStorage.getItem('_fcMiniWinPos') || '{}'); } catch(e) { _fchatMiniWinPos = {}; }
-function _saveMiniWinPositions() { try { localStorage.setItem('_fcMiniWinPos', JSON.stringify(_fchatMiniWinPos)); } catch(e){} }
-function _escSnap(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-function _renderSessionSnapshot(s) {
-    const profH = chatHistories[s.profileLabel] || {};
-    const chat = (profH.list || []).find(c => String(c.id) === String(s.chatId));
-    if (!chat || !Array.isArray(chat.msgs) || !chat.msgs.length) return '<div style="opacity:0.55; padding:14px 4px; text-align:center;">New chat — click to open</div>';
-    const msgs = chat.msgs.filter(m => m.role !== 'developer' && m.role !== 'system').slice(-6);
-    if (!msgs.length) return '<div style="opacity:0.55; padding:14px 4px; text-align:center;">No messages yet</div>';
-    return msgs.map(m => {
-        let text = '';
-        if (typeof m.content === 'string') text = m.content;
-        else if (Array.isArray(m.content)) text = m.content.map(c => c.text || c.input_text || '').join(' ');
-        text = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        if (text.length > 220) text = text.slice(0, 220) + '…';
-        const cls = m.role === 'user' ? 'snap-user' : 'snap-ai';
-        return '<div class="snap-msg ' + cls + '">' + _escSnap(text) + '</div>';
-    }).join('');
-}
-function _defaultMiniWinPos(i) { const W = window.innerWidth, H = window.innerHeight; const w = Math.min(520, Math.max(360, Math.floor(W * 0.42))); const h = Math.min(680, Math.max(440, Math.floor(H * 0.78))); const cols = Math.max(1, Math.floor((W - 20) / (w + 12))); const col = i % cols; const row = Math.floor(i / cols); return { x: 12 + col * (w + 12), y: Math.max(12, H - 80 - h - row * (h + 12)), w: w, h: h }; }
-let _fchatTopZ = 9150;
-function _fchatBringToFront(el) { _fchatTopZ += 1; el.style.zIndex = String(_fchatTopZ); }
-function _fchatMiniInitDrag(div, sessionId) {
-    const header = div.querySelector('.fchat-mini-header'); if (!header) return;
-    let sx = 0, sy = 0, sl = 0, st = 0, active = false, moved = false;
-    const onDown = e => { if (e.target.closest('.fchat-mini-btn')) return; const t = e.touches && e.touches[0]; sx = t ? t.clientX : e.clientX; sy = t ? t.clientY : e.clientY; sl = parseInt(div.style.left) || 0; st = parseInt(div.style.top) || 0; active = true; moved = false; };
-    const onMove = e => { if (!active) return; const t = e.touches && e.touches[0]; const cx = t ? t.clientX : e.clientX; const cy = t ? t.clientY : e.clientY; if (!moved && Math.abs(cx - sx) < 5 && Math.abs(cy - sy) < 5) return; moved = true; const W = window.innerWidth, H = window.innerHeight; const nl = Math.min(Math.max(sl + (cx - sx), 0), W - div.offsetWidth); const nt = Math.min(Math.max(st + (cy - sy), 0), H - 40); div.style.left = nl + 'px'; div.style.top = nt + 'px'; e.preventDefault(); };
-    const onUp = () => { if (!active) return; active = false; if (moved) { _fchatMiniWinPos[sessionId] = Object.assign({}, _fchatMiniWinPos[sessionId] || {}, { x: parseInt(div.style.left) || 0, y: parseInt(div.style.top) || 0, w: div.offsetWidth, h: div.offsetHeight }); _saveMiniWinPositions(); div._suppressClick = true; setTimeout(() => { div._suppressClick = false; }, 300); } };
-    header.addEventListener('mousedown', onDown);
-    header.addEventListener('touchstart', onDown, { passive: true });
-    document.addEventListener('mousemove', onMove, { passive: false });
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('mouseup', onUp);
-    document.addEventListener('touchend', onUp);
-}
-function _fchatMiniInitResize(div, sessionId) {
-    const rh = div.querySelector('.fchat-mini-resize'); if (!rh) return;
-    let sx = 0, sy = 0, sw = 0, sh = 0, active = false;
-    const onDown = e => { active = true; const t = e.touches && e.touches[0]; sx = t ? t.clientX : e.clientX; sy = t ? t.clientY : e.clientY; sw = div.offsetWidth; sh = div.offsetHeight; e.preventDefault(); e.stopPropagation(); };
-    const onMove = e => { if (!active) return; const t = e.touches && e.touches[0]; const cx = t ? t.clientX : e.clientX; const cy = t ? t.clientY : e.clientY; const W = window.innerWidth, H = window.innerHeight; const nl = parseInt(div.style.left) || 0; const nt = parseInt(div.style.top) || 0; div.style.width = Math.min(Math.max(sw + (cx - sx), 220), W - nl - 8) + 'px'; div.style.height = Math.min(Math.max(sh + (cy - sy), 140), H - nt - 8) + 'px'; e.preventDefault(); };
-    const onUp = () => { if (!active) return; active = false; _fchatMiniWinPos[sessionId] = { x: parseInt(div.style.left) || 0, y: parseInt(div.style.top) || 0, w: div.offsetWidth, h: div.offsetHeight }; _saveMiniWinPositions(); };
-    rh.addEventListener('mousedown', onDown);
-    rh.addEventListener('touchstart', onDown, { passive: false });
-    document.addEventListener('mousemove', onMove, { passive: false });
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('mouseup', onUp);
-    document.addEventListener('touchend', onUp);
-}
 function renderFchatBubbles() {
-    const wantedIds = new Set(_fchatSessions.map(s => s.id));
-    document.querySelectorAll('.fchat-bubble,.fchat-mini-win').forEach(el => {
-        const id = el.id.replace(/^fchat-(bubble|mini)-/, '');
-        if (!wantedIds.has(id)) { el.remove(); }
-    });
-    _fchatSessions.forEach((s, i) => {
-        const isMin = !!((_fchatMiniWinPos[s.id] || {}).minimized);
-        const bc2 = s.bubbleConfig || BUBBLE_CONFIGS.find(b => b.profileLabel === s.profileLabel) || {};
-        const emoji2 = bc2.emoji || '🤖';
-        let label2 = s.profileLabel || '';
-        if (s.chatId && chatHistories) { const profH = chatHistories[s.profileLabel] || {}; const chat = (profH.list || []).find(c => String(c.id) === String(s.chatId)); if (chat && chat.var_id && GLOBAL_DATASETS[chat.var_id] && GLOBAL_DATASETS[chat.var_id].title) { label2 = GLOBAL_DATASETS[chat.var_id].title; } else if (chat && chat.title) { label2 = chat.title; } }
-        const existing = document.getElementById('fchat-mini-' + s.id);
-        if (existing) {
-            existing.classList.toggle('fchat-mini-minimized', isMin);
-            const titleEl = existing.querySelector('.fchat-mini-title');
-            if (titleEl && titleEl.textContent !== label2) titleEl.textContent = label2;
-            const emojiEl = existing.querySelector('.fchat-mini-emoji');
-            if (emojiEl && emojiEl.textContent !== emoji2) emojiEl.textContent = emoji2;
-            return;
-        }
-        const pos = _fchatMiniWinPos[s.id] && typeof _fchatMiniWinPos[s.id].x === 'number' ? _fchatMiniWinPos[s.id] : _defaultMiniWinPos(i);
-        if (!_fchatMiniWinPos[s.id]) { _fchatMiniWinPos[s.id] = pos; _saveMiniWinPositions(); }
+    document.querySelectorAll('.fchat-bubble').forEach(b => b.remove());
+    const minimized = _fchatSessions.filter(s => s.id !== _fchatActiveId);
+    minimized.forEach((s, i) => {
+        const bc = s.bubbleConfig || BUBBLE_CONFIGS.find(b => b.profileLabel === s.profileLabel) || {};
+        const emoji = bc.emoji || '🤖';
+        let label = s.profileLabel || '';
+        if (s.chatId && chatHistories) { const profH = chatHistories[s.profileLabel] || {}; const chat = (profH.list || []).find(c => String(c.id) === String(s.chatId)); if (chat && chat.var_id && GLOBAL_DATASETS[chat.var_id] && GLOBAL_DATASETS[chat.var_id].title) { label = GLOBAL_DATASETS[chat.var_id].title; } }
         const div = document.createElement('div');
-        div.className = 'fchat-mini-win' + (isMin ? ' fchat-mini-minimized' : '');
-        div.id = 'fchat-mini-' + s.id;
-        div.style.left = pos.x + 'px'; div.style.top = pos.y + 'px';
-        div.style.width = (pos.w || 320) + 'px'; div.style.height = (pos.h || 240) + 'px';
-        const iframeSrc = '?fcwin=1' + (s.profileLabel ? '&p=' + encodeURIComponent(s.profileLabel) : '') + (s.chatId ? '&c=' + encodeURIComponent(s.chatId) : '') + '&sid=' + encodeURIComponent(s.id);
-        div.innerHTML = `<div class="fchat-mini-header"><span class="fchat-mini-emoji">${emoji2}</span><span class="fchat-mini-title">${_escSnap(label2)}</span><span class="fchat-mini-btn fchat-mini-focus" title="Maximize">⤢</span><span class="fchat-mini-btn fchat-mini-min" title="Minimize">━</span><span class="fchat-mini-btn fchat-mini-close" title="Close">✕</span></div><div class="fchat-mini-body is-iframe"><div class="fchat-mini-loading">Loading chat…</div></div><div class="fchat-mini-resize">⌟</div>`;
-        div.querySelector('.fchat-mini-close').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
-        div.querySelector('.fchat-mini-min').onclick = (e) => { e.stopPropagation(); _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: true }); _saveMiniWinPositions(); renderFchatBubbles(); };
-        div.querySelector('.fchat-mini-focus').onclick = async (e) => { e.stopPropagation(); try { await saveAll(true); } catch(_e){} fchatMaximize(s.id); };
-        div.addEventListener('click', (e) => { if (!div.classList.contains('fchat-mini-minimized')) return; if (e.target.closest('.fchat-mini-close')) return; if (div._suppressClick) return; _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: false }); _saveMiniWinPositions(); renderFchatBubbles(); });
-        const _bodyEl = div.querySelector('.fchat-mini-body');
-        const _iframeEl = document.createElement('iframe');
-        _iframeEl.className = 'fchat-mini-iframe';
-        _iframeEl.src = iframeSrc;
-        _iframeEl.setAttribute('loading', 'lazy');
-        _iframeEl.onload = () => { const ld = _bodyEl.querySelector('.fchat-mini-loading'); if (ld) ld.remove(); };
-        _bodyEl.appendChild(_iframeEl);
-        _fchatMiniInitDrag(div, s.id);
-        _fchatMiniInitResize(div, s.id);
-        div.addEventListener('mousedown', () => _fchatBringToFront(div), true);
-        div.addEventListener('touchstart', () => _fchatBringToFront(div), { passive: true, capture: true });
+        div.className = 'fchat-bubble';
+        div.id = 'fchat-bubble-' + s.id;
+        div.style.position = 'fixed';
+        div.style.zIndex = '8900';
+        div.innerHTML = `<span style="pointer-events:none; font-size:22px; line-height:1;">${emoji}</span><div class="fchat-bubble-actions"><div class="fchat-bubble-action-btn" title="Close">✕</div></div><div class="fchat-bubble-label">${label}</div>`;
+        const pos = _fchatBubblePositions[s.id];
+        if (pos) { div.style.left = pos.x + 'px'; div.style.top = pos.y + 'px'; }
+        else { const bx = Math.max(8, window.innerWidth / 2 - 26 + (i - Math.floor(minimized.length / 2)) * 64); const by = window.innerHeight - 96; div.style.left = bx + 'px'; div.style.top = by + 'px'; _fchatBubblePositions[s.id] = { x: bx, y: by }; }
+        div.querySelector('.fchat-bubble-action-btn').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
+        div.onclick = () => fchatMaximize(s.id);
+        _makeBubbleDraggable(div, s.id);
         document.body.appendChild(div);
-        _fchatBringToFront(div);
     });
 }
 
-function _newFloatingChatId() { return 'fc' + Date.now() + Math.floor(Math.random()*1000); }
 function createFchatSession(profileLabel, bubbleConfig) {
-    const session = { id: Date.now().toString(), profileLabel: profileLabel || activeProfileLabel, chatId: _newFloatingChatId(), bubbleConfig: bubbleConfig || null, atTarget: null };
+    if (_fchatActiveId !== null) {
+        const cur = _fchatSessions.find(s => s.id === _fchatActiveId);
+        if (cur) cur.chatId = getSessions().current;
+        _fchatActiveId = null;
+        const el = document.getElementById('floating-chat');
+        const wrapper = document.getElementById('main-chat-wrapper');
+        const ref = document.getElementById('master-modal');
+        if (wrapper && ref && ref.parentNode) ref.parentNode.insertBefore(wrapper, ref); else if (wrapper) document.body.appendChild(wrapper);
+        if (wrapper) wrapper.style.display = '';
+        if (el) el.style.display = 'none';
+    }
+    const session = { id: Date.now().toString(), profileLabel: profileLabel || activeProfileLabel, chatId: null, bubbleConfig: bubbleConfig || null, atTarget: null };
     if (_atMentionTargetEl) { session.atTarget = { el: _atMentionTargetEl, isTA: _atMentionIsTextArea, label: _atMentionTargetLabel }; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; }
     _fchatSessions.push(session);
+    _fchatActiveId = session.id;
     renderFchatBubbles();
+    _openFchatPanel(session);
 }
 
 function _openFchatPanel(session) {
@@ -5546,11 +5325,22 @@ function _openFchatPanel(session) {
 
 function fchatMaximize(sessionId) {
     const session = _fchatSessions.find(s => s.id === sessionId); if (!session) return;
-    if (_fchatMiniWinPos[sessionId] && _fchatMiniWinPos[sessionId].minimized) { _fchatMiniWinPos[sessionId] = Object.assign({}, _fchatMiniWinPos[sessionId], { minimized: false }); _saveMiniWinPositions(); renderFchatBubbles(); }
-    const winEl = document.getElementById('fchat-mini-' + sessionId);
-    if (!winEl) return;
-    document.querySelectorAll('.fchat-mini-win.fchat-mini-fullscreen').forEach(el => { if (el !== winEl) el.classList.remove('fchat-mini-fullscreen'); });
-    winEl.classList.toggle('fchat-mini-fullscreen');
+    if (_fchatActiveId !== null && _fchatActiveId !== sessionId) {
+        const cur = _fchatSessions.find(s => s.id === _fchatActiveId);
+        if (cur) cur.chatId = getSessions().current;
+        const el2 = document.getElementById('floating-chat');
+        const wr2 = document.getElementById('main-chat-wrapper');
+        const ref = document.getElementById('master-modal');
+        if (wr2 && ref && ref.parentNode) ref.parentNode.insertBefore(wr2, ref); else if (wr2) document.body.appendChild(wr2);
+        if (wr2) wr2.style.display = '';
+        if (el2) el2.style.display = 'none';
+        _fchatActiveId = null;
+    }
+    const bubbleEl = document.getElementById('fchat-bubble-' + sessionId);
+    if (bubbleEl) bubbleEl.remove();
+    _fchatActiveId = sessionId;
+    renderFchatBubbles();
+    _openFchatPanel(session);
 }
 
 function fchatCloseBubble(sessionId) {
@@ -6163,7 +5953,6 @@ function _showAtMentionPicker(el, draft, isTextArea) {
 }
 function _closeAtMention(keepAt) { _atMentionActive = false; if(keepAt) { _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; } const m = document.getElementById('_at-mention-menu'); if(m) m.remove(); if(!keepAt) setTimeout(_updateAtMentionIndicator, 300); }
 _initAtMention();
-window.addEventListener('message', (ev) => { if(!ev.data||ev.data.type!=='fchat-stream') return; const _mSess=_fchatSessions.find(s=>s.id===ev.data.sid); if(!_mSess||!_mSess.atTarget||!_mSess.atTarget.el) return; const _mAt=_mSess.atTarget; try { _writeToTargetPreserveSig(_mAt.el, _mAt.isTA ? ev.data.text : marked.parse(ev.data.text), _mAt.isTA); } catch(_me){} });
 
 function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!lk) return; insertAtCursor(`**${lk.title}**\n${lk.url}`,true,false); notify('Link inserted!','#34c759',1500); }
@@ -6287,7 +6076,7 @@ function _linkifyHtml(html) {
             <button id="hs-col-btn-3" onclick="saveHsColumns(3)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">3</button>
         </div>
         <div onclick="openModal('master-modal')" style="font-size:20px; cursor:pointer; opacity:0.55; padding:4px 4px;" title="Settings">⚙️</div>
-        <div onclick="_hsToggleWorkspace()" style="font-size:16px; cursor:pointer; padding:5px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Open Workspace">🗂️</div>
+        <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="font-size:16px; cursor:pointer; padding:5px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Open Workspace">🗂️</div>
     </div>
     <div id="hs-body">
         <div id="hs-cards-wrap" style="margin-top:8px;">
@@ -6407,9 +6196,9 @@ function _linkifyHtml(html) {
             </div>
             <div id="fchat-context-label" style="font-size:10px; color:#888; white-space:nowrap; flex-shrink:0; margin-left:5px;">No context</div>
             <div style="flex:1;"></div>
-            <div data-embed-hide onclick="goHomeFromFloatingChat(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0;" title="Minimize">🏠</div>
+            <div onclick="goHomeFromFloatingChat(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0;" title="Minimize">🏠</div>
             <div id="fc-win-toggle-btn" onclick="_fcToggleWindowed()" title="Toggle window mode">⛶</div>
-            <div data-embed-hide onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0;" title="Close">✕</div>
+            <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0;" title="Close">✕</div>
         </div>
         <div id="fchat-header-row2">
             <div class="fchat-ctx-btn" onclick="closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI();" style="margin-right:2px; color:var(--text); background:rgba(128,128,128,0.12); border-color:rgba(128,128,128,0.2);">📋 Context</div>
@@ -6591,8 +6380,7 @@ let NOTES = [];
 function _loadNotes() { try { NOTES = JSON.parse(localStorage.getItem('app_notes') || '[]'); } catch(e) { NOTES = []; } }
 function _saveNotes() { try { localStorage.setItem('app_notes', JSON.stringify(NOTES)); } catch(e) {} triggerAutoSync(); }
 
-function _hsRenderNotes() { _loadNotes(); const el = document.getElementById('hs-notes-body'); if (!el) return; if (!NOTES.length) { el.innerHTML = '<div style="text-align:center;color:#888;font-size:12px;padding:24px 0;">No notes yet — tap + Add or save a chat response with ☆</div>'; return; } el.innerHTML = [...NOTES].sort((a,b)=>b.id-a.id).map(n => { const isFav = n.type === 'favorite'; const preview = (n.content || '').replace(/#+\s/g,'').replace(/\*+/g,'').replace(/`/g,'').slice(0, 80); const dateStr = new Date(n.id).toLocaleDateString([], {month:'short', day:'numeric'}); const jumpHtml = isFav && n.chatId ? '<div class="note-jump-btn" onclick="event.stopPropagation();_noteJumpToChat(\'' + n.profileLabel + '\',\'' + n.chatId + '\',' + n.msgIdx + ')" title="Jump to chat">💬</div>' : ''; const delHtml = '<div onclick="event.stopPropagation();_deleteNoteById(' + n.id + ')" title="Delete" style="flex-shrink:0;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,59,48,0.1);color:#ff3b30;font-size:16px;font-weight:700;cursor:pointer;margin-left:4px;">×</div>'; return '<div class="note-item" onclick="openNoteById(' + n.id + ')"><div class="note-item-body"><div class="note-item-title"><span style="font-size:12px;">' + (isFav ? '⭐' : '📝') + '</span><span class="note-item-name">' + _ehNotes(n.title || 'Untitled') + '</span><span class="note-item-date">' + dateStr + '</span></div><div class="note-item-preview">' + (_ehNotes(preview) || 'No content') + '</div></div>' + jumpHtml + delHtml + '</div>'; }).join(''); }
-function _deleteNoteById(id) { openConfirm('Delete this note?', () => { NOTES = NOTES.filter(x => x.id !== id); _saveNotes(); _hsRenderNotes(); notify('Deleted', '#888', 1200); }); }
+function _hsRenderNotes() { const el = document.getElementById('hs-notes-body'); if (!el) return; if (!NOTES.length) { el.innerHTML = '<div style="text-align:center;color:#888;font-size:12px;padding:24px 0;">No notes yet — tap + Add or save a chat response with ☆</div>'; return; } el.innerHTML = [...NOTES].sort((a,b)=>b.id-a.id).map(n => { const isFav = n.type === 'favorite'; const preview = (n.content || '').replace(/#+\s/g,'').replace(/\*+/g,'').replace(/`/g,'').slice(0, 80); const dateStr = new Date(n.id).toLocaleDateString([], {month:'short', day:'numeric'}); const jumpBtn = isFav && n.chatId ? `<div class="note-jump-btn" onclick="event.stopPropagation();_noteJumpToChat('${n.profileLabel}','${n.chatId}',${n.msgIdx})" title="Jump to chat">💬</div>` : ''; return `<div class="note-item" onclick="openNoteById(${n.id})"><div class="note-item-body"><div class="note-item-title"><span style="font-size:12px;">${isFav ? '⭐' : '📝'}</span><span class="note-item-name">${_ehNotes(n.title || 'Untitled')}</span><span class="note-item-date">${dateStr}</span></div><div class="note-item-preview">${_ehNotes(preview) || 'No content'}</div></div>${jumpBtn}</div>`; }).join(''); }
 
 function _ehNotes(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -6601,7 +6389,7 @@ let _noteEditMode = true;
 
 function _noteSetDateLabel(n) { const dateStr = n ? new Date(n.id).toLocaleDateString([], {weekday:'long', year:'numeric', month:'long', day:'numeric'}) : ''; const el = document.getElementById('notes-modal-date-label'); const elR = document.getElementById('notes-modal-date-label-read'); if (el) el.textContent = dateStr; if (elR) elR.textContent = dateStr; }
 function _noteAutoSave() { if (!_currentNoteId) return; const n = NOTES.find(x => x.id === _currentNoteId); if (!n) return; n.title = document.getElementById('notes-modal-title').value.trim() || 'Untitled'; n.content = document.getElementById('notes-modal-content').value; _saveNotes(); _hsRenderNotes(); }
-function openNoteById(id) { const n = NOTES.find(x => x.id === id); if (!n) return; _currentNoteId = id; _noteEditMode = true; document.getElementById('notes-modal-title').value = n.title || ''; document.getElementById('notes-modal-content').value = n.content || ''; document.getElementById('notes-modal-edit').style.display = 'flex'; document.getElementById('notes-modal-read').style.display = 'none'; document.getElementById('notes-modal-toggle').textContent = 'Preview'; const delBtn = document.getElementById('notes-modal-delete'); if (delBtn) delBtn.style.display = ''; _noteSetDateLabel(n); openModal('notes-modal'); setTimeout(() => document.getElementById('notes-modal-content').focus(), 200); }
+function openNoteById(id) { const n = NOTES.find(x => x.id === id); if (!n) return; _currentNoteId = id; _noteEditMode = true; document.getElementById('notes-modal-title').value = n.title || ''; document.getElementById('notes-modal-content').value = n.content || ''; document.getElementById('notes-modal-edit').style.display = 'flex'; document.getElementById('notes-modal-read').style.display = 'none'; document.getElementById('notes-modal-toggle').textContent = 'Preview'; const delBtn = document.getElementById('notes-modal-delete'); if (delBtn) delBtn.style.display = n.type === 'favorite' ? 'none' : ''; _noteSetDateLabel(n); openModal('notes-modal'); setTimeout(() => document.getElementById('notes-modal-content').focus(), 200); }
 
 function _hsAddNote() { const id = Date.now(); NOTES.push({ id, type: 'note', title: '', content: '', createdAt: id }); _saveNotes(); _currentNoteId = id; _noteEditMode = true; document.getElementById('notes-modal-title').value = ''; document.getElementById('notes-modal-content').value = ''; document.getElementById('notes-modal-edit').style.display = 'flex'; document.getElementById('notes-modal-read').style.display = 'none'; document.getElementById('notes-modal-toggle').textContent = 'Preview'; const delBtn = document.getElementById('notes-modal-delete'); if (delBtn) delBtn.style.display = ''; _noteSetDateLabel({id}); openModal('notes-modal'); setTimeout(() => document.getElementById('notes-modal-title').focus(), 200); }
 
