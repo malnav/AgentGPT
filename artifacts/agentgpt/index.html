@@ -5003,7 +5003,7 @@ function _makeBubbleDraggable(el, sessionId) {
         el.style.left = Math.max(0, Math.min(eX + dx, window.innerWidth - 56)) + 'px';
         el.style.top = Math.max(0, Math.min(eY + dy, window.innerHeight - 56)) + 'px';
     };
-    const onEnd = () => { if (moved) { _fchatBubblePositions[sessionId] = { x: parseInt(el.style.left), y: parseInt(el.style.top) }; el.addEventListener('click', e => e.stopPropagation(), { once: true }); } };
+    const onEnd = () => { if (moved) { _fchatBubblePositions[sessionId] = { x: parseInt(el.style.left), y: parseInt(el.style.top) }; el._fcBubbleDragged = true; setTimeout(() => { el._fcBubbleDragged = false; }, 350); } };
     el.addEventListener('touchstart', e => { onStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
     el.addEventListener('touchmove', e => { onMove(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, { passive: false });
     el.addEventListener('touchend', () => onEnd());
@@ -5275,7 +5275,7 @@ function renderFchatBubbles() {
         if (pos) { div.style.left = pos.x + 'px'; div.style.top = pos.y + 'px'; }
         else { const bx = Math.max(8, window.innerWidth / 2 - 26 + (i - Math.floor(minimized.length / 2)) * 64); const by = window.innerHeight - 96; div.style.left = bx + 'px'; div.style.top = by + 'px'; _fchatBubblePositions[s.id] = { x: bx, y: by }; }
         div.querySelector('.fchat-bubble-action-btn').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
-        div.onclick = () => fchatMaximize(s.id);
+        div.onclick = () => { if (!div._fcBubbleDragged) fchatMaximize(s.id); };
         _makeBubbleDraggable(div, s.id);
         document.body.appendChild(div);
     });
