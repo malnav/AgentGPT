@@ -1977,11 +1977,16 @@ async function init() {
         CONFIG.home_screen = false;
         if (_embedProfile && AI_PROFILES.find(p => p.label === _embedProfile)) { activeProfileLabel = _embedProfile; }
         if (_embedChatId) {
+            let _eFoundChat = null; let _eFoundProf = activeProfileLabel;
+            const _eSearch = (histories) => { for (const [prof, pData] of Object.entries(histories||{})) { if (!pData||!pData.list) continue; const c=pData.list.find(c=>String(c.id)===String(_embedChatId)); if(c){return {chat:c,prof};} } return null; };
+            let _eRes = _eSearch(chatHistories);
+            if (_eRes) { _eFoundChat=_eRes.chat; _eFoundProf=_eRes.prof; }
+            if (!_eFoundChat) { try { if(window.parent!==window){const _pr=_eSearch(window.parent.chatHistories);if(_pr){_eFoundChat=JSON.parse(JSON.stringify(_pr.chat));_eFoundProf=_pr.prof;}} } catch(_pe){} }
+            if (_eFoundProf && _eFoundProf !== activeProfileLabel && AI_PROFILES.find(p=>p.label===_eFoundProf)) { activeProfileLabel = _eFoundProf; }
             let sData = chatHistories[activeProfileLabel];
-            if (!sData || !sData.list) { sData = { current: _embedChatId, list: [] }; chatHistories[activeProfileLabel] = sData; }
-            let chat = sData.list.find(c => String(c.id) === String(_embedChatId));
-            if (!chat) { try { if (window.parent !== window) { const _ph = window.parent.chatHistories; if (_ph && _ph[activeProfileLabel]) { const _pc = (_ph[activeProfileLabel].list||[]).find(c=>String(c.id)===String(_embedChatId)); if (_pc) { chat = JSON.parse(JSON.stringify(_pc)); sData.list.push(chat); } } } } catch(_pe){} }
-            if (!chat) { chat = { id: _embedChatId, title: 'New Chat', msgs: [], var_id: _embedChatId }; sData.list.push(chat); }
+            if (!sData||!sData.list) { sData={current:_embedChatId,list:[]}; chatHistories[activeProfileLabel]=sData; }
+            if (_eFoundChat && !sData.list.find(c=>String(c.id)===String(_embedChatId))) { sData.list.push(_eFoundChat); }
+            if (!sData.list.find(c=>String(c.id)===String(_embedChatId))) { sData.list.push({id:_embedChatId,title:'New Chat',msgs:[],var_id:_embedChatId}); }
             sData.current = _embedChatId;
         }
         const _emWrap = document.getElementById('main-chat-wrapper'); const _emPanel = document.getElementById('floating-chat');
@@ -1995,9 +2000,8 @@ async function init() {
     await autoCleanupEmptyChats();
     if (_isEmbedded && _embedChatId) {
         const _esD = getSessions(); const _eC = _esD.list.find(c => String(c.id) === String(_embedChatId));
-        console.log('[EMBED INIT]', { profile: activeProfileLabel, embedChatId: _embedChatId, profileExists: !!chatHistories[activeProfileLabel], chatList: (chatHistories[activeProfileLabel]||{}).list ? chatHistories[activeProfileLabel].list.map(c=>({id:c.id,msgCount:(c.msgs||[]).length})) : null, foundChat: !!_eC, foundMsgs: _eC ? _eC.msgs.length : 0 });
         if (_eC) { _esD.current = _embedChatId; chatHistories[activeProfileLabel] = _esD; chatHistory = _eC.msgs || []; const _ep = AI_PROFILES.find(x => x.label === activeProfileLabel) || AI_PROFILES[0]; if (_ep && (!chatHistory.length || chatHistory[0].role !== 'developer')) { chatHistory.unshift({ role: 'developer', content: [{ type: 'input_text', text: _ep.text }] }); } _eC.msgs = chatHistory; }
-        await refreshUI(); renderChatHistory(); console.log('[EMBED INIT] rendered, chatHistory.length=', chatHistory.length, 'container children=', document.getElementById('chat-container').children.length); requestAnimationFrame(() => { try { scrollToLastRequest(true); } catch(_se){} });
+        await refreshUI(); renderChatHistory(); requestAnimationFrame(() => { try { scrollToLastRequest(true); } catch(_se){} });
     } else { await switchProfileSession(activeProfileLabel); await refreshUI(); }
     if (CONFIG.home_screen) showHomeScreen(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
     if (!_isEmbedded) startRealtimeSync();
