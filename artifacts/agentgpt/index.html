@@ -1969,11 +1969,7 @@ window.addEventListener('message', function(e) {
             if (sess && sess.atTarget && sess.atTarget.el && document.contains(sess.atTarget.el)) {
                 try { _writeToTargetPreserveSig(sess.atTarget.el, sess.atTarget.isTA ? (msg.text||'') : (msg.html || marked.parse(msg.text||'')), sess.atTarget.isTA); if (sess.atTarget.isTA) sess.atTarget.el.scrollTop = sess.atTarget.el.scrollHeight; } catch(_e){}
             }
-        } else if (msg.type === 'fchat-stream' && msg.sessionId) {
-            const _bgIfr = document.getElementById('fchat-bg-' + msg.sessionId);
-            if (_bgIfr && msg.isFinal) { setTimeout(() => { try { _bgIfr.remove(); } catch(_e){} }, 300); }
-        }
-        if (msg.type === 'fchat-iframe-ready') {
+        } else if (msg.type === 'fchat-iframe-ready') {
             const sess = (typeof _fchatSessions !== 'undefined' ? _fchatSessions : []).find(s => String(s.id) === String(msg.sessionId));
             if (sess && sess.pendingSend) { const txt = sess.pendingSend; sess.pendingSend = null; const ifr = document.querySelector('#fchat-mini-' + sess.id + ' iframe') || document.getElementById('fchat-bg-' + sess.id); if (ifr && ifr.contentWindow) { try { ifr.contentWindow.postMessage({ type: 'fchat-send-text', text: txt }, '*'); } catch(_e){} } }
         }
@@ -5486,12 +5482,12 @@ function renderFchatBubbles() {
     const wantedIds = new Set(minimized.map(s => s.id));
     document.querySelectorAll('.fchat-bubble-row,.fchat-mini-win').forEach(el => {
         const id = el.id.replace(/^fchat-(bubble|mini)-/, '');
-        if (!wantedIds.has(id)) { el.remove(); return; }
+        if (!wantedIds.has(id)) { if (el.classList.contains('fchat-mini-win')) _fchatDetachIframeToBg(id); el.remove(); return; }
         const s = minimized.find(x => x.id === id);
         const isBubble = _fchatMiniWinPos[s.id] && _fchatMiniWinPos[s.id].minimized;
         const wantsBubble = !!isBubble;
         const isCurBubble = el.classList.contains('fchat-bubble-row');
-        if (wantsBubble !== isCurBubble) el.remove();
+        if (wantsBubble !== isCurBubble) { if (el.classList.contains('fchat-mini-win')) _fchatDetachIframeToBg(id); el.remove(); }
     });
     minimized.forEach((s, i) => {
         const existing = document.getElementById('fchat-mini-' + s.id) || document.getElementById('fchat-bubble-' + s.id);
@@ -5542,18 +5538,15 @@ function renderFchatBubbles() {
             div.style.top = pos.y + 'px';
             div.style.width = (pos.w || 320) + 'px';
             div.style.height = (pos.h || 240) + 'px';
-            const iframeSrc = '?fcwin=1' + (s.profileLabel ? '&p=' + encodeURIComponent(s.profileLabel) : '') + (s.chatId ? '&c=' + encodeURIComponent(s.chatId) : '') + '&sid=' + encodeURIComponent(s.id);
             div.innerHTML = `<div class="fchat-mini-header"><span class="fchat-mini-emoji">${emoji}</span><span class="fchat-mini-title">${_escSnap(label)}</span><span class="fchat-mini-btn fchat-mini-focus" title="Maximize">⤢</span><span class="fchat-mini-btn fchat-mini-min" title="Minimize">━</span><span class="fchat-mini-btn fchat-mini-close" title="Close">✕</span></div><div class="fchat-mini-body is-iframe"><div class="fchat-mini-loading">Loading chat…</div></div><div class="fchat-mini-resize">⌟</div>`;
             div.querySelector('.fchat-mini-close').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
             div.querySelector('.fchat-mini-min').onclick = (e) => { e.stopPropagation(); _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: true }); _saveMiniWinPositions(); renderFchatBubbles(); };
             div.querySelector('.fchat-mini-focus').onclick = async (e) => { e.stopPropagation(); try { await saveAll(true); } catch(_e){} fchatMaximize(s.id); };
             const _bodyEl = div.querySelector('.fchat-mini-body');
-            const _iframeEl = document.createElement('iframe');
-            _iframeEl.className = 'fchat-mini-iframe';
-            _iframeEl.src = iframeSrc;
-            _iframeEl.setAttribute('loading', 'lazy');
-            _iframeEl.onload = () => { const ld = _bodyEl.querySelector('.fchat-mini-loading'); if (ld) ld.remove(); };
-            _bodyEl.appendChild(_iframeEl);
+            const _existingIfr = document.getElementById('fchat-bg-' + s.id);
+            let _iframeEl;
+            if (_existingIfr) { _iframeEl = _existingIfr; _iframeEl.style.cssText = ''; _iframeEl.className = 'fchat-mini-iframe'; _iframeEl.removeAttribute('aria-hidden'); _bodyEl.appendChild(_iframeEl); const ld = _bodyEl.querySelector('.fchat-mini-loading'); if (ld) ld.remove(); }
+            else { const iframeSrc = '?fcwin=1' + (s.profileLabel ? '&p=' + encodeURIComponent(s.profileLabel) : '') + (s.chatId ? '&c=' + encodeURIComponent(s.chatId) : '') + '&sid=' + encodeURIComponent(s.id); _iframeEl = document.createElement('iframe'); _iframeEl.id = 'fchat-bg-' + s.id; _iframeEl.className = 'fchat-mini-iframe'; _iframeEl.src = iframeSrc; _iframeEl.setAttribute('loading', 'lazy'); _iframeEl.onload = () => { const ld = _bodyEl.querySelector('.fchat-mini-loading'); if (ld) ld.remove(); }; _bodyEl.appendChild(_iframeEl); }
             _fchatMiniInitDrag(div, s.id);
             _fchatMiniInitResize(div, s.id);
             div.addEventListener('mousedown', () => _fchatBringToFront(div), true);
@@ -5564,7 +5557,11 @@ function renderFchatBubbles() {
     });
 }
 
-function _fchatSpawnBgIframe(sess) { if (!sess) return; const existing = document.getElementById('fchat-bg-' + sess.id); if (existing) { try { existing.remove(); } catch(_e){} } const src = '?fcwin=1' + (sess.profileLabel ? '&p=' + encodeURIComponent(sess.profileLabel) : '') + (sess.chatId ? '&c=' + encodeURIComponent(sess.chatId) : '') + '&sid=' + encodeURIComponent(sess.id); const ifr = document.createElement('iframe'); ifr.id = 'fchat-bg-' + sess.id; ifr.src = src; ifr.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:400px;height:300px;border:0;opacity:0;pointer-events:none;'; ifr.setAttribute('aria-hidden', 'true'); document.body.appendChild(ifr); }
+function _fchatBgIframeStyle() { return 'position:fixed;left:-9999px;top:-9999px;width:400px;height:300px;border:0;opacity:0;pointer-events:none;'; }
+function _fchatGetOrCreateIframe(sess) { if (!sess) return null; let ifr = document.getElementById('fchat-bg-' + sess.id); if (ifr) return ifr; const src = '?fcwin=1' + (sess.profileLabel ? '&p=' + encodeURIComponent(sess.profileLabel) : '') + (sess.chatId ? '&c=' + encodeURIComponent(sess.chatId) : '') + '&sid=' + encodeURIComponent(sess.id); ifr = document.createElement('iframe'); ifr.id = 'fchat-bg-' + sess.id; ifr.src = src; ifr.className = 'fchat-mini-iframe'; ifr.style.cssText = _fchatBgIframeStyle(); ifr.setAttribute('aria-hidden', 'true'); document.body.appendChild(ifr); return ifr; }
+function _fchatSpawnBgIframe(sess) { _fchatGetOrCreateIframe(sess); }
+function _fchatDetachIframeToBg(sessionId) { const ifr = document.getElementById('fchat-bg-' + sessionId); if (!ifr) return; if (ifr.parentNode && ifr.parentNode !== document.body) document.body.appendChild(ifr); ifr.style.cssText = _fchatBgIframeStyle(); ifr.setAttribute('aria-hidden', 'true'); }
+function _fchatDestroyIframe(sessionId) { const ifr = document.getElementById('fchat-bg-' + sessionId); if (ifr) try { ifr.remove(); } catch(_e){} }
 function _newFloatingChatId() { return 'fc' + Date.now() + Math.floor(Math.random()*1000); }
 function createFchatSession(profileLabel, bubbleConfig) {
     const session = { id: Date.now().toString(), profileLabel: profileLabel || activeProfileLabel, chatId: _newFloatingChatId(), bubbleConfig: bubbleConfig || null, atTarget: null };
@@ -5605,6 +5602,7 @@ function fchatMaximize(sessionId) {
 }
 
 function fchatCloseBubble(sessionId) {
+    _fchatDestroyIframe(sessionId);
     _fchatSessions = _fchatSessions.filter(s => s.id !== sessionId);
     if (_fchatActiveId === sessionId) {
         _fchatActiveId = null;
