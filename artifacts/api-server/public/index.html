@@ -1978,32 +1978,18 @@ async function init() {
         CONFIG.home_screen = false;
         if (_embedProfile && AI_PROFILES.find(p => p.label === _embedProfile)) { activeProfileLabel = _embedProfile; }
         if (_embedChatId) {
-            let _eFoundChat = null; let _eFoundProf = activeProfileLabel; let _embedChatIdResolved = '';
-            const _eSearch = (histories) => { for (const [prof, pData] of Object.entries(histories||{})) { if (!pData||!pData.list) continue; const c=pData.list.find(c=>String(c.id)===String(_embedChatId)); if(c){return {chat:c,prof};} } return null; };
-            let _eRes = _eSearch(chatHistories);
-            if (_eRes) { _eFoundChat=_eRes.chat; _eFoundProf=_eRes.prof; }
-            if (!_eFoundChat) { try { if(window.parent!==window){const _pr=_eSearch(window.parent.chatHistories);if(_pr){_eFoundChat=JSON.parse(JSON.stringify(_pr.chat));_eFoundProf=_pr.prof;}} } catch(_pe){} }
-            const _hasUserMsgs = (chat) => chat && (chat.msgs||[]).some(m => m && m.role !== 'developer');
-            if ((!_eFoundChat || !_hasUserMsgs(_eFoundChat)) && _embedNoteId) {
-                try {
-                    let _allNotes = []; try { _allNotes = JSON.parse(localStorage.getItem('app_notes')||'[]'); } catch(_ne){}
-                    const _note = _allNotes.find(x => String(x.id) === String(_embedNoteId));
-                    if (_note && _note.content) {
-                        const _needle = String(_note.content).trim().slice(0, 80).toLowerCase();
-                        const _scan = (histories) => { for (const [prof, pData] of Object.entries(histories||{})) { if (!pData||!pData.list) continue; for (const c of pData.list) { if (!c.msgs) continue; for (const m of c.msgs) { if (!m || m.role === 'developer') continue; let txt=''; try { if (typeof m.content==='string') txt=m.content; else if (Array.isArray(m.content)) txt=m.content.map(p=>(p&&(p.text||p.input_text||''))||'').join(' '); } catch(_ge){} if (txt && txt.toLowerCase().includes(_needle)) { return {chat:c, prof}; } } } } return null; };
-                        let _scanRes = _scan(chatHistories);
-                        if (!_scanRes) { try { if(window.parent!==window) _scanRes = _scan(window.parent.chatHistories); } catch(_se){} if (_scanRes) _scanRes = {chat: JSON.parse(JSON.stringify(_scanRes.chat)), prof: _scanRes.prof}; }
-                        if (_scanRes) { _eFoundChat = _scanRes.chat; _eFoundProf = _scanRes.prof; _embedChatIdResolved = String(_scanRes.chat.id); }
-                    }
-                } catch(_fe){}
-            }
-            if (_eFoundProf && _eFoundProf !== activeProfileLabel && AI_PROFILES.find(p=>p.label===_eFoundProf)) { activeProfileLabel = _eFoundProf; }
-            const _useId = _embedChatIdResolved || _embedChatId;
             let sData = chatHistories[activeProfileLabel];
-            if (!sData||!sData.list) { sData={current:_useId,list:[]}; chatHistories[activeProfileLabel]=sData; }
-            if (_eFoundChat && !sData.list.find(c=>String(c.id)===String(_useId))) { sData.list.push(_eFoundChat); }
-            if (!sData.list.find(c=>String(c.id)===String(_useId))) { sData.list.push({id:_useId,title:'New Chat',msgs:[],var_id:_useId}); }
-            sData.current = _useId;
+            let chat = sData && sData.list ? sData.list.find(c => String(c.id) === String(_embedChatId)) : null;
+            if (!chat) {
+                for (const [prof, pData] of Object.entries(chatHistories||{})) {
+                    if (!pData || !pData.list) continue;
+                    const f = pData.list.find(c => String(c.id) === String(_embedChatId));
+                    if (f) { activeProfileLabel = prof; sData = pData; chat = f; break; }
+                }
+            }
+            if (!sData || !sData.list) { sData = { current: _embedChatId, list: [] }; chatHistories[activeProfileLabel] = sData; }
+            if (!chat) { chat = { id: _embedChatId, title: 'New Chat', msgs: [], var_id: _embedChatId }; sData.list.push(chat); }
+            sData.current = _embedChatId;
         }
         const _emWrap = document.getElementById('main-chat-wrapper'); const _emPanel = document.getElementById('floating-chat');
         if (_emWrap && _emPanel && _emWrap.parentNode !== _emPanel) _emPanel.appendChild(_emWrap);
@@ -6629,7 +6615,64 @@ function _deleteCurrentNote() { if (!_currentNoteId) return; openConfirm('Delete
 
 function saveAsFavorite(msgIdx) { const chatId = String(getSessions().current); const already = NOTES.find(n => n.type === 'favorite' && n.msgIdx === msgIdx && n.chatId === chatId && n.profileLabel === activeProfileLabel); if (already) { NOTES = NOTES.filter(x => x.id !== already.id); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Removed from Notes', '#888', 1200); if (_isEmbedded) { try { window.parent.postMessage({ type: 'fchat-notes-updated' }, '*'); } catch(_ne){} } return; } const text = getTextFromContent(chatHistory[msgIdx].content); const title = text.replace(/#+\s/g,'').replace(/\*+/g,'').trim().slice(0, 60) || 'AI Response'; const id = Date.now(); NOTES.push({ id, type: 'favorite', title, content: text, createdAt: id, profileLabel: activeProfileLabel, chatId, msgIdx }); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Saved to Notes ⭐', '#34c759', 1200); if (_isEmbedded) { try { window.parent.postMessage({ type: 'fchat-notes-updated' }, '*'); } catch(_ne){} } }
 
-function _noteJumpToChat(profileLabel, chatId, msgIdx, noteId) { _openLinkedChat(profileLabel, chatId, noteId); if(msgIdx==null) return; function _tryPostMsg(n) { const sess=_fchatSessions.find(s=>s.profileLabel===profileLabel&&String(s.chatId)===String(chatId)); if(!sess){if(n>0)setTimeout(()=>_tryPostMsg(n-1),400);return;} const winEl=document.getElementById('fchat-mini-'+sess.id); if(!winEl){if(n>0)setTimeout(()=>_tryPostMsg(n-1),400);return;} const ifr=winEl.querySelector('iframe.fchat-mini-iframe'); if(!ifr||!ifr.contentWindow){if(n>0)setTimeout(()=>_tryPostMsg(n-1),400);return;} try{ifr.contentWindow.postMessage({type:'fchat-jump-to-msg',msgIdx:msgIdx},'*');}catch(_e){} } setTimeout(()=>_tryPostMsg(10),800); }
+function _resolveNoteChat(profileLabel, chatId, noteId) {
+    const hasUserMsgs = (chat) => chat && (chat.msgs||[]).some(m => m && m.role !== 'developer');
+    let resolved = null;
+    if (chatHistories[profileLabel] && chatHistories[profileLabel].list) {
+        const c = chatHistories[profileLabel].list.find(x => String(x.id) === String(chatId));
+        if (c && hasUserMsgs(c)) resolved = { prof: profileLabel, chat: c };
+    }
+    if (!resolved) {
+        for (const [prof, pData] of Object.entries(chatHistories||{})) {
+            if (!pData || !pData.list) continue;
+            const c = pData.list.find(x => String(x.id) === String(chatId));
+            if (c && hasUserMsgs(c)) { resolved = { prof, chat: c }; break; }
+        }
+    }
+    if (!resolved && noteId) {
+        const note = NOTES.find(n => String(n.id) === String(noteId));
+        if (note && note.content) {
+            const needle = String(note.content).trim().slice(0, 80).toLowerCase();
+            outer: for (const [prof, pData] of Object.entries(chatHistories||{})) {
+                if (!pData || !pData.list) continue;
+                for (const c of pData.list) {
+                    for (const m of (c.msgs||[])) {
+                        if (!m || m.role === 'developer') continue;
+                        let txt = '';
+                        try { if (typeof m.content === 'string') txt = m.content; else if (Array.isArray(m.content)) txt = m.content.map(p=>(p&&(p.text||p.input_text||''))||'').join(' '); } catch(_e){}
+                        if (txt && txt.toLowerCase().includes(needle)) { resolved = { prof, chat: c }; break outer; }
+                    }
+                }
+            }
+            if (resolved) { note.chatId = String(resolved.chat.id); note.profileLabel = resolved.prof; _saveNotes(); }
+        }
+    }
+    if (!resolved) {
+        for (const [prof, pData] of Object.entries(chatHistories||{})) {
+            if (!pData || !pData.list) continue;
+            const c = pData.list.find(x => String(x.id) === String(chatId));
+            if (c) { resolved = { prof, chat: c }; break; }
+        }
+    }
+    return resolved;
+}
+function _noteJumpToChat(profileLabel, chatId, msgIdx, noteId) {
+    const resolved = _resolveNoteChat(profileLabel, chatId, noteId);
+    if (!resolved) { notify('Original chat not found', '#ff3b30', 2200); return; }
+    const useProf = resolved.prof; const useId = String(resolved.chat.id);
+    _openLinkedChat(useProf, useId, noteId);
+    if (msgIdx == null) return;
+    function _tryPostMsg(n) {
+        const sess = _fchatSessions.find(s => s.profileLabel === useProf && String(s.chatId) === useId);
+        if (!sess) { if (n>0) setTimeout(()=>_tryPostMsg(n-1), 400); return; }
+        const winEl = document.getElementById('fchat-mini-' + sess.id);
+        if (!winEl) { if (n>0) setTimeout(()=>_tryPostMsg(n-1), 400); return; }
+        const ifr = winEl.querySelector('iframe.fchat-mini-iframe');
+        if (!ifr || !ifr.contentWindow) { if (n>0) setTimeout(()=>_tryPostMsg(n-1), 400); return; }
+        try { ifr.contentWindow.postMessage({ type: 'fchat-jump-to-msg', msgIdx: msgIdx }, '*'); } catch(_e){}
+    }
+    setTimeout(()=>_tryPostMsg(10), 800);
+}
 </script>
 </body>
 </html>
