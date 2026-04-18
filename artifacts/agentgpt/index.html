@@ -5341,6 +5341,14 @@ function fchatMaximize(sessionId) {
     _fchatActiveId = sessionId;
     renderFchatBubbles();
     _openFchatPanel(session);
+    if (window.innerWidth >= 768) {
+        const fcel = document.getElementById('floating-chat');
+        if (fcel && fcel.classList.contains('fc-windowed')) {
+            fcel.classList.remove('fc-windowed');
+            fcel.style.width = ''; fcel.style.height = ''; fcel.style.top = ''; fcel.style.left = ''; fcel.style.transform = '';
+            try { localStorage.setItem('_fcwinmode', '0'); } catch(e) {}
+        }
+    }
 }
 
 function fchatCloseBubble(sessionId) {
