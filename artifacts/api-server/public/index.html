@@ -5224,11 +5224,17 @@ function hideHomeScreen() {
 function _hsToggleWorkspace() {
     const wp = document.getElementById('workspace-panel');
     if (!wp) return;
-    const isOpen = wp.classList.contains('open');
+    const isOpen = wp.dataset.hsOpen === '1';
     if (isOpen) {
+        wp.dataset.hsOpen = '0';
+        wp.style.left = '';
+        wp.style.zIndex = '';
         wp.classList.remove('open');
     } else {
         ['vars-slide-panel','ctx-slide-panel','tpl-slide-panel'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('open'); });
+        wp.dataset.hsOpen = '1';
+        wp.style.zIndex = '9900';
+        wp.style.left = '0px';
         wp.classList.add('open');
         try { renderWorkspaceLists(); } catch(e) {}
     }
@@ -6585,7 +6591,7 @@ let NOTES = [];
 function _loadNotes() { try { NOTES = JSON.parse(localStorage.getItem('app_notes') || '[]'); } catch(e) { NOTES = []; } }
 function _saveNotes() { try { localStorage.setItem('app_notes', JSON.stringify(NOTES)); } catch(e) {} triggerAutoSync(); }
 
-function _hsRenderNotes() { const el = document.getElementById('hs-notes-body'); if (!el) return; if (!NOTES.length) { el.innerHTML = '<div style="text-align:center;color:#888;font-size:12px;padding:24px 0;">No notes yet — tap + Add or save a chat response with ☆</div>'; return; } el.innerHTML = [...NOTES].sort((a,b)=>b.id-a.id).map(n => { const isFav = n.type === 'favorite'; const preview = (n.content || '').replace(/#+\s/g,'').replace(/\*+/g,'').replace(/`/g,'').slice(0, 80); const dateStr = new Date(n.id).toLocaleDateString([], {month:'short', day:'numeric'}); const jumpHtml = isFav && n.chatId ? '<div class="note-jump-btn" onclick="event.stopPropagation();_noteJumpToChat(\'' + n.profileLabel + '\',\'' + n.chatId + '\',' + n.msgIdx + ')" title="Jump to chat">💬</div>' : ''; const delHtml = '<div onclick="event.stopPropagation();_deleteNoteById(' + n.id + ')" title="Delete" style="flex-shrink:0;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,59,48,0.1);color:#ff3b30;font-size:16px;font-weight:700;cursor:pointer;margin-left:4px;">×</div>'; return '<div class="note-item" onclick="openNoteById(' + n.id + ')"><div class="note-item-body"><div class="note-item-title"><span style="font-size:12px;">' + (isFav ? '⭐' : '📝') + '</span><span class="note-item-name">' + _ehNotes(n.title || 'Untitled') + '</span><span class="note-item-date">' + dateStr + '</span></div><div class="note-item-preview">' + (_ehNotes(preview) || 'No content') + '</div></div>' + jumpHtml + delHtml + '</div>'; }).join(''); }
+function _hsRenderNotes() { _loadNotes(); const el = document.getElementById('hs-notes-body'); if (!el) return; if (!NOTES.length) { el.innerHTML = '<div style="text-align:center;color:#888;font-size:12px;padding:24px 0;">No notes yet — tap + Add or save a chat response with ☆</div>'; return; } el.innerHTML = [...NOTES].sort((a,b)=>b.id-a.id).map(n => { const isFav = n.type === 'favorite'; const preview = (n.content || '').replace(/#+\s/g,'').replace(/\*+/g,'').replace(/`/g,'').slice(0, 80); const dateStr = new Date(n.id).toLocaleDateString([], {month:'short', day:'numeric'}); const jumpHtml = isFav && n.chatId ? '<div class="note-jump-btn" onclick="event.stopPropagation();_noteJumpToChat(\'' + n.profileLabel + '\',\'' + n.chatId + '\',' + n.msgIdx + ')" title="Jump to chat">💬</div>' : ''; const delHtml = '<div onclick="event.stopPropagation();_deleteNoteById(' + n.id + ')" title="Delete" style="flex-shrink:0;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,59,48,0.1);color:#ff3b30;font-size:16px;font-weight:700;cursor:pointer;margin-left:4px;">×</div>'; return '<div class="note-item" onclick="openNoteById(' + n.id + ')"><div class="note-item-body"><div class="note-item-title"><span style="font-size:12px;">' + (isFav ? '⭐' : '📝') + '</span><span class="note-item-name">' + _ehNotes(n.title || 'Untitled') + '</span><span class="note-item-date">' + dateStr + '</span></div><div class="note-item-preview">' + (_ehNotes(preview) || 'No content') + '</div></div>' + jumpHtml + delHtml + '</div>'; }).join(''); }
 function _deleteNoteById(id) { openConfirm('Delete this note?', () => { NOTES = NOTES.filter(x => x.id !== id); _saveNotes(); _hsRenderNotes(); notify('Deleted', '#888', 1200); }); }
 
 function _ehNotes(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
