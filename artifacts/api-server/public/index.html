@@ -1920,25 +1920,37 @@ async function _handleSyncMessage(msg) {
         if (msg.ts && msg.ts < _lastBroadcastTs) return;
         try {
             const newHistories = await dbHelper.get('histories') || {};
+            const srcProfile = msg.payload && msg.payload.profile;
+            const srcChatId = msg.payload && msg.payload.chatId;
             const myProfile = activeProfileLabel;
             const myChatId = _isEmbedded && _embedChatId ? _embedChatId : ((chatHistories[myProfile]||{}).current);
-            const myProfData = chatHistories[myProfile];
-            const myCurrentChat = (myProfData && myProfData.list) ? myProfData.list.find(c => String(c.id) === String(myChatId)) : null;
-            const myCurrentPointer = myProfData ? myProfData.current : null;
-            chatHistories = newHistories;
-            if (myCurrentChat && chatHistories[myProfile] && chatHistories[myProfile].list) {
-                const idx = chatHistories[myProfile].list.findIndex(c => String(c.id) === String(myChatId));
-                if (idx >= 0) { if (currentAborter || chatHistory === myCurrentChat.msgs) chatHistories[myProfile].list[idx] = myCurrentChat; }
-                else if (currentAborter) chatHistories[myProfile].list.push(myCurrentChat);
-                if (!_isEmbedded && myCurrentPointer) chatHistories[myProfile].current = myCurrentPointer;
-            }
-            if (!currentAborter) {
-                const sData = chatHistories[myProfile];
-                if (sData && sData.list) {
-                    const cur = sData.list.find(c => String(c.id) === String(myChatId));
-                    if (cur && Array.isArray(cur.msgs) && cur.msgs.length > chatHistory.length) {
-                        chatHistory = cur.msgs;
-                        try { renderChatHistory(); } catch(e){}
+            if (srcProfile && srcChatId) {
+                const newProfData = newHistories[srcProfile];
+                const newChat = newProfData && newProfData.list ? newProfData.list.find(c => String(c.id) === String(srcChatId)) : null;
+                if (newChat) {
+                    if (!chatHistories[srcProfile]) chatHistories[srcProfile] = { current: srcChatId, list: [] };
+                    if (!Array.isArray(chatHistories[srcProfile].list)) chatHistories[srcProfile].list = [];
+                    const idx = chatHistories[srcProfile].list.findIndex(c => String(c.id) === String(srcChatId));
+                    const isMyCurrent = (srcProfile === myProfile && String(srcChatId) === String(myChatId));
+                    if (!(isMyCurrent && currentAborter)) {
+                        if (idx >= 0) chatHistories[srcProfile].list[idx] = newChat;
+                        else chatHistories[srcProfile].list.push(newChat);
+                        if (isMyCurrent && !_isEmbedded) {
+                            chatHistory = newChat.msgs || [];
+                            try { renderChatHistory(); } catch(e){}
+                        }
+                    }
+                }
+            } else {
+                for (const [prof, pData] of Object.entries(newHistories||{})) {
+                    if (!pData || !Array.isArray(pData.list)) continue;
+                    if (!chatHistories[prof]) { chatHistories[prof] = pData; continue; }
+                    if (!Array.isArray(chatHistories[prof].list)) chatHistories[prof].list = [];
+                    for (const nc of pData.list) {
+                        const idx = chatHistories[prof].list.findIndex(c => String(c.id) === String(nc.id));
+                        const isMyCurrent = (prof === myProfile && String(nc.id) === String(myChatId));
+                        if (isMyCurrent && currentAborter) continue;
+                        if (idx >= 0) chatHistories[prof].list[idx] = nc; else chatHistories[prof].list.push(nc);
                     }
                 }
             }
@@ -6619,7 +6631,21 @@ function _deleteCurrentNote() { if (!_currentNoteId) return; openConfirm('Delete
 function saveAsFavorite(msgIdx) { const chatId = String(getSessions().current); const already = NOTES.find(n => n.type === 'favorite' && n.msgIdx === msgIdx && n.chatId === chatId && n.profileLabel === activeProfileLabel); if (already) { NOTES = NOTES.filter(x => x.id !== already.id); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Removed from Notes', '#888', 1200); if (_isEmbedded) { try { window.parent.postMessage({ type: 'fchat-notes-updated' }, '*'); } catch(_ne){} } return; } const text = getTextFromContent(chatHistory[msgIdx].content); const title = text.replace(/#+\s/g,'').replace(/\*+/g,'').trim().slice(0, 60) || 'AI Response'; const id = Date.now(); NOTES.push({ id, type: 'favorite', title, content: text, createdAt: id, profileLabel: activeProfileLabel, chatId, msgIdx }); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Saved to Notes ⭐', '#34c759', 1200); if (_isEmbedded) { try { window.parent.postMessage({ type: 'fchat-notes-updated' }, '*'); } catch(_ne){} } }
 
 async function _resolveNoteChat(profileLabel, chatId, noteId) {
-    try { const _fresh = await dbHelper.get('histories'); if (_fresh) chatHistories = _fresh; } catch(_re){}
+    try {
+        const _fresh = await dbHelper.get('histories');
+        if (_fresh) {
+            for (const [_p, _pd] of Object.entries(_fresh)) {
+                if (!_pd || !Array.isArray(_pd.list)) continue;
+                if (!chatHistories[_p]) { chatHistories[_p] = _pd; continue; }
+                if (!Array.isArray(chatHistories[_p].list)) chatHistories[_p].list = [];
+                for (const _nc of _pd.list) {
+                    const _idx = chatHistories[_p].list.findIndex(c => String(c.id) === String(_nc.id));
+                    if (_idx < 0) chatHistories[_p].list.push(_nc);
+                    else if (!currentAborter) chatHistories[_p].list[_idx] = _nc;
+                }
+            }
+        }
+    } catch(_re){}
     const hasUserMsgs = (chat) => chat && (chat.msgs||[]).some(m => m && m.role !== 'developer');
     let resolved = null;
     if (chatHistories[profileLabel] && chatHistories[profileLabel].list) {
