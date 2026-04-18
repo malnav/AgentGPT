@@ -2004,6 +2004,7 @@ async function init() {
         const _esD = getSessions(); const _eC = _esD.list.find(c => String(c.id) === String(_embedChatId));
         if (_eC) { _esD.current = _embedChatId; chatHistories[activeProfileLabel] = _esD; chatHistory = _eC.msgs || []; const _ep = AI_PROFILES.find(x => x.label === activeProfileLabel) || AI_PROFILES[0]; if (_ep && (!chatHistory.length || chatHistory[0].role !== 'developer')) { chatHistory.unshift({ role: 'developer', content: [{ type: 'input_text', text: _ep.text }] }); } _eC.msgs = chatHistory; }
         await refreshUI(); renderChatHistory(); requestAnimationFrame(() => { try { scrollToLastRequest(true); } catch(_se){} });
+        try { window.parent.postMessage({ type: 'fchat-render-done', sid: _embedSessionId }, '*'); } catch(_re){}
     } else { await switchProfileSession(activeProfileLabel); await refreshUI(); }
     if (CONFIG.home_screen) showHomeScreen(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
     if (!_isEmbedded) startRealtimeSync();
@@ -5500,7 +5501,7 @@ function renderFchatBubbles() {
         _iframeEl.className = 'fchat-mini-iframe';
         _iframeEl.src = iframeSrc;
         _iframeEl.setAttribute('loading', 'lazy');
-        _iframeEl.onload = () => { const ld = _bodyEl.querySelector('.fchat-mini-loading'); if (ld) ld.remove(); };
+        _iframeEl.onload = () => { const ld = _bodyEl.querySelector('.fchat-mini-loading'); if (ld) { ld.textContent = 'Loading messages…'; setTimeout(() => { if (ld && ld.parentNode) ld.remove(); }, 6000); } };
         _bodyEl.appendChild(_iframeEl);
         _fchatMiniInitDrag(div, s.id);
         _fchatMiniInitResize(div, s.id);
@@ -6164,6 +6165,7 @@ window.addEventListener('message', (ev) => {
     if(!ev.data) return;
     if(ev.data.type==='fchat-stream') { const _mSess=_fchatSessions.find(s=>s.id===ev.data.sid); if(!_mSess||!_mSess.atTarget||!_mSess.atTarget.el) return; const _mAt=_mSess.atTarget; try { _writeToTargetPreserveSig(_mAt.el, _mAt.isTA ? ev.data.text : marked.parse(ev.data.text), _mAt.isTA); } catch(_me){} }
     if(ev.data.type==='fchat-notes-updated') { try { _loadNotes(); _hsRenderNotes(); } catch(_ne){} }
+    if(ev.data.type==='fchat-render-done') { try { const _sid = ev.data.sid; const _sess = _fchatSessions.find(s => s.id === _sid); if (_sess) { const _winEl = document.getElementById('fchat-mini-' + _sess.id); if (_winEl) { const _ld = _winEl.querySelector('.fchat-mini-loading'); if (_ld && _ld.parentNode) _ld.remove(); } } } catch(_re){} }
     if(ev.data.type==='fchat-jump-to-msg') { const _jIdx=ev.data.msgIdx; function _jHl(n){const _jEl=document.getElementById('msg-'+_jIdx);if(_jEl){_jEl.scrollIntoView({behavior:'smooth',block:'center'});_jEl.style.transition='background 0.4s';_jEl.style.background='rgba(255,204,0,0.25)';setTimeout(()=>{_jEl.style.background='';},1800);}else if(n>0){setTimeout(()=>_jHl(n-1),350);}} setTimeout(()=>_jHl(8),200); }
 });
 
@@ -6615,7 +6617,8 @@ function _deleteCurrentNote() { if (!_currentNoteId) return; openConfirm('Delete
 
 function saveAsFavorite(msgIdx) { const chatId = String(getSessions().current); const already = NOTES.find(n => n.type === 'favorite' && n.msgIdx === msgIdx && n.chatId === chatId && n.profileLabel === activeProfileLabel); if (already) { NOTES = NOTES.filter(x => x.id !== already.id); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Removed from Notes', '#888', 1200); if (_isEmbedded) { try { window.parent.postMessage({ type: 'fchat-notes-updated' }, '*'); } catch(_ne){} } return; } const text = getTextFromContent(chatHistory[msgIdx].content); const title = text.replace(/#+\s/g,'').replace(/\*+/g,'').trim().slice(0, 60) || 'AI Response'; const id = Date.now(); NOTES.push({ id, type: 'favorite', title, content: text, createdAt: id, profileLabel: activeProfileLabel, chatId, msgIdx }); _saveNotes(); _hsRenderNotes(); renderChatHistory(); notify('Saved to Notes ⭐', '#34c759', 1200); if (_isEmbedded) { try { window.parent.postMessage({ type: 'fchat-notes-updated' }, '*'); } catch(_ne){} } }
 
-function _resolveNoteChat(profileLabel, chatId, noteId) {
+async function _resolveNoteChat(profileLabel, chatId, noteId) {
+    try { const _fresh = await dbHelper.get('histories'); if (_fresh) chatHistories = _fresh; } catch(_re){}
     const hasUserMsgs = (chat) => chat && (chat.msgs||[]).some(m => m && m.role !== 'developer');
     let resolved = null;
     if (chatHistories[profileLabel] && chatHistories[profileLabel].list) {
@@ -6656,8 +6659,8 @@ function _resolveNoteChat(profileLabel, chatId, noteId) {
     }
     return resolved;
 }
-function _noteJumpToChat(profileLabel, chatId, msgIdx, noteId) {
-    const resolved = _resolveNoteChat(profileLabel, chatId, noteId);
+async function _noteJumpToChat(profileLabel, chatId, msgIdx, noteId) {
+    const resolved = await _resolveNoteChat(profileLabel, chatId, noteId);
     if (!resolved) { notify('Original chat not found', '#ff3b30', 2200); return; }
     const useProf = resolved.prof; const useId = String(resolved.chat.id);
     _openLinkedChat(useProf, useId, noteId);
