@@ -467,17 +467,62 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #floating-chat.fc-windowed { top:auto; left:auto; right:auto; bottom:auto; transform:none !important; width:auto; border-radius:18px !important; box-shadow:0 24px 80px rgba(0,0,0,0.38) !important; border:0.5px solid var(--glass-border) !important; overflow:hidden !important; }
 #floating-chat.fc-windowed #fchat-header { cursor:grab; }
 #floating-chat.fc-windowed #fchat-header:active { cursor:grabbing; }
-#fc-resize-handle { position:absolute; bottom:4px; right:6px; font-size:18px; cursor:se-resize; color:var(--text); opacity:0.28; z-index:10; user-select:none; -webkit-user-select:none; line-height:1; display:none; }
+#fc-resize-handle { position:absolute; bottom:4px; right:6px; font-size:18px; cursor:se-resize; color:var(--text); opacity:0.5; z-index:300; user-select:none; -webkit-user-select:none; line-height:1; display:none; pointer-events:auto; }
 #floating-chat.fc-windowed #fc-resize-handle { display:block; }
 #fc-win-toggle-btn { font-size:16px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0; display:none; }
 @media (min-width:768px) { #fc-win-toggle-btn { display:block; } }
 #profile-bubble { z-index:9001 !important; }
-#fchat-bubble-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:8900; pointer-events:none; align-items:flex-end; flex-wrap:wrap; justify-content:center; max-width:calc(100vw - 100px); }
-.fchat-bubble { pointer-events:all; width:52px; height:52px; border-radius:26px; background:var(--accent); color:#fff; font-size:20px; font-weight:800; display:flex; align-items:center; justify-content:center; position:relative; box-shadow:0 4px 20px rgba(0,122,255,0.45); cursor:pointer; user-select:none; -webkit-user-select:none; animation:fcbubble-in 0.28s cubic-bezier(0.34,1.56,0.64,1); transition:transform 0.1s; }
-.fchat-bubble:active { transform:scale(0.92); }
-.fchat-bubble-actions { position:absolute; top:-9px; right:-9px; display:flex; flex-direction:column; gap:3px; }
+#fchat-bubble-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:9200; pointer-events:none; align-items:flex-end; flex-wrap:wrap; justify-content:center; max-width:calc(100vw - 100px); }
+.fchat-bubble { pointer-events:all; position:fixed; z-index:9200; display:flex; align-items:center; gap:8px; padding:5px 6px 5px 12px; min-width:240px; max-width:340px; background:var(--glass); border:0.5px solid var(--glass-border); border-radius:28px; box-shadow:0 6px 24px rgba(0,0,0,0.22); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); user-select:none; -webkit-user-select:none; animation:fcbubble-in 0.28s cubic-bezier(0.34,1.56,0.64,1); cursor:grab; }
+.fchat-bubble:active { cursor:grabbing; }
+.fchat-bubble-emoji { font-size:22px; line-height:1; flex-shrink:0; cursor:pointer; }
+.fchat-bubble-input { flex:1; min-width:0; border:none; outline:none; background:transparent; font-size:13px; color:var(--text); padding:6px 4px; cursor:text; }
+.fchat-bubble-input::placeholder { color:#999; opacity:0.7; font-size:12px; }
+.fchat-bubble-send { width:32px; height:32px; border-radius:16px; background:var(--accent); color:#fff; border:none; font-size:15px; font-weight:700; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; padding:0; line-height:1; }
+.fchat-bubble-send:active { transform:scale(0.9); }
+.fchat-bubble-send.is-busy { background:#999; }
+.fchat-bubble-actions { position:absolute; top:-9px; right:6px; display:flex; gap:4px; }
 .fchat-bubble-action-btn { width:22px; height:22px; border-radius:11px; background:rgba(20,20,30,0.82); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1.5px solid rgba(255,255,255,0.35); box-shadow:0 1px 6px rgba(0,0,0,0.3); }
-.fchat-bubble-label { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:9px; color:#888; white-space:nowrap; font-weight:600; pointer-events:none; }
+.fchat-bubble-label { position:absolute; bottom:-16px; left:14px; font-size:10px; color:#888; white-space:nowrap; font-weight:600; pointer-events:none; max-width:200px; overflow:hidden; text-overflow:ellipsis; }
+.fchat-bubble-iframe { position:absolute; left:-99999px; top:-99999px; width:420px; height:520px; border:0; opacity:0; pointer-events:none; }
+.fchat-bubble-status { position:absolute; bottom:-16px; right:14px; font-size:10px; color:var(--accent); font-weight:600; pointer-events:none; }
+#fc-title-bar { display:none; }
+#floating-chat #fc-title-bar { display:flex; align-items:center; gap:8px; pointer-events:auto; padding:6px 12px; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow); max-width:60vw; }
+#floating-chat #fc-title-bar .fc-title-emoji { font-size:18px; line-height:1; }
+#floating-chat #fc-title-bar .fc-title-text { font-size:13px; font-weight:700; color:var(--text); max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#fc-min-btn { display:none; }
+#floating-chat #fc-min-btn { display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px; line-height:1; padding:6px 12px; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow); pointer-events:auto; }
+.fchat-mini-win { position:fixed; z-index:9150; background:var(--bg-gradient, linear-gradient(145deg, #fffaf3 0%, #fff5ec 38%, #fff0e8 68%, #faf6f0 100%)); border:0.5px solid var(--glass-border); border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,0.22); display:flex; flex-direction:column; overflow:hidden; pointer-events:auto; min-width:240px; min-height:160px; backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); animation:fcbubble-in 0.22s cubic-bezier(0.34,1.56,0.64,1); }
+@media (prefers-color-scheme: dark) { .fchat-mini-win { background:var(--bg-gradient, linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)); } }
+.fchat-mini-header { display:flex; align-items:center; gap:6px; padding:6px 8px; background:rgba(127,127,127,0.08); border-bottom:0.5px solid var(--glass-border); cursor:grab; user-select:none; -webkit-user-select:none; flex-shrink:0; }
+.fchat-mini-header:active { cursor:grabbing; }
+.fchat-mini-emoji { font-size:16px; line-height:1; flex-shrink:0; }
+.fchat-mini-title { flex:1; font-size:11px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fchat-mini-btn { width:20px; height:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:11px; color:var(--text); opacity:0.6; border-radius:6px; flex-shrink:0; }
+.fchat-mini-btn:hover { opacity:1; background:rgba(127,127,127,0.15); }
+.fchat-mini-body { flex:1; overflow-y:auto; padding:8px 10px; cursor:pointer; font-size:11px; color:var(--text); line-height:1.4; min-height:0; }
+.fchat-mini-body:hover { background:rgba(127,127,127,0.04); }
+.snap-msg { padding:5px 8px; border-radius:8px; margin-bottom:4px; max-width:90%; word-wrap:break-word; }
+.snap-user { background:var(--accent); color:#fff; margin-left:auto; }
+.snap-ai { background:rgba(127,127,127,0.12); color:var(--text); margin-right:auto; }
+.fchat-mini-resize { position:absolute; bottom:2px; right:4px; font-size:14px; cursor:se-resize; color:var(--text); opacity:0.4; user-select:none; -webkit-user-select:none; line-height:1; pointer-events:auto; z-index:5; }
+.fchat-mini-iframe { width:100%; height:100%; border:0; display:block; background:transparent; }
+.fchat-mini-body.is-iframe { padding:0; cursor:default; overflow:hidden; }
+.fchat-mini-body.is-iframe:hover { background:transparent; }
+.fchat-mini-loading { display:flex; align-items:center; justify-content:center; height:100%; opacity:0.5; font-size:11px; }
+body.embed-mode #home-screen,
+body.embed-mode #profile-bubble,
+body.embed-mode #fchat-bubble-bar,
+body.embed-mode .fchat-mini-win,
+body.embed-mode .fchat-bubble,
+#floating-chat .sys-icons div[title="Settings"],
+body.embed-mode .top-nav .sys-icons div[title="Settings"] { display:none !important; }
+@media (max-width: 767px) { .fchat-mini-focus { display:none !important; } }
+body.embed-mode #floating-chat,
+body.embed-mode #sync-bar,
+body.embed-mode #embed-home-btn { display:none !important; }
+body.embed-mode .top-nav .sys-icons div[title="Home"] { display:none !important; }
+body.embed-mode #main-chat-wrapper { position:fixed !important; inset:0 !important; z-index:1 !important; display:flex !important; }
 #home-screen { position:fixed; inset:0; z-index:500; background:var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); display:flex; flex-direction:column; overflow:hidden; }
 #hs-header { position:absolute; top:0; left:0; right:0; z-index:10; padding:max(14px, env(safe-area-inset-top)) 16px 8px 16px; display:flex; align-items:center; gap:10px; background:transparent; pointer-events:none; }
 #hs-header > * { pointer-events:auto; }
@@ -645,7 +690,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #chat-container { max-width: 760px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 
   /* ── Floating chat: centered panel ── */
-  #floating-chat { left: 50%; transform: translateX(-50%); right: auto; width: min(760px, 100vw); border-radius: 0; }
+  #floating-chat:not(.fc-windowed) { left: 0; right: 0; transform: none; width: 100vw; border-radius: 0; }
   #floating-chat .top-nav { left: 0; }
   #fchat-bubble-bar { left: 50%; transform: translateX(-50%); max-width: min(720px, 92vw); }
 
@@ -738,10 +783,14 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <div class="top-nav">
     <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
         <div id="chat-nav-back-btn" onclick="_chatNavBack()" style="display:none; cursor:pointer; align-items:center; gap:5px; font-size:13px; font-weight:700; color:var(--accent); padding:6px 12px; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow); white-space:nowrap; max-width:180px; overflow:hidden; text-overflow:ellipsis;">◀ Back</div>
+        <div id="fc-title-bar"><span class="fc-title-emoji">🤖</span><span class="fc-title-text">Chat</span></div>
     </div>
-    <div class="sys-icons">
-        <div onclick="openModal('master-modal')" style="cursor:pointer; font-size:16px; line-height:1;" title="Settings">⚙️</div>
-        <div onclick="goHomeFromMainChat()" style="cursor:pointer; font-size:16px; line-height:1;" title="Home">🏠</div>
+    <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
+        <div id="fc-min-btn" onclick="_minimizeFchatToBubble()" title="Minimize to bubble">━</div>
+        <div class="sys-icons">
+            <div onclick="openModal('master-modal')" style="cursor:pointer; font-size:16px; line-height:1;" title="Settings">⚙️</div>
+            <div onclick="goHomeFromMainChat()" style="cursor:pointer; font-size:16px; line-height:1;" title="Home">🏠</div>
+        </div>
     </div>
 </div>
 
@@ -1734,10 +1783,12 @@ function addSwipeListener(element, onSwipeLeft, onSwipeRight) {
 function initGestures() {
     addSwipeListener(document.body, 
         () => { 
+            if(!_isEmbedded && Array.isArray(_fchatSessions) && _fchatSessions.length > 0) return;
             if(document.getElementById('workspace-panel').classList.contains('open')) { closeAllPanels(); } 
             else { closeAllPanels(); document.getElementById('vars-slide-panel').classList.add('open'); refreshUI(); }
         }, 
         () => { 
+            if(!_isEmbedded && Array.isArray(_fchatSessions) && _fchatSessions.length > 0) return;
             let rightPanelsOpen = document.querySelectorAll('.side-panel:not(.left-panel).open, .ctx-panel.open').length > 0;
             if(rightPanelsOpen) { closeAllPanels(); } 
             else { closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); renderWorkspaceLists(); }
@@ -1830,15 +1881,102 @@ function renderInlinePrompts() {
 
 async function saveAll(skipCloud = false) { 
     try {
+        if (_isEmbedded) {
+            const latest = await dbHelper.get('histories') || {};
+            const latestDs = await dbHelper.get('datasets') || {};
+            let sData = latest[activeProfileLabel];
+            if (!sData || !sData.list) { sData = { current: _embedChatId || (chatHistories[activeProfileLabel]||{}).current, list: [] }; latest[activeProfileLabel] = sData; }
+            const targetId = _embedChatId || (chatHistories[activeProfileLabel]||{}).current;
+            let cur = sData.list.find(x => String(x.id) === String(targetId));
+            if (!cur) { cur = { id: targetId, title: 'Chat', msgs: chatHistory.slice(), var_id: targetId }; sData.list.push(cur); }
+            else { cur.msgs = chatHistory; }
+            if (cur.var_id && GLOBAL_DATASETS[cur.var_id]) { latestDs[cur.var_id] = GLOBAL_DATASETS[cur.var_id]; latestDs[cur.var_id]._updated = Date.now(); }
+            chatHistories = latest;
+            GLOBAL_DATASETS = latestDs;
+            await dbHelper.setMulti({ 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
+            _lastBroadcastTs = Date.now();
+            try { _broadcastSync('data-saved', { profile: activeProfileLabel, chatId: targetId }); } catch(e){}
+            return;
+        }
         let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { cur.msgs = chatHistory; if(GLOBAL_DATASETS[cur.var_id]) GLOBAL_DATASETS[cur.var_id]._updated = Date.now(); } }
         CONFIG._ts = Date.now();
         await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
+        _lastBroadcastTs = Date.now();
+        try { _broadcastSync('data-saved', { profile: activeProfileLabel }); } catch(e){}
         if(!skipCloud) triggerAutoSync(); 
     } catch(e) { console.error("DB Save Error:", e); notify("⚠️ DB Error: " + (e.name || "Write Failed"), "#ff3b30", 4000); }
 }
 
+const _embedParams = (function(){ try { return new URLSearchParams(location.search); } catch(e) { return new URLSearchParams(''); } })();
+const _isEmbedded = _embedParams.get('fcwin') === '1';
+const _embedProfile = _embedParams.get('p') || '';
+const _embedChatId = _embedParams.get('c') || '';
+const _windowSyncId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+let _bcChannel = null;
+try { _bcChannel = new BroadcastChannel('agentgpt-multiwin-sync'); } catch(e) { _bcChannel = null; }
+function _broadcastSync(type, payload) { if (!_bcChannel) return; try { _bcChannel.postMessage({ type: type, payload: payload || {}, src: _windowSyncId, ts: Date.now() }); } catch(e){} }
+let _lastBroadcastTs = 0;
+let _pendingCloudSyncTimer = null;
+function _schedulePropagatedCloudSync() { if (_isEmbedded) return; if (_pendingCloudSyncTimer) return; _pendingCloudSyncTimer = setTimeout(() => { _pendingCloudSyncTimer = null; try { if (typeof triggerAutoSync === 'function') triggerAutoSync(); } catch(e){} }, 1500); }
+async function _handleSyncMessage(msg) {
+    if (!msg || msg.src === _windowSyncId) return;
+    if (msg.type === 'data-saved') {
+        if (msg.ts && msg.ts < _lastBroadcastTs) return;
+        try {
+            const newHistories = await dbHelper.get('histories') || {};
+            const myProfile = activeProfileLabel;
+            const myChatId = _isEmbedded && _embedChatId ? _embedChatId : ((chatHistories[myProfile]||{}).current);
+            const myProfData = chatHistories[myProfile];
+            const myCurrentChat = (myProfData && myProfData.list) ? myProfData.list.find(c => String(c.id) === String(myChatId)) : null;
+            const myCurrentPointer = myProfData ? myProfData.current : null;
+            chatHistories = newHistories;
+            if (myCurrentChat && chatHistories[myProfile] && chatHistories[myProfile].list) {
+                const idx = chatHistories[myProfile].list.findIndex(c => String(c.id) === String(myChatId));
+                if (idx >= 0) { if (currentAborter || chatHistory === myCurrentChat.msgs) chatHistories[myProfile].list[idx] = myCurrentChat; }
+                else if (currentAborter) chatHistories[myProfile].list.push(myCurrentChat);
+                if (!_isEmbedded && myCurrentPointer) chatHistories[myProfile].current = myCurrentPointer;
+            }
+            if (!currentAborter) {
+                const sData = chatHistories[myProfile];
+                if (sData && sData.list) {
+                    const cur = sData.list.find(c => String(c.id) === String(myChatId));
+                    if (cur && Array.isArray(cur.msgs) && cur.msgs.length > chatHistory.length) {
+                        chatHistory = cur.msgs;
+                        try { renderChatHistory(); } catch(e){}
+                    }
+                }
+            }
+            if (!_isEmbedded) { try { renderFchatBubbles(); } catch(e){} try { if (typeof renderWorkspaceLists === 'function') renderWorkspaceLists(); } catch(e){} _schedulePropagatedCloudSync(); }
+        } catch(e) { addLog('SYNC', 'Reload error', e.message); }
+    } else if (msg.type === 'settings-saved') {
+        try {
+            AI_PROFILES = await dbHelper.get('profiles') || AI_PROFILES;
+            AI_MODELS = await dbHelper.get('models') || AI_MODELS;
+            const cfg = await dbHelper.get('config') || {};
+            if (cfg.ai_key) CONFIG.ai_key = cfg.ai_key;
+            try { refreshUI(); } catch(e){}
+        } catch(e){}
+    } else if (msg.type === 'embed-close' && _isEmbedded && msg.payload && msg.payload.sessionId === _embedSessionId) {
+        try { window.close(); } catch(e){}
+    }
+}
+if (_bcChannel) { _bcChannel.onmessage = e => _handleSyncMessage(e.data); }
+let _embedSessionId = _embedParams.get('sid') || '';
+if (_isEmbedded) {
+    window.addEventListener('message', (e) => {
+        if (!e.data || typeof e.data !== 'object') return;
+        if (e.data.type === 'fchat-send' && typeof e.data.text === 'string') {
+            const ta = document.getElementById('note-input');
+            if (ta) { ta.value = e.data.text; }
+            try { if (typeof sendToAI === 'function') sendToAI(); } catch(err){}
+        }
+    });
+    window.addEventListener('load', () => { setTimeout(() => { try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'fchat-iframe-ready', sid: _embedSessionId }, '*'); } catch(e){} }, 400); });
+}
+function _embedReportStatus(busy) { if (!_isEmbedded) return; try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'fchat-iframe-status', sid: _embedSessionId, busy: !!busy }, '*'); } catch(e){} }
 async function init() { 
-    addLog("SYS", "Startup", "Initializing...");
+    addLog("SYS", "Startup", _isEmbedded ? "Embed Init..." : "Initializing...");
+    if (_isEmbedded) { document.body.classList.add('embed-mode'); }
     if (localStorage.getItem(DB_KEY + '_ap')) {
         await dbHelper.set('profiles', JSON.parse(localStorage.getItem(DB_KEY+'_ap'))); await dbHelper.set('prompts', JSON.parse(localStorage.getItem(DB_KEY+'_p'))); await dbHelper.set('templates', JSON.parse(localStorage.getItem(DB_KEY+'_t'))); await dbHelper.set('tools', JSON.parse(localStorage.getItem(DB_KEY+'_tools'))); await dbHelper.set('models', JSON.parse(localStorage.getItem(DB_KEY+'_am'))); await dbHelper.set('config', JSON.parse(localStorage.getItem(DB_KEY+'_cfg'))); await dbHelper.set('histories', JSON.parse(localStorage.getItem(DB_KEY+'_histories'))); await dbHelper.set('activeProfile', localStorage.getItem(DB_KEY+'_cur_ap'));
         localStorage.clear(); addLog("SYS", "Migration", "Local Storage to IDB");
@@ -1853,12 +1991,21 @@ async function init() {
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
     activeProfileLabel = await dbHelper.get('activeProfile') || (AI_PROFILES[0] ? AI_PROFILES[0].label : "Agent");
     if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0].label; }
+    if (_isEmbedded) {
+        CONFIG.home_screen = false;
+        if (_embedProfile && AI_PROFILES.find(p => p.label === _embedProfile)) { activeProfileLabel = _embedProfile; }
+        if (_embedChatId) {
+            let sData = chatHistories[activeProfileLabel];
+            if (!sData || !sData.list) { sData = { current: _embedChatId, list: [] }; chatHistories[activeProfileLabel] = sData; }
+            const chat = sData.list.find(c => String(c.id) === String(_embedChatId));
+            if (chat) { sData.current = _embedChatId; }
+        }
+    }
     bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); await refreshUI(); if (CONFIG.home_screen) showHomeScreen(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
-    startRealtimeSync();
-    setTimeout(hideInitOverlay, 30000);
-    gmailSilentAuth();
-    setTimeout(gmailSilentAuth, 2000);
+    if (!_isEmbedded) startRealtimeSync();
+    setTimeout(hideInitOverlay, _isEmbedded ? 1500 : 30000);
+    if (!_isEmbedded) { gmailSilentAuth(); setTimeout(gmailSilentAuth, 2000); }
     const _hsScrollBody = document.getElementById('hs-body'); const _hsScrollHdr = document.getElementById('hs-header'); if(_hsScrollBody && _hsScrollHdr) { _hsScrollBody.addEventListener('scroll', function(){ _hsScrollHdr.classList.toggle('hs-scrolled', _hsScrollBody.scrollTop > 36); }, { passive: true }); }
 }
 
@@ -3091,7 +3238,7 @@ async function sendToAI() {
     aiB.innerHTML = `<div class="bubble-content" style="opacity:0.6;"><em><small>🔍 Generating...</small></em></div>`; container.appendChild(aiB); 
     
     userScrolledDuringGen = false; scrollToLastRequest();
-    const sendBtn = document.getElementById('send-btn-el'); sendBtn.innerHTML = '⏹'; sendBtn.classList.add('sending'); currentAborter = new AbortController();
+    const sendBtn = document.getElementById('send-btn-el'); sendBtn.innerHTML = '⏹'; sendBtn.classList.add('sending'); currentAborter = new AbortController(); _embedReportStatus(true);
     
     const modelToUse = document.getElementById('chatModel').value;
     try {
@@ -3123,7 +3270,7 @@ async function sendToAI() {
         
         try { const htmlBlob = new Blob([marked.parse(fullR)], {type: 'text/html'}); const textBlob = new Blob([fullR], {type: 'text/plain'}); const data = new ClipboardItem({'text/html': htmlBlob, 'text/plain': textBlob}); await navigator.clipboard.write([data]); notify("Response Auto-Copied!", "#34c759"); } catch(e) {}
     } catch(e) { if(e.name === 'AbortError') { aiB.innerHTML = `<div class="bubble-content" style="color:var(--danger);"><em>Aborted.</em></div>`; addLog("AI_CHAT", "Aborted", ""); } else { aiB.innerHTML = `<div class="bubble-content" style="color:var(--danger); font-size:12px;"><strong>Connection Error:</strong><br>${e.message}</div>`; } }
-    finally { sendBtn.innerHTML = '↑'; sendBtn.classList.remove('sending'); currentAborter = null; }
+    finally { sendBtn.innerHTML = '↑'; sendBtn.classList.remove('sending'); currentAborter = null; _embedReportStatus(false); }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -5000,15 +5147,17 @@ function _makeBubbleDraggable(el, sessionId) {
         const dx = cx - sX, dy = cy - sY;
         if (!moved && Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
         moved = true;
-        el.style.left = Math.max(0, Math.min(eX + dx, window.innerWidth - 56)) + 'px';
-        el.style.top = Math.max(0, Math.min(eY + dy, window.innerHeight - 56)) + 'px';
+        const w = el.offsetWidth || 56, h = el.offsetHeight || 56;
+        el.style.left = Math.max(0, Math.min(eX + dx, window.innerWidth - w)) + 'px';
+        el.style.top = Math.max(0, Math.min(eY + dy, window.innerHeight - h)) + 'px';
     };
     const onEnd = () => { if (moved) { _fchatBubblePositions[sessionId] = { x: parseInt(el.style.left), y: parseInt(el.style.top) }; el.addEventListener('click', e => e.stopPropagation(), { once: true }); } };
-    el.addEventListener('touchstart', e => { onStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-    el.addEventListener('touchmove', e => { onMove(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, { passive: false });
-    el.addEventListener('touchend', () => onEnd());
+    let _dragSkip = false;
+    el.addEventListener('touchstart', e => { _dragSkip = !!e.target.closest('.fchat-bubble-action-btn,.fchat-bubble-input,.fchat-bubble-send'); if(_dragSkip) return; onStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+    el.addEventListener('touchmove', e => { if(_dragSkip) return; onMove(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, { passive: false });
+    el.addEventListener('touchend', () => { if(_dragSkip) { _dragSkip = false; return; } onEnd(); });
     el.addEventListener('mousedown', e => {
-        if (e.target.closest('.fchat-bubble-action-btn')) return;
+        if (e.target.closest('.fchat-bubble-action-btn,.fchat-bubble-input,.fchat-bubble-send')) return;
         onStart(e.clientX, e.clientY);
         const mm = ev => onMove(ev.clientX, ev.clientY);
         const mu = () => { onEnd(); document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); };
@@ -5257,29 +5406,152 @@ function profileBubbleTap(e) {
     openBubblePicker();
 }
 
+let _fchatMiniWinPos = {};
+try { _fchatMiniWinPos = JSON.parse(localStorage.getItem('_fcMiniWinPos') || '{}'); } catch(e) { _fchatMiniWinPos = {}; }
+function _saveMiniWinPositions() { try { localStorage.setItem('_fcMiniWinPos', JSON.stringify(_fchatMiniWinPos)); } catch(e){} }
+function _escSnap(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function _renderSessionSnapshot(s) {
+    const profH = chatHistories[s.profileLabel] || {};
+    const chat = (profH.list || []).find(c => String(c.id) === String(s.chatId));
+    if (!chat || !Array.isArray(chat.msgs) || !chat.msgs.length) return '<div style="opacity:0.55; padding:14px 4px; text-align:center;">New chat — click to open</div>';
+    const msgs = chat.msgs.filter(m => m.role !== 'developer' && m.role !== 'system').slice(-6);
+    if (!msgs.length) return '<div style="opacity:0.55; padding:14px 4px; text-align:center;">No messages yet</div>';
+    return msgs.map(m => {
+        let text = '';
+        if (typeof m.content === 'string') text = m.content;
+        else if (Array.isArray(m.content)) text = m.content.map(c => c.text || c.input_text || '').join(' ');
+        text = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (text.length > 220) text = text.slice(0, 220) + '…';
+        const cls = m.role === 'user' ? 'snap-user' : 'snap-ai';
+        return '<div class="snap-msg ' + cls + '">' + _escSnap(text) + '</div>';
+    }).join('');
+}
+function _defaultMiniWinPos(i) { const W = window.innerWidth, H = window.innerHeight; const w = 320, h = 240; const cols = Math.max(1, Math.floor((W - 20) / (w + 12))); const col = i % cols; const row = Math.floor(i / cols); return { x: 12 + col * (w + 12), y: Math.max(12, H - 80 - h - row * (h + 12)), w: w, h: h }; }
+function _fchatMiniInitDrag(div, sessionId) {
+    const header = div.querySelector('.fchat-mini-header'); if (!header) return;
+    let sx = 0, sy = 0, sl = 0, st = 0, active = false, moved = false;
+    const onDown = e => { if (e.target.closest('.fchat-mini-btn')) return; const t = e.touches && e.touches[0]; sx = t ? t.clientX : e.clientX; sy = t ? t.clientY : e.clientY; sl = parseInt(div.style.left) || 0; st = parseInt(div.style.top) || 0; active = true; moved = false; };
+    const onMove = e => { if (!active) return; const t = e.touches && e.touches[0]; const cx = t ? t.clientX : e.clientX; const cy = t ? t.clientY : e.clientY; if (!moved && Math.abs(cx - sx) < 5 && Math.abs(cy - sy) < 5) return; moved = true; const W = window.innerWidth, H = window.innerHeight; const nl = Math.min(Math.max(sl + (cx - sx), 0), W - div.offsetWidth); const nt = Math.min(Math.max(st + (cy - sy), 0), H - 40); div.style.left = nl + 'px'; div.style.top = nt + 'px'; e.preventDefault(); };
+    const onUp = () => { if (!active) return; active = false; if (moved) { _fchatMiniWinPos[sessionId] = { x: parseInt(div.style.left) || 0, y: parseInt(div.style.top) || 0, w: div.offsetWidth, h: div.offsetHeight }; _saveMiniWinPositions(); } setTimeout(() => { div._suppressClick = false; }, 50); if (moved) div._suppressClick = true; };
+    header.addEventListener('mousedown', onDown);
+    header.addEventListener('touchstart', onDown, { passive: true });
+    document.addEventListener('mousemove', onMove, { passive: false });
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+}
+function _fchatMiniInitResize(div, sessionId) {
+    const rh = div.querySelector('.fchat-mini-resize'); if (!rh) return;
+    let sx = 0, sy = 0, sw = 0, sh = 0, active = false;
+    const onDown = e => { active = true; const t = e.touches && e.touches[0]; sx = t ? t.clientX : e.clientX; sy = t ? t.clientY : e.clientY; sw = div.offsetWidth; sh = div.offsetHeight; e.preventDefault(); e.stopPropagation(); };
+    const onMove = e => { if (!active) return; const t = e.touches && e.touches[0]; const cx = t ? t.clientX : e.clientX; const cy = t ? t.clientY : e.clientY; const W = window.innerWidth, H = window.innerHeight; const nl = parseInt(div.style.left) || 0; const nt = parseInt(div.style.top) || 0; div.style.width = Math.min(Math.max(sw + (cx - sx), 220), W - nl - 8) + 'px'; div.style.height = Math.min(Math.max(sh + (cy - sy), 140), H - nt - 8) + 'px'; e.preventDefault(); };
+    const onUp = () => { if (!active) return; active = false; _fchatMiniWinPos[sessionId] = { x: parseInt(div.style.left) || 0, y: parseInt(div.style.top) || 0, w: div.offsetWidth, h: div.offsetHeight }; _saveMiniWinPositions(); };
+    rh.addEventListener('mousedown', onDown);
+    rh.addEventListener('touchstart', onDown, { passive: false });
+    document.addEventListener('mousemove', onMove, { passive: false });
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+}
 function renderFchatBubbles() {
-    document.querySelectorAll('.fchat-bubble').forEach(b => b.remove());
     const minimized = _fchatSessions.filter(s => s.id !== _fchatActiveId);
+    const wantedIds = new Set(minimized.map(s => s.id));
+    document.querySelectorAll('.fchat-bubble,.fchat-mini-win').forEach(el => {
+        const id = el.id.replace(/^fchat-(bubble|mini)-/, '');
+        if (!wantedIds.has(id)) el.remove();
+    });
     minimized.forEach((s, i) => {
         const bc = s.bubbleConfig || BUBBLE_CONFIGS.find(b => b.profileLabel === s.profileLabel) || {};
         const emoji = bc.emoji || '🤖';
         let label = s.profileLabel || '';
-        if (s.chatId && chatHistories) { const profH = chatHistories[s.profileLabel] || {}; const chat = (profH.list || []).find(c => String(c.id) === String(s.chatId)); if (chat && chat.var_id && GLOBAL_DATASETS[chat.var_id] && GLOBAL_DATASETS[chat.var_id].title) { label = GLOBAL_DATASETS[chat.var_id].title; } }
+        if (s.chatId && chatHistories) { const profH = chatHistories[s.profileLabel] || {}; const chat = (profH.list || []).find(c => String(c.id) === String(s.chatId)); if (chat && chat.var_id && GLOBAL_DATASETS[chat.var_id] && GLOBAL_DATASETS[chat.var_id].title) { label = GLOBAL_DATASETS[chat.var_id].title; } else if (chat && chat.title) { label = chat.title; } }
+        const existing = document.getElementById('fchat-bubble-' + s.id);
+        if (existing) {
+            const titleEl = existing.querySelector('.fchat-bubble-label');
+            if (titleEl && titleEl.textContent !== label) titleEl.textContent = label;
+            const emojiEl = existing.querySelector('.fchat-bubble-emoji');
+            if (emojiEl && emojiEl.textContent !== emoji) emojiEl.textContent = emoji;
+            return;
+        }
         const div = document.createElement('div');
         div.className = 'fchat-bubble';
         div.id = 'fchat-bubble-' + s.id;
-        div.style.position = 'fixed';
-        div.style.zIndex = '8900';
-        div.innerHTML = `<span style="pointer-events:none; font-size:22px; line-height:1;">${emoji}</span><div class="fchat-bubble-actions"><div class="fchat-bubble-action-btn" title="Close">✕</div></div><div class="fchat-bubble-label">${label}</div>`;
+        div.innerHTML = `<span class="fchat-bubble-emoji">${emoji}</span><input class="fchat-bubble-input" type="text" placeholder="Message..."><button class="fchat-bubble-send" title="Send">↑</button><div class="fchat-bubble-actions"><div class="fchat-bubble-action-btn fcb-max" title="Maximize">⤢</div><div class="fchat-bubble-action-btn fcb-close" title="Close">✕</div></div><div class="fchat-bubble-label">${_escSnap(label)}</div><div class="fchat-bubble-status"></div>`;
         const pos = _fchatBubblePositions[s.id];
         if (pos) { div.style.left = pos.x + 'px'; div.style.top = pos.y + 'px'; }
-        else { const bx = Math.max(8, window.innerWidth / 2 - 26 + (i - Math.floor(minimized.length / 2)) * 64); const by = window.innerHeight - 96; div.style.left = bx + 'px'; div.style.top = by + 'px'; _fchatBubblePositions[s.id] = { x: bx, y: by }; }
-        div.querySelector('.fchat-bubble-action-btn').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
-        div.onclick = () => fchatMaximize(s.id);
+        else { const bx = Math.max(8, Math.min(window.innerWidth - 260, window.innerWidth / 2 - 130 + (i - Math.floor(minimized.length / 2)) * 16)); const by = window.innerHeight - 80 - i * 6; div.style.left = bx + 'px'; div.style.top = by + 'px'; _fchatBubblePositions[s.id] = { x: bx, y: by }; }
+        div.querySelector('.fcb-close').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
+        div.querySelector('.fcb-max').onclick = (e) => { e.stopPropagation(); fchatMaximize(s.id); };
+        div.querySelector('.fchat-bubble-emoji').onclick = (e) => { e.stopPropagation(); fchatMaximize(s.id); };
+        const inputEl = div.querySelector('.fchat-bubble-input');
+        const sendEl = div.querySelector('.fchat-bubble-send');
+        inputEl.addEventListener('mousedown', e => e.stopPropagation());
+        inputEl.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+        inputEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendFromBubble(s.id); } });
+        sendEl.addEventListener('click', e => { e.stopPropagation(); _sendFromBubble(s.id); });
+        const iframeSrc = '?fcwin=1' + (s.profileLabel ? '&p=' + encodeURIComponent(s.profileLabel) : '') + (s.chatId ? '&c=' + encodeURIComponent(s.chatId) : '') + '&sid=' + encodeURIComponent(s.id);
+        const ifr = document.createElement('iframe');
+        ifr.className = 'fchat-bubble-iframe';
+        ifr.src = iframeSrc;
+        ifr.setAttribute('loading', 'eager');
+        div.appendChild(ifr);
         _makeBubbleDraggable(div, s.id);
         document.body.appendChild(div);
     });
 }
+
+function _sendFromBubble(sessionId) {
+    const bubble = document.getElementById('fchat-bubble-' + sessionId);
+    if (!bubble) return;
+    const input = bubble.querySelector('.fchat-bubble-input');
+    const iframe = bubble.querySelector('.fchat-bubble-iframe');
+    const status = bubble.querySelector('.fchat-bubble-status');
+    const sendBtn = bubble.querySelector('.fchat-bubble-send');
+    const text = (input.value || '').trim();
+    if (!text || !iframe) return;
+    const doSend = () => { try { iframe.contentWindow.postMessage({ type: 'fchat-send', text: text }, '*'); } catch(e){} };
+    if (bubble._iframeReady) { doSend(); }
+    else { bubble._pendingSend = text; }
+    input.value = '';
+    if (status) status.textContent = '⏳ Sending…';
+    if (sendBtn) sendBtn.classList.add('is-busy');
+}
+
+function _minimizeFchatToBubble() {
+    if (_fchatActiveId === null) return;
+    const sid = _fchatActiveId;
+    const cur = _fchatSessions.find(s => s.id === sid);
+    if (cur) cur.chatId = (getSessions() || {}).current || cur.chatId;
+    const el = document.getElementById('floating-chat');
+    const wr = document.getElementById('main-chat-wrapper');
+    const ref = document.getElementById('master-modal');
+    if (wr && ref && ref.parentNode) ref.parentNode.insertBefore(wr, ref); else if (wr) document.body.appendChild(wr);
+    if (wr) wr.style.display = '';
+    if (el) { el.style.display = 'none'; el.classList.remove('fc-windowed'); }
+    _fchatActiveId = null;
+    renderFchatBubbles();
+}
+
+window.addEventListener('message', (e) => {
+    if (!e.data || typeof e.data !== 'object') return;
+    if (e.data.type === 'fchat-iframe-ready' && e.data.sid) {
+        const bubble = document.getElementById('fchat-bubble-' + e.data.sid);
+        if (!bubble) return;
+        bubble._iframeReady = true;
+        if (bubble._pendingSend) {
+            const ifr = bubble.querySelector('.fchat-bubble-iframe');
+            try { ifr.contentWindow.postMessage({ type: 'fchat-send', text: bubble._pendingSend }, '*'); } catch(err){}
+            bubble._pendingSend = null;
+        }
+    } else if (e.data.type === 'fchat-iframe-status' && e.data.sid) {
+        const bubble = document.getElementById('fchat-bubble-' + e.data.sid);
+        if (!bubble) return;
+        const status = bubble.querySelector('.fchat-bubble-status');
+        const sendBtn = bubble.querySelector('.fchat-bubble-send');
+        if (e.data.busy) { if (status) status.textContent = '💭 Thinking…'; if (sendBtn) sendBtn.classList.add('is-busy'); }
+        else { if (status) status.textContent = ''; if (sendBtn) sendBtn.classList.remove('is-busy'); }
+    }
+});
 
 function createFchatSession(profileLabel, bubbleConfig) {
     if (_fchatActiveId !== null) {
@@ -5301,6 +5573,18 @@ function createFchatSession(profileLabel, bubbleConfig) {
     _openFchatPanel(session);
 }
 
+function _updateFchatTitleBar(session) {
+    if (!session) return;
+    const bc = session.bubbleConfig || BUBBLE_CONFIGS.find(b => b.profileLabel === session.profileLabel) || {};
+    const emoji = bc.emoji || '🤖';
+    let label = session.profileLabel || 'Chat';
+    if (session.chatId && chatHistories) { const profH = chatHistories[session.profileLabel] || {}; const chat = (profH.list || []).find(c => String(c.id) === String(session.chatId)); if (chat && chat.var_id && GLOBAL_DATASETS[chat.var_id] && GLOBAL_DATASETS[chat.var_id].title) label = GLOBAL_DATASETS[chat.var_id].title; else if (chat && chat.title) label = chat.title; }
+    const eEl = document.querySelector('#fc-title-bar .fc-title-emoji');
+    const tEl = document.querySelector('#fc-title-bar .fc-title-text');
+    if (eEl) eEl.textContent = emoji;
+    if (tEl) tEl.textContent = label;
+}
+
 function _openFchatPanel(session) {
     const el = document.getElementById('floating-chat'); if (!el) return;
     const wrapper = document.getElementById('main-chat-wrapper');
@@ -5310,6 +5594,7 @@ function _openFchatPanel(session) {
     _initFchatWindow();
     renderFchatHeader(session);
     _updateFchatContextLabel();
+    _updateFchatTitleBar(session);
     const sData = getSessions();
     const isSameSession = activeProfileLabel === session.profileLabel && String(sData.current) === String(session.chatId);
     if (isSameSession && currentAborter) {
