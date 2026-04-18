@@ -478,14 +478,16 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .fchat-bubble-actions { position:absolute; top:-9px; right:-9px; display:flex; flex-direction:column; gap:3px; }
 .fchat-bubble-action-btn { width:22px; height:22px; border-radius:11px; background:rgba(20,20,30,0.82); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1.5px solid rgba(255,255,255,0.35); box-shadow:0 1px 6px rgba(0,0,0,0.3); }
 .fchat-bubble-label { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:9px; color:#888; white-space:nowrap; font-weight:600; pointer-events:none; }
-.fchat-bubble-row { position:fixed; display:flex; align-items:center; gap:6px; z-index:9200; pointer-events:none; }
-.fchat-bubble-row > * { pointer-events:auto; }
-.fchat-bubble-row .fchat-bubble { position:relative !important; left:auto !important; top:auto !important; flex-shrink:0; }
-.fchat-bubble-row-input-wrap { display:flex; align-items:center; gap:4px; background:rgba(255,255,255,0.94); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:0.5px solid rgba(0,0,0,0.08); border-radius:20px; padding:4px 4px 4px 12px; box-shadow:0 3px 14px rgba(0,0,0,0.12); height:38px; max-width:240px; }
-.fchat-bubble-row-input { flex:1; min-width:80px; max-width:180px; border:none; outline:none; background:transparent; font-size:13px; color:#222; height:30px; }
+.fchat-bubble-row { position:fixed; display:inline-flex; align-items:center; gap:6px; z-index:9200; pointer-events:auto; background:rgba(255,255,255,0.94); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:0.5px solid rgba(0,0,0,0.08); border-radius:24px; padding:4px 6px 4px 4px; box-shadow:0 4px 18px rgba(0,0,0,0.16); height:44px; max-width:280px; user-select:none; -webkit-user-select:none; }
+.fchat-bubble-row-emoji { width:36px; height:36px; border-radius:18px; background:var(--accent); color:#fff; font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:grab; box-shadow:0 2px 8px rgba(0,122,255,0.35); position:relative; }
+.fchat-bubble-row-emoji:active { cursor:grabbing; transform:scale(0.94); }
+.fchat-bubble-row-input { flex:1; min-width:80px; max-width:170px; border:none; outline:none; background:transparent; font-size:13px; color:#222; height:30px; user-select:text; -webkit-user-select:text; }
 .fchat-bubble-row-send { width:30px; height:30px; border-radius:15px; background:var(--accent); color:#fff; border:none; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .fchat-bubble-row-send:disabled { opacity:0.4; cursor:not-allowed; }
-@media (prefers-color-scheme: dark) { .fchat-bubble-row-input-wrap { background:rgba(40,40,46,0.94); border-color:rgba(255,255,255,0.10); } .fchat-bubble-row-input { color:#f4f4f4; } }
+.fchat-bubble-row-close { width:22px; height:22px; border-radius:11px; background:rgba(0,0,0,0.08); color:#666; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.fchat-bubble-row-close:hover { background:rgba(0,0,0,0.18); color:#fff; }
+.fchat-bubble-row-label { position:absolute; bottom:-16px; left:18px; font-size:9px; color:#888; white-space:nowrap; font-weight:600; pointer-events:none; }
+@media (prefers-color-scheme: dark) { .fchat-bubble-row { background:rgba(40,40,46,0.94); border-color:rgba(255,255,255,0.10); } .fchat-bubble-row-input { color:#f4f4f4; } .fchat-bubble-row-close { background:rgba(255,255,255,0.10); color:#bbb; } }
 .fchat-mini-win { position:fixed; z-index:9150; background:var(--bg-gradient, linear-gradient(145deg, #fffaf3 0%, #fff5ec 38%, #fff0e8 68%, #faf6f0 100%)); border:0.5px solid var(--glass-border); border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,0.22); display:flex; flex-direction:column; overflow:hidden; pointer-events:auto; min-width:240px; min-height:160px; backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); animation:fcbubble-in 0.22s cubic-bezier(0.34,1.56,0.64,1); }
 @media (prefers-color-scheme: dark) { .fchat-mini-win { background:var(--bg-gradient, linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)); } }
 .fchat-mini-header { display:flex; align-items:center; gap:6px; padding:6px 8px; background:rgba(127,127,127,0.08); border-bottom:0.5px solid var(--glass-border); cursor:grab; user-select:none; -webkit-user-select:none; flex-shrink:0; }
@@ -5513,26 +5515,22 @@ function renderFchatBubbles() {
             const row = document.createElement('div');
             row.className = 'fchat-bubble-row';
             row.id = 'fchat-bubble-' + s.id;
-            const bubble = document.createElement('div');
-            bubble.className = 'fchat-bubble';
-            bubble.innerHTML = `<span style="pointer-events:none; font-size:22px; line-height:1;">${emoji}</span><div class="fchat-bubble-actions"><div class="fchat-bubble-action-btn" title="Close">✕</div></div><div class="fchat-bubble-label">${_escSnap(label)}</div>`;
-            const inputWrap = document.createElement('div');
-            inputWrap.className = 'fchat-bubble-row-input-wrap';
-            inputWrap.innerHTML = `<input class="fchat-bubble-row-input" type="text" placeholder="Message…" /><button class="fchat-bubble-row-send" title="Send">↑</button>`;
-            row.appendChild(bubble); row.appendChild(inputWrap);
+            row.innerHTML = `<div class="fchat-bubble-row-emoji" title="Drag to move · tap to expand">${emoji}<div class="fchat-bubble-row-label">${_escSnap(label)}</div></div><input class="fchat-bubble-row-input" type="text" placeholder="Message…" /><button class="fchat-bubble-row-send" title="Send">↑</button><div class="fchat-bubble-row-close" title="Close">✕</div>`;
             const pos = _fchatBubblePositions[s.id];
             if (pos) { row.style.left = pos.x + 'px'; row.style.top = pos.y + 'px'; }
             else { const bx = Math.max(8, Math.min(window.innerWidth - 300, window.innerWidth / 2 - 150 + (i - Math.floor(minimized.length / 2)) * 12)); const by = window.innerHeight - 96; row.style.left = bx + 'px'; row.style.top = by + 'px'; _fchatBubblePositions[s.id] = { x: bx, y: by }; }
-            bubble.querySelector('.fchat-bubble-action-btn').onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
-            bubble.onclick = () => { _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: false }); _saveMiniWinPositions(); renderFchatBubbles(); };
-            const inpEl = inputWrap.querySelector('.fchat-bubble-row-input');
-            const sendEl = inputWrap.querySelector('.fchat-bubble-row-send');
+            const emojiEl = row.querySelector('.fchat-bubble-row-emoji');
+            const inpEl = row.querySelector('.fchat-bubble-row-input');
+            const sendEl = row.querySelector('.fchat-bubble-row-send');
+            const closeEl = row.querySelector('.fchat-bubble-row-close');
+            closeEl.onclick = (e) => { e.stopPropagation(); fchatCloseBubble(s.id); };
             const _doSend = () => { const txt = (inpEl.value||'').trim(); if (!txt) return; const sess = _fchatSessions.find(x => x.id === s.id); if (!sess) return; sess.pendingSend = txt; inpEl.value = ''; _fchatSpawnBgIframe(sess); sendEl.textContent = '⋯'; sendEl.disabled = true; setTimeout(() => { sendEl.textContent = '↑'; sendEl.disabled = false; }, 1200); };
             sendEl.onclick = (e) => { e.stopPropagation(); _doSend(); };
             inpEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _doSend(); } });
             inpEl.addEventListener('mousedown', (e) => e.stopPropagation());
             inpEl.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
-            _makeBubbleDraggable(bubble, s.id, row);
+            emojiEl.addEventListener('click', (e) => { e.stopPropagation(); _fchatMiniWinPos[s.id] = Object.assign({}, _fchatMiniWinPos[s.id] || {}, { minimized: false }); _saveMiniWinPositions(); renderFchatBubbles(); });
+            _makeBubbleDraggable(emojiEl, s.id, row);
             document.body.appendChild(row);
         } else {
             const pos = _fchatMiniWinPos[s.id] && typeof _fchatMiniWinPos[s.id].x === 'number' ? _fchatMiniWinPos[s.id] : _defaultMiniWinPos(i);
