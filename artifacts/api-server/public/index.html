@@ -2661,7 +2661,7 @@ function editAIResponse(idx) {
     const _capturedReplyBoxId = _replyAiTargetBoxId;
     document.getElementById('edit-ai-input').innerHTML = marked.parse(currentText); openModal('edit-ai-modal');
     const ruleIn = document.getElementById('edit-ai-rule-input'); if(ruleIn) ruleIn.value = '';
-    document.getElementById('save-ai-edit-btn').onclick = async () => { const _editHtml = document.getElementById('edit-ai-input').innerHTML; const _editTxt = document.getElementById('edit-ai-input').innerText; msg.content = [{ type: "output_text", text: _editHtml }]; await saveAll(); renderChatHistory(); closeModal('edit-ai-modal'); const _eSessId = _capturedFchatId || _fchatActiveId; const _eSess = _fchatSessions.find(s => s.id === _eSessId); const _eAtT = _eSess && _eSess.atTarget; if(_eAtT && _eAtT.el) { _writeToTargetPreserveSig(_eAtT.el, _eAtT.isTA ? _editTxt : marked.parse(_editTxt), _eAtT.isTA); } else if(_capturedReplyBoxId || _replyAiTargetBoxId) { const _rb = document.getElementById(_capturedReplyBoxId || _replyAiTargetBoxId); if(_rb) _writeToTargetPreserveSig(_rb, marked.parse(_editTxt), false); } };
+    document.getElementById('save-ai-edit-btn').onclick = async () => { const _editHtml = document.getElementById('edit-ai-input').innerHTML; const _editTxt = document.getElementById('edit-ai-input').innerText; msg.content = [{ type: "output_text", text: _editHtml }]; await saveAll(); renderChatHistory(); closeModal('edit-ai-modal'); const _eSessId = (typeof _isEmbedded!=='undefined'&&_isEmbedded) ? _embedSessionId : (_capturedFchatId || _fchatActiveId); const _eSess = _fchatSessions.find(s => s.id === _eSessId); const _eAtT = _eSess && _eSess.atTarget; if(_eAtT && _eAtT.elId) { const _localEl=document.getElementById(_eAtT.elId); if(_localEl) _writeToTargetPreserveSig(_localEl, _eAtT.isTA ? _editTxt : marked.parse(_editTxt), _eAtT.isTA); if(typeof _isEmbedded!=='undefined'&&_isEmbedded&&window.parent!==window){ try{window.parent.postMessage({_atSync:true,elId:_eAtT.elId,isTA:_eAtT.isTA,content:_editTxt},'*');}catch(e){} } } else if(_capturedReplyBoxId || _replyAiTargetBoxId) { const _rb = document.getElementById(_capturedReplyBoxId || _replyAiTargetBoxId); if(_rb) _writeToTargetPreserveSig(_rb, marked.parse(_editTxt), false); } };
 }
 
 async function applyRuleToResponse() { const rule = (document.getElementById('edit-ai-rule-input').value||'').trim(); if(!rule) { notify('Enter a rule first','#ff3b30'); return; } if(!CONFIG.ai_key) { notify('Add OpenAI key in Settings','#ff3b30'); return; } const currentText = document.getElementById('edit-ai-input').innerText; const btn = document.getElementById('apply-rule-btn'); if(btn) { btn.textContent='⏳'; btn.disabled=true; } try { const r = await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+CONFIG.ai_key},body:JSON.stringify({model:CONFIG.def_model||'gpt-4o-mini',messages:[{role:'system',content:'You are a text editor. Apply the user instruction to the provided text. Return ONLY the updated text, preserving format. No explanations.'},{role:'user',content:'Instruction: '+rule+'\n\nText:\n'+currentText}],max_tokens:2000})}); const d = await r.json(); const updated = (d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||'').trim(); if(updated) { document.getElementById('edit-ai-input').innerHTML = marked.parse(updated); document.getElementById('edit-ai-rule-input').value=''; notify('Response updated','#34c759',1200); } else { notify('No result returned','#ff3b30'); } } catch(e) { notify('Failed: '+e.message,'#ff3b30'); } if(btn) { btn.textContent='Apply'; btn.disabled=false; } }
@@ -3241,7 +3241,7 @@ async function sendToAI() {
                             if (fullR === "") aiB.innerHTML = `<div class="bubble-content"></div>`; 
                             fullR += data.delta; aiB.querySelector('.bubble-content').innerHTML = marked.parse(fullR); 
                             if(_replyAiTargetBoxId){const _rb=document.getElementById(_replyAiTargetBoxId);if(_rb){_writeToTargetPreserveSig(_rb,marked.parse(fullR),false);_rb.scrollTop=_rb.scrollHeight;}}
-                            const _actSess=_fchatSessions.find(s=>s.id===_fchatActiveId); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.el){_writeToTargetPreserveSig(_atT.el,_atT.isTA?fullR:marked.parse(fullR),_atT.isTA);}
+                            { const _eSid=(typeof _isEmbedded!=='undefined'&&_isEmbedded)?_embedSessionId:_fchatActiveId; const _actSess=_fchatSessions.find(s=>s.id===_eSid); const _atT=_actSess&&_actSess.atTarget; if(_atT&&_atT.elId){ const _localEl=document.getElementById(_atT.elId); if(_localEl) _writeToTargetPreserveSig(_localEl,_atT.isTA?fullR:marked.parse(fullR),_atT.isTA); if(typeof _isEmbedded!=='undefined'&&_isEmbedded&&window.parent!==window){ try{window.parent.postMessage({_atSync:true,elId:_atT.elId,isTA:_atT.isTA,content:fullR},'*');}catch(e){} } } }
                             if(!userScrolledDuringGen) scrollToLastRequest();
                         } 
                     } catch(e){}
@@ -5520,7 +5520,7 @@ function renderFchatBubbles() {
 function _newFloatingChatId() { return 'fc' + Date.now() + Math.floor(Math.random()*1000); }
 function createFchatSession(profileLabel, bubbleConfig) {
     const session = { id: Date.now().toString(), profileLabel: profileLabel || activeProfileLabel, chatId: _newFloatingChatId(), bubbleConfig: bubbleConfig || null, atTarget: null };
-    if (_atMentionTargetEl) { session.atTarget = { el: _atMentionTargetEl, isTA: _atMentionIsTextArea, label: _atMentionTargetLabel }; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; }
+    if (_atMentionTargetEl) { if(!_atMentionTargetEl.id) _atMentionTargetEl.id = '_at_tgt_' + Date.now().toString(36) + Math.floor(Math.random()*999); session.atTarget = { elId: _atMentionTargetEl.id, isTA: _atMentionIsTextArea, label: _atMentionTargetLabel }; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; }
     _fchatSessions.push(session);
     renderFchatBubbles();
 }
@@ -6133,9 +6133,9 @@ function _initAtMention() {
         if(!val.endsWith('@')) return;
         e.stopPropagation();
         const draft = val.slice(0,-1).trim();
-        if (_fchatActiveId !== null) { const _aS = _fchatSessions.find(s => s.id === _fchatActiveId); if (_aS && _aS.atTarget && _aS.atTarget.el) { notify('This chat is linked to "' + _aS.atTarget.label + '" — tap ✕ to unlink first', '#ff9500', 2800); return; } }
         _showAtMentionPicker(el, draft, isTA||isInp);
     });
+    if(window.parent === window) { window.addEventListener('message', function(ev){ const d = ev.data; if(!d || !d._atSync || !d.elId) return; const _tEl = document.getElementById(d.elId); if(!_tEl) return; _writeToTargetPreserveSig(_tEl, d.isTA ? d.content : marked.parse(d.content), !!d.isTA); }); }
 }
 function _getAtMentionFieldLabel(el) { const ph = el.placeholder || el.getAttribute('data-ph') || ''; if(ph && ph.length < 40) return ph.replace(/\s*\(.*\)/, '').trim().slice(0,28); if(el.id) { const nice = {'note-input':'Main input','note-content':'Note content','note-title':'Note title','email-compose-body':'Email body','email-compose-to':'To field','email-compose-subject':'Subject','email-compose-cc':'CC field'}; if(nice[el.id]) return nice[el.id]; return el.id.replace(/[-_]/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,28); } return 'Input field'; }
 function _showAtMentionPicker(el, draft, isTextArea) {
@@ -6158,6 +6158,9 @@ function _showAtMentionPicker(el, draft, isTextArea) {
             ev.stopPropagation();
             _closeAtMention(false);
             if(isTextArea) { el.value = draft; } else { el.innerText = draft; }
+            if(!el.id) el.id = '_at_tgt_' + Date.now().toString(36) + Math.floor(Math.random()*999);
+            const _existing = _fchatSessions.find(s => s.atTarget && s.atTarget.elId === el.id);
+            if(_existing) { _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; fchatMaximize(_existing.id); notify('Reusing existing chat linked to "' + (_existing.atTarget.label||'field') + '"', '#34c759', 1800); return; }
             if(draft) { const lines = draft.split('\n').filter(l=>l.trim()).slice(0,40); lines.forEach(l=>{ if(!CONTEXT_LINES.includes(l)) CONTEXT_LINES.push(l); }); cutIdx=CONTEXT_LINES.length-1; saveAll(true); }
             createFchatSession(p.label);
         };
@@ -6586,8 +6589,8 @@ function _clearReplyAiTarget() {
     _replyAiTargetBoxId = '';
     _updateReplyAiIndicator();
 }
-function _clearAtMentionTarget() { const sess = _fchatSessions.find(s => s.id === _fchatActiveId); if(sess) sess.atTarget = null; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; const ind = document.getElementById('fchat-at-indicator'); if(ind) ind.style.display = 'none'; }
-function _updateAtMentionIndicator() { const ind = document.getElementById('fchat-at-indicator'); const lbl = document.getElementById('fchat-at-indicator-label'); if(!ind || !lbl) return; const sess = _fchatSessions.find(s => s.id === _fchatActiveId); const atT = sess && sess.atTarget; if(atT && atT.el && atT.label) { lbl.textContent = atT.label; ind.style.display = ''; } else { ind.style.display = 'none'; } }
+function _clearAtMentionTarget() { const _sid = (typeof _isEmbedded!=='undefined'&&_isEmbedded)?_embedSessionId:_fchatActiveId; const sess = _fchatSessions.find(s => s.id === _sid); if(sess) { sess.atTarget = null; saveAll(true); } _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; const ind = document.getElementById('fchat-at-indicator'); if(ind) ind.style.display = 'none'; }
+function _updateAtMentionIndicator() { const ind = document.getElementById('fchat-at-indicator'); const lbl = document.getElementById('fchat-at-indicator-label'); if(!ind || !lbl) return; const _sid = (typeof _isEmbedded!=='undefined'&&_isEmbedded)?_embedSessionId:_fchatActiveId; const sess = _fchatSessions.find(s => s.id === _sid); const atT = sess && sess.atTarget; if(atT && atT.elId && atT.label) { lbl.textContent = atT.label; ind.style.display = ''; } else { ind.style.display = 'none'; } }
 
 let NOTES = [];
 function _loadNotes() { try { NOTES = JSON.parse(localStorage.getItem('app_notes') || '[]'); } catch(e) { NOTES = []; } }
