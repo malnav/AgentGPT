@@ -1050,6 +1050,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div style="position:relative;">
                     <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="toggleMenu(document.getElementById('attach-menu'))">➕</button>
                     <div id="attach-menu" class="tool-menu closed" style="bottom: 100%; top: auto; left: 0; right: auto; margin-bottom: 10px; min-width: 160px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15);">
+                        <div class="tool-menu-item" onclick="_openPromptsSubmenu();">🪄 Prompts</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); document.getElementById('attach-menu').classList.add('closed');">📷 Camera</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-img').click(); document.getElementById('attach-menu').classList.add('closed');">🖼️ Photo Library</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); document.getElementById('attach-menu').classList.add('closed');">📁 Files</div>
@@ -1061,7 +1062,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                     </div>
                 </div>
 
-                <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="closeAllPanels(); manageSection('prompts');" title="Manage Prompts">📚</button>
                 <select id="chatModel" class="model-sel"></select>
                 <div onclick="popState()" style="display:none;" title="Undo">↩️</div>
                 <div onclick="redoStateAction()" style="display:none;" title="Redo">↪️</div>
@@ -2524,6 +2524,32 @@ async function applyPrompt(idx) {
     const p = PROMPTS[idx]; if(!p) return; let parsed = await parseServiceVariables(p.text); if(parsed === null) return;
     activePromptIdx = idx; renderInlinePrompts(); document.getElementById('note-input').value = ""; lastCursorPos = null;
     insertAtCursor(parsed, false, true); if(p.model) document.getElementById('chatModel').value = p.model; sync(); 
+}
+
+function _openPromptsSubmenu() {
+    document.getElementById('attach-menu').classList.add('closed');
+    const filtP = PROMPTS.filter(p => p.profile === activeProfileLabel || p.profile === 'Global');
+    const ov = document.createElement('div');
+    ov.id = '_prompts-submenu-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9200;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);';
+    ov.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:16px 16px max(24px,env(safe-area-inset-bottom));max-height:72vh;display:flex;flex-direction:column;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;"><span style="font-size:16px;font-weight:800;color:var(--text);">🪄 Prompts</span><div id="_psub-close" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><div id="_prompts-submenu-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;padding-bottom:4px;"></div><div id="_psub-manage" style="margin-top:12px;padding:13px 16px;border-radius:14px;background:rgba(0,122,255,0.08);cursor:pointer;text-align:center;font-size:13px;font-weight:700;color:var(--accent);flex-shrink:0;">📚 Manage Prompts</div></div>';
+    ov.onclick = function(e) { if(e.target === ov) ov.remove(); };
+    document.body.appendChild(ov);
+    document.getElementById('_psub-close').onclick = function() { ov.remove(); };
+    document.getElementById('_psub-manage').onclick = function() { ov.remove(); closeAllPanels(); manageSection('prompts'); };
+    const listEl = document.getElementById('_prompts-submenu-list');
+    if (!filtP.length) {
+        listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#888;font-size:13px;">No prompts yet — tap Manage Prompts to add some.</div>';
+    } else {
+        filtP.forEach(function(p) {
+            const actualIdx = PROMPTS.indexOf(p);
+            const d = document.createElement('div');
+            d.style.cssText = 'padding:13px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;font-size:13px;font-weight:600;color:var(--text);';
+            d.textContent = p.label;
+            d.onclick = function() { ov.remove(); applyPrompt(actualIdx); };
+            listEl.appendChild(d);
+        });
+    }
 }
 
 function savePromptFromChat(idx) { let rawText = getTextFromContent(chatHistory[idx].content); if(rawText.includes("\n\n[CONTEXT]\n")) rawText = rawText.split("\n\n[CONTEXT]\n")[0]; closeAllPanels(); manageSection('prompts'); document.getElementById('entry-t').value = rawText; }
