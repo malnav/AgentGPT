@@ -259,7 +259,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 }
 #attachment-preview { display: none; padding: 8px 14px 0 14px; gap: 8px; overflow-x: auto; white-space: nowrap; border-bottom: 0.5px solid var(--border); scrollbar-width: none; border-top-left-radius: 22px; border-top-right-radius: 22px; }
 #attachment-preview::-webkit-scrollbar { display: none; }
-#note-input { width: 100%; font-size: 16px; line-height: 1.5; border: none; border-radius: 22px; background: transparent; color: var(--text); outline: none; resize: none; min-height: 44px; max-height: 200px; padding: 12px 96px 12px 42px; transition: height 0.15s ease; }
+#note-input { width: 100%; font-size: 16px; line-height: 1.5; border: none; border-radius: 22px; background: transparent; color: var(--text); outline: none; resize: none; min-height: 44px; max-height: 200px; padding: 12px 122px 12px 42px; transition: height 0.15s ease; }
 #note-input::placeholder { font-size: 13px; opacity: 0.6; }
 #expand-btn { position: absolute; top: 9px; right: 10px; font-size: 16px; cursor: pointer; opacity: 0.4; z-index: 30; padding: 4px; transition: opacity 0.2s; }
 #expand-btn:active { opacity: 0.8; }
@@ -1048,7 +1048,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div id="attachment-preview"></div>
         <div id="fchat-avatar" onclick="openFchatProfilePicker(event)" style="position:absolute; left:10px; top:11px; font-size:20px; line-height:1; cursor:pointer; z-index:10; user-select:none;" title="Switch profile">🤖</div>
         <textarea id="note-input" rows="1" placeholder="Draft text..." enterkeyhint="send"></textarea>
-        <button id="attach-plus-btn" style="position:absolute; right:52px; top:50%; transform:translateY(-50%); padding:3px 5px; font-size:17px; background:transparent; border:none; color:var(--accent); cursor:pointer; z-index:30; line-height:1;" onclick="_openAttachMenu(event)">➕</button>
+        <button id="ds-pick-btn" style="position:absolute; right:82px; top:50%; transform:translateY(-50%); width:32px; height:32px; border-radius:50%; background:var(--glass); border:0.5px solid var(--glass-border); cursor:pointer; z-index:30; font-size:16px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.12);" onclick="_fchatPickDataset(event)" title="Choose dataset">📊</button>
+        <button id="attach-plus-btn" style="position:absolute; right:50px; top:50%; transform:translateY(-50%); padding:3px 5px; font-size:17px; background:transparent; border:none; color:var(--accent); cursor:pointer; z-index:30; line-height:1;" onclick="_openAttachMenu(event)">➕</button>
         <button class="send-btn" id="send-btn-el" style="position:absolute; right:8px; top:50%; transform:translateY(-50%);" onclick="sendToAI()" title="Send">↑</button>
         <select id="chatModel" class="model-sel" style="display:none;"></select>
         <div id="attach-menu" class="tool-menu closed" style="display:none;"></div>
@@ -2142,7 +2143,7 @@ function renderSessionVariables() {
     let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current));
     let previewDs = _calPreviewVid ? GLOBAL_DATASETS[_calPreviewVid] : null;
     let activeDs = previewDs || ((cur && cur.var_id) ? GLOBAL_DATASETS[cur.var_id] : null);
-    let dsTitle = activeDs ? (activeDs.title || "Data Set") : "No Dataset"; document.getElementById('active-dataset-title').innerText = dsTitle; let noteInEl = document.getElementById('note-input'); if(noteInEl) noteInEl.placeholder = 'Draft text...';
+    let dsTitle = activeDs ? (activeDs.title || "Data Set") : "No Dataset"; document.getElementById('active-dataset-title').innerText = dsTitle; if(typeof _updateNoteInputPlaceholder==='function') _updateNoteInputPlaceholder();
     if(!activeDs) { document.getElementById('session-vars-list').innerHTML = `<ul style="list-style:none;padding:0;margin:0;"><div style="font-size:13px;color:#888;text-align:center;padding:28px 12px;"><div style="font-size:30px;margin-bottom:8px;">📂</div><div>No dataset linked to this chat.</div><div style="margin-top:12px;display:flex;gap:8px;justify-content:center;"><button class="chip" onclick="showDatasetsPicker()" style="background:var(--accent);color:#fff;font-size:12px;padding:7px 16px;">Link Dataset</button><button class="chip" onclick="createAndLinkNewDataset()" style="font-size:12px;padding:7px 12px;">+ New</button></div></div></ul>`; initVarDragDrop(); return; }
     let vars = getActiveVars();
     let allKeys = previewDs ? Object.keys(vars) : [...(p.expected_vars || [])]; let meta = p.var_meta || {};
@@ -5005,7 +5006,8 @@ function openFchatProfilePicker(e) {
 
 function _getFchatCurSession() { if (_fchatActiveId === null) return null; const sess = _fchatSessions.find(s => s.id === _fchatActiveId); if (!sess) return null; const sData = chatHistories[sess.profileLabel]; if (!sData) return null; return sData.list ? sData.list.find(x => String(x.id) === String(sess.chatId)) : null; }
 
-function _updateFchatDsLabel() { const el = document.getElementById('fchat-ds-label'); if (!el) return; const cur = _getFchatCurSession(); const ds = cur && cur.var_id ? GLOBAL_DATASETS[cur.var_id] : null; el.textContent = ds ? (ds.title || 'Dataset') : 'No dataset'; }
+function _updateNoteInputPlaceholder() { const noteIn = document.getElementById('note-input'); if(!noteIn) return; const cur = _getFchatCurSession(); const ds = cur && cur.var_id ? GLOBAL_DATASETS[cur.var_id] : null; noteIn.placeholder = ds ? (ds.title || 'Dataset') : 'Draft text...'; }
+function _updateFchatDsLabel() { const el = document.getElementById('fchat-ds-label'); if (!el) return; const cur = _getFchatCurSession(); const ds = cur && cur.var_id ? GLOBAL_DATASETS[cur.var_id] : null; el.textContent = ds ? (ds.title || 'Dataset') : 'No dataset'; _updateNoteInputPlaceholder(); }
 
 function _openDatasetPickerModal(onSelect) { const existing = document.getElementById('_ds-picker-ov'); if (existing) existing.remove(); const ov = document.createElement('div'); ov.id = '_ds-picker-ov'; ov.style.cssText = 'position:fixed;inset:0;z-index:9300;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);'; ov.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:16px 16px max(28px,env(safe-area-inset-bottom));max-height:75vh;display:flex;flex-direction:column;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;"><span style="font-size:16px;font-weight:800;color:var(--text);">📊 Choose Dataset</span><div id="_ds-picker-close" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><div id="_ds-picker-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;padding-bottom:4px;"></div></div>'; ov.onclick = function(e) { if (e.target === ov) ov.remove(); }; document.body.appendChild(ov); document.getElementById('_ds-picker-close').onclick = function() { ov.remove(); }; const listEl = document.getElementById('_ds-picker-list'); const noDs = document.createElement('div'); noDs.style.cssText = 'padding:13px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;font-size:13px;font-weight:600;color:#888;flex-shrink:0;'; noDs.textContent = '— No dataset'; noDs.onclick = function() { ov.remove(); onSelect(null); }; listEl.appendChild(noDs); const vids = Object.keys(GLOBAL_DATASETS).filter(vid => !GLOBAL_DATASETS[vid].archived).sort((a,b) => { const ua = GLOBAL_DATASETS[a]._updated||Number(a); const ub = GLOBAL_DATASETS[b]._updated||Number(b); return ub-ua; }); if (!vids.length) { const empty = document.createElement('div'); empty.style.cssText = 'padding:20px;text-align:center;color:#888;font-size:13px;'; empty.textContent = 'No datasets yet.'; listEl.appendChild(empty); } vids.forEach(vid => { const ds = GLOBAL_DATASETS[vid]; const d = document.createElement('div'); d.style.cssText = 'padding:13px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;font-size:13px;font-weight:700;color:var(--text);flex-shrink:0;'; d.textContent = '📊 ' + (ds.title || 'Dataset'); d.onclick = function() { ov.remove(); onSelect(vid); }; listEl.appendChild(d); }); }
 
@@ -5349,6 +5351,7 @@ function _openFchatPanel(session) {
     _initFchatWindow();
     _fcWinInitDrag(el);
     renderFchatHeader(session);
+    _updateNoteInputPlaceholder();
     _updateFchatContextLabel();
     const sData = getSessions();
     const isSameSession = activeProfileLabel === session.profileLabel && String(sData.current) === String(session.chatId);
