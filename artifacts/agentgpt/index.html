@@ -1037,7 +1037,6 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <div class="input-zone" id="main-input-zone">
     <div class="input-wrapper">
-        <div id="expand-btn" onclick="toggleExpandInput()" title="Expand Input">⤢</div>
         <div id="attachment-preview"></div>
         <textarea id="note-input" placeholder="Draft text..." enterkeyhint="send"></textarea>
         
@@ -6261,7 +6260,7 @@ function _linkifyHtml(html) {
             </div>
             <div id="fchat-context-label" style="font-size:10px; color:#888; white-space:nowrap; flex-shrink:0; margin-left:5px;">No context</div>
             <div style="flex:1;"></div>
-            <div onclick="goHomeFromFloatingChat(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0;" title="Minimize">🏠</div>
+            <div onclick="goHomeFromFloatingChat(event)" style="font-size:22px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0; font-weight:300; letter-spacing:-2px;" title="Minimize">—</div>
             <div id="fc-win-toggle-btn" onclick="_fcToggleWindowed()" title="Toggle window mode">⛶</div>
             <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0;" title="Close">✕</div>
         </div>
