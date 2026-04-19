@@ -4915,7 +4915,7 @@ function updateProfileBubble() {
         const defLabel = CONFIG.def_profile || activeProfileLabel;
         const p = AI_PROFILES.find(x => x.label === defLabel) || AI_PROFILES[0];
         if (p) { icon.textContent = p.emoji || '🤖'; b.title = p.label + ' — Tap to start chat'; }
-        const avatarEl = document.getElementById('fchat-avatar'); if(avatarEl) avatarEl.textContent = p ? (p.emoji || '🤖') : '🤖';
+        const avatarEl = document.getElementById('fchat-avatar'); if(avatarEl) { const _as = _fchatSessions && _fchatActiveId !== null ? _fchatSessions.find(s => s.id === _fchatActiveId) : null; const _ap = _as ? (AI_PROFILES.find(x => x.label === _as.profileLabel) || p) : p; avatarEl.textContent = _ap ? (_ap.emoji || '🤖') : '🤖'; }
     }
 }
 
