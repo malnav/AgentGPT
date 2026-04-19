@@ -259,7 +259,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 }
 #attachment-preview { display: none; padding: 8px 14px 0 14px; gap: 8px; overflow-x: auto; white-space: nowrap; border-bottom: 0.5px solid var(--border); scrollbar-width: none; border-top-left-radius: 22px; border-top-right-radius: 22px; }
 #attachment-preview::-webkit-scrollbar { display: none; }
-#note-input { width: 100%; font-size: 16px; line-height: 1.5; border: none; border-radius: 22px; background: transparent; color: var(--text); outline: none; resize: none; min-height: 44px; max-height: 200px; padding: 13px 70px 4px 42px; transition: height 0.15s ease; }
+#note-input { width: 100%; font-size: 16px; line-height: 1.5; border: none; border-radius: 22px; background: transparent; color: var(--text); outline: none; resize: none; min-height: 44px; max-height: 200px; padding: 12px 96px 12px 42px; transition: height 0.15s ease; }
 #note-input::placeholder { font-size: 13px; opacity: 0.6; }
 #expand-btn { position: absolute; top: 9px; right: 10px; font-size: 16px; cursor: pointer; opacity: 0.4; z-index: 30; padding: 4px; transition: opacity 0.2s; }
 #expand-btn:active { opacity: 0.8; }
@@ -1048,17 +1048,13 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div id="attachment-preview"></div>
         <div id="fchat-avatar" onclick="openFchatProfilePicker(event)" style="position:absolute; left:10px; top:11px; font-size:20px; line-height:1; cursor:pointer; z-index:10; user-select:none;" title="Switch profile">🤖</div>
         <textarea id="note-input" rows="1" placeholder="Draft text..." enterkeyhint="send"></textarea>
-        <button id="attach-plus-btn" style="position:absolute; right:36px; top:8px; padding:3px 5px; font-size:17px; background:transparent; border:none; color:var(--accent); cursor:pointer; z-index:30; line-height:1;" onclick="_openAttachMenu(event)">➕</button>
+        <button id="attach-plus-btn" style="position:absolute; right:52px; top:50%; transform:translateY(-50%); padding:3px 5px; font-size:17px; background:transparent; border:none; color:var(--accent); cursor:pointer; z-index:30; line-height:1;" onclick="_openAttachMenu(event)">➕</button>
+        <button class="send-btn" id="send-btn-el" style="position:absolute; right:8px; top:50%; transform:translateY(-50%);" onclick="sendToAI()" title="Send">↑</button>
         <select id="chatModel" class="model-sel" style="display:none;"></select>
         <div id="attach-menu" class="tool-menu closed" style="display:none;"></div>
-        <div class="input-bottom-bar">
-            <div style="display:flex; gap:6px; align-items:center;">
-                <div onclick="popState()" style="display:none;" title="Undo">↩️</div>
-                <div onclick="redoStateAction()" style="display:none;" title="Redo">↪️</div>
-            </div>
-            <div style="display:flex; gap:10px; align-items:center;">
-                <button class="send-btn" id="send-btn-el" onclick="sendToAI()" title="Send">↑</button>
-            </div>
+        <div class="input-bottom-bar" style="display:none;">
+            <div onclick="popState()" style="display:none;" title="Undo">↩️</div>
+            <div onclick="redoStateAction()" style="display:none;" title="Redo">↪️</div>
         </div>
     </div>
 </div>
@@ -1739,12 +1735,12 @@ function initGestures() {
             else { closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); renderWorkspaceLists(); }
         }
     );
-    const inputBottomBarEl = document.querySelector('.input-bottom-bar');
-    if (inputBottomBarEl) {
+    const inputWrapperSwipeEl = document.querySelector('.input-wrapper');
+    if (inputWrapperSwipeEl) {
         let ibStartX = 0, ibStartY = 0;
-        inputBottomBarEl.addEventListener('touchstart', e => { ibStartX = e.touches[0].clientX; ibStartY = e.touches[0].clientY; }, {passive: true});
-        inputBottomBarEl.addEventListener('touchend', e => {
-            if (e.target.closest('select') || e.target.closest('button') || e.target.closest('.tool-menu')) return;
+        inputWrapperSwipeEl.addEventListener('touchstart', e => { ibStartX = e.touches[0].clientX; ibStartY = e.touches[0].clientY; }, {passive: true});
+        inputWrapperSwipeEl.addEventListener('touchend', e => {
+            if (e.target.closest('select') || e.target.closest('button') || e.target.closest('.tool-menu') || e.target.closest('textarea')) return;
             let endX = e.changedTouches[0].clientX, endY = e.changedTouches[0].clientY;
             if (Math.abs(ibStartY - endY) < 50 && ibStartX - endX > 40) { closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI(); }
         });
@@ -1814,7 +1810,7 @@ function tplPanelSwitch(tab) {
     if(tab==='services') renderToolsList();
     if(tab==='links') renderLinksPanel();
 }
-function toggleExpandInput(forceExpand = false) { if(forceExpand && isInputExpanded) return; isInputExpanded = forceExpand ? true : !isInputExpanded; const t = document.getElementById('note-input'), b = document.getElementById('expand-btn'); if(isInputExpanded) { t.style.minHeight = '50vh'; t.style.height = '50vh'; t.style.maxHeight = '70vh'; b.innerText = '⤡'; } else { t.style.minHeight = '60px'; t.style.maxHeight = '200px'; b.innerText = '⤢'; sync(); } setTimeout(updateInputHeightVar, 50); }
+function toggleExpandInput(forceExpand = false) { if(forceExpand && isInputExpanded) return; isInputExpanded = forceExpand ? true : !isInputExpanded; const t = document.getElementById('note-input'), b = document.getElementById('expand-btn'); if(isInputExpanded) { t.style.minHeight = '50vh'; t.style.height = '50vh'; t.style.maxHeight = '70vh'; b.innerText = '⤡'; } else { t.style.minHeight = '44px'; t.style.maxHeight = '200px'; b.innerText = '⤢'; sync(); } setTimeout(updateInputHeightVar, 50); }
 function toggleAllContext() { cutIdx = (cutIdx === -1) ? CONTEXT_LINES.length - 1 : -1; refreshUI(); }
 function renderInlinePrompts() {
     const filtP = PROMPTS.filter(p => p.profile === activeProfileLabel || p.profile === 'Global');
