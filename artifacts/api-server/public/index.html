@@ -1044,7 +1044,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div style="display:flex; gap:6px; align-items:center;">
                 <div style="position:relative;">
                     <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="toggleMenu(document.getElementById('attach-menu'))">➕</button>
-                    <div id="attach-menu" class="tool-menu closed" style="bottom: 100%; top: auto; left: 0; right: auto; margin-bottom: 10px; min-width: 160px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15);">
+                    <div id="attach-menu" class="tool-menu closed" style="bottom: 100%; top: auto; left: 0; right: auto; margin-bottom: 10px; min-width: 160px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); max-height: calc(100svh - 120px); overflow-y: auto; overflow-x: hidden;">
                         <div class="tool-menu-item" onclick="_openPromptsSubmenu();">🪄 Prompts</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); document.getElementById('attach-menu').classList.add('closed');">📷 Camera</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-img').click(); document.getElementById('attach-menu').classList.add('closed');">🖼️ Photo Library</div>
