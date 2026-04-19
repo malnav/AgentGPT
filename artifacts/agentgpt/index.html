@@ -259,8 +259,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 }
 #attachment-preview { display: none; padding: 8px 14px 0 14px; gap: 8px; overflow-x: auto; white-space: nowrap; border-bottom: 0.5px solid var(--border); scrollbar-width: none; border-top-left-radius: 22px; border-top-right-radius: 22px; }
 #attachment-preview::-webkit-scrollbar { display: none; }
-#note-input { width: 100%; font-size: 16px; line-height: 1.5; border: none; border-radius: 22px; background: transparent; color: var(--text); outline: none; resize: none; min-height: 40px; max-height: 200px; padding: 10px 14px 4px 14px; transition: height 0.15s ease; }
-#input-btn-row { display: flex; align-items: center; padding: 4px 8px 8px 10px; gap: 6px; }
+#note-input { width: 100%; font-size: 16px; line-height: 1.5; border: none; border-radius: 22px; background: transparent; color: var(--text); outline: none; resize: none; min-height: 44px; max-height: 200px; padding: 12px 100px 12px 42px; transition: height 0.15s ease; }
 #note-input::placeholder { font-size: 13px; opacity: 0.6; }
 #expand-btn { position: absolute; top: 9px; right: 10px; font-size: 16px; cursor: pointer; opacity: 0.4; z-index: 30; padding: 4px; transition: opacity 0.2s; }
 #expand-btn:active { opacity: 0.8; }
@@ -1064,16 +1063,13 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
     <div class="input-wrapper">
         <div id="attachment-preview"></div>
+        <div id="fchat-avatar" onclick="openFchatProfilePicker(event)" style="position:absolute; left:10px; top:11px; font-size:20px; line-height:1; cursor:pointer; z-index:10; user-select:none;" title="Switch profile">🤖</div>
         <textarea id="note-input" rows="1" placeholder="Draft text..." enterkeyhint="send"></textarea>
-        <div id="input-btn-row">
-            <div id="fchat-avatar" onclick="openFchatProfilePicker(event)" style="font-size:20px; line-height:1; cursor:pointer; user-select:none; flex-shrink:0;" title="Switch profile">🤖</div>
-            <div style="flex:1;"></div>
-            <button id="ds-pick-btn" style="width:24px; height:24px; border-radius:50%; background:var(--glass); border:0.5px solid var(--glass-border); cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.12); flex-shrink:0;" onclick="_fchatPickDataset(event)" title="Choose dataset">📊</button>
-            <button id="attach-plus-btn" style="padding:2px 4px; font-size:14px; background:transparent; border:none; color:var(--accent); cursor:pointer; line-height:1; flex-shrink:0;" onclick="_openAttachMenu(event)">➕</button>
-            <button class="send-btn" id="send-btn-el" onclick="sendToAI()" title="Send" style="flex-shrink:0;">↑</button>
-            <select id="chatModel" class="model-sel" style="display:none;"></select>
-            <div id="attach-menu" class="tool-menu closed" style="display:none;"></div>
-        </div>
+        <button id="ds-pick-btn" style="position:absolute; right:70px; top:50%; transform:translateY(-50%); width:24px; height:24px; border-radius:50%; background:var(--glass); border:0.5px solid var(--glass-border); cursor:pointer; z-index:30; font-size:13px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.12);" onclick="_fchatPickDataset(event)" title="Choose dataset">📊</button>
+        <button id="attach-plus-btn" style="position:absolute; right:42px; top:50%; transform:translateY(-50%); padding:2px 4px; font-size:14px; background:transparent; border:none; color:var(--accent); cursor:pointer; z-index:30; line-height:1;" onclick="_openAttachMenu(event)">➕</button>
+        <button class="send-btn" id="send-btn-el" style="position:absolute; right:8px; top:50%; transform:translateY(-50%);" onclick="sendToAI()" title="Send">↑</button>
+        <select id="chatModel" class="model-sel" style="display:none;"></select>
+        <div id="attach-menu" class="tool-menu closed" style="display:none;"></div>
         <div class="input-bottom-bar" style="display:none;">
             <div onclick="popState()" style="display:none;" title="Undo">↩️</div>
             <div onclick="redoStateAction()" style="display:none;" title="Redo">↪️</div>
