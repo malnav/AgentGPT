@@ -473,11 +473,13 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #floating-chat.fc-windowed #fc-resize-handle { display:block; }
 #fc-win-toggle-btn { font-size:16px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0; display:block; }
 @media (max-width:767px) {
-  #floating-chat.fc-windowed { border-radius:18px !important; box-shadow:0 16px 60px rgba(0,0,0,0.42) !important; }
+  #floating-chat.fc-windowed { border-radius:18px !important; box-shadow:0 16px 60px rgba(0,0,0,0.42) !important; height:auto !important; min-height:0 !important; }
   #floating-chat.fc-windowed .top-nav { display:none !important; }
-  #floating-chat.fc-windowed #fchat-header { padding:10px 12px 6px !important; }
+  #floating-chat.fc-windowed #fchat-header { display:none !important; }
   #floating-chat.fc-windowed #fc-resize-handle { display:none !important; }
-  #floating-chat.fc-windowed .input-zone { padding-bottom:max(env(safe-area-inset-bottom,0px),10px) !important; }
+  #floating-chat.fc-windowed .scroll-area { display:none !important; }
+  #floating-chat.fc-windowed #main-chat-wrapper { flex:0 0 auto !important; min-height:0 !important; overflow:visible !important; }
+  #floating-chat.fc-windowed .input-zone { position:relative !important; padding-bottom:max(env(safe-area-inset-bottom,0px),8px) !important; }
 }
 #profile-bubble { z-index:9001 !important; }
 #fchat-bubble-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:9200; pointer-events:none; align-items:flex-end; flex-wrap:wrap; justify-content:center; max-width:calc(100vw - 100px); }
