@@ -5925,8 +5925,14 @@ function _insertOrReplaceSource(el, content, isTA, state) {
             span = document.createElement('span');
             state._insSpanId = '_ai-ins-' + Date.now();
             span.id = state._insSpanId;
-            const sr = state._savedRange;
-            if (sr) { try { sr.collapse(true); sr.insertNode(span); } catch(_e) { el.appendChild(span); } } else { el.appendChild(span); }
+            const marker = state.markerEl instanceof Element ? state.markerEl : document.getElementById('_reply-cursor-marker');
+            if (marker && marker.parentNode) {
+                marker.parentNode.replaceChild(span, marker);
+                state.markerEl = null;
+            } else {
+                const sr = state._savedRange;
+                if (sr) { try { sr.collapse(true); sr.insertNode(span); } catch(_e) { el.appendChild(span); } } else { el.appendChild(span); }
+            }
         }
         span.innerHTML = content;
         el.scrollTop = el.scrollHeight;
@@ -6339,12 +6345,15 @@ function _removeAtSymbolFromReply() {
     while ((node = walker.nextNode())) { const idx = node.textContent.lastIndexOf('@'); if (idx !== -1) { atNode = node; atOffset = idx; } }
     if (atNode !== null && atOffset !== -1) {
         atNode.deleteData(atOffset, atNode.textContent.length - atOffset);
+        const marker = document.createElement('span');
+        marker.id = '_reply-cursor-marker';
         const r = document.createRange();
         r.setStart(atNode, atOffset);
         r.collapse(true);
+        try { r.insertNode(marker); } catch(_e) { if(sigEl && sigEl.parentNode) sigEl.parentNode.insertBefore(marker, sigEl); else el.appendChild(marker); }
         const sel = window.getSelection();
-        if (sel) { sel.removeAllRanges(); sel.addRange(r); }
-        return r;
+        if (sel) { const r2 = document.createRange(); r2.setStartAfter(marker); r2.collapse(true); sel.removeAllRanges(); sel.addRange(r2); }
+        return marker;
     }
     return null;
 }
@@ -6382,7 +6391,7 @@ function _pickReplyAiProfile(profileLabel) {
     const _atRange = _removeAtSymbolFromReply();
     const boxId = _replyAiSrc === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box';
     _replyAiTargetBoxId = boxId;
-    _replyInsState = { spanId: '', savedRange: null }; if(_atRange){ _replyInsState.savedRange=_atRange; } else { try { const _rEl=document.getElementById(boxId); if(_rEl){ const _sig=_rEl.querySelector('.email-sig-block'); const _r=document.createRange(); if(_sig){_r.setStartBefore(_sig);_r.collapse(true);}else{_r.selectNodeContents(_rEl);_r.collapse(false);} _replyInsState.savedRange=_r; } } catch(_e){} }
+    _replyInsState = { spanId: '', markerEl: _atRange || null, savedRange: null };
     _updateReplyAiIndicator();
     openFloatingChat(profileLabel);
     setTimeout(() => {
