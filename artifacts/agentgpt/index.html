@@ -483,6 +483,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #floating-chat:not(.fc-windowed) #fc-top-win-ctrl { display:flex !important; }
   #floating-chat:not(.fc-windowed) .fc-win-ctrl { display:none !important; }
   #floating-chat:not(.fc-windowed) .fc-hide-in-chat { display:none !important; }
+  #floating-chat:not(.fc-windowed) .scroll-area { padding-top: calc(50px + env(safe-area-inset-top, 0px)) !important; }
 }
 #profile-bubble { z-index:9001 !important; }
 #fchat-bubble-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:9200; pointer-events:none; align-items:flex-end; flex-wrap:wrap; justify-content:center; max-width:calc(100vw - 100px); }
