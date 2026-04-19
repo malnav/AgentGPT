@@ -1826,7 +1826,7 @@ function toggleExpandInput(forceExpand = false) { if(forceExpand && isInputExpan
 function toggleAllContext() { cutIdx = (cutIdx === -1) ? CONTEXT_LINES.length - 1 : -1; refreshUI(); }
 function renderInlinePrompts() {
     const filtP = PROMPTS.filter(p => p.profile === activeProfileLabel || p.profile === 'Global');
-    document.getElementById('inline-prompts-container').innerHTML = filtP.map(p => { let actualIdx = PROMPTS.indexOf(p); return `<div class="prompt-chip ${activePromptIdx === actualIdx ? 'active' : ''}" onclick="applyPrompt(${actualIdx})">${p.label}</div>`; }).join('');
+    const _ipc = document.getElementById('inline-prompts-container'); if(_ipc) _ipc.innerHTML = filtP.map(p => { let actualIdx = PROMPTS.indexOf(p); return `<div class="prompt-chip ${activePromptIdx === actualIdx ? 'active' : ''}" onclick="applyPrompt(${actualIdx})">${p.label}</div>`; }).join('');
     const row = document.getElementById('chips-row');
     if(row) { if(filtP.length > 0) row.classList.add('has-chips'); else row.classList.remove('has-chips'); }
     setTimeout(updateInputHeightVar, 30);
