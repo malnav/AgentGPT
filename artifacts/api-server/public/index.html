@@ -565,7 +565,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #fchat-header { display:flex; flex-direction:column; align-items:stretch; padding:calc(var(--sat, env(safe-area-inset-top, 0px)) + 8px) 12px 6px 12px; gap:5px; flex-shrink:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-bottom:0.5px solid var(--glass-border); position:relative; }
 #fchat-header-row1 { display:flex; align-items:center; gap:6px; }
 #floating-chat .sys-icons { display:none !important; }
-#floating-chat .top-nav { top: 0 !important; }
+#floating-chat .top-nav { top: env(safe-area-inset-top, 0px) !important; }
 #floating-chat .scroll-area { padding-top: max(12px, env(safe-area-inset-top, 12px)) !important; }
 #floating-chat.fc-windowed .input-zone { position:absolute; bottom:0; left:0; right:0; }
 #floating-chat.fc-windowed .scroll-area { padding-bottom:calc(var(--input-h, 130px) + 8px) !important; }
