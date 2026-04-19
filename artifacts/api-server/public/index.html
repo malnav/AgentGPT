@@ -4996,12 +4996,19 @@ function renderFchatHeader(session) {
     }
     _updateReplyAiIndicator();
     _updateAtMentionIndicator();
+    _updateFchatDsLabel();
 }
 
 function openFchatProfilePicker(e) {
     if (e && e.stopPropagation) e.stopPropagation();
     _showItemMenu(e, AI_PROFILES.map(p => ({ label: (p.emoji || '🤖') + ' ' + p.label, fn: () => changeFchatProfile(p.label) })));
 }
+
+function _getFchatCurSession() { if (_fchatActiveId === null) return null; const sess = _fchatSessions.find(s => s.id === _fchatActiveId); if (!sess) return null; const sData = chatHistories[sess.profileLabel]; if (!sData) return null; return sData.list ? sData.list.find(x => String(x.id) === String(sess.chatId)) : null; }
+
+function _updateFchatDsLabel() { const el = document.getElementById('fchat-ds-label'); if (!el) return; const cur = _getFchatCurSession(); const ds = cur && cur.var_id ? GLOBAL_DATASETS[cur.var_id] : null; el.textContent = ds ? (ds.title || 'Dataset') : 'No dataset'; }
+
+function _fchatPickDataset(e) { if (e && e.stopPropagation) e.stopPropagation(); const cur = _getFchatCurSession(); const items = [{ label: '— No dataset', fn: async () => { if (cur) { cur.var_id = null; await saveAll(); _updateFchatDsLabel(); } } }]; Object.keys(GLOBAL_DATASETS).filter(vid => !GLOBAL_DATASETS[vid].archived).sort((a,b) => { const ua = GLOBAL_DATASETS[a]._updated || Number(a); const ub = GLOBAL_DATASETS[b]._updated || Number(b); return ub - ua; }).forEach(vid => { const ds = GLOBAL_DATASETS[vid]; items.push({ label: '📊 ' + (ds.title || 'Dataset'), fn: async () => { if (cur) { cur.var_id = vid; await saveAll(); _updateFchatDsLabel(); } } }); }); _showItemMenu(e, items); }
 
 function changeFchatProfile(profileLabel) {
     if (_fchatActiveId === null) return;
@@ -6257,6 +6264,7 @@ function _linkifyHtml(html) {
         <div id="fchat-header-row1">
             <div id="fchat-reply-indicator" style="display:none; flex-shrink:0; font-size:10px; font-weight:800; color:#fff; background:var(--accent); border-radius:8px; padding:3px 8px; cursor:pointer; white-space:nowrap;" onclick="_clearReplyAiTarget()" title="Click to unlink reply box">✏️ → Reply ✕</div>
             <div id="fchat-at-indicator" style="display:none; flex-shrink:0; font-size:10px; font-weight:800; color:#fff; background:#8e44ad; border-radius:8px; padding:3px 8px; cursor:pointer; white-space:nowrap; max-width:160px; overflow:hidden; text-overflow:ellipsis;" onclick="_clearAtMentionTarget()" title="Click to stop streaming to this field">✏️ → <span id="fchat-at-indicator-label"></span> ✕</div>
+            <div id="fchat-ds-label" onclick="_fchatPickDataset(event)" style="font-size:11px; color:#888; cursor:pointer; flex-shrink:1; min-width:0; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:3px 8px; border-radius:8px; background:rgba(128,128,128,0.1);">No dataset</div>
             <div style="flex:1;"></div>
             <div onclick="goHomeFromFloatingChat(event)" style="font-size:22px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0; font-weight:300; letter-spacing:-2px;" title="Minimize">—</div>
             <div id="fc-win-toggle-btn" onclick="_fcToggleWindowed()" title="Toggle window mode">⛶</div>
