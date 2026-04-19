@@ -240,9 +240,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   background: transparent;
 }
 .input-zone.menu-open { z-index: 160; }
-/* chips row: hidden when empty, shown when prompts exist */
-#chips-row { display: none; align-items: center; gap: 8px; margin-bottom: 6px; }
-#chips-row.has-chips { display: flex; }
+#chips-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; min-height: 30px; }
 .input-wrapper {
   position: relative;
   z-index: 200;
@@ -743,15 +741,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <input type="file" id="wa-zip-input" accept=".zip,.txt" style="display:none;" onchange="importWhatsAppFile(event)">
 
 <div id="main-chat-wrapper">
-<div class="top-nav">
-    <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
-        <div id="chat-nav-back-btn" onclick="_chatNavBack()" style="display:none; cursor:pointer; align-items:center; gap:5px; font-size:13px; font-weight:700; color:var(--accent); padding:6px 12px; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow); white-space:nowrap; max-width:180px; overflow:hidden; text-overflow:ellipsis;">◀ Back</div>
-    </div>
-    <div class="sys-icons">
-        <div onclick="openModal('master-modal')" style="cursor:pointer; font-size:16px; line-height:1;" title="Settings">⚙️</div>
-        <div onclick="goHomeFromMainChat()" style="cursor:pointer; font-size:16px; line-height:1;" title="Home">🏠</div>
-    </div>
-</div>
+<div class="top-nav" style="display:none;"></div>
 
 <div class="scroll-area" id="mainScroll">
     <div id="chat-container"></div>
@@ -1037,7 +1027,12 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <div class="input-zone" id="main-input-zone">
     <div id="chips-row">
-        <div id="inline-prompts-container" class="inline-prompts-container"></div>
+        <div id="chat-nav-back-btn" onclick="_chatNavBack()" style="display:none; cursor:pointer; align-items:center; gap:5px; font-size:13px; font-weight:700; color:var(--accent); padding:5px 11px; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow); white-space:nowrap; max-width:160px; overflow:hidden; text-overflow:ellipsis; flex-shrink:0;">◀ Back</div>
+        <div style="flex:1;"></div>
+        <div style="display:flex; align-items:center; gap:2px; flex-shrink:0; pointer-events:auto;">
+            <div onclick="openModal('master-modal')" style="cursor:pointer; font-size:16px; line-height:1; padding:4px 6px; opacity:0.7;" title="Settings">⚙️</div>
+            <div onclick="goHomeFromMainChat()" style="cursor:pointer; font-size:16px; line-height:1; padding:4px 6px; opacity:0.7;" title="Home">🏠</div>
+        </div>
     </div>
 
     <div class="input-wrapper">
@@ -1049,7 +1044,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div style="display:flex; gap:6px; align-items:center;">
                 <div style="position:relative;">
                     <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="toggleMenu(document.getElementById('attach-menu'))">➕</button>
-                    <div id="attach-menu" class="tool-menu closed" style="bottom: 100%; top: auto; left: 0; right: auto; margin-bottom: 10px; min-width: 160px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15);">
+                    <div id="attach-menu" class="tool-menu closed" style="bottom: 100%; top: auto; left: 0; right: auto; margin-bottom: 10px; min-width: 170px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15);">
                         <div class="tool-menu-item" onclick="document.getElementById('attach-cam').click(); document.getElementById('attach-menu').classList.add('closed');">📷 Camera</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-img').click(); document.getElementById('attach-menu').classList.add('closed');">🖼️ Photo Library</div>
                         <div class="tool-menu-item" onclick="document.getElementById('attach-file').click(); document.getElementById('attach-menu').classList.add('closed');">📁 Files</div>
@@ -1058,10 +1053,12 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                         <div class="tool-menu-item" onclick="tplPanelSwitch('links'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); document.getElementById('attach-menu').classList.add('closed');">🔗 Links</div>
                         <div class="tool-menu-item" onclick="toggleCtxPanel(); refreshUI(); document.getElementById('attach-menu').classList.add('closed');">📋 Context</div>
                         <div class="tool-menu-item" onclick="ctxSwitchTab('whatsapp'); closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.add('open'); document.getElementById('attach-menu').classList.add('closed');">📱 WhatsApp Chat</div>
+                        <div class="tool-menu-item" style="justify-content:space-between; font-weight:700;" onclick="_togglePromptsSubmenu(event)"><span>🪄 Prompts</span><span id="prompts-submenu-arrow" style="opacity:0.5; font-size:10px;">▶</span></div>
+                        <div id="prompts-submenu" style="display:none; flex-direction:column; border-top:0.5px solid var(--border); padding-top:2px; margin-top:2px;"></div>
                     </div>
                 </div>
 
-                <button class="chip" style="padding:4px 8px; font-size:18px; background:transparent; border:none; color:var(--accent);" onclick="closeAllPanels(); manageSection('prompts');" title="Manage Prompts">📚</button>
+                <select id="main-profile-sel" class="main-profile-dropdown" onchange="switchProfileSession(this.value)" style="max-width:110px; height:30px; font-size:12px; padding:0 8px; border-radius:14px;"></select>
                 <select id="chatModel" class="model-sel"></select>
                 <div onclick="popState()" style="display:none;" title="Undo">↩️</div>
                 <div onclick="redoStateAction()" style="display:none;" title="Redo">↪️</div>
@@ -1830,11 +1827,17 @@ function toggleExpandInput(forceExpand = false) { if(forceExpand && isInputExpan
 function toggleAllContext() { cutIdx = (cutIdx === -1) ? CONTEXT_LINES.length - 1 : -1; refreshUI(); }
 function renderInlinePrompts() {
     const filtP = PROMPTS.filter(p => p.profile === activeProfileLabel || p.profile === 'Global');
-    document.getElementById('inline-prompts-container').innerHTML = filtP.map(p => { let actualIdx = PROMPTS.indexOf(p); return `<div class="prompt-chip ${activePromptIdx === actualIdx ? 'active' : ''}" onclick="applyPrompt(${actualIdx})">${p.label}</div>`; }).join('');
-    const row = document.getElementById('chips-row');
-    if(row) { if(filtP.length > 0) row.classList.add('has-chips'); else row.classList.remove('has-chips'); }
+    const sub = document.getElementById('prompts-submenu');
+    if (sub) {
+        const items = filtP.map(p => { const idx = PROMPTS.indexOf(p); return `<div class="tool-menu-item" style="font-size:12px; padding-left:18px; ${activePromptIdx === idx ? 'color:var(--accent);font-weight:800;' : 'color:var(--text);'}" onclick="applyPrompt(${idx}); document.getElementById('attach-menu').classList.add('closed');">${p.label}</div>`; }).join('');
+        const mgr = `<div class="tool-menu-item" style="font-size:11px; padding-left:18px; color:#888; border-top:0.5px solid var(--border); margin-top:3px; padding-top:6px;" onclick="closeAllPanels(); manageSection('prompts'); document.getElementById('attach-menu').classList.add('closed');">📚 Manage Prompts</div>`;
+        sub.innerHTML = (items || '<div style="padding:4px 18px; font-size:11px; color:#888;">No prompts for this profile</div>') + mgr;
+    }
+    const profSel = document.getElementById('main-profile-sel');
+    if (profSel) { profSel.innerHTML = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); profSel.value = activeProfileLabel; }
     setTimeout(updateInputHeightVar, 30);
 }
+function _togglePromptsSubmenu(e) { e.stopPropagation(); const sub = document.getElementById('prompts-submenu'); const arrow = document.getElementById('prompts-submenu-arrow'); if (!sub) return; const open = sub.style.display !== 'none'; sub.style.display = open ? 'none' : 'flex'; sub.style.flexDirection = 'column'; if (arrow) arrow.textContent = open ? '▶' : '▼'; }
 
 async function saveAll(skipCloud = false) { 
     try {
@@ -2556,6 +2559,7 @@ async function switchProfileSession(newLabel) {
     _freshSessionActive = true;
     activeProfileLabel = newLabel; activeTagFilter = "";
     addLog("SESSION", "Switch Profile", newLabel);
+    const _ps = document.getElementById('main-profile-sel'); if (_ps && _ps.value !== newLabel) _ps.value = newLabel;
     await resetCurrentSession(); refreshUI(); renderWorkspaceLists();
     setTimeout(() => showInlineDatasetsToChat(), 80);
 }
