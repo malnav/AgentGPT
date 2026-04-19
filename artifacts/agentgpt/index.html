@@ -1036,6 +1036,16 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 </div>
 
 <div class="input-zone" id="main-input-zone">
+    <div id="main-ctx-bar" style="display:flex; flex-direction:column; gap:3px; padding:6px 10px 2px;">
+        <div style="display:flex; align-items:center; gap:7px;">
+            <div id="fchat-avatar" onclick="openFchatProfilePicker(event)" style="font-size:20px; line-height:1; cursor:pointer; flex-shrink:0;" title="Switch profile">🤖</div>
+            <div id="fchat-context-label" style="font-size:11px; color:#888; flex:1;">No context</div>
+        </div>
+        <div id="fchat-header-row2" style="display:flex; align-items:center; gap:4px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding-bottom:2px;">
+            <div class="fchat-ctx-btn" onclick="closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI();" style="margin-right:2px; color:var(--text); background:rgba(128,128,128,0.12); border-color:rgba(128,128,128,0.2);">📋 Context</div>
+            <div id="fchat-ctx-btns" style="display:flex; gap:3px; flex-shrink:0;"></div>
+        </div>
+    </div>
     <div class="input-wrapper">
         <div id="attachment-preview"></div>
         <textarea id="note-input" placeholder="Draft text..." enterkeyhint="send"></textarea>
@@ -4916,7 +4926,8 @@ function updateProfileBubble() {
         b.classList.remove('email-mode');
         const defLabel = CONFIG.def_profile || activeProfileLabel;
         const p = AI_PROFILES.find(x => x.label === defLabel) || AI_PROFILES[0];
-        if (p) { icon.textContent = p.label.charAt(0).toUpperCase(); b.title = p.label + ' — Tap to start chat'; }
+        if (p) { icon.textContent = p.emoji || '🤖'; b.title = p.label + ' — Tap to start chat'; }
+        const avatarEl = document.getElementById('fchat-avatar'); if(avatarEl) avatarEl.textContent = p ? (p.emoji || '🤖') : '🤖';
     }
 }
 
@@ -4984,7 +4995,7 @@ function createFchatSessionFromBubble(idx) { const bc = _bubblePickerConfigs[idx
 function renderFchatHeader(session) {
     const p = AI_PROFILES.find(x => x.label === session.profileLabel) || AI_PROFILES[0];
     const avatarEl = document.getElementById('fchat-avatar');
-    if (avatarEl) avatarEl.textContent = p ? p.label[0].toUpperCase() : '?';
+    if (avatarEl) avatarEl.textContent = p ? (p.emoji || '🤖') : '🤖';
     const ctxBtns = document.getElementById('fchat-ctx-btns');
     if (ctxBtns) {
         const enabled = (session.bubbleConfig||{}).contexts || _CTX_OPTS.map(o => o.id);
@@ -4996,7 +5007,7 @@ function renderFchatHeader(session) {
 
 function openFchatProfilePicker(e) {
     if (e && e.stopPropagation) e.stopPropagation();
-    _showItemMenu(e, AI_PROFILES.map(p => ({ label: p.label[0].toUpperCase() + ' ' + p.label, fn: () => changeFchatProfile(p.label) })));
+    _showItemMenu(e, AI_PROFILES.map(p => ({ label: (p.emoji || '🤖') + ' ' + p.label, fn: () => changeFchatProfile(p.label) })));
 }
 
 function changeFchatProfile(profileLabel) {
@@ -6253,18 +6264,10 @@ function _linkifyHtml(html) {
         <div id="fchat-header-row1">
             <div id="fchat-reply-indicator" style="display:none; flex-shrink:0; font-size:10px; font-weight:800; color:#fff; background:var(--accent); border-radius:8px; padding:3px 8px; cursor:pointer; white-space:nowrap;" onclick="_clearReplyAiTarget()" title="Click to unlink reply box">✏️ → Reply ✕</div>
             <div id="fchat-at-indicator" style="display:none; flex-shrink:0; font-size:10px; font-weight:800; color:#fff; background:#8e44ad; border-radius:8px; padding:3px 8px; cursor:pointer; white-space:nowrap; max-width:160px; overflow:hidden; text-overflow:ellipsis;" onclick="_clearAtMentionTarget()" title="Click to stop streaming to this field">✏️ → <span id="fchat-at-indicator-label"></span> ✕</div>
-            <div onclick="openFchatProfilePicker(event)" style="display:flex; align-items:center; flex-shrink:0; cursor:pointer; margin-left:4px;" title="Switch profile">
-                <div id="fchat-avatar" style="width:24px; height:24px; border-radius:12px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:800;">?</div>
-            </div>
-            <div id="fchat-context-label" style="font-size:10px; color:#888; white-space:nowrap; flex-shrink:0; margin-left:5px;">No context</div>
             <div style="flex:1;"></div>
             <div onclick="goHomeFromFloatingChat(event)" style="font-size:22px; line-height:1; cursor:pointer; padding:4px 8px; color:#888; flex-shrink:0; font-weight:300; letter-spacing:-2px;" title="Minimize">—</div>
             <div id="fc-win-toggle-btn" onclick="_fcToggleWindowed()" title="Toggle window mode">⛶</div>
             <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0;" title="Close">✕</div>
-        </div>
-        <div id="fchat-header-row2">
-            <div class="fchat-ctx-btn" onclick="closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI();" style="margin-right:2px; color:var(--text); background:rgba(128,128,128,0.12); border-color:rgba(128,128,128,0.2);">📋 Context</div>
-            <div id="fchat-ctx-btns" style="display:flex; gap:3px; flex-shrink:0;"></div>
         </div>
     </div>
     <div id="fc-resize-handle">⌟</div>
