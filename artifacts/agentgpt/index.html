@@ -480,6 +480,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   #floating-chat.fc-windowed .scroll-area { display:none !important; }
   #floating-chat.fc-windowed #main-chat-wrapper { flex:0 0 auto !important; min-height:0 !important; overflow:visible !important; }
   #floating-chat.fc-windowed .input-zone { position:relative !important; padding-bottom:max(env(safe-area-inset-bottom,0px),8px) !important; }
+  #floating-chat:not(.fc-windowed) #fc-top-win-ctrl { display:flex !important; }
+  #floating-chat:not(.fc-windowed) .fc-win-ctrl { display:none !important; }
+  #floating-chat:not(.fc-windowed) .fc-hide-in-chat { display:none !important; }
 }
 #profile-bubble { z-index:9001 !important; }
 #fchat-bubble-bar { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:9200; pointer-events:none; align-items:flex-end; flex-wrap:wrap; justify-content:center; max-width:calc(100vw - 100px); }
@@ -750,6 +753,11 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     <div class="sys-icons">
         <div onclick="openModal('master-modal')" style="cursor:pointer; font-size:16px; line-height:1;" title="Settings">⚙️</div>
         <div onclick="goHomeFromMainChat()" style="cursor:pointer; font-size:16px; line-height:1;" title="Home">🏠</div>
+    </div>
+    <div id="fc-top-win-ctrl" style="display:none; align-items:center; gap:0; pointer-events:auto; flex-shrink:0;">
+        <div onclick="goHomeFromFloatingChat(event)" style="font-size:20px; line-height:1; cursor:pointer; padding:4px 7px; color:#888; font-weight:300; letter-spacing:-2px;" title="Minimize">—</div>
+        <div onclick="_fcToggleWindowed()" style="font-size:16px; line-height:1; cursor:pointer; padding:4px 7px; color:#888;" title="Window mode">⛶</div>
+        <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 7px; color:#888;" title="Close">✕</div>
     </div>
 </div>
 
@@ -1048,9 +1056,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div id="fchat-context-label" onclick="closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI();" style="font-size:11px; color:#888; flex-shrink:0; cursor:pointer; white-space:nowrap;">No context</div>
         <div id="fchat-ctx-btns" style="display:none; gap:3px; flex-shrink:0;"></div>
         <div style="flex:1;"></div>
-        <div onclick="goHomeFromFloatingChat(event)" style="font-size:20px; line-height:1; cursor:pointer; padding:3px 5px; color:#888; flex-shrink:0; font-weight:300; letter-spacing:-2px;" title="Minimize">—</div>
-        <div id="fc-win-toggle-btn" onclick="_fcToggleWindowed()" style="font-size:16px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0; display:block;" title="Toggle window mode">⛶</div>
-        <div onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0;" title="Close">✕</div>
+        <div class="fc-win-ctrl" onclick="goHomeFromFloatingChat(event)" style="font-size:20px; line-height:1; cursor:pointer; padding:3px 5px; color:#888; flex-shrink:0; font-weight:300; letter-spacing:-2px;" title="Minimize">—</div>
+        <div class="fc-win-ctrl" id="fc-win-toggle-btn" onclick="_fcToggleWindowed()" style="font-size:16px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0; display:block;" title="Toggle window mode">⛶</div>
+        <div class="fc-win-ctrl" onclick="fchatClearAndClose(event)" style="font-size:18px; line-height:1; cursor:pointer; padding:4px 6px; color:#888; flex-shrink:0;" title="Close">✕</div>
     </div>
     <div class="input-wrapper">
         <div id="attachment-preview"></div>
