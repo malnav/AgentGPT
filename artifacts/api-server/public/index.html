@@ -454,9 +454,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .tool-menu-item { padding: 13px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 0.5px solid var(--border); color: var(--text); text-align: left; transition: background 0.15s; }
 .tool-menu-item:last-child { border-bottom: none; }
 .tool-menu-item:active { background: rgba(0,122,255,0.08); }
-.bm-menu { min-width: 160px; }
-.bm-menu .tool-menu-item { padding: 10px 14px; font-size: 13px; font-weight: 500; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
-.bm-menu .tool-menu-item .bmi { font-size: 15px; line-height: 1; display: inline-block; width: 18px; text-align: center; }
+.bm-menu { min-width: 180px; background: rgba(255,255,255,0.97) !important; backdrop-filter: blur(28px) saturate(1.8) !important; -webkit-backdrop-filter: blur(28px) saturate(1.8) !important; border: 0.5px solid rgba(0,0,0,0.12) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.14) !important; }
+@media (prefers-color-scheme: dark) { .bm-menu { background: rgba(30,30,44,0.97) !important; border-color: rgba(255,255,255,0.14) !important; } }
+.bm-menu .tool-menu-item { padding: 11px 15px; font-size: 14px; font-weight: 500; white-space: nowrap; display: flex; align-items: center; gap: 9px; color: var(--text) !important; }
+.bm-menu .tool-menu-item .bmi { font-size: 16px; line-height: 1; display: inline-block; width: 20px; text-align: center; flex-shrink: 0; }
 @keyframes sync-pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 @keyframes bubble-email-pulse { 0%,100% { box-shadow:0 4px 24px rgba(0,122,255,0.5); } 50% { box-shadow:0 4px 32px rgba(0,122,255,0.9), 0 0 0 7px rgba(0,122,255,0.18); } }
