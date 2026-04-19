@@ -1042,7 +1042,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <div class="input-zone" id="main-input-zone">
     <div id="main-ctx-bar" style="display:flex; align-items:center; gap:5px; padding:4px 6px 2px 10px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch;">
         <div id="fchat-context-label" onclick="closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI();" style="font-size:11px; color:#888; flex-shrink:0; cursor:pointer; white-space:nowrap;">No context</div>
-        <div id="fchat-ctx-btns" style="display:flex; gap:3px; flex-shrink:0;"></div>
+        <div id="fchat-ctx-btns" style="display:none; gap:3px; flex-shrink:0;"></div>
         <div style="flex:1;"></div>
         <button style="padding:2px 6px; font-size:18px; background:transparent; border:none; color:var(--accent); cursor:pointer; flex-shrink:0; line-height:1;" onclick="_openAttachMenu(event)">➕</button>
     </div>
