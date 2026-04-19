@@ -885,6 +885,12 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 
     <div id="ctx-pane-context" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; position:relative;">
+        <div style="display:flex; gap:5px; padding:8px 10px 6px; overflow-x:auto; scrollbar-width:none; flex-shrink:0; border-bottom:0.5px solid var(--glass-border);">
+            <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')" style="flex-shrink:0;">📧 Email</div>
+            <div class="fchat-ctx-btn" onclick="addFloatingChatContext('sender')" style="flex-shrink:0;">📬 Thread</div>
+            <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')" style="flex-shrink:0;">✅ Sel</div>
+            <div class="fchat-ctx-btn danger" onclick="addFloatingChatContext('clear')" style="flex-shrink:0;">🗑</div>
+        </div>
         <ul id="context-list" style="list-style:none; padding:0; margin:0; flex:1; padding-bottom:60px;"></ul>
         <div id="ctx-bulk-btn-wrapper" style="position:sticky; bottom:0; left:0; right:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); padding:10px; border-top:0.5px solid var(--glass-border); display:none;">
             <button class="chip" style="width:100%; background:var(--accent); color:#fff; font-size:14px; padding:12px;" onclick="insertSelectedContexts()">Insert Selected ⟶</button>
