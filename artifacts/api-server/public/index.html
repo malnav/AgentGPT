@@ -750,6 +750,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <input type="file" id="attach-img" accept="image/*" multiple style="display:none;" tabindex="-1" onchange="handleAttachments(event)">
 <input type="file" id="attach-file" accept=".pdf,.txt,.md,.csv,.json,.xml,.html,.htm,.js,.ts,.jsx,.tsx,.css,.py,.swift,.kt,.doc,.docx,.xls,.xlsx" multiple style="display:none;" tabindex="-1" onchange="handleAttachments(event)">
 <input type="file" id="wa-zip-input" accept=".zip,.txt" style="display:none;" onchange="importWhatsAppFile(event)">
+<input type="file" id="ctx-clipboard-file" accept=".zip,.txt,.md,.csv,.json,.xml,.html,.htm,.js,.ts,.py,.pdf,.doc,.docx,image/*" multiple style="display:none;" onchange="_handleCtxClipboardFile(event)">
 
 <div id="main-chat-wrapper">
 <div class="top-nav">
@@ -900,6 +901,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
     <div id="ctx-pane-context" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; position:relative;">
         <div style="display:flex; gap:5px; padding:8px 10px 6px; overflow-x:auto; scrollbar-width:none; flex-shrink:0; border-bottom:0.5px solid var(--glass-border);">
+            <div class="fchat-ctx-btn" onclick="_addClipboardToContext()" style="flex-shrink:0;">📋 Clipboard</div>
             <div class="fchat-ctx-btn" onclick="ctxSwitchTab('whatsapp')" style="flex-shrink:0;">📱 WA</div>
             <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')" style="flex-shrink:0;">📧 Email</div>
             <div class="fchat-ctx-btn" onclick="addFloatingChatContext('sender')" style="flex-shrink:0;">📬 Thread</div>
@@ -4345,6 +4347,93 @@ function _showWaModal() {
         <button onclick="waDoImport()" style="width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:0.3px;">Add to Context →</button>
     `;
     openModal('wa-import-modal');
+}
+
+async function _readFileAsText(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsText(file); }); }
+async function _readFileAsDataUrl(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsDataURL(file); }); }
+async function _readFileAsArrayBuffer(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsArrayBuffer(file); }); }
+
+async function _addClipboardToContext() {
+    let handled = false;
+    if (navigator.clipboard && navigator.clipboard.read) {
+        try {
+            const items = await navigator.clipboard.read();
+            for (const item of items) {
+                if (item.types.some(t => t.startsWith('image/'))) {
+                    const imgType = item.types.find(t => t.startsWith('image/'));
+                    const blob = await item.getType(imgType);
+                    const dataUrl = await _readFileAsDataUrl(blob);
+                    pendingAttachments.push({ type: 'image', data: dataUrl, name: 'clipboard-image' });
+                    renderAttachmentPreview();
+                    CONTEXT_LINES.push('[Clipboard Image attached]');
+                    cutIdx = CONTEXT_LINES.length - 1;
+                    await saveAll(true); refreshUI();
+                    notify('Image from clipboard added', '#34c759');
+                    handled = true; break;
+                }
+                if (item.types.includes('text/plain')) {
+                    const blob = await item.getType('text/plain');
+                    const text = await blob.text();
+                    if (text.trim()) { _pushTextToContext(text); handled = true; break; }
+                }
+            }
+        } catch(e) {}
+    }
+    if (!handled && navigator.clipboard && navigator.clipboard.readText) {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text && text.trim()) { _pushTextToContext(text); handled = true; }
+        } catch(e) {}
+    }
+    if (!handled) {
+        notify('Nothing in clipboard — choose a file', '#ff9500', 2500);
+        document.getElementById('ctx-clipboard-file').click();
+    }
+}
+
+function _pushTextToContext(text) {
+    const lines = text.split('\n').map(l => l.trimEnd()).filter(l => l.trim());
+    let added = 0;
+    lines.forEach(l => { if (!CONTEXT_LINES.includes(l)) { CONTEXT_LINES.push(l); added++; } });
+    cutIdx = CONTEXT_LINES.length - 1;
+    saveAll(true); refreshUI();
+    notify(`${added} line${added !== 1 ? 's' : ''} added to context`, '#34c759');
+}
+
+async function _handleCtxClipboardFile(event) {
+    const files = Array.from(event.target.files); event.target.value = '';
+    if (!files.length) return;
+    notify('Processing files…', '#007aff', 3000);
+    let totalAdded = 0;
+    for (const file of files) {
+        if (file.type.startsWith('image/')) {
+            const dataUrl = await _readFileAsDataUrl(file);
+            pendingAttachments.push({ type: 'image', data: dataUrl, name: file.name });
+            renderAttachmentPreview();
+            CONTEXT_LINES.push(`[Image: ${file.name}]`);
+            totalAdded++;
+        } else if (file.name.endsWith('.zip')) {
+            try {
+                const { default: JSZip } = await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm');
+                const ab = await _readFileAsArrayBuffer(file);
+                const zip = await JSZip.loadAsync(ab);
+                const textExts = /\.(txt|md|csv|json|xml|html|htm|js|ts|py|css|swift|kt|java|cpp|c|h|yaml|yml|sh|sql)$/i;
+                for (const [name, entry] of Object.entries(zip.files)) {
+                    if (entry.dir || !textExts.test(name)) continue;
+                    const content = await entry.async('text');
+                    const lines = content.split('\n').map(l => l.trimEnd()).filter(l => l.trim());
+                    const header = `=== ${name} ===`;
+                    if (!CONTEXT_LINES.includes(header)) CONTEXT_LINES.push(header);
+                    lines.forEach(l => { if (!CONTEXT_LINES.includes(l)) { CONTEXT_LINES.push(l); totalAdded++; } });
+                }
+            } catch(e) { notify('ZIP read error: ' + e.message, '#ff3b30'); }
+        } else {
+            try { const text = await _readFileAsText(file); const lines = text.split('\n').map(l=>l.trimEnd()).filter(l=>l.trim()); const hdr=`=== ${file.name} ===`; if(!CONTEXT_LINES.includes(hdr)) CONTEXT_LINES.push(hdr); lines.forEach(l=>{if(!CONTEXT_LINES.includes(l)){CONTEXT_LINES.push(l);totalAdded++;}}); } catch(e) {}
+        }
+    }
+    cutIdx = CONTEXT_LINES.length - 1;
+    await saveAll(true); refreshUI();
+    notify(`${totalAdded} line${totalAdded !== 1 ? 's' : ''} added to context`, '#34c759');
 }
 
 async function importWhatsAppFile(event) {
