@@ -259,10 +259,11 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 }
 #attachment-preview { display: none; padding: 8px 14px 0 14px; gap: 8px; overflow-x: auto; white-space: nowrap; border-bottom: 0.5px solid var(--border); scrollbar-width: none; border-top-left-radius: 22px; border-top-right-radius: 22px; }
 #attachment-preview::-webkit-scrollbar { display: none; }
-.input-main-row { display:flex; align-items:flex-end; padding:6px 8px 6px 10px; gap:6px; }
-.input-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; padding-bottom:2px; }
-#fchat-avatar { font-size:20px; line-height:1; cursor:pointer; user-select:none; flex-shrink:0; padding-bottom:3px; }
-#note-input { flex:1; font-size:16px; line-height:1.5; border:none; border-radius:16px; background:transparent; color:var(--text); outline:none; resize:none; min-height:28px; max-height:200px; padding:6px 2px; transition:height 0.15s ease; width:100%; }
+.input-main-row { display:flex; flex-direction:column; padding:8px 8px 6px 10px; gap:4px; }
+.input-controls-row { display:flex; align-items:center; gap:6px; }
+.input-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+#fchat-avatar { font-size:20px; line-height:1; cursor:pointer; user-select:none; flex-shrink:0; }
+#note-input { width:100%; font-size:16px; line-height:1.5; border:none; border-radius:16px; background:transparent; color:var(--text); outline:none; resize:none; min-height:26px; max-height:200px; padding:2px 2px; transition:height 0.15s ease; }
 #note-input::placeholder { font-size:13px; opacity:0.6; }
 #expand-btn { display:none; }
 #expand-btn:active { opacity: 0.8; }
@@ -1074,12 +1075,15 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     <div class="input-wrapper">
         <div id="attachment-preview"></div>
         <div class="input-main-row">
-            <div id="fchat-avatar" onclick="openFchatProfilePicker(event)" title="Switch profile">🤖</div>
             <textarea id="note-input" rows="1" placeholder="Draft text..." enterkeyhint="send"></textarea>
-            <div class="input-actions">
-                <button id="ds-pick-btn" style="width:28px; height:28px; border-radius:50%; background:var(--glass); border:0.5px solid var(--glass-border); cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.12); flex-shrink:0;" onclick="_fchatPickDataset(event)" title="Choose dataset">📊</button>
-                <button id="attach-plus-btn" style="padding:2px 4px; font-size:16px; background:transparent; border:none; color:var(--accent); cursor:pointer; line-height:1; flex-shrink:0;" onclick="_openAttachMenu(event)">➕</button>
-                <button class="send-btn" id="send-btn-el" style="flex-shrink:0;" onclick="sendToAI()" title="Send">↑</button>
+            <div class="input-controls-row">
+                <div id="fchat-avatar" onclick="openFchatProfilePicker(event)" title="Switch profile">🤖</div>
+                <div style="flex:1;"></div>
+                <div class="input-actions">
+                    <button id="ds-pick-btn" style="width:28px; height:28px; border-radius:50%; background:var(--glass); border:0.5px solid var(--glass-border); cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.12); flex-shrink:0;" onclick="_fchatPickDataset(event)" title="Choose dataset">📊</button>
+                    <button id="attach-plus-btn" style="padding:2px 4px; font-size:16px; background:transparent; border:none; color:var(--accent); cursor:pointer; line-height:1; flex-shrink:0;" onclick="_openAttachMenu(event)">➕</button>
+                    <button class="send-btn" id="send-btn-el" style="flex-shrink:0;" onclick="sendToAI()" title="Send">↑</button>
+                </div>
             </div>
         </div>
         <select id="chatModel" class="model-sel" style="display:none;"></select>
