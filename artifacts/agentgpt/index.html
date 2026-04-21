@@ -881,7 +881,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <div id="ctx-slide-panel" class="ctx-panel">
     <div class="panel-header" style="padding:8px 14px; flex-direction:column; gap:0; align-items:stretch;">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-            <span style="font-size:14px; font-weight:800; color:var(--accent);">Context Window</span>
+            <span style="font-size:14px; font-weight:800; color:var(--accent);">Context</span>
             <div id="ctx-tab-context-actions" style="display:flex; gap:6px; align-items:center;">
                 <span id="ctx-btn-all" class="chip" style="font-size:11px; padding:5px 9px;" onclick="setContextWithExpand(true)">ALL</span>
                 <span id="ctx-btn-none" class="chip" style="font-size:11px; padding:5px 9px;" onclick="setContextWithExpand(false)">NONE</span>
@@ -895,13 +895,12 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
         <div class="sub-tabs" style="margin:0; border:none; background:rgba(128,128,128,0.12); padding:3px; border-radius:10px; gap:2px;">
             <div class="sub-tab-btn active" id="ctx-tab-btn-context" onclick="ctxSwitchTab('context')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📋 Context</div>
-            <div class="sub-tab-btn" id="ctx-tab-btn-gmail" onclick="ctxSwitchTab('gmail')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📧 Gmail</div>
-            <div class="sub-tab-btn" id="ctx-tab-btn-whatsapp" onclick="ctxSwitchTab('whatsapp')" style="padding:4px 0; flex:1; text-align:center; font-size:12px;">📱 WA</div>
         </div>
     </div>
 
     <div id="ctx-pane-context" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; position:relative;">
         <div style="display:flex; gap:5px; padding:8px 10px 6px; overflow-x:auto; scrollbar-width:none; flex-shrink:0; border-bottom:0.5px solid var(--glass-border);">
+            <div class="fchat-ctx-btn" onclick="ctxSwitchTab('whatsapp')" style="flex-shrink:0;">📱 WA</div>
             <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')" style="flex-shrink:0;">📧 Email</div>
             <div class="fchat-ctx-btn" onclick="addFloatingChatContext('sender')" style="flex-shrink:0;">📬 Thread</div>
             <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')" style="flex-shrink:0;">✅ Sel</div>
@@ -983,6 +982,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     </div>
 
     <div id="ctx-pane-whatsapp" style="flex:1; overflow-y:auto; display:none; flex-direction:column; align-items:center; justify-content:center; padding:28px 20px; text-align:center; gap:10px;">
+        <div onclick="ctxSwitchTab('context')" style="align-self:flex-start; font-size:12px; font-weight:700; color:var(--accent); cursor:pointer; padding:4px 0 10px 0;">← Back</div>
         <div style="font-size:52px;">📱</div>
         <div style="font-weight:800; font-size:16px; margin-bottom:4px;">WhatsApp Import</div>
         <div style="font-size:13px; color:#888; line-height:1.6; margin-bottom:16px;">Export a chat from WhatsApp (Settings → Chat → Export Chat) and upload the .zip or .txt file.</div>
