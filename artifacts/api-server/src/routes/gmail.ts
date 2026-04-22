@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
 
@@ -16,18 +16,19 @@ function writeTokens(data: Record<string, string>) {
     fs.writeFileSync(TOKEN_FILE, JSON.stringify(data, null, 2));
 }
 
-router.get("/gmail/has-token", (_req, res) => {
+router.get("/gmail/has-token", (_req: Request, res: Response) => {
     const tokens = readTokens();
-    res.json({ hasToken: !!tokens.refresh_token });
+    return res.json({ hasToken: !!tokens.refresh_token });
 });
 
-router.post("/gmail/exchange-code", async (req, res) => {
+router.post("/gmail/exchange-code", async (req: Request, res: Response) => {
     const { code, client_id, client_secret } = req.body;
     if (!code || !client_id || !client_secret) {
         return res.status(400).json({ error: "Missing code, client_id, or client_secret" });
     }
     try {
-        const resp = await fetch("https://oauth2.googleapis.com/token", {
+        // Typed as 'any' to fix the TS2339 collision with Express Response
+        const resp: any = await fetch("https://oauth2.googleapis.com/token", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: new URLSearchParams({
@@ -49,13 +50,13 @@ router.post("/gmail/exchange-code", async (req, res) => {
             client_id,
             client_secret,
         });
-        res.json({ access_token: data.access_token, expires_in: data.expires_in });
+        return res.json({ access_token: data.access_token, expires_in: data.expires_in });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: e.message });
     }
 });
 
-router.post("/gmail/refresh", async (req, res) => {
+router.post("/gmail/refresh", async (req: Request, res: Response) => {
     const tokens = readTokens();
     if (!tokens.refresh_token) {
         return res.status(404).json({ error: "No refresh token stored. Connect Gmail first." });
@@ -66,7 +67,8 @@ router.post("/gmail/refresh", async (req, res) => {
         return res.status(400).json({ error: "Missing client_id or client_secret" });
     }
     try {
-        const resp = await fetch("https://oauth2.googleapis.com/token", {
+        // Typed as 'any' to fix the TS2339 collision with Express Response
+        const resp: any = await fetch("https://oauth2.googleapis.com/token", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: new URLSearchParams({
@@ -80,17 +82,17 @@ router.post("/gmail/refresh", async (req, res) => {
         if (!resp.ok || data.error) {
             return res.status(400).json({ error: data.error_description || data.error || "Token refresh failed" });
         }
-        res.json({ access_token: data.access_token, expires_in: data.expires_in });
+        return res.json({ access_token: data.access_token, expires_in: data.expires_in });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: e.message });
     }
 });
 
-router.delete("/gmail/token", (_req, res) => {
+router.delete("/gmail/token", (_req: Request, res: Response) => {
     const tokens = readTokens();
     delete tokens.refresh_token;
     writeTokens(tokens);
-    res.json({ success: true });
+    return res.json({ success: true });
 });
 
 export default router;
