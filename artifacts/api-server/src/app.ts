@@ -1,6 +1,10 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import pinoHttp from "pino-http";
+// Replace this:
+// import pinoHttp from "pino-http";
+// With this:
+import pinoHttpModule from "pino-http";
+const pinoHttp = pinoHttpModule as any;
 import path from "path";
 import router from "./routes";
 import { logger } from "./lib/logger";
