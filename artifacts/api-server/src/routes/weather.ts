@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 
 const router = Router();
 
@@ -12,14 +12,21 @@ const WMO_CONDITIONS: Record<number, string> = {
     96: 'Thunderstorm with hail', 99: 'Thunderstorm with heavy hail',
 };
 
-router.get('/weather', async (req, res) => {
+router.get('/weather', async (req: Request, res: Response) => {
     try {
         const url = 'https://api.open-meteo.com/v1/forecast?latitude=16.0544&longitude=108.2022&current=temperature_2m,relative_humidity_2m,wind_speed_10m,apparent_temperature,weather_code,uv_index&wind_speed_unit=kmh&timezone=Asia%2FBangkok';
-        const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (!r.ok) { res.status(r.status).json({ error: 'weather service error' }); return; }
+        
+        // Typed as 'any' to fix the TS2339 collision with Express Response
+        const r: any = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        
+        if (!r.ok) { 
+            return res.status(r.status).json({ error: 'weather service error' }); 
+        }
+        
         const d: any = await r.json();
         const c = d.current;
         const code: number = c.weather_code ?? 0;
+        
         const result = {
             temp_c: Math.round(c.temperature_2m),
             feels_c: Math.round(c.apparent_temperature),
@@ -29,10 +36,11 @@ router.get('/weather', async (req, res) => {
             weather_code: code,
             condition: WMO_CONDITIONS[code] ?? 'Unknown',
         };
+        
         res.set('Cache-Control', 'public, max-age=600');
-        res.json(result);
+        return res.json(result);
     } catch (e: any) {
-        res.status(500).json({ error: e.message || 'fetch failed' });
+        return res.status(500).json({ error: e.message || 'fetch failed' });
     }
 });
 
