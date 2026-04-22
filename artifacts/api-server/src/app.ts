@@ -1,8 +1,5 @@
 import express, { type Express } from "express";
 import cors from "cors";
-// Replace this:
-// import pinoHttp from "pino-http";
-// With this:
 import pinoHttpModule from "pino-http";
 const pinoHttp = pinoHttpModule as any;
 import path from "path";
