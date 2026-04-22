@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import nodemailer from "nodemailer";
@@ -46,11 +46,11 @@ function resolveMailbox(mailbox: string, mbNames: string[]): { resolved: string;
     return { resolved: fuzzy || "INBOX", flaggedSearch: false };
 }
 
-router.post("/imap/fetch", async (req, res) => {
+router.post("/imap/fetch", async (req: Request, res: Response) => {
     const { host, port, user, pass, tls, query, maxResults = 25, offset = 0, mailbox = "INBOX" } = req.body;
     if (!host || !user || !pass) return res.status(400).json({ error: "Missing required fields: host, user, pass" });
     try {
-        const emails = await withImap({ host, port: parseInt(port) || (tls !== false ? 993 : 143), user, pass, tls: tls !== false }, async (client) => {
+        const emails = await withImap({ host, port: parseInt(port as string) || (tls !== false ? 993 : 143), user, pass, tls: tls !== false }, async (client) => {
             const mailboxes = await client.list();
             const mbNames = mailboxes.map((m: any) => m.path);
             console.log(`[IMAP] Available mailboxes:`, mbNames, `Requested: ${mailbox}`);
@@ -100,23 +100,23 @@ router.post("/imap/fetch", async (req, res) => {
             }
             return results.reverse();
         });
-        res.json({ emails });
+        return res.json({ emails });
     } catch (e: any) {
-        res.status(500).json({ error: e.message || "IMAP connection failed" });
+        return res.status(500).json({ error: e.message || "IMAP connection failed" });
     }
 });
 
-router.post("/imap/message", async (req, res) => {
+router.post("/imap/message", async (req: Request, res: Response) => {
     const { host, port, user, pass, tls, uid, mailbox } = req.body;
     if (!host || !user || !pass || !uid) return res.status(400).json({ error: "Missing required fields" });
     try {
-        const body = await withImap({ host, port: parseInt(port) || (tls !== false ? 993 : 143), user, pass, tls: tls !== false }, async (client) => {
+        const body = await withImap({ host, port: parseInt(port as string) || (tls !== false ? 993 : 143), user, pass, tls: tls !== false }, async (client) => {
             const mailboxes = await client.list();
             const mbNames = mailboxes.map((m: any) => m.path);
             const { resolved } = resolveMailbox(mailbox || "INBOX", mbNames);
             await client.mailboxOpen(resolved);
             let text = "", html = "";
-            for await (const msg of client.fetch([parseInt(uid)], { source: true }, { uid: true })) {
+            for await (const msg of client.fetch([parseInt(uid as string)], { source: true }, { uid: true })) {
                 const parsed = await simpleParser(msg.source as any);
                 if(parsed.html) { html = parsed.html; }
                 if(parsed.text) { text = parsed.text; }
@@ -124,13 +124,13 @@ router.post("/imap/message", async (req, res) => {
             }
             return { text, html };
         });
-        res.json({ body });
+        return res.json({ body });
     } catch (e: any) {
-        res.status(500).json({ error: e.message || "Failed to fetch message" });
+        return res.status(500).json({ error: e.message || "Failed to fetch message" });
     }
 });
 
-router.post("/imap/send", async (req, res) => {
+router.post("/imap/send", async (req: Request, res: Response) => {
     const { host, port, user, pass, tls, to, subject, text, html } = req.body;
     if (!host || !user || !pass || !to || !subject) return res.status(400).json({ error: "Missing required fields: host, user, pass, to, subject" });
     try {
@@ -151,9 +151,9 @@ router.post("/imap/send", async (req, res) => {
             text: text || undefined,
             html: html || undefined,
         });
-        res.json({ success: true, message: "Email sent" });
+        return res.json({ success: true, message: "Email sent" });
     } catch (e: any) {
-        res.status(500).json({ error: e.message || "Failed to send email" });
+        return res.status(500).json({ error: e.message || "Failed to send email" });
     }
 });
 
