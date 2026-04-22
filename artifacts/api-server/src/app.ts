@@ -11,14 +11,16 @@ app.use(
   pinoHttp({
     logger,
     serializers: {
-      req(req) {
+      // Explicitly typed as 'any' to fix TS7006 and accommodate the custom req.id
+      req(req: any) {
         return {
           id: req.id,
           method: req.method,
           url: req.url?.split("?")[0],
         };
       },
-      res(res) {
+      // Explicitly typed as 'any' to fix TS7006
+      res(res: any) {
         return {
           statusCode: res.statusCode,
         };
@@ -34,6 +36,7 @@ app.use("/api", router);
 
 const publicDir = path.resolve("public");
 
+// The types here are automatically inferred by Express, so they don't need manual typing
 app.get(["/app", "/app/", "/app/index.html"], (_req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
