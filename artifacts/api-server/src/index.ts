@@ -1,5 +1,5 @@
-import app from "./app";
-import { logger } from "./lib/logger";
+import app from "./app.js";
+import { logger } from "./lib/logger.js";
 
 // Only bind to a port and start listening if we are NOT running on Vercel.
 // Vercel automatically sets the "VERCEL" environment variable to "1" in production.
