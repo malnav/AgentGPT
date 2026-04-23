@@ -1,9 +1,9 @@
 import { Router, type IRouter } from "express";
-import healthRouter from "./health";
-import imapRouter from "./imap";
-import fetchRouter from "./fetch";
-import gmailRouter from "./gmail";
-import weatherRouter from "./weather";
+import healthRouter from "./health.js";
+import imapRouter from "./imap.js";
+import fetchRouter from "./fetch.js";
+import gmailRouter from "./gmail.js";
+import weatherRouter from "./weather.js";
 
 const router: IRouter = Router();
 
