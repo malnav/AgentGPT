@@ -4,7 +4,7 @@ import pinoHttpModule from "pino-http";
 const pinoHttp = pinoHttpModule as any;
 import path from "path";
 import router from "./routes/index.js";
-import { logger } from "./lib/logger";
+import { logger } from "./lib/logger.js";
 
 const app: Express = express();
 
