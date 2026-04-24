@@ -13,7 +13,7 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type { HealthStatus, QuoteResponse, WeatherStatus } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
 import type { ErrorType } from "../custom-fetch";
@@ -92,6 +92,150 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns current weather conditions
+ * @summary Current weather
+ */
+export const getGetWeatherUrl = () => {
+  return `/api/weather`;
+};
+
+export const getWeather = async (
+  options?: RequestInit,
+): Promise<WeatherStatus> => {
+  return customFetch<WeatherStatus>(getGetWeatherUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWeatherQueryKey = () => {
+  return [`/api/weather`] as const;
+};
+
+export const getGetWeatherQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWeather>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWeather>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetWeatherQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWeather>>> = ({
+    signal,
+  }) => getWeather({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWeather>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWeatherQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWeather>>
+>;
+export type GetWeatherQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Current weather
+ */
+
+export function useGetWeather<
+  TData = Awaited<ReturnType<typeof getWeather>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWeather>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWeatherQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns a random inspirational quote
+ * @summary Random quote
+ */
+export const getGetQuoteUrl = () => {
+  return `/api/quote`;
+};
+
+export const getQuote = async (
+  options?: RequestInit,
+): Promise<QuoteResponse> => {
+  return customFetch<QuoteResponse>(getGetQuoteUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetQuoteQueryKey = () => {
+  return [`/api/quote`] as const;
+};
+
+export const getGetQuoteQueryOptions = <
+  TData = Awaited<ReturnType<typeof getQuote>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getQuote>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetQuoteQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getQuote>>> = ({
+    signal,
+  }) => getQuote({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getQuote>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetQuoteQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getQuote>>
+>;
+export type GetQuoteQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Random quote
+ */
+
+export function useGetQuote<
+  TData = Awaited<ReturnType<typeof getQuote>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getQuote>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetQuoteQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

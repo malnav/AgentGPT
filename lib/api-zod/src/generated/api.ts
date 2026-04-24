@@ -14,3 +14,26 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Returns current weather conditions
+ * @summary Current weather
+ */
+export const GetWeatherResponse = zod.object({
+  temp_c: zod.number(),
+  feels_c: zod.number(),
+  humidity: zod.number(),
+  wind_kmh: zod.number(),
+  uv: zod.number(),
+  weather_code: zod.number(),
+  condition: zod.string(),
+});
+
+/**
+ * Returns a random inspirational quote
+ * @summary Random quote
+ */
+export const GetQuoteResponse = zod.object({
+  text: zod.string(),
+  author: zod.string(),
+});

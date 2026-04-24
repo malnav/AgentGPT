@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export * from "./healthStatus";
-export * from "./quoteResponse";
-export * from "./weatherStatus";
+export interface QuoteResponse {
+  text: string;
+  author: string;
+}

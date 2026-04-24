@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: weather
+    description: Weather operations
+  - name: quotes
+    description: Quote operations
 paths:
   /healthz:
     get:
@@ -24,6 +28,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /weather:
+    get:
+      operationId: getWeather
+      tags: [weather]
+      summary: Current weather
+      description: Returns current weather conditions
+      responses:
+        "200":
+          description: Current weather data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherStatus"
+  /quote:
+    get:
+      operationId: getQuote
+      tags: [quotes]
+      summary: Random quote
+      description: Returns a random inspirational quote
+      responses:
+        "200":
+          description: A quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +63,38 @@ components:
           type: string
       required:
         - status
-
+    WeatherStatus:
+      type: object
+      properties:
+        temp_c:
+          type: number
+        feels_c:
+          type: number
+        humidity:
+          type: number
+        wind_kmh:
+          type: number
+        uv:
+          type: number
+        weather_code:
+          type: number
+        condition:
+          type: string
+      required:
+        - temp_c
+        - feels_c
+        - humidity
+        - wind_kmh
+        - uv
+        - weather_code
+        - condition
+    QuoteResponse:
+      type: object
+      properties:
+        text:
+          type: string
+        author:
+          type: string
+      required:
+        - text
+        - author

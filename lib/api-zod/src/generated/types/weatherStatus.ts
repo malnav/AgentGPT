@@ -5,9 +5,6 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-export interface HealthStatus {
-  status: string;
-}
 
 export interface WeatherStatus {
   temp_c: number;
@@ -17,9 +14,4 @@ export interface WeatherStatus {
   uv: number;
   weather_code: number;
   condition: string;
-}
-
-export interface QuoteResponse {
-  text: string;
-  author: string;
 }
