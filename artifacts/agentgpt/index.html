@@ -537,6 +537,14 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .hs-email-avatar { width:34px; height:34px; border-radius:17px; background:var(--accent); color:#fff; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .hs-empty { font-size:13px; color:#888; text-align:center; padding:20px 0; }
 .hs-chats-btn { position:fixed; bottom:max(22px, env(safe-area-inset-bottom)); right:20px; z-index:510; width:54px; height:54px; border-radius:27px; background:var(--accent); color:#fff; font-size:22px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 20px rgba(0,122,255,0.4); cursor:pointer; border:none; }
+.hs-widget-menu { position:absolute; top:calc(100% + 6px); right:0; min-width:230px; max-width:280px; max-height:55vh; overflow-y:auto; background:var(--glass); border:0.5px solid var(--glass-border); border-radius:14px; box-shadow:var(--glass-shadow-md); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); padding:8px; display:none; z-index:40; }
+.hs-widget-menu.open { display:block; }
+.hs-widget-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text); padding:7px 8px; border-radius:10px; }
+.hs-widget-row:active { background:var(--sec-bg); }
+.hs-widget-empty { font-size:11px; color:#888; text-align:center; padding:8px 4px; }
+.hs-widget-actions { display:flex; gap:6px; margin-top:8px; }
+.hs-widget-action-btn { flex:1; border:none; border-radius:9px; padding:7px 9px; font-size:11px; font-weight:700; cursor:pointer; background:var(--sec-bg); color:var(--text); }
+.hs-widget-action-btn.primary { background:var(--accent); color:#fff; }
 .hs-drag-handle { font-size:18px; color:#aaa; cursor:grab; padding:0 6px 0 0; flex-shrink:0; touch-action:none; user-select:none; -webkit-user-select:none; line-height:1; }
 #hs-cal-grid-anchor .cal-event { font-size:0; line-height:0; height:6px; min-height:0; padding:0; margin:2px 0; border-radius:3px; overflow:hidden; }
 .ds-tab-btn { flex:1; text-align:center; padding:10px 4px; font-size:12px; font-weight:700; cursor:pointer; border-bottom:2px solid transparent; color:#888; transition:color 0.15s, border-color 0.15s; }
@@ -1873,7 +1881,7 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {}; _syncBubbleConfigs();
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1, email_signatures: storedCfg.email_signatures || [], email_signature: storedCfg.email_signature || "" };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1, hs_hidden_cards: storedCfg.hs_hidden_cards || [], email_signatures: storedCfg.email_signatures || [], email_signature: storedCfg.email_signature || "" };
     _loadNotes(); if (CONFIG.home_screen) { const _hsEl = document.getElementById('home-screen'); if (_hsEl) _hsEl.style.display = 'flex'; const _pbEl = document.getElementById('profile-bubble'); if (_pbEl) _pbEl.style.display = 'none'; }
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
@@ -1887,6 +1895,7 @@ async function init() {
     gmailSilentAuth();
     setTimeout(gmailSilentAuth, 2000);
     const _hsScrollBody = document.getElementById('hs-body'); const _hsScrollHdr = document.getElementById('hs-header'); if(_hsScrollBody && _hsScrollHdr) { _hsScrollBody.addEventListener('scroll', function(){ _hsScrollHdr.classList.toggle('hs-scrolled', _hsScrollBody.scrollTop > 36); }, { passive: true }); }
+    document.addEventListener('click', _hsCloseWidgetMenu, true);
 }
 
 async function refreshUI() {
@@ -1919,6 +1928,7 @@ async function refreshUI() {
     if (hsTrack) hsTrack.style.background = CONFIG.home_screen ? 'var(--accent)' : '#ccc';
     if (hsThumb) hsThumb.style.transform = CONFIG.home_screen ? 'translateX(18px)' : 'translateX(0)';
     const hsColsSel = document.getElementById('hs-columns-f'); if(hsColsSel) hsColsSel.value = String(CONFIG.hs_columns||1);
+    _hsRenderWidgetToggleMenu();
 }
 
 function updateCtxSelection() { let boxes = document.querySelectorAll('.ctx-checkbox:checked'); let btn = document.getElementById('ctx-bulk-btn-wrapper'); if(boxes.length > 0) { btn.style.display = 'block'; btn.querySelector('button').innerText = `Insert ${boxes.length} Selected ⟶`; } else { btn.style.display = 'none'; } }
@@ -2951,6 +2961,76 @@ function _hsApplyColumns() {
     _hsDragInited=false; setTimeout(_hsInitCardDrag,50);
 }
 async function saveHsColumns(v) { CONFIG.hs_columns=parseInt(v)||1; await saveAll(true); _hsApplyColumns(); notify('Widget columns updated','#34c759',1200); }
+function _hsGetHiddenCardsSet() { return new Set(Array.isArray(CONFIG.hs_hidden_cards) ? CONFIG.hs_hidden_cards : []); }
+function _hsIsCardVisible(cardId) { return !_hsGetHiddenCardsSet().has(cardId); }
+function _hsApplyCardVisibility() {
+    const wrap = document.getElementById('hs-cards-wrap');
+    if (!wrap) return;
+    const hidden = _hsGetHiddenCardsSet();
+    wrap.querySelectorAll('.hs-card[data-card-id]').forEach(card => {
+        const id = card.dataset.cardId || '';
+        card.style.display = hidden.has(id) ? 'none' : '';
+    });
+}
+function _hsGetCardsMeta() {
+    const wrap = document.getElementById('hs-cards-wrap');
+    if (!wrap) return [];
+    return [...wrap.querySelectorAll('.hs-card[data-card-id]')].map(card => {
+        const id = card.dataset.cardId || '';
+        const title = card.querySelector('.hs-card-title')?.textContent?.trim() || id;
+        return { id, title };
+    }).filter(x => x.id);
+}
+function _hsRenderWidgetToggleMenu() {
+    const list = document.getElementById('hs-widget-menu-list');
+    if (!list) return;
+    const items = _hsGetCardsMeta();
+    if (!items.length) { list.innerHTML = '<div class="hs-widget-empty">No widgets found.</div>'; return; }
+    list.innerHTML = items.map(({ id, title }) => {
+        const checked = _hsIsCardVisible(id) ? 'checked' : '';
+        return `<label class="hs-widget-row"><input type="checkbox" ${checked} onchange="_hsSetCardVisibility('${id}', this.checked)"><span>${title}</span></label>`;
+    }).join('');
+    const hiddenCount = _hsGetHiddenCardsSet().size;
+    list.innerHTML += `<div class="hs-widget-actions"><button class="hs-widget-action-btn" onclick="_hsResetHiddenCards()">Show all</button><button class="hs-widget-action-btn primary" onclick="_hsToggleWidgetMenu(event)">Done</button></div>`;
+    if (hiddenCount === 0) list.innerHTML += `<div class="hs-widget-empty">All widgets are currently visible.</div>`;
+}
+async function _hsSetCardVisibility(cardId, visible) {
+    const items = _hsGetCardsMeta();
+    const visibleNow = items.filter(({ id }) => _hsIsCardVisible(id)).map(x => x.id);
+    if (!visible && visibleNow.length <= 1 && visibleNow.includes(cardId)) {
+        notify('Keep at least one widget visible', '#ff9500', 1400);
+        _hsRenderWidgetToggleMenu();
+        return;
+    }
+    const set = _hsGetHiddenCardsSet();
+    if (visible) set.delete(cardId); else set.add(cardId);
+    CONFIG.hs_hidden_cards = [...set];
+    _hsApplyCardVisibility();
+    _hsApplyColumns();
+    _hsRenderWidgetToggleMenu();
+    await saveAll(true);
+}
+async function _hsResetHiddenCards() {
+    CONFIG.hs_hidden_cards = [];
+    _hsApplyCardVisibility();
+    _hsApplyColumns();
+    _hsRenderWidgetToggleMenu();
+    await saveAll(true);
+}
+function _hsToggleWidgetMenu(event) {
+    if (event) event.stopPropagation();
+    const menu = document.getElementById('hs-widget-menu');
+    if (!menu) return;
+    const open = !menu.classList.contains('open');
+    menu.classList.toggle('open', open);
+    if (open) _hsRenderWidgetToggleMenu();
+}
+function _hsCloseWidgetMenu(event) {
+    const menu = document.getElementById('hs-widget-menu');
+    if (!menu || !menu.classList.contains('open')) return;
+    if (event && event.target && event.target.closest && event.target.closest('#hs-widget-menu, #hs-widget-toggle-btn')) return;
+    menu.classList.remove('open');
+}
 async function toggleHomeScreenSetting(enabled) {
     CONFIG.home_screen = !!enabled;
     const track = document.getElementById('hs-toggle-track');
@@ -5200,6 +5280,7 @@ function showHomeScreen() {
     if (_hsActive) {
         _hsUpdateGreeting();
         _hsApplyCardOrder();
+        _hsApplyCardVisibility();
         _hsApplyColumns();
         return;
     }
@@ -5210,6 +5291,7 @@ function showHomeScreen() {
     const pb = document.getElementById('profile-bubble'); if (pb) pb.style.display = 'none';
     _hsUpdateGreeting();
     _hsApplyCardOrder();
+    _hsApplyCardVisibility();
     _hsApplyColumns();
     _hsMoveToHomeScreen();
     renderCalendar();
@@ -5239,6 +5321,7 @@ function hideHomeScreen() {
     _hsActive = false;
     _calPreviewVid = null;
     _chatNavReturn = null; _updateChatNavBack();
+    _hsCloseWidgetMenu();
     const hs = document.getElementById('home-screen'); if (!hs) return;
     hs.style.display = 'none';
     const pb = document.getElementById('profile-bubble'); if (pb) pb.style.display = '';
@@ -6279,6 +6362,13 @@ function _linkifyHtml(html) {
             <button id="hs-col-btn-1" onclick="saveHsColumns(1)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">1</button>
             <button id="hs-col-btn-2" onclick="saveHsColumns(2)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">2</button>
             <button id="hs-col-btn-3" onclick="saveHsColumns(3)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">3</button>
+        </div>
+        <div style="position:relative;">
+            <div id="hs-widget-toggle-btn" onclick="_hsToggleWidgetMenu(event)" style="font-size:14px; cursor:pointer; padding:6px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Show/Hide widgets">👁️ Widgets</div>
+            <div id="hs-widget-menu" class="hs-widget-menu" onclick="event.stopPropagation()">
+                <div style="font-size:11px; font-weight:800; color:#888; padding:4px 6px 8px;">Home Widgets</div>
+                <div id="hs-widget-menu-list"></div>
+            </div>
         </div>
         <div onclick="openModal('master-modal')" style="font-size:20px; cursor:pointer; opacity:0.55; padding:4px 4px;" title="Settings">⚙️</div>
         <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="font-size:16px; cursor:pointer; padding:5px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Open Workspace">🗂️</div>
