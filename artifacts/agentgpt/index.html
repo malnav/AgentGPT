@@ -2986,13 +2986,15 @@ function _hsRenderWidgetToggleMenu() {
     if (!list) return;
     const items = _hsGetCardsMeta();
     if (!items.length) { list.innerHTML = '<div class="hs-widget-empty">No widgets found.</div>'; return; }
-    list.innerHTML = items.map(({ id, title }) => {
+    const columnControl = `<div style="display:flex; justify-content:center; margin:2px 0 8px;"><div style="display:flex; gap:4px; align-items:center; background:rgba(0,0,0,0.07); border-radius:999px; padding:4px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);"><button id="hs-col-btn-1" onclick="saveHsColumns(1)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:999px;padding:5px 12px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">1</button><button id="hs-col-btn-2" onclick="saveHsColumns(2)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:999px;padding:5px 12px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">2</button><button id="hs-col-btn-3" onclick="saveHsColumns(3)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:999px;padding:5px 12px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">3</button></div></div>`;
+    list.innerHTML = columnControl + items.map(({ id, title }) => {
         const checked = _hsIsCardVisible(id) ? 'checked' : '';
         return `<label class="hs-widget-row"><input type="checkbox" ${checked} onchange="_hsSetCardVisibility('${id}', this.checked)"><span>${title}</span></label>`;
     }).join('');
     const hiddenCount = _hsGetHiddenCardsSet().size;
     list.innerHTML += `<div class="hs-widget-actions"><button class="hs-widget-action-btn" onclick="_hsResetHiddenCards()">Show all</button><button class="hs-widget-action-btn primary" onclick="_hsToggleWidgetMenu(event)">Done</button></div>`;
     if (hiddenCount === 0) list.innerHTML += `<div class="hs-widget-empty">All widgets are currently visible.</div>`;
+    _hsApplyColumns();
 }
 async function _hsSetCardVisibility(cardId, visible) {
     const items = _hsGetCardsMeta();
@@ -6358,13 +6360,8 @@ function _linkifyHtml(html) {
             <div class="hs-greeting" id="hs-greeting">Good morning</div>
             <div class="hs-date" id="hs-date"></div>
         </div>
-        <div style="display:flex; gap:3px; align-items:center; background:rgba(0,0,0,0.07); border-radius:12px; padding:3px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);">
-            <button id="hs-col-btn-1" onclick="saveHsColumns(1)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">1</button>
-            <button id="hs-col-btn-2" onclick="saveHsColumns(2)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">2</button>
-            <button id="hs-col-btn-3" onclick="saveHsColumns(3)" style="border:none;cursor:pointer;font-size:11px;font-weight:800;border-radius:9px;padding:3px 8px;transition:all 0.2s;line-height:1;background:transparent;color:var(--text);">3</button>
-        </div>
         <div style="position:relative;">
-            <div id="hs-widget-toggle-btn" onclick="_hsToggleWidgetMenu(event)" style="font-size:14px; cursor:pointer; padding:6px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Show/Hide widgets">👁️ Widgets</div>
+            <div id="hs-widget-toggle-btn" onclick="_hsToggleWidgetMenu(event)" style="font-size:14px; cursor:pointer; padding:6px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Show/Hide widgets">👁️</div>
             <div id="hs-widget-menu" class="hs-widget-menu" onclick="event.stopPropagation()">
                 <div style="font-size:11px; font-weight:800; color:#888; padding:4px 6px 8px;">Home Widgets</div>
                 <div id="hs-widget-menu-list"></div>
