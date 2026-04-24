@@ -2,16 +2,35 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { WeatherCard } from "@/components/weather-card";
+import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
 function Home() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Replit Agent is building...</h1>
-        <p className="mt-2 text-sm text-gray-600">Your app will appear here once it's ready.</p>
+    <div className="min-h-screen bg-background p-6">
+      <div className="mx-auto max-w-2xl space-y-4">
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <WeatherCard />
+        <CollapsibleCard
+          id="quick-notes"
+          title="Quick Notes"
+          description="Jot down anything important"
+        >
+          <p className="text-sm text-muted-foreground">
+            No notes yet. Start typing to add one.
+          </p>
+        </CollapsibleCard>
+        <CollapsibleCard
+          id="activity"
+          title="Recent Activity"
+          description="Your latest actions"
+          defaultOpen={false}
+        >
+          <p className="text-sm text-muted-foreground">No recent activity.</p>
+        </CollapsibleCard>
       </div>
     </div>
   );
