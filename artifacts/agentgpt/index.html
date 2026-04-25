@@ -1904,13 +1904,28 @@ function _ensurePaypalInvoiceService(paypalCfg, invoiceBody) {
     return existingIdx > -1 ? existingIdx : API_SERVICES.length - 1;
 }
 
+function _paypalPruneEmpty(value) {
+    if(Array.isArray(value)) return value.map(_paypalPruneEmpty).filter(v => v !== undefined);
+    if(value && typeof value === 'object') {
+        const next = {};
+        Object.entries(value).forEach(([k, v]) => {
+            const cleaned = _paypalPruneEmpty(v);
+            if(cleaned !== undefined) next[k] = cleaned;
+        });
+        return Object.keys(next).length ? next : undefined;
+    }
+    if(value === '' || value === null || value === undefined) return undefined;
+    return value;
+}
+
 async function _runPaypalInvoiceShortcut() {
     const form = await _openPaypalInvoiceForm();
     if(!form) return;
     if(!CONFIG.paypal_client_id || !CONFIG.paypal_client_secret) { notify('Set PayPal Client ID/Secret in Settings first', '#ff3b30', 2600); return; }
+    if(!form.customer_email) { notify('Customer email is required to create a PayPal invoice', '#ff3b30', 2800); return; }
     const vars = getActiveVars();
     const calc = _calculatePaypalDraft(form);
-    const recipientEmail = form.customer_email || `share+${Date.now()}@example.com`;
+    const recipientEmail = form.customer_email;
     const items = [{
         name: form.item_name,
         quantity: form.quantity,
@@ -1925,8 +1940,13 @@ async function _runPaypalInvoiceShortcut() {
     if(form.include_fixed_fee_item) {
         items.push({ name: 'Fixed fee', quantity: '1', unit_amount: { currency_code: form.currency_code, value: calc.fixed_fee_amount } });
     }
-    const invoiceBody = {
-        detail: { currency_code: form.currency_code, invoice_number: form.invoice_number, note: form.note || '' },
+    const invoiceBody = _paypalPruneEmpty({
+        detail: {
+            currency_code: form.currency_code,
+            invoice_number: form.invoice_number,
+            note: form.note || '',
+            payment_term: { term_type: 'NO_DUE_DATE' }
+        },
         invoicer: {
             name: { given_name: form.invoicer_given_name, surname: form.invoicer_surname },
             business_name: form.business_name,
@@ -1938,9 +1958,8 @@ async function _runPaypalInvoiceShortcut() {
                 name: { given_name: form.customer_name || 'Customer' }
             }
         }],
-        payment_term: { term_type: 'NO_DUE_DATE' },
         items
-    };
+    }) || {};
     const mapped = {
         customer_email: recipientEmail,
         customer_name: form.customer_name,
@@ -2741,8 +2760,20 @@ async function parseServiceVariables(text) {
     while ((match = regex.exec(text)) !== null) { needed.push(match[1].trim()); }
     if (needed.length === 0) return text;
     let vars = getActiveVars(); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); if(!p.expected_vars) p.expected_vars = []; let resText = text;
+    const cfgFallback = {
+        paypal_client_id: CONFIG.paypal_client_id,
+        paypal_client_secret: CONFIG.paypal_client_secret,
+        google_client_id: CONFIG.google_client_id,
+        google_client_secret: CONFIG.google_client_secret,
+        ai_key: CONFIG.ai_key
+    };
     for (let key of needed) {
         if(typeof vars[key] === 'string') vars[key] = { value: vars[key], locked: false }; let valObj = vars[key]; let rawVal = valObj ? valObj.value : undefined; let val = rawVal ? varValueToText(rawVal) : rawVal;
+        if ((val === undefined || val === null || val === "") && cfgFallback[key]) {
+            val = String(cfgFallback[key]);
+            vars[key] = { value: val, locked: true };
+            if(!p.expected_vars.includes(key)) p.expected_vars.push(key);
+        }
         if (val === undefined || val === null || val === "") { val = await promptUserAsync(`Provide value for variable: {{${key}}}`); if (val === null) return null; vars[key] = { value: val, locked: true }; if(!p.expected_vars.includes(key)) p.expected_vars.push(key); }
         resText = resText.split(`{{${key}}}`).join(val);
     }
