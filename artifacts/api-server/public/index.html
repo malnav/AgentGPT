@@ -3448,6 +3448,7 @@ let gmailNextPageToken = null;
 let gmailCurrentQuery = null;
 let gmailLoadingMore = false;
 let gmailHasMoreEmails = false;
+let gmailSilentAuthInFlight = null;
 let _gmailScrollObs = null;
 let gmailEmailOffset = 0;
 let imapOffsets = {};
@@ -3735,6 +3736,8 @@ function gmailConnectWithCode() {
 }
 
 async function gmailSilentAuth() {
+    if (gmailSilentAuthInFlight) return gmailSilentAuthInFlight;
+    gmailSilentAuthInFlight = (async () => {
     const clientId = CONFIG.google_client_id || "";
     if (!clientId || gmailAccessToken) return;
     const refreshed = await gmailBackendRefresh();
@@ -3756,6 +3759,8 @@ async function gmailSilentAuth() {
         });
         tc.requestAccessToken({ prompt: 'none' });
     });
+    })();
+    try { await gmailSilentAuthInFlight; } finally { gmailSilentAuthInFlight = null; }
 }
 
 function gmailEnsureAuth(onAuthed) {
@@ -3786,8 +3791,12 @@ async function gmailLoadEmails(query) {
     const clientId = CONFIG.google_client_id || "";
     if(!clientId) { notify("Enter your Google OAuth Client ID in Settings first", "#ff3b30", 5000); return; }
     if(gmailAccessToken) { await emailFetchEmails(query); return; }
-    gmailSilentAuth();
-    gmailEnsureScript(() => { gmailInitTokenClient(query, false); });
+    await gmailSilentAuth();
+    if(!gmailAccessToken) {
+        notify("Gmail not connected — use Email Settings → Sign In", "#ff9500", 2600);
+        return;
+    }
+    await emailFetchEmails(query);
 }
 
 function gmailInitTokenClient(query, silent) {
