@@ -1708,7 +1708,47 @@ async function getStorageSize() { const str = JSON.stringify(chatHistories); ret
 
 document.addEventListener('click', (e) => { document.querySelectorAll('.bm-menu:not(.closed)').forEach(m => m.classList.add('closed')); if(!e.target.closest('.tool-menu') && !e.target.closest('.inline-btn') && !e.target.closest('.chip')) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => m.classList.add('closed')); const inputZone = document.getElementById('main-input-zone'); if(inputZone) inputZone.classList.remove('menu-open'); } });
 function toggleMenu(menuEl) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => { if(m !== menuEl) m.classList.add('closed'); }); menuEl.classList.toggle('closed'); const inputZone = document.getElementById('main-input-zone'); if(inputZone) inputZone.classList.toggle('menu-open', menuEl.id === 'attach-menu' && !menuEl.classList.contains('closed')); }
-function _openAttachMenu(event) { _showItemMenu(event, [ {label:'🪄 Prompts', fn:()=>_openPromptsSubmenu()}, {label:'📷 Camera', fn:()=>document.getElementById('attach-cam').click()}, {label:'🖼️ Photo Library', fn:()=>document.getElementById('attach-img').click()}, {label:'📁 Files', fn:()=>document.getElementById('attach-file').click()}, {label:'📄 Templates', fn:()=>{ tplPanelSwitch('templates'); toggleTplPanel(); }}, {label:'🔌 Services', fn:()=>{ tplPanelSwitch('services'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); }}, {label:'🔗 Links', fn:()=>{ tplPanelSwitch('links'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); }}, {label:'📋 Context', fn:()=>{ toggleCtxPanel(); refreshUI(); }}, {label:'📱 WhatsApp Chat', fn:()=>{ ctxSwitchTab('whatsapp'); closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.add('open'); }} ]); }
+function _ensurePaypalInvoiceService() {
+    const paypalService = {
+        label: 'PayPal Invoice',
+        profile: 'Global',
+        method: 'POST',
+        text: 'https://api-m.paypal.com/v2/invoicing/invoices',
+        headers: JSON.stringify({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, null, 2),
+        body: JSON.stringify({
+            invoicer: {
+                name: { given_name: 'Xuan Tu', surname: 'Mai' },
+                business_name: 'Xuan Tu Vietnam Tours',
+                website: 'https://xuantuvietnamtours.com'
+            },
+            primary_recipients: [{ billing_info: { email_address: '{{customer_email}}' } }],
+            payment_term: { term_type: 'NO_DUE_DATE' },
+            detail: { currency_code: 'USD', note: 'Thank you for your tour confirmation!' },
+            items: [
+                {
+                    name: 'Deposit for the private tour',
+                    quantity: '1',
+                    unit_amount: { currency_code: 'USD', value: '{{deposit_amount}}' }
+                },
+                {
+                    name: 'Transaction fee',
+                    quantity: '1',
+                    unit_amount: { currency_code: 'USD', value: '{{transaction_fee}}' }
+                }
+            ]
+        }, null, 2),
+        extract: 'id',
+        use_oauth: true,
+        oauth_url: 'https://api-m.paypal.com/v1/oauth2/token',
+        oauth_client: '{{paypal_client_id}}',
+        oauth_secret: '{{paypal_client_secret}}'
+    };
+    const existingIdx = API_SERVICES.findIndex(s => s.label === paypalService.label);
+    if(existingIdx > -1) API_SERVICES[existingIdx] = { ...API_SERVICES[existingIdx], ...paypalService };
+    else API_SERVICES.push(paypalService);
+    return existingIdx > -1 ? existingIdx : API_SERVICES.length - 1;
+}
+function _openAttachMenu(event) { _showItemMenu(event, [ {label:'🪄 Prompts', fn:()=>_openPromptsSubmenu()}, {label:'📷 Camera', fn:()=>document.getElementById('attach-cam').click()}, {label:'🖼️ Photo Library', fn:()=>document.getElementById('attach-img').click()}, {label:'📁 Files', fn:()=>document.getElementById('attach-file').click()}, {label:'📄 Templates', fn:()=>{ tplPanelSwitch('templates'); toggleTplPanel(); }}, {label:'🔌 Services', fn:()=>{ tplPanelSwitch('services'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); }}, {label:'🧾 PayPal Invoice', fn:async()=>{ const idx = _ensurePaypalInvoiceService(); await saveAll(); await triggerApiService(idx); }}, {label:'🔗 Links', fn:()=>{ tplPanelSwitch('links'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); }}, {label:'📋 Context', fn:()=>{ toggleCtxPanel(); refreshUI(); }}, {label:'📱 WhatsApp Chat', fn:()=>{ ctxSwitchTab('whatsapp'); closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.add('open'); }} ]); }
 function updateInputHeightVar() { const z = document.getElementById('main-input-zone'); if (z) document.documentElement.style.setProperty('--input-h', z.offsetHeight + 'px'); }
 window.addEventListener('resize', updateInputHeightVar);
 
@@ -2752,7 +2792,7 @@ async function triggerApiService(idx) {
     try {
         let u = await parseServiceVariables(t.text); if(u === null) return; let h = await parseServiceVariables(t.headers || "{}"); if(h === null) return; let b = await parseServiceVariables(t.body || ""); if(b === null) return; let actualHeaders = JSON.parse(h);
         notify(`🚀 Running ${t.label}...`, "#007aff", 4000); closeAllPanels();
-        if(t.use_oauth) { const token = await getOauthToken(t.oauth_url, t.oauth_client, t.oauth_secret); actualHeaders["Authorization"] = `Bearer ${token}`; }
+        if(t.use_oauth) { const oauthUrl = await parseServiceVariables(t.oauth_url || ''); if(oauthUrl === null) return; const oauthClient = await parseServiceVariables(t.oauth_client || ''); if(oauthClient === null) return; const oauthSecret = await parseServiceVariables(t.oauth_secret || ''); if(oauthSecret === null) return; const token = await getOauthToken(oauthUrl, oauthClient, oauthSecret); actualHeaders["Authorization"] = `Bearer ${token}`; }
         const req = { method: t.method || "GET", headers: actualHeaders }; if(t.method !== "GET" && b) { req.body = b; }
         const res = await fetch(u, req); let raw = await res.text();
         if(res.ok) { let processed = raw; if(t.extract) { try { const j = JSON.parse(raw); processed = t.extract.split('.').reduce((o, i) => o[i], j) || raw; } catch(e) {} } insertAtCursor(String(processed), false, true); chatHistory.push({ role: "assistant", content: [{ type: "output_text", text: `SERVICE_INJECTION: ${processed}` }] }); renderChatHistory(); scrollToLastRequest(); addLog("API", "Success", t.label); notify("Injected", "#34c759"); } else { addLog("API", "Failed Status " + res.status, t.label); notify(`❌ ${res.status}`, "#ff3b30"); }
