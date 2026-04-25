@@ -1881,7 +1881,7 @@ function _ensurePaypalInvoiceService(paypalCfg, invoiceBody) {
         label: 'PayPal Invoice',
         profile: 'Global',
         method: 'POST',
-        text: `${baseUrl}/v2/invoicing/invoices`,
+        text: `${baseUrl}/v2/invoicing/invoices?send_to_recipient=false`,
         headers: JSON.stringify({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, null, 2),
         body: JSON.stringify(invoiceBody, null, 2),
         extract: '',
@@ -3031,7 +3031,7 @@ function renderChatHistory() {
     }, 50);
 }
 
-async function getOauthToken(url, clientId, clientSecret) { const credentials = btoa(`${clientId}:${clientSecret}`); const params = new URLSearchParams(); params.append("grant_type", "client_credentials"); let oauthUrl = String(url || "").trim(); if(/api-m(\.sandbox)?\.paypal\.com$/i.test(oauthUrl.replace(/^https?:\/\//i, "").replace(/\/.*$/, "")) || /api-m(\.sandbox)?\.paypal\.com\/v1\/oauth2\/?$/i.test(oauthUrl)) { oauthUrl = oauthUrl.replace(/\/+$/, ""); if(/\/v1\/oauth2$/i.test(oauthUrl)) oauthUrl += "/token"; } addLog("API", "OAuth Fetch Request", oauthUrl); const res = await fetch(oauthUrl, { method: "POST", headers: { "Authorization": `Basic ${credentials}`, "Content-Type": "application/x-www-form-urlencoded" }, body: params.toString() }); if(!res.ok) throw new Error("OAuth token fetch failed: " + res.status + " " + res.statusText); const data = await res.json(); if(!data.access_token) throw new Error("OAuth token missing in response"); return data.access_token; }
+async function getOauthToken(url, clientId, clientSecret) { const credentials = btoa(`${clientId}:${clientSecret}`); const params = new URLSearchParams(); params.append("grant_type", "client_credentials"); let oauthUrl = String(url || "").trim(); if(/api-m(\.sandbox)?\.paypal\.com$/i.test(oauthUrl.replace(/^https?:\/\//i, "").replace(/\/.*$/, "")) || /api-m(\.sandbox)?\.paypal\.com\/v1\/oauth2\/?$/i.test(oauthUrl)) { oauthUrl = oauthUrl.replace(/\/+$/, ""); if(/\/v1\/oauth2$/i.test(oauthUrl)) oauthUrl += "/token"; } const attempts = [oauthUrl]; if(/^https:\/\/api-m\.paypal\.com\/v1\/oauth2\/token$/i.test(oauthUrl)) attempts.push("https://api-m.sandbox.paypal.com/v1/oauth2/token"); else if(/^https:\/\/api-m\.sandbox\.paypal\.com\/v1\/oauth2\/token$/i.test(oauthUrl)) attempts.push("https://api-m.paypal.com/v1/oauth2/token"); let lastErr = null; for(let i = 0; i < attempts.length; i++) { const attemptUrl = attempts[i]; addLog("API", "OAuth Fetch Request", attemptUrl); const res = await fetch(attemptUrl, { method: "POST", headers: { "Authorization": `Basic ${credentials}`, "Content-Type": "application/x-www-form-urlencoded" }, body: params.toString() }); if(res.ok) { const data = await res.json(); if(!data.access_token) throw new Error("OAuth token missing in response"); return data.access_token; } const errBody = (await res.text()).slice(0, 180); lastErr = new Error(`OAuth token fetch failed: ${res.status} ${res.statusText}${errBody ? ` - ${errBody}` : ""}`); const shouldTryNext = res.status === 401 && i < attempts.length - 1; if(shouldTryNext) { addLog("API", "OAuth Retry", `401 from ${attemptUrl}; retrying ${attempts[i + 1]}`); continue; } throw lastErr; } throw lastErr || new Error("OAuth token fetch failed"); }
 
 async function testApiRequest() {
     let u = document.getElementById('entry-url').value; if(!u) return notify("URL needed", "#ff3b30");
