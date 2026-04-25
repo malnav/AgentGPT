@@ -1866,7 +1866,7 @@ async function _openPaypalInvoiceForm() {
                 include_tax_item: ov.querySelector('#ppf-include-tax').checked,
                 include_service_fee_item: ov.querySelector('#ppf-include-fee').checked,
                 include_fixed_fee_item: ov.querySelector('#ppf-include-fixed').checked,
-                send_to_recipient: true,
+                send_to_recipient: !!ov.querySelector('#ppf-customer-email').value.trim(),
                 note: ov.querySelector('#ppf-note').value.trim()
             };
             if(Number(payload.base_amount) <= 0) return notify('Base amount must be greater than 0', '#ff3b30');
