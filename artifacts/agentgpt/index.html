@@ -1166,7 +1166,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <small style="font-weight:800; font-size:11px; color:var(--accent);">🔑 API KEY</small>
             </div>
             <div style="padding:0 14px 14px;">
-                <input type="password" id="ai-key-f" class="pp-input" placeholder="OpenAI Key" onchange="saveMasterConfig()" style="margin-bottom:0;">
+                <input type="password" id="ai-key-f" class="pp-input" placeholder="OpenAI Key" onchange="saveMasterConfig()" style="margin-bottom:8px;">
+                <input type="text" id="paypal-client-id-f" class="pp-input" placeholder="PayPal Client ID" onchange="saveMasterConfig()" style="margin-bottom:8px;">
+                <input type="password" id="paypal-client-secret-f" class="pp-input" placeholder="PayPal Client Secret" onchange="saveMasterConfig()" style="margin-bottom:0;">
             </div>
             <div style="border-top:0.5px solid var(--border); padding:12px 14px 8px;">
                 <small style="font-weight:800; font-size:11px; color:var(--accent);">🔥 FIREBASE CLOUD SYNC</small>
@@ -1768,9 +1770,7 @@ async function _openPaypalInvoiceForm() {
     const vars = getActiveVars();
     const prefill = {
         env: defaults.env || 'live',
-        paypal_client_id: (vars.paypal_client_id && vars.paypal_client_id.value) || '',
-        paypal_client_secret: (vars.paypal_client_secret && vars.paypal_client_secret.value) || '',
-        customer_email: (vars.customer_email && vars.customer_email.value) || '',
+                customer_email: (vars.customer_email && vars.customer_email.value) || '',
         customer_name: (vars.customer_name && vars.customer_name.value) || '',
         invoice_number: (vars.invoice_number && vars.invoice_number.value) || '',
         currency_code: defaults.currency_code || 'USD',
@@ -1817,9 +1817,7 @@ async function _openPaypalInvoiceForm() {
               <input id="ppf-given" class="pp-input" placeholder="Invoicer first name" value="${prefill.invoicer_given_name.replace(/"/g,'&quot;')}">
               <input id="ppf-surname" class="pp-input" placeholder="Invoicer last name" value="${prefill.invoicer_surname.replace(/"/g,'&quot;')}">
               <input id="ppf-website" class="pp-input" placeholder="Website (optional)" value="${prefill.website.replace(/"/g,'&quot;')}">
-              <input id="ppf-client-id" class="pp-input" placeholder="PayPal Client ID" value="${prefill.paypal_client_id.replace(/"/g,'&quot;')}">
-            </div>
-            <input id="ppf-client-secret" class="pp-input" type="password" placeholder="PayPal Client Secret" value="${prefill.paypal_client_secret.replace(/"/g,'&quot;')}" style="margin-top:8px;">
+              </div>
             <div style="display:flex;gap:8px;margin-top:12px;">
               <button id="ppf-save" class="chip" style="flex:2;background:var(--accent);color:#fff;padding:11px 12px;font-weight:700;">Create invoice</button>
               <button id="ppf-cancel" class="chip" style="flex:1;padding:11px 12px;">Cancel</button>
@@ -1848,9 +1846,7 @@ async function _openPaypalInvoiceForm() {
         ov.querySelector('#ppf-save').onclick = () => {
             const payload = {
                 env: ov.querySelector('#ppf-env').value,
-                paypal_client_id: ov.querySelector('#ppf-client-id').value.trim(),
-                paypal_client_secret: ov.querySelector('#ppf-client-secret').value.trim(),
-                customer_email: ov.querySelector('#ppf-customer-email').value.trim(),
+                                customer_email: ov.querySelector('#ppf-customer-email').value.trim(),
                 customer_name: ov.querySelector('#ppf-customer-name').value.trim(),
                 invoice_number: ov.querySelector('#ppf-invoice-number').value.trim(),
                 currency_code: (ov.querySelector('#ppf-currency').value.trim() || 'USD').toUpperCase(),
@@ -1867,8 +1863,7 @@ async function _openPaypalInvoiceForm() {
                 note: ov.querySelector('#ppf-note').value.trim()
             };
             if(!payload.customer_email) return notify('Customer email is required', '#ff3b30');
-            if(!payload.paypal_client_id || !payload.paypal_client_secret) return notify('PayPal client credentials are required', '#ff3b30');
-            if(Number(payload.base_amount) <= 0) return notify('Base amount must be greater than 0', '#ff3b30');
+                        if(Number(payload.base_amount) <= 0) return notify('Base amount must be greater than 0', '#ff3b30');
             closeWith(payload);
         };
     });
@@ -1939,12 +1934,11 @@ function _ensurePaypalInvoiceService(paypalCfg) {
 async function _runPaypalInvoiceShortcut() {
     const form = await _openPaypalInvoiceForm();
     if(!form) return;
+    if(!CONFIG.paypal_client_id || !CONFIG.paypal_client_secret) { notify('Set PayPal Client ID/Secret in Settings first', '#ff3b30', 2600); return; }
     const vars = getActiveVars();
     const calc = _calculatePaypalDraft(form);
     const mapped = {
-        paypal_client_id: form.paypal_client_id,
-        paypal_client_secret: form.paypal_client_secret,
-        customer_email: form.customer_email,
+                customer_email: form.customer_email,
         customer_name: form.customer_name,
         invoice_number: form.invoice_number,
         currency_code: form.currency_code,
@@ -1963,7 +1957,7 @@ async function _runPaypalInvoiceShortcut() {
         total_due: calc.total_due,
         invoice_note: form.note || ''
     };
-    Object.entries(mapped).forEach(([k,v]) => { vars[k] = { value: String(v || ''), locked: true }; });
+    Object.entries({ ...mapped, paypal_client_id: CONFIG.paypal_client_id, paypal_client_secret: CONFIG.paypal_client_secret }).forEach(([k,v]) => { vars[k] = { value: String(v || ''), locked: true }; });
     CONFIG.paypal_invoice_defaults = {
         env: form.env,
         currency_code: form.currency_code,
@@ -2150,7 +2144,7 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {}; _syncBubbleConfigs();
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1, hs_hidden_cards: storedCfg.hs_hidden_cards || [], email_signatures: storedCfg.email_signatures || [], email_signature: storedCfg.email_signature || "" };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", paypal_client_id: storedCfg.paypal_client_id || "", paypal_client_secret: storedCfg.paypal_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1, hs_hidden_cards: storedCfg.hs_hidden_cards || [], email_signatures: storedCfg.email_signatures || [], email_signature: storedCfg.email_signature || "" };
     _loadNotes(); if (CONFIG.home_screen) { const _hsEl = document.getElementById('home-screen'); if (_hsEl) _hsEl.style.display = 'flex'; const _pbEl = document.getElementById('profile-bubble'); if (_pbEl) _pbEl.style.display = 'none'; }
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
@@ -2190,7 +2184,7 @@ async function refreshUI() {
     updateCtxSelection(); 
     let ctxLabel = cutIdx === -1 ? '☁️' : '🌦️'; const _ctxInd = document.getElementById('ctx-indicator'); if(_ctxInd) _ctxInd.innerText = ctxLabel; document.getElementById('ctx-btn-all').classList.toggle('active', cutIdx === CONTEXT_LINES.length - 1); document.getElementById('ctx-btn-none').classList.toggle('active', cutIdx === -1);
     document.getElementById('def-ctx-f').value = CONFIG.def_ctx || "all"; document.getElementById('def-prof-f').innerHTML = AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); document.getElementById('def-mod-f').innerHTML = AI_MODELS.map(m => `<option value="${m.text}">${m.label}</option>`).join(''); document.getElementById('def-prof-f').value = CONFIG.def_profile; document.getElementById('def-mod-f').value = CONFIG.def_model;
-    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('google-client-id-f').value = CONFIG.google_client_id || ""; document.getElementById('google-client-secret-f').value = CONFIG.google_client_secret || ""; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
+    document.getElementById('fb-project-f').value = CONFIG.fb_project || ""; document.getElementById('fb-api-f').value = CONFIG.fb_api || ""; document.getElementById('google-client-id-f').value = CONFIG.google_client_id || ""; document.getElementById('google-client-secret-f').value = CONFIG.google_client_secret || ""; document.getElementById('paypal-client-id-f').value = CONFIG.paypal_client_id || ""; document.getElementById('paypal-client-secret-f').value = CONFIG.paypal_client_secret || ""; document.getElementById('title-model-f').value = CONFIG.title_model || ""; document.getElementById('extract-model-f').value = CONFIG.extract_model || ""; document.getElementById('suggest-model-f').value = CONFIG.suggest_model || ""; document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)";
     updateProfileBubble();
     const hsToggle = document.getElementById('home-screen-toggle'); if (hsToggle) hsToggle.checked = !!CONFIG.home_screen;
     const hsTrack = document.getElementById('hs-toggle-track'); const hsThumb = document.getElementById('hs-toggle-thumb');
@@ -3137,7 +3131,7 @@ function importGlobalFile(event) {
 }
 
 async function exportApiKeys() {
-    const keys = { ai_key: CONFIG.ai_key, fb_api: CONFIG.fb_api, fb_project: CONFIG.fb_project, google_client_id: CONFIG.google_client_id, google_client_secret: CONFIG.google_client_secret, _app: 'agentgpt', _v: 1 };
+    const keys = { ai_key: CONFIG.ai_key, fb_api: CONFIG.fb_api, fb_project: CONFIG.fb_project, google_client_id: CONFIG.google_client_id, google_client_secret: CONFIG.google_client_secret, paypal_client_id: CONFIG.paypal_client_id, paypal_client_secret: CONFIG.paypal_client_secret, _app: 'agentgpt', _v: 1 };
     const jsonStr = JSON.stringify(keys, null, 2); const fileName = `agentgpt_keys_${Date.now()}.json`; addLog("DATA", "Export Keys", fileName);
     if (navigator.share) { try { const file = new File([jsonStr], fileName, { type: "application/json" }); await navigator.share({ files: [file], title: fileName }); return notify("Keys exported!", "#34c759"); } catch(e) {} }
     try { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr); const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", fileName); document.body.appendChild(dl); dl.click(); document.body.removeChild(dl); notify("Keys downloaded!", "#34c759"); } catch(e) {}
@@ -3149,6 +3143,8 @@ function _applyKeysToSettingsForm(data) {
     if (data.fb_project) document.getElementById('fb-project-f').value = data.fb_project;
     if (data.google_client_id) document.getElementById('google-client-id-f').value = data.google_client_id;
     if (data.google_client_secret) document.getElementById('google-client-secret-f').value = data.google_client_secret;
+    if (data.paypal_client_id) document.getElementById('paypal-client-id-f').value = data.paypal_client_id;
+    if (data.paypal_client_secret) document.getElementById('paypal-client-secret-f').value = data.paypal_client_secret;
 }
 
 function importApiKeys(event) {
@@ -3321,7 +3317,7 @@ async function toggleHomeScreenSetting(enabled) {
 async function saveMasterConfig() { 
     const prevFbApi = CONFIG.fb_api, prevFbProject = CONFIG.fb_project;
     CONFIG.ai_key = document.getElementById('ai-key-f').value; CONFIG.def_profile = document.getElementById('def-prof-f').value; CONFIG.def_model = document.getElementById('def-mod-f').value; 
-    CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = true; CONFIG.google_client_id = document.getElementById('google-client-id-f').value.trim(); CONFIG.google_client_secret = document.getElementById('google-client-secret-f').value.trim();
+    CONFIG.fb_project = document.getElementById('fb-project-f').value.trim(); CONFIG.fb_api = document.getElementById('fb-api-f').value.trim(); CONFIG.fb_auto = true; CONFIG.google_client_id = document.getElementById('google-client-id-f').value.trim(); CONFIG.google_client_secret = document.getElementById('google-client-secret-f').value.trim(); CONFIG.paypal_client_id = document.getElementById('paypal-client-id-f').value.trim(); CONFIG.paypal_client_secret = document.getElementById('paypal-client-secret-f').value.trim();
     CONFIG.title_model = document.getElementById('title-model-f').value;
     CONFIG.extract_model = document.getElementById('extract-model-f').value;
     CONFIG.suggest_model = document.getElementById('suggest-model-f').value;
