@@ -1,10 +1,31 @@
 import { Router, type Request, type Response } from "express";
 import fs from "fs";
+import os from "os";
 import path from "path";
 
 const router = Router();
 
-const TOKEN_FILE = path.join(process.cwd(), "data", "gmail_tokens.json");
+function getWritableTokenFile(): string {
+    const envPath = process.env.GMAIL_TOKEN_FILE;
+    const candidates = [
+        envPath,
+        path.join(process.cwd(), "data", "gmail_tokens.json"),
+        path.join(os.tmpdir(), "agentgpt", "gmail_tokens.json"),
+    ].filter((p): p is string => !!p);
+
+    for (const file of candidates) {
+        try {
+            fs.mkdirSync(path.dirname(file), { recursive: true });
+            return file;
+        } catch {
+            // Try next candidate if this path is unavailable in the current runtime.
+        }
+    }
+
+    return path.join(os.tmpdir(), "gmail_tokens.json");
+}
+
+const TOKEN_FILE = getWritableTokenFile();
 
 function readTokens(): Record<string, string> {
     try { return JSON.parse(fs.readFileSync(TOKEN_FILE, "utf8")); } catch { return {}; }
@@ -12,7 +33,7 @@ function readTokens(): Record<string, string> {
 
 function writeTokens(data: Record<string, string>) {
     const dir = path.dirname(TOKEN_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(TOKEN_FILE, JSON.stringify(data, null, 2));
 }
 
