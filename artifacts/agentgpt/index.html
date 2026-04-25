@@ -1928,6 +1928,10 @@ async function _runPaypalInvoiceShortcut() {
     const vars = getActiveVars();
     const calc = _calculatePaypalDraft(form);
     const recipientEmail = form.customer_email;
+    const canSendToRecipient = (form.send_to_recipient !== false) && !!recipientEmail;
+    if((form.send_to_recipient !== false) && !recipientEmail) {
+        notify('Missing recipient email. Invoice will be created as a draft only.', '#ff9500', 3200);
+    }
     const items = [{
         name: form.item_name,
         quantity: form.quantity,
@@ -1998,10 +2002,10 @@ async function _runPaypalInvoiceShortcut() {
         include_tax_item: form.include_tax_item,
         include_service_fee_item: form.include_service_fee_item,
         include_fixed_fee_item: form.include_fixed_fee_item,
-        send_to_recipient: form.send_to_recipient !== false,
+        send_to_recipient: canSendToRecipient,
         note: form.note || ''
     };
-    const idx = _ensurePaypalInvoiceService({ env: form.env }, invoiceBody, form.send_to_recipient !== false);
+    const idx = _ensurePaypalInvoiceService({ env: form.env }, invoiceBody, canSendToRecipient);
     await saveAll();
     renderSessionVariables();
 
@@ -2012,6 +2016,11 @@ async function _runPaypalInvoiceShortcut() {
     const invoiceId = created.id || created.invoice_id || '';
     if(!invoiceId) {
         notify('Invoice created but PayPal did not return an invoice id to send.', '#ff9500', 3200);
+        return;
+    }
+
+    if(!canSendToRecipient) {
+        notify(`Invoice draft ${invoiceId} created. Add recipient email before sending.`, '#ff9500', 3600);
         return;
     }
 
