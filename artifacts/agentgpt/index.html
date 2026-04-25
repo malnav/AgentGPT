@@ -2004,8 +2004,31 @@ async function _runPaypalInvoiceShortcut() {
     const idx = _ensurePaypalInvoiceService({ env: form.env }, invoiceBody, form.send_to_recipient !== false);
     await saveAll();
     renderSessionVariables();
-    notify(`Invoice total ${calc.total_due} ${form.currency_code}. PayPal response includes share links (payer-view).`, '#34c759', 3200);
-    await triggerApiService(idx);
+
+    const createResult = await triggerApiService(idx, { injectResult: false, successMessage: 'Invoice draft created' });
+    if(!createResult || !createResult.ok) return;
+
+    const created = createResult.parsed && typeof createResult.parsed === 'object' ? createResult.parsed : {};
+    const invoiceId = created.id || created.invoice_id || '';
+    if(!invoiceId) {
+        notify('Invoice created but PayPal did not return an invoice id to send.', '#ff9500', 3200);
+        return;
+    }
+
+    try {
+        const env = form.env === 'sandbox' ? 'sandbox' : 'live';
+        const baseUrl = env === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+        const token = await getOauthToken(`${baseUrl}/v1/oauth2/token`, CONFIG.paypal_client_id, CONFIG.paypal_client_secret);
+        const sendRes = await fetch(`${baseUrl}/v2/invoicing/invoices/${encodeURIComponent(invoiceId)}/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'Prefer': 'return=representation' }
+        });
+        const sendRaw = await sendRes.text();
+        if(!sendRes.ok) throw new Error(`Send failed (${sendRes.status}): ${sendRaw}`);
+        notify(`Invoice ${invoiceId} sent. Total ${calc.total_due} ${form.currency_code}.`, '#34c759', 3600);
+    } catch(e) {
+        notify(`Invoice created (${invoiceId}) but send failed: ${e.message}`, '#ff9500', 4200);
+    }
 }
 
 function _openAttachMenu(event) { _showItemMenu(event, [ {label:'🪄 Prompts', fn:()=>_openPromptsSubmenu()}, {label:'📷 Camera', fn:()=>document.getElementById('attach-cam').click()}, {label:'🖼️ Photo Library', fn:()=>document.getElementById('attach-img').click()}, {label:'📁 Files', fn:()=>document.getElementById('attach-file').click()}, {label:'📄 Templates', fn:()=>{ tplPanelSwitch('templates'); toggleTplPanel(); }}, {label:'🔌 Services', fn:()=>{ tplPanelSwitch('services'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); }}, {label:'🧾 PayPal Invoice', fn:async()=>{ await _runPaypalInvoiceShortcut(); }}, {label:'🔗 Links', fn:()=>{ tplPanelSwitch('links'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); }}, {label:'📋 Context', fn:()=>{ toggleCtxPanel(); refreshUI(); }}, {label:'📱 WhatsApp Chat', fn:()=>{ ctxSwitchTab('whatsapp'); closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.add('open'); }} ]); }
@@ -3061,16 +3084,26 @@ async function testApiRequest() {
     } catch(e) { previewBox.innerText = "Fetch Failed: " + e.message; notify("Test Fail", "#ff3b30"); }
 }
 
-async function triggerApiService(idx) {
-    const t = API_SERVICES[idx]; 
+async function triggerApiService(idx, opts = {}) {
+    const t = API_SERVICES[idx];
+    const injectResult = opts.injectResult !== false;
+    const successMessage = opts.successMessage || 'Injected';
     try {
-        let u = await parseServiceVariables(t.text); if(u === null) return; let h = await parseServiceVariables(t.headers || "{}"); if(h === null) return; let b = await parseServiceVariables(t.body || ""); if(b === null) return; let actualHeaders = JSON.parse(h);
+        let u = await parseServiceVariables(t.text); if(u === null) return { ok: false, reason: 'url_parse_cancelled' }; let h = await parseServiceVariables(t.headers || "{}"); if(h === null) return { ok: false, reason: 'header_parse_cancelled' }; let b = await parseServiceVariables(t.body || ""); if(b === null) return { ok: false, reason: 'body_parse_cancelled' }; let actualHeaders = JSON.parse(h);
         notify(`🚀 Running ${t.label}...`, "#007aff", 4000); closeAllPanels();
-        if(t.use_oauth) { const oauthUrl = await parseServiceVariables(t.oauth_url || ''); if(oauthUrl === null) return; const oauthClient = await parseServiceVariables(t.oauth_client || ''); if(oauthClient === null) return; const oauthSecret = await parseServiceVariables(t.oauth_secret || ''); if(oauthSecret === null) return; const token = await getOauthToken(oauthUrl, oauthClient, oauthSecret); actualHeaders["Authorization"] = `Bearer ${token}`; }
+        if(t.use_oauth) { const oauthUrl = await parseServiceVariables(t.oauth_url || ''); if(oauthUrl === null) return { ok: false, reason: 'oauth_url_parse_cancelled' }; const oauthClient = await parseServiceVariables(t.oauth_client || ''); if(oauthClient === null) return { ok: false, reason: 'oauth_client_parse_cancelled' }; const oauthSecret = await parseServiceVariables(t.oauth_secret || ''); if(oauthSecret === null) return { ok: false, reason: 'oauth_secret_parse_cancelled' }; const token = await getOauthToken(oauthUrl, oauthClient, oauthSecret); actualHeaders["Authorization"] = `Bearer ${token}`; }
         const req = { method: t.method || "GET", headers: actualHeaders }; if(t.method !== "GET" && b) { req.body = b; }
-        const res = await fetch(u, req); let raw = await res.text();
-        if(res.ok) { let processed = raw; if(t.extract) { try { const j = JSON.parse(raw); processed = t.extract.split('.').reduce((o, i) => o[i], j) || raw; } catch(e) {} } insertAtCursor(String(processed), false, true); chatHistory.push({ role: "assistant", content: [{ type: "output_text", text: `SERVICE_INJECTION: ${processed}` }] }); renderChatHistory(); scrollToLastRequest(); addLog("API", "Success", t.label); notify("Injected", "#34c759"); } else { addLog("API", "Failed Status " + res.status, t.label); notify(`❌ ${res.status}`, "#ff3b30"); }
-    } catch(e) { addLog("API", "Failed Fetch", e.message); notify(`⚠️ Fail`, "#ff3b30"); }
+        const res = await fetch(u, req); const raw = await res.text();
+        let parsed = null; try { parsed = JSON.parse(raw); } catch(_e) {}
+        if(res.ok) {
+            let processed = raw; if(t.extract) { try { const j = parsed || JSON.parse(raw); processed = t.extract.split('.').reduce((o, i) => o[i], j) || raw; } catch(e) {} }
+            if(injectResult) {
+                insertAtCursor(String(processed), false, true); chatHistory.push({ role: "assistant", content: [{ type: "output_text", text: `SERVICE_INJECTION: ${processed}` }] }); renderChatHistory(); scrollToLastRequest();
+            }
+            addLog("API", "Success", t.label); notify(successMessage, "#34c759");
+            return { ok: true, status: res.status, raw, parsed, processed, url: u };
+        } else { addLog("API", "Failed Status " + res.status, t.label); notify(`❌ ${res.status}`, "#ff3b30"); return { ok: false, status: res.status, raw, parsed, url: u }; }
+    } catch(e) { addLog("API", "Failed Fetch", e.message); notify(`⚠️ Fail`, "#ff3b30"); return { ok: false, error: e.message || String(e) }; }
 }
 
 async function aiGenerateContent() {
