@@ -1740,6 +1740,9 @@ function _readPaypalDefaults() {
             tax_rate: '0',
             fee_rate: '0',
             fixed_fee: '0',
+            include_tax_item: true,
+            include_service_fee_item: true,
+            include_fixed_fee_item: true,
             note: 'Thank you for your business!'
         };
     }
@@ -1782,8 +1785,11 @@ async function _openPaypalInvoiceForm() {
         base_amount: (vars.base_amount && vars.base_amount.value) || (vars.deposit_amount && vars.deposit_amount.value) || '',
         quantity: defaults.quantity || '1',
         tax_rate: defaults.tax_rate || '0',
-        fee_rate: defaults.fee_rate || '0',
+        fee_rate: (defaults.fee_rate === '4.5' ? '4.5' : '0'),
         fixed_fee: defaults.fixed_fee || '0',
+        include_tax_item: defaults.include_tax_item !== false,
+        include_service_fee_item: defaults.include_service_fee_item !== false,
+        include_fixed_fee_item: defaults.include_fixed_fee_item !== false,
         note: defaults.note || 'Thank you for your business!'
     };
 
@@ -1794,7 +1800,7 @@ async function _openPaypalInvoiceForm() {
         ov.innerHTML = `<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:18px 14px max(20px,env(safe-area-inset-bottom));">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><div><div style="font-size:17px;font-weight:800;">🧾 PayPal Invoice</div><div style="font-size:11px;color:#888;">Simple form with auto % calculations.</div></div><div style="font-size:22px;opacity:0.4;cursor:pointer;" onclick="document.getElementById('paypal-invoice-ov').remove()">✕</div></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-              <input id="ppf-customer-email" class="pp-input" placeholder="Customer email" value="${prefill.customer_email.replace(/"/g,'&quot;')}">
+              <input id="ppf-customer-email" class="pp-input" placeholder="Customer email (optional)" value="${prefill.customer_email.replace(/"/g,'&quot;')}">
               <input id="ppf-customer-name" class="pp-input" placeholder="Customer name (optional)" value="${prefill.customer_name.replace(/"/g,'&quot;')}">
               <input id="ppf-invoice-number" class="pp-input" placeholder="Invoice number (optional)" value="${prefill.invoice_number.replace(/"/g,'&quot;')}">
               <input id="ppf-currency" class="pp-input" placeholder="Currency (USD)" value="${prefill.currency_code.replace(/"/g,'&quot;')}">
@@ -1806,7 +1812,12 @@ async function _openPaypalInvoiceForm() {
               <input id="ppf-quantity" class="pp-input" inputmode="numeric" placeholder="Quantity" value="${prefill.quantity}">
               <input id="ppf-fixed-fee" class="pp-input" inputmode="decimal" placeholder="Fixed fee" value="${prefill.fixed_fee}">
               <input id="ppf-tax-rate" class="pp-input" inputmode="decimal" placeholder="Tax % of subtotal" value="${prefill.tax_rate}">
-              <input id="ppf-fee-rate" class="pp-input" inputmode="decimal" placeholder="Service fee % of subtotal" value="${prefill.fee_rate}">
+              <select id="ppf-fee-rate" class="pp-input"><option value="0" ${prefill.fee_rate==='0'?'selected':''}>Transaction fee 0%</option><option value="4.5" ${prefill.fee_rate==='4.5'?'selected':''}>Transaction fee 4.5%</option></select>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;">
+              <label style="display:flex;align-items:center;gap:8px;font-size:12px;"><input type="checkbox" id="ppf-include-tax" ${prefill.include_tax_item?'checked':''}> Include tax line item</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:12px;"><input type="checkbox" id="ppf-include-fee" ${prefill.include_service_fee_item?'checked':''}> Include transaction fee line item</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:12px;"><input type="checkbox" id="ppf-include-fixed" ${prefill.include_fixed_fee_item?'checked':''}> Include fixed fee line item</label>
             </div>
             <textarea id="ppf-note" class="pp-input" placeholder="Invoice note" style="margin-top:8px;height:62px;">${prefill.note}</textarea>
             <div id="ppf-calc" style="margin-top:10px;padding:10px;border-radius:10px;background:var(--sec-bg);font-size:12px;"></div>
@@ -1858,18 +1869,20 @@ async function _openPaypalInvoiceForm() {
                 base_amount: _fmtMoney(ov.querySelector('#ppf-base-amount').value),
                 quantity: String(Math.max(1, Number(ov.querySelector('#ppf-quantity').value || 1) || 1)),
                 tax_rate: String(Math.max(0, Number(ov.querySelector('#ppf-tax-rate').value || 0) || 0)),
-                fee_rate: String(Math.max(0, Number(ov.querySelector('#ppf-fee-rate').value || 0) || 0)),
+                fee_rate: ov.querySelector('#ppf-fee-rate').value === '4.5' ? '4.5' : '0',
                 fixed_fee: _fmtMoney(ov.querySelector('#ppf-fixed-fee').value),
+                include_tax_item: ov.querySelector('#ppf-include-tax').checked,
+                include_service_fee_item: ov.querySelector('#ppf-include-fee').checked,
+                include_fixed_fee_item: ov.querySelector('#ppf-include-fixed').checked,
                 note: ov.querySelector('#ppf-note').value.trim()
             };
-            if(!payload.customer_email) return notify('Customer email is required', '#ff3b30');
-                        if(Number(payload.base_amount) <= 0) return notify('Base amount must be greater than 0', '#ff3b30');
+            if(Number(payload.base_amount) <= 0) return notify('Base amount must be greater than 0', '#ff3b30');
             closeWith(payload);
         };
     });
 }
 
-function _ensurePaypalInvoiceService(paypalCfg) {
+function _ensurePaypalInvoiceService(paypalCfg, invoiceBody) {
     const env = (paypalCfg && paypalCfg.env) || 'live';
     const baseUrl = env === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
     const paypalService = {
@@ -1878,48 +1891,8 @@ function _ensurePaypalInvoiceService(paypalCfg) {
         method: 'POST',
         text: `${baseUrl}/v2/invoicing/invoices`,
         headers: JSON.stringify({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, null, 2),
-        body: JSON.stringify({
-            detail: {
-                currency_code: '{{currency_code}}',
-                invoice_number: '{{invoice_number}}',
-                note: '{{invoice_note}}'
-            },
-            invoicer: {
-                name: { given_name: '{{invoicer_given_name}}', surname: '{{invoicer_surname}}' },
-                business_name: '{{business_name}}',
-                website: '{{business_website}}'
-            },
-            primary_recipients: [{
-                billing_info: {
-                    email_address: '{{customer_email}}',
-                    name: { given_name: '{{customer_name}}' }
-                }
-            }],
-            payment_term: { term_type: 'NO_DUE_DATE' },
-            items: [
-                {
-                    name: '{{item_name}}',
-                    quantity: '{{item_quantity}}',
-                    unit_amount: { currency_code: '{{currency_code}}', value: '{{base_amount}}' }
-                },
-                {
-                    name: 'Tax ({{tax_rate}}% of subtotal)',
-                    quantity: '1',
-                    unit_amount: { currency_code: '{{currency_code}}', value: '{{tax_amount}}' }
-                },
-                {
-                    name: 'Service fee ({{fee_rate}}% of subtotal)',
-                    quantity: '1',
-                    unit_amount: { currency_code: '{{currency_code}}', value: '{{service_fee_amount}}' }
-                },
-                {
-                    name: 'Fixed fee',
-                    quantity: '1',
-                    unit_amount: { currency_code: '{{currency_code}}', value: '{{fixed_fee_amount}}' }
-                }
-            ]
-        }, null, 2),
-        extract: 'id',
+        body: JSON.stringify(invoiceBody, null, 2),
+        extract: '',
         use_oauth: true,
         oauth_url: `${baseUrl}/v1/oauth2/token`,
         oauth_client: '{{paypal_client_id}}',
@@ -1937,8 +1910,39 @@ async function _runPaypalInvoiceShortcut() {
     if(!CONFIG.paypal_client_id || !CONFIG.paypal_client_secret) { notify('Set PayPal Client ID/Secret in Settings first', '#ff3b30', 2600); return; }
     const vars = getActiveVars();
     const calc = _calculatePaypalDraft(form);
+    const recipientEmail = form.customer_email || `share+${Date.now()}@example.com`;
+    const items = [{
+        name: form.item_name,
+        quantity: form.quantity,
+        unit_amount: { currency_code: form.currency_code, value: form.base_amount }
+    }];
+    if(form.include_tax_item) {
+        items.push({ name: `Tax (${form.tax_rate}% of subtotal)`, quantity: '1', unit_amount: { currency_code: form.currency_code, value: calc.tax_amount } });
+    }
+    if(form.include_service_fee_item) {
+        items.push({ name: `Transaction fee (${form.fee_rate}% of subtotal)`, quantity: '1', unit_amount: { currency_code: form.currency_code, value: calc.service_fee_amount } });
+    }
+    if(form.include_fixed_fee_item) {
+        items.push({ name: 'Fixed fee', quantity: '1', unit_amount: { currency_code: form.currency_code, value: calc.fixed_fee_amount } });
+    }
+    const invoiceBody = {
+        detail: { currency_code: form.currency_code, invoice_number: form.invoice_number, note: form.note || '' },
+        invoicer: {
+            name: { given_name: form.invoicer_given_name, surname: form.invoicer_surname },
+            business_name: form.business_name,
+            website: form.website
+        },
+        primary_recipients: [{
+            billing_info: {
+                email_address: recipientEmail,
+                name: { given_name: form.customer_name || 'Customer' }
+            }
+        }],
+        payment_term: { term_type: 'NO_DUE_DATE' },
+        items
+    };
     const mapped = {
-                customer_email: form.customer_email,
+        customer_email: recipientEmail,
         customer_name: form.customer_name,
         invoice_number: form.invoice_number,
         currency_code: form.currency_code,
@@ -1970,12 +1974,15 @@ async function _runPaypalInvoiceShortcut() {
         tax_rate: form.tax_rate,
         fee_rate: form.fee_rate,
         fixed_fee: form.fixed_fee,
+        include_tax_item: form.include_tax_item,
+        include_service_fee_item: form.include_service_fee_item,
+        include_fixed_fee_item: form.include_fixed_fee_item,
         note: form.note || ''
     };
-    const idx = _ensurePaypalInvoiceService({ env: form.env });
+    const idx = _ensurePaypalInvoiceService({ env: form.env }, invoiceBody);
     await saveAll();
     renderSessionVariables();
-    notify(`Invoice total ${calc.total_due} ${form.currency_code}`, '#34c759', 2200);
+    notify(`Invoice total ${calc.total_due} ${form.currency_code}. PayPal response includes share links (payer-view).`, '#34c759', 3200);
     await triggerApiService(idx);
 }
 
