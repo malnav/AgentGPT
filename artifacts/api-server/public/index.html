@@ -1914,7 +1914,6 @@ async function _runPaypalInvoiceShortcut() {
     const form = await _openPaypalInvoiceForm();
     if(!form) return;
     if(!CONFIG.paypal_client_id || !CONFIG.paypal_client_secret) { notify('Set PayPal Client ID/Secret in Settings first', '#ff3b30', 2600); return; }
-    if(!form.customer_email) { notify('Customer email is required to create a PayPal invoice', '#ff3b30', 2800); return; }
     const vars = getActiveVars();
     const calc = _calculatePaypalDraft(form);
     const recipientEmail = form.customer_email;
@@ -1944,12 +1943,12 @@ async function _runPaypalInvoiceShortcut() {
             business_name: form.business_name,
             website: form.website
         },
-        primary_recipients: [{
-            billing_info: {
+        primary_recipients: recipientEmail ? [{
+            billing_info: _paypalPruneEmpty({
                 email_address: recipientEmail,
-                name: { given_name: form.customer_name || 'Customer' }
-            }
-        }],
+                name: _paypalPruneEmpty({ given_name: form.customer_name })
+            })
+        }] : undefined,
         items
     }) || {};
     const mapped = {
