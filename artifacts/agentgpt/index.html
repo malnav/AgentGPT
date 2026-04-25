@@ -1716,38 +1716,217 @@ async function getStorageSize() { const str = JSON.stringify(chatHistories); ret
 
 document.addEventListener('click', (e) => { document.querySelectorAll('.bm-menu:not(.closed)').forEach(m => m.classList.add('closed')); if(!e.target.closest('.tool-menu') && !e.target.closest('.inline-btn') && !e.target.closest('.chip')) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => m.classList.add('closed')); const inputZone = document.getElementById('main-input-zone'); if(inputZone) inputZone.classList.remove('menu-open'); } });
 function toggleMenu(menuEl) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => { if(m !== menuEl) m.classList.add('closed'); }); menuEl.classList.toggle('closed'); const inputZone = document.getElementById('main-input-zone'); if(inputZone) inputZone.classList.toggle('menu-open', menuEl.id === 'attach-menu' && !menuEl.classList.contains('closed')); }
-function _ensurePaypalInvoiceService() {
+function _sanitizeMoneyAmount(v) {
+    const n = Number(String(v || '').replace(/[^0-9.\-]/g, ''));
+    if(!isFinite(n)) return 0;
+    return Math.max(0, Math.round(n * 100) / 100);
+}
+
+function _fmtMoney(v) { return _sanitizeMoneyAmount(v).toFixed(2); }
+
+function _readPaypalDefaults() {
+    if(!CONFIG.paypal_invoice_defaults) {
+        CONFIG.paypal_invoice_defaults = {
+            env: 'live',
+            currency_code: 'USD',
+            business_name: 'My Business',
+            website: '',
+            invoicer_given_name: '',
+            invoicer_surname: '',
+            item_name: 'Service Deposit',
+            quantity: '1',
+            tax_rate: '0',
+            fee_rate: '0',
+            fixed_fee: '0',
+            note: 'Thank you for your business!'
+        };
+    }
+    return CONFIG.paypal_invoice_defaults;
+}
+
+function _calculatePaypalDraft(form) {
+    const base = _sanitizeMoneyAmount(form.base_amount || 0);
+    const quantity = Math.max(1, Number(form.quantity || 1) || 1);
+    const subtotal = base * quantity;
+    const taxRate = Math.max(0, Number(form.tax_rate || 0) || 0);
+    const feeRate = Math.max(0, Number(form.fee_rate || 0) || 0);
+    const fixedFee = _sanitizeMoneyAmount(form.fixed_fee || 0);
+    const taxAmount = subtotal * (taxRate / 100);
+    const serviceFeeAmount = subtotal * (feeRate / 100);
+    const total = subtotal + taxAmount + serviceFeeAmount + fixedFee;
+    return {
+        subtotal: _fmtMoney(subtotal),
+        tax_amount: _fmtMoney(taxAmount),
+        service_fee_amount: _fmtMoney(serviceFeeAmount),
+        fixed_fee_amount: _fmtMoney(fixedFee),
+        total_due: _fmtMoney(total)
+    };
+}
+
+async function _openPaypalInvoiceForm() {
+    const defaults = _readPaypalDefaults();
+    const vars = getActiveVars();
+    const prefill = {
+        env: defaults.env || 'live',
+        paypal_client_id: (vars.paypal_client_id && vars.paypal_client_id.value) || '',
+        paypal_client_secret: (vars.paypal_client_secret && vars.paypal_client_secret.value) || '',
+        customer_email: (vars.customer_email && vars.customer_email.value) || '',
+        customer_name: (vars.customer_name && vars.customer_name.value) || '',
+        invoice_number: (vars.invoice_number && vars.invoice_number.value) || '',
+        currency_code: defaults.currency_code || 'USD',
+        business_name: defaults.business_name || '',
+        website: defaults.website || '',
+        invoicer_given_name: defaults.invoicer_given_name || '',
+        invoicer_surname: defaults.invoicer_surname || '',
+        item_name: defaults.item_name || 'Service Deposit',
+        base_amount: (vars.base_amount && vars.base_amount.value) || (vars.deposit_amount && vars.deposit_amount.value) || '',
+        quantity: defaults.quantity || '1',
+        tax_rate: defaults.tax_rate || '0',
+        fee_rate: defaults.fee_rate || '0',
+        fixed_fee: defaults.fixed_fee || '0',
+        note: defaults.note || 'Thank you for your business!'
+    };
+
+    return new Promise(resolve => {
+        const ov = document.createElement('div');
+        ov.id = 'paypal-invoice-ov';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:9900;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.42);';
+        ov.innerHTML = `<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:18px 14px max(20px,env(safe-area-inset-bottom));">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><div><div style="font-size:17px;font-weight:800;">🧾 PayPal Invoice</div><div style="font-size:11px;color:#888;">Simple form with auto % calculations.</div></div><div style="font-size:22px;opacity:0.4;cursor:pointer;" onclick="document.getElementById('paypal-invoice-ov').remove()">✕</div></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <input id="ppf-customer-email" class="pp-input" placeholder="Customer email" value="${prefill.customer_email.replace(/"/g,'&quot;')}">
+              <input id="ppf-customer-name" class="pp-input" placeholder="Customer name (optional)" value="${prefill.customer_name.replace(/"/g,'&quot;')}">
+              <input id="ppf-invoice-number" class="pp-input" placeholder="Invoice number (optional)" value="${prefill.invoice_number.replace(/"/g,'&quot;')}">
+              <input id="ppf-currency" class="pp-input" placeholder="Currency (USD)" value="${prefill.currency_code.replace(/"/g,'&quot;')}">
+            </div>
+            <div style="font-size:11px;color:#888;margin:12px 2px 6px;font-weight:700;">Invoice item</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <input id="ppf-item-name" class="pp-input" placeholder="Main item name" value="${prefill.item_name.replace(/"/g,'&quot;')}">
+              <input id="ppf-base-amount" class="pp-input" inputmode="decimal" placeholder="Base unit amount" value="${prefill.base_amount}">
+              <input id="ppf-quantity" class="pp-input" inputmode="numeric" placeholder="Quantity" value="${prefill.quantity}">
+              <input id="ppf-fixed-fee" class="pp-input" inputmode="decimal" placeholder="Fixed fee" value="${prefill.fixed_fee}">
+              <input id="ppf-tax-rate" class="pp-input" inputmode="decimal" placeholder="Tax % of subtotal" value="${prefill.tax_rate}">
+              <input id="ppf-fee-rate" class="pp-input" inputmode="decimal" placeholder="Service fee % of subtotal" value="${prefill.fee_rate}">
+            </div>
+            <textarea id="ppf-note" class="pp-input" placeholder="Invoice note" style="margin-top:8px;height:62px;">${prefill.note}</textarea>
+            <div id="ppf-calc" style="margin-top:10px;padding:10px;border-radius:10px;background:var(--sec-bg);font-size:12px;"></div>
+            <div style="font-size:11px;color:#888;margin:12px 2px 6px;font-weight:700;">PayPal config</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <select id="ppf-env" class="pp-input"><option value="live" ${prefill.env==='live'?'selected':''}>Live</option><option value="sandbox" ${prefill.env==='sandbox'?'selected':''}>Sandbox</option></select>
+              <input id="ppf-business-name" class="pp-input" placeholder="Business name" value="${prefill.business_name.replace(/"/g,'&quot;')}">
+              <input id="ppf-given" class="pp-input" placeholder="Invoicer first name" value="${prefill.invoicer_given_name.replace(/"/g,'&quot;')}">
+              <input id="ppf-surname" class="pp-input" placeholder="Invoicer last name" value="${prefill.invoicer_surname.replace(/"/g,'&quot;')}">
+              <input id="ppf-website" class="pp-input" placeholder="Website (optional)" value="${prefill.website.replace(/"/g,'&quot;')}">
+              <input id="ppf-client-id" class="pp-input" placeholder="PayPal Client ID" value="${prefill.paypal_client_id.replace(/"/g,'&quot;')}">
+            </div>
+            <input id="ppf-client-secret" class="pp-input" type="password" placeholder="PayPal Client Secret" value="${prefill.paypal_client_secret.replace(/"/g,'&quot;')}" style="margin-top:8px;">
+            <div style="display:flex;gap:8px;margin-top:12px;">
+              <button id="ppf-save" class="chip" style="flex:2;background:var(--accent);color:#fff;padding:11px 12px;font-weight:700;">Create invoice</button>
+              <button id="ppf-cancel" class="chip" style="flex:1;padding:11px 12px;">Cancel</button>
+            </div>
+          </div>`;
+        document.body.appendChild(ov);
+
+        const calcEl = ov.querySelector('#ppf-calc');
+        const moneyIds = ['ppf-base-amount','ppf-quantity','ppf-tax-rate','ppf-fee-rate','ppf-fixed-fee'];
+        const recalc = () => {
+            const d = _calculatePaypalDraft({
+                base_amount: ov.querySelector('#ppf-base-amount').value,
+                quantity: ov.querySelector('#ppf-quantity').value,
+                tax_rate: ov.querySelector('#ppf-tax-rate').value,
+                fee_rate: ov.querySelector('#ppf-fee-rate').value,
+                fixed_fee: ov.querySelector('#ppf-fixed-fee').value
+            });
+            calcEl.innerHTML = `<div><strong>Subtotal:</strong> ${d.subtotal}</div><div><strong>Tax:</strong> ${d.tax_amount}</div><div><strong>Service fee:</strong> ${d.service_fee_amount}</div><div><strong>Fixed fee:</strong> ${d.fixed_fee_amount}</div><div style="margin-top:4px;font-weight:800;color:var(--accent);">Total: ${d.total_due}</div>`;
+        };
+        moneyIds.forEach(id => ov.querySelector('#'+id).addEventListener('input', recalc));
+        recalc();
+
+        const closeWith = (val) => { ov.remove(); resolve(val); };
+        ov.querySelector('#ppf-cancel').onclick = () => closeWith(null);
+        ov.addEventListener('click', e => { if(e.target === ov) closeWith(null); });
+        ov.querySelector('#ppf-save').onclick = () => {
+            const payload = {
+                env: ov.querySelector('#ppf-env').value,
+                paypal_client_id: ov.querySelector('#ppf-client-id').value.trim(),
+                paypal_client_secret: ov.querySelector('#ppf-client-secret').value.trim(),
+                customer_email: ov.querySelector('#ppf-customer-email').value.trim(),
+                customer_name: ov.querySelector('#ppf-customer-name').value.trim(),
+                invoice_number: ov.querySelector('#ppf-invoice-number').value.trim(),
+                currency_code: (ov.querySelector('#ppf-currency').value.trim() || 'USD').toUpperCase(),
+                business_name: ov.querySelector('#ppf-business-name').value.trim(),
+                website: ov.querySelector('#ppf-website').value.trim(),
+                invoicer_given_name: ov.querySelector('#ppf-given').value.trim(),
+                invoicer_surname: ov.querySelector('#ppf-surname').value.trim(),
+                item_name: ov.querySelector('#ppf-item-name').value.trim() || 'Service Deposit',
+                base_amount: _fmtMoney(ov.querySelector('#ppf-base-amount').value),
+                quantity: String(Math.max(1, Number(ov.querySelector('#ppf-quantity').value || 1) || 1)),
+                tax_rate: String(Math.max(0, Number(ov.querySelector('#ppf-tax-rate').value || 0) || 0)),
+                fee_rate: String(Math.max(0, Number(ov.querySelector('#ppf-fee-rate').value || 0) || 0)),
+                fixed_fee: _fmtMoney(ov.querySelector('#ppf-fixed-fee').value),
+                note: ov.querySelector('#ppf-note').value.trim()
+            };
+            if(!payload.customer_email) return notify('Customer email is required', '#ff3b30');
+            if(!payload.paypal_client_id || !payload.paypal_client_secret) return notify('PayPal client credentials are required', '#ff3b30');
+            if(Number(payload.base_amount) <= 0) return notify('Base amount must be greater than 0', '#ff3b30');
+            closeWith(payload);
+        };
+    });
+}
+
+function _ensurePaypalInvoiceService(paypalCfg) {
+    const env = (paypalCfg && paypalCfg.env) || 'live';
+    const baseUrl = env === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
     const paypalService = {
         label: 'PayPal Invoice',
         profile: 'Global',
         method: 'POST',
-        text: 'https://api-m.paypal.com/v2/invoicing/invoices',
+        text: `${baseUrl}/v2/invoicing/invoices`,
         headers: JSON.stringify({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, null, 2),
         body: JSON.stringify({
-            invoicer: {
-                name: { given_name: 'Xuan Tu', surname: 'Mai' },
-                business_name: 'Xuan Tu Vietnam Tours',
-                website: 'https://xuantuvietnamtours.com'
+            detail: {
+                currency_code: '{{currency_code}}',
+                invoice_number: '{{invoice_number}}',
+                note: '{{invoice_note}}'
             },
-            primary_recipients: [{ billing_info: { email_address: '{{customer_email}}' } }],
+            invoicer: {
+                name: { given_name: '{{invoicer_given_name}}', surname: '{{invoicer_surname}}' },
+                business_name: '{{business_name}}',
+                website: '{{business_website}}'
+            },
+            primary_recipients: [{
+                billing_info: {
+                    email_address: '{{customer_email}}',
+                    name: { given_name: '{{customer_name}}' }
+                }
+            }],
             payment_term: { term_type: 'NO_DUE_DATE' },
-            detail: { currency_code: 'USD', note: 'Thank you for your tour confirmation!' },
             items: [
                 {
-                    name: 'Deposit for the private tour',
-                    quantity: '1',
-                    unit_amount: { currency_code: 'USD', value: '{{deposit_amount}}' }
+                    name: '{{item_name}}',
+                    quantity: '{{item_quantity}}',
+                    unit_amount: { currency_code: '{{currency_code}}', value: '{{base_amount}}' }
                 },
                 {
-                    name: 'Transaction fee',
+                    name: 'Tax ({{tax_rate}}% of subtotal)',
                     quantity: '1',
-                    unit_amount: { currency_code: 'USD', value: '{{transaction_fee}}' }
+                    unit_amount: { currency_code: '{{currency_code}}', value: '{{tax_amount}}' }
+                },
+                {
+                    name: 'Service fee ({{fee_rate}}% of subtotal)',
+                    quantity: '1',
+                    unit_amount: { currency_code: '{{currency_code}}', value: '{{service_fee_amount}}' }
+                },
+                {
+                    name: 'Fixed fee',
+                    quantity: '1',
+                    unit_amount: { currency_code: '{{currency_code}}', value: '{{fixed_fee_amount}}' }
                 }
             ]
         }, null, 2),
         extract: 'id',
         use_oauth: true,
-        oauth_url: 'https://api-m.paypal.com/v1/oauth2/token',
+        oauth_url: `${baseUrl}/v1/oauth2/token`,
         oauth_client: '{{paypal_client_id}}',
         oauth_secret: '{{paypal_client_secret}}'
     };
@@ -1756,7 +1935,57 @@ function _ensurePaypalInvoiceService() {
     else API_SERVICES.push(paypalService);
     return existingIdx > -1 ? existingIdx : API_SERVICES.length - 1;
 }
-function _openAttachMenu(event) { _showItemMenu(event, [ {label:'🪄 Prompts', fn:()=>_openPromptsSubmenu()}, {label:'📷 Camera', fn:()=>document.getElementById('attach-cam').click()}, {label:'🖼️ Photo Library', fn:()=>document.getElementById('attach-img').click()}, {label:'📁 Files', fn:()=>document.getElementById('attach-file').click()}, {label:'📄 Templates', fn:()=>{ tplPanelSwitch('templates'); toggleTplPanel(); }}, {label:'🔌 Services', fn:()=>{ tplPanelSwitch('services'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); }}, {label:'🧾 PayPal Invoice', fn:async()=>{ const idx = _ensurePaypalInvoiceService(); await saveAll(); await triggerApiService(idx); }}, {label:'🔗 Links', fn:()=>{ tplPanelSwitch('links'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); }}, {label:'📋 Context', fn:()=>{ toggleCtxPanel(); refreshUI(); }}, {label:'📱 WhatsApp Chat', fn:()=>{ ctxSwitchTab('whatsapp'); closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.add('open'); }} ]); }
+
+async function _runPaypalInvoiceShortcut() {
+    const form = await _openPaypalInvoiceForm();
+    if(!form) return;
+    const vars = getActiveVars();
+    const calc = _calculatePaypalDraft(form);
+    const mapped = {
+        paypal_client_id: form.paypal_client_id,
+        paypal_client_secret: form.paypal_client_secret,
+        customer_email: form.customer_email,
+        customer_name: form.customer_name,
+        invoice_number: form.invoice_number,
+        currency_code: form.currency_code,
+        business_name: form.business_name,
+        business_website: form.website,
+        invoicer_given_name: form.invoicer_given_name,
+        invoicer_surname: form.invoicer_surname,
+        item_name: form.item_name,
+        item_quantity: form.quantity,
+        base_amount: form.base_amount,
+        tax_rate: form.tax_rate,
+        fee_rate: form.fee_rate,
+        tax_amount: calc.tax_amount,
+        service_fee_amount: calc.service_fee_amount,
+        fixed_fee_amount: calc.fixed_fee_amount,
+        total_due: calc.total_due,
+        invoice_note: form.note || ''
+    };
+    Object.entries(mapped).forEach(([k,v]) => { vars[k] = { value: String(v || ''), locked: true }; });
+    CONFIG.paypal_invoice_defaults = {
+        env: form.env,
+        currency_code: form.currency_code,
+        business_name: form.business_name,
+        website: form.website,
+        invoicer_given_name: form.invoicer_given_name,
+        invoicer_surname: form.invoicer_surname,
+        item_name: form.item_name,
+        quantity: form.quantity,
+        tax_rate: form.tax_rate,
+        fee_rate: form.fee_rate,
+        fixed_fee: form.fixed_fee,
+        note: form.note || ''
+    };
+    const idx = _ensurePaypalInvoiceService({ env: form.env });
+    await saveAll();
+    renderSessionVariables();
+    notify(`Invoice total ${calc.total_due} ${form.currency_code}`, '#34c759', 2200);
+    await triggerApiService(idx);
+}
+
+function _openAttachMenu(event) { _showItemMenu(event, [ {label:'🪄 Prompts', fn:()=>_openPromptsSubmenu()}, {label:'📷 Camera', fn:()=>document.getElementById('attach-cam').click()}, {label:'🖼️ Photo Library', fn:()=>document.getElementById('attach-img').click()}, {label:'📁 Files', fn:()=>document.getElementById('attach-file').click()}, {label:'📄 Templates', fn:()=>{ tplPanelSwitch('templates'); toggleTplPanel(); }}, {label:'🔌 Services', fn:()=>{ tplPanelSwitch('services'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); }}, {label:'🧾 PayPal Invoice', fn:async()=>{ await _runPaypalInvoiceShortcut(); }}, {label:'🔗 Links', fn:()=>{ tplPanelSwitch('links'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); }}, {label:'📋 Context', fn:()=>{ toggleCtxPanel(); refreshUI(); }}, {label:'📱 WhatsApp Chat', fn:()=>{ ctxSwitchTab('whatsapp'); closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.add('open'); }} ]); }
 function updateInputHeightVar() { const z = document.getElementById('main-input-zone'); if (z) document.documentElement.style.setProperty('--input-h', z.offsetHeight + 'px'); }
 window.addEventListener('resize', updateInputHeightVar);
 
