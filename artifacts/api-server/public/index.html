@@ -2750,8 +2750,20 @@ async function parseServiceVariables(text) {
     while ((match = regex.exec(text)) !== null) { needed.push(match[1].trim()); }
     if (needed.length === 0) return text;
     let vars = getActiveVars(); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); if(!p.expected_vars) p.expected_vars = []; let resText = text;
+    const cfgFallback = {
+        paypal_client_id: CONFIG.paypal_client_id,
+        paypal_client_secret: CONFIG.paypal_client_secret,
+        google_client_id: CONFIG.google_client_id,
+        google_client_secret: CONFIG.google_client_secret,
+        ai_key: CONFIG.ai_key
+    };
     for (let key of needed) {
         if(typeof vars[key] === 'string') vars[key] = { value: vars[key], locked: false }; let valObj = vars[key]; let rawVal = valObj ? valObj.value : undefined; let val = rawVal ? varValueToText(rawVal) : rawVal;
+        if ((val === undefined || val === null || val === "") && cfgFallback[key]) {
+            val = String(cfgFallback[key]);
+            vars[key] = { value: val, locked: true };
+            if(!p.expected_vars.includes(key)) p.expected_vars.push(key);
+        }
         if (val === undefined || val === null || val === "") { val = await promptUserAsync(`Provide value for variable: {{${key}}}`); if (val === null) return null; vars[key] = { value: val, locked: true }; if(!p.expected_vars.includes(key)) p.expected_vars.push(key); }
         resText = resText.split(`{{${key}}}`).join(val);
     }
