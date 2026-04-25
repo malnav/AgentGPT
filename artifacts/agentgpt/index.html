@@ -2868,7 +2868,7 @@ function importGlobalFile(event) {
 }
 
 async function exportApiKeys() {
-    const keys = { ai_key: CONFIG.ai_key, fb_api: CONFIG.fb_api, fb_project: CONFIG.fb_project, google_client_id: CONFIG.google_client_id, _app: 'agentgpt', _v: 1 };
+    const keys = { ai_key: CONFIG.ai_key, fb_api: CONFIG.fb_api, fb_project: CONFIG.fb_project, google_client_id: CONFIG.google_client_id, google_client_secret: CONFIG.google_client_secret, _app: 'agentgpt', _v: 1 };
     const jsonStr = JSON.stringify(keys, null, 2); const fileName = `agentgpt_keys_${Date.now()}.json`; addLog("DATA", "Export Keys", fileName);
     if (navigator.share) { try { const file = new File([jsonStr], fileName, { type: "application/json" }); await navigator.share({ files: [file], title: fileName }); return notify("Keys exported!", "#34c759"); } catch(e) {} }
     try { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr); const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", fileName); document.body.appendChild(dl); dl.click(); document.body.removeChild(dl); notify("Keys downloaded!", "#34c759"); } catch(e) {}
@@ -2879,6 +2879,7 @@ function _applyKeysToSettingsForm(data) {
     if (data.fb_api) document.getElementById('fb-api-f').value = data.fb_api;
     if (data.fb_project) document.getElementById('fb-project-f').value = data.fb_project;
     if (data.google_client_id) document.getElementById('google-client-id-f').value = data.google_client_id;
+    if (data.google_client_secret) document.getElementById('google-client-secret-f').value = data.google_client_secret;
 }
 
 function importApiKeys(event) {
@@ -2893,6 +2894,7 @@ function checkFirstRunSetup() {
     if (CONFIG.fb_api || CONFIG.fb_project) document.getElementById('setup-fb-project').value = CONFIG.fb_project || '';
     if (CONFIG.fb_api) document.getElementById('setup-fb-api').value = CONFIG.fb_api || '';
     if (CONFIG.google_client_id) document.getElementById('setup-google-client-id').value = CONFIG.google_client_id || '';
+    if (CONFIG.google_client_secret) document.getElementById('setup-google-client-secret').value = CONFIG.google_client_secret || '';
     openModal('setup-modal');
 }
 
@@ -2906,6 +2908,7 @@ function setupImportKeys(event) {
             if (data.fb_project) document.getElementById('setup-fb-project').value = data.fb_project;
             if (data.fb_api) document.getElementById('setup-fb-api').value = data.fb_api;
             if (data.google_client_id) document.getElementById('setup-google-client-id').value = data.google_client_id;
+            if (data.google_client_secret) document.getElementById('setup-google-client-secret').value = data.google_client_secret;
             notify('Keys loaded — tap Save & Continue to apply', '#34c759', 3000);
         } catch(err) { notify('Invalid keys file', '#ff3b30'); }
     };
@@ -2917,10 +2920,12 @@ async function saveSetupConfig() {
     const fbProject = document.getElementById('setup-fb-project').value.trim();
     const fbApi = document.getElementById('setup-fb-api').value.trim();
     const gcId = document.getElementById('setup-google-client-id').value.trim();
+    const gcSecret = document.getElementById('setup-google-client-secret').value.trim();
     if (aiKey) document.getElementById('ai-key-f').value = aiKey;
     if (fbProject) document.getElementById('fb-project-f').value = fbProject;
     if (fbApi) document.getElementById('fb-api-f').value = fbApi;
     if (gcId) document.getElementById('google-client-id-f').value = gcId;
+    if (gcSecret) document.getElementById('google-client-secret-f').value = gcSecret;
     await saveMasterConfig();
     closeModal('setup-modal');
     notify('Setup complete! ✓', '#34c759', 2500);
@@ -6531,7 +6536,8 @@ function _linkifyHtml(html) {
                 <span style="font-weight:800; font-size:11px; color:var(--accent); letter-spacing:0.5px;">GMAIL INTEGRATION</span>
                 <span style="margin-left:auto; font-size:10px; color:#888; font-weight:500;">optional</span>
             </div>
-            <input type="text" id="setup-google-client-id" class="pp-input" placeholder="Google OAuth Client ID  (….googleusercontent.com)" style="margin-bottom:0;">
+            <input type="text" id="setup-google-client-id" class="pp-input" placeholder="Google OAuth Client ID  (….googleusercontent.com)" style="margin-bottom:8px;">
+            <input type="password" id="setup-google-client-secret" class="pp-input" placeholder="Google OAuth Client Secret" style="margin-bottom:0;">
         </div>
 
         <button onclick="saveSetupConfig()" style="width:100%; padding:14px; background:var(--accent); color:#fff; border:none; border-radius:14px; font-size:15px; font-weight:800; cursor:pointer; margin-bottom:10px; letter-spacing:0.3px;">Save &amp; Continue →</button>
