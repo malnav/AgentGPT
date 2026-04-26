@@ -2893,6 +2893,52 @@ async function applyPrompt(idx) {
     insertAtCursor(parsed, false, true); if(p.model) document.getElementById('chatModel').value = p.model; sync(); 
 }
 
+function _findSlashPrompt(shortcutRaw) {
+    const shortcut = (shortcutRaw || '').trim().toLowerCase();
+    if(!shortcut) return null;
+    const scoped = (PROMPTS || []).filter(p => p.profile === activeProfileLabel || p.profile === 'Global');
+    let found = scoped.find(p => (p.label || '').trim().toLowerCase() === shortcut);
+    if(found) return found;
+    found = scoped.find(p => (p.label || '').trim().toLowerCase().replace(/\s+/g, '-') === shortcut);
+    if(found) return found;
+    found = scoped.find(p => (p.label || '').trim().toLowerCase().replace(/\s+/g, '') === shortcut);
+    return found || null;
+}
+
+async function _resolveSlashShortcut(rawInput) {
+    const txt = String(rawInput || '').trim();
+    if(!txt.startsWith('/')) return null;
+    const m = txt.match(/^\/([^\s]+)\s*([\s\S]*)$/);
+    if(!m) return null;
+    const shortcut = m[1];
+    const payload = (m[2] || '').trim();
+    const prompt = _findSlashPrompt(shortcut);
+    if(!prompt) return null;
+    let parsed = await parseServiceVariables(prompt.text || '');
+    if(parsed === null) return null;
+    if(parsed.includes('{{input}}')) parsed = parsed.replaceAll('{{input}}', payload);
+    const finalMessage = payload ? (parsed ? `${parsed}\n\n${payload}` : payload) : parsed;
+    return { prompt, finalMessage };
+}
+
+async function _applySlashPromptProfile(prompt) {
+    if(!prompt || !prompt.profile || prompt.profile === 'Global') return;
+    if(!AI_PROFILES.find(p => p.label === prompt.profile)) return;
+    if(_fchatActiveId !== null) {
+        const sess = _fchatSessions.find(s => s.id === _fchatActiveId);
+        if(sess) {
+            sess.profileLabel = prompt.profile;
+            try { await saveAll(true); } catch(_e) {}
+            _openFchatPanel(sess);
+            renderFchatBubbles();
+            notify(`/${prompt.label} → ${prompt.profile}`, '#34c759', 1400);
+            return;
+        }
+    }
+    await switchProfileSession(prompt.profile);
+    notify(`/${prompt.label} → ${prompt.profile}`, '#34c759', 1400);
+}
+
 function _openPromptsSubmenu() {
     document.getElementById('attach-menu').classList.add('closed');
     const filtP = PROMPTS.filter(p => p.profile === activeProfileLabel || p.profile === 'Global');
@@ -3544,9 +3590,18 @@ async function sendToAI() {
     if(currentAborter) { currentAborter.abort(); currentAborter = null; return; }
     
     const noteIn = document.getElementById('note-input');
-    const val = noteIn.value.trim(); 
+    let val = noteIn.value.trim(); 
     
     if((!val && pendingAttachments.length === 0) || !CONFIG.ai_key) return notify("Missing Text/Attachment or Key", "#ff3b30");
+    const slashHit = await _resolveSlashShortcut(val);
+    if(slashHit) {
+        await _applySlashPromptProfile(slashHit.prompt);
+        if(slashHit.prompt.model) document.getElementById('chatModel').value = slashHit.prompt.model;
+        activePromptIdx = PROMPTS.indexOf(slashHit.prompt);
+        renderInlinePrompts();
+        val = (slashHit.finalMessage || '').trim();
+        if(!val && pendingAttachments.length === 0) return notify(`/${slashHit.prompt.label} has no message`, '#ff9500', 1800);
+    }
     
     let fullText = val;
     const _groupCtxLines = (_ctxGroups || []).length ? '\n\n' + _ctxGroups.map(g => `=== ${g.title} ===\n${g.lines.join('\n')}`).join('\n\n') : '';
