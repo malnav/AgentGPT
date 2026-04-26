@@ -6432,6 +6432,10 @@ function fchatClearAndClose(e) {
         _fchatSessions = _fchatSessions.filter(s => s.id !== _fchatActiveId);
         _fchatActiveId = null;
     }
+    CONTEXT_LINES.splice(0);
+    cutIdx = -1;
+    _ctxGroups = [];
+    _updateFchatContextLabel();
     _clearReplyAiTarget();
     _clearAtMentionTarget();
     const el = document.getElementById('floating-chat');
