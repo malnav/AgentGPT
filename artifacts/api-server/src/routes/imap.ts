@@ -29,6 +29,35 @@ function addr(a: any) {
     return name ? `${name} <${address}>` : address;
 }
 
+function flattenAddresses(list: any): string[] {
+    if (!Array.isArray(list)) return [];
+    return list
+        .map((entry: any) => (entry?.address || "").toString().trim().toLowerCase())
+        .filter(Boolean);
+}
+
+function normalizeSubject(subject: string): string {
+    return (subject || "")
+        .replace(/^(re|fwd|fw|aw|sv|vs|ref|回复|转发)[\s:：]+/gi, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+}
+
+function buildThreadKey(
+    mailboxOwner: string,
+    envelope: any,
+): string {
+    const owner = mailboxOwner.toLowerCase();
+    const from = flattenAddresses(envelope?.from);
+    const to = flattenAddresses(envelope?.to);
+    const cc = flattenAddresses(envelope?.cc);
+    const participants = [...new Set([...from, ...to, ...cc].filter((a) => a !== owner))].sort();
+    const normalizedSubject = normalizeSubject(envelope?.subject || "(no subject)");
+    const participantBlock = participants.join("|") || "unknown";
+    return `${owner}\x00${participantBlock}\x00${normalizedSubject}`;
+}
+
 function resolveMailbox(mailbox: string, mbNames: string[]): { resolved: string; flaggedSearch: boolean } {
     const mb = mailbox.trim();
     if (mb.toUpperCase() === "INBOX") return { resolved: "INBOX", flaggedSearch: false };
@@ -84,9 +113,10 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
             const slice = skip > 0 ? [...uids].slice(-(take + skip), -skip).reverse() : [...uids].slice(-take).reverse();
             const results: any[] = [];
             for await (const msg of client.fetch(slice.length ? slice : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
+                const threadKey = buildThreadKey(user, msg.envelope);
                 results.push({
                     id: String(msg.uid),
-                    threadId: String(msg.uid),
+                    threadId: threadKey,
                     subject: msg.envelope?.subject || "(no subject)",
                     from: addr(msg.envelope?.from?.[0]),
                     to: addr(msg.envelope?.to?.[0]),
@@ -98,7 +128,59 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                     _mailbox: resolvedMailbox,
                 });
             }
-            return results.reverse();
+            const mergedResults = results.reverse();
+
+            if (resolvedMailbox.toUpperCase() === "INBOX") {
+                const { resolved: sentMailbox } = resolveMailbox("Sent", mbNames);
+                if (sentMailbox && sentMailbox.toUpperCase() !== "INBOX") {
+                    try {
+                        const inboxParticipants = new Set<string>();
+                        mergedResults.forEach((em: any) => {
+                            const fromAddr = (em.from.match(/<([^>]+)>/)?.[1] || em.from || "").toLowerCase();
+                            const toAddr = (em.to.match(/<([^>]+)>/)?.[1] || em.to || "").toLowerCase();
+                            if (fromAddr && fromAddr !== user.toLowerCase()) inboxParticipants.add(fromAddr);
+                            if (toAddr && toAddr !== user.toLowerCase()) inboxParticipants.add(toAddr);
+                        });
+
+                        await client.mailboxOpen(sentMailbox);
+                        const sentUids: number[] = await client.search({ all: true }, { uid: true }) as number[];
+                        const sentSlice = [...sentUids].slice(-Math.max(75, take * 3)).reverse();
+                        for await (const msg of client.fetch(sentSlice.length ? sentSlice : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
+                            const allTargets = [
+                                ...flattenAddresses(msg.envelope?.to),
+                                ...flattenAddresses(msg.envelope?.cc),
+                                ...flattenAddresses(msg.envelope?.bcc),
+                            ];
+                            const isRelated = allTargets.some((a) => inboxParticipants.has(a));
+                            if (!isRelated) continue;
+                            const threadKey = buildThreadKey(user, msg.envelope);
+                            mergedResults.push({
+                                id: `${msg.uid}-sent`,
+                                threadId: threadKey,
+                                subject: msg.envelope?.subject || "(no subject)",
+                                from: addr(msg.envelope?.from?.[0]) || user,
+                                to: addr(msg.envelope?.to?.[0]),
+                                date: msg.envelope?.date ? msg.envelope.date.toUTCString() : "",
+                                messageId: msg.envelope?.messageId || "",
+                                snippet: "",
+                                unread: false,
+                                _starred: msg.flags?.has("\\Flagged") || false,
+                                _mailbox: sentMailbox,
+                                _sent: true,
+                            });
+                        }
+                    } catch (_) {
+                        // If a provider has no separate sent mailbox or blocks access, keep inbox-only results.
+                    }
+                }
+            }
+
+            mergedResults.sort((a: any, b: any) => {
+                const ta = new Date(a.date || 0).getTime();
+                const tb = new Date(b.date || 0).getTime();
+                return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
+            });
+            return mergedResults.slice(0, Math.max(take * 2, take + 20));
         });
         return res.json({ emails });
     } catch (e: any) {
