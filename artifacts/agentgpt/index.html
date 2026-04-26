@@ -958,6 +958,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div class="email-action-icon" onclick="gmailMarkReadToggle(gmailCurrentIdx,'panel')" title="Mark unread">✉️</div>
                 <div class="email-action-icon" onclick="gmailArchiveEmail(gmailCurrentIdx,'panel')" title="Archive">📥</div>
                 <div class="email-action-icon" onclick="gmailTrashEmail(gmailCurrentIdx,'panel')" title="Delete" style="color:#ff3b30;">🗑️</div>
+                <span id="gmail-view-toggle-panel" class="chip" style="font-size:10px; padding:4px 9px; white-space:nowrap; flex-shrink:0;" onclick="gmailTogglePlainTextView('panel')">TXT</span>
                 <span class="chip" style="font-size:10px; padding:4px 9px; background:var(--accent); color:#fff; font-weight:700; white-space:nowrap; flex-shrink:0;" onclick="gmailAddEmailToContext(false,'panel')">+ Context</span>
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
@@ -1309,6 +1310,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div class="email-action-icon" onclick="gmailMarkReadToggle(gmailCurrentIdx,'modal')" title="Mark unread">✉️</div>
                 <div class="email-action-icon" onclick="gmailArchiveEmail(gmailCurrentIdx,'modal')" title="Archive">📥</div>
                 <div class="email-action-icon" onclick="gmailTrashEmail(gmailCurrentIdx,'modal')" title="Delete" style="color:#ff3b30;">🗑️</div>
+                <span id="gmail-view-toggle-modal" class="chip" style="font-size:11px; padding:5px 11px; white-space:nowrap; flex-shrink:0;" onclick="gmailTogglePlainTextView('modal')">TXT</span>
                 <span class="chip" style="font-size:11px; padding:5px 11px; background:var(--accent); color:#fff; font-weight:700; white-space:nowrap; flex-shrink:0;" onclick="gmailAddEmailToContext(false,'modal')">+ Context</span>
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
@@ -3888,6 +3890,8 @@ let gmailEmailOffset = 0;
 let imapOffsets = {};
 let selectedEmailAccountIds = [];
 let emailCurrentMailbox = 'INBOX';
+let gmailPreviewBodies = { panel: null, modal: null };
+let gmailPlainTextView = { panel: false, modal: false };
 
 function emailGetAllAccounts() {
     const list = [];
@@ -4105,6 +4109,47 @@ function gmailIds(src) {
         reply:       m ? 'gmail-modal-reply-box'          : 'gmail-reply-box',
         senderEmail: m ? 'gmail-modal-preview-sender-email' : 'gmail-preview-sender-email'
     };
+}
+
+function gmailHtmlToPlainText(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html || '';
+    tmp.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+    tmp.querySelectorAll('p,div,li,tr,h1,h2,h3,h4,h5,h6').forEach(el => el.insertAdjacentText('beforebegin', '\n'));
+    return (tmp.textContent || tmp.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function gmailRenderPreviewBody(src) {
+    const bodyEl = document.getElementById(src === 'panel' ? 'gmail-preview-body' : 'gmail-modal-preview-body');
+    const viewToggle = document.getElementById(`gmail-view-toggle-${src}`);
+    if(!bodyEl) return;
+    const state = gmailPreviewBodies[src];
+    if(!state) { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = gmailCurrentEmail?.snippet || ''; return; }
+    const showPlain = !!gmailPlainTextView[src];
+    if(viewToggle) {
+        viewToggle.textContent = showPlain ? 'HTML' : 'TXT';
+        viewToggle.style.background = showPlain ? 'var(--accent)' : '';
+        viewToggle.style.color = showPlain ? '#fff' : '';
+        viewToggle.title = showPlain ? 'Switch to formatted HTML view' : 'Switch to plain text view';
+    }
+    if(showPlain) {
+        bodyEl.style.whiteSpace = 'pre-wrap';
+        bodyEl.textContent = state.text || gmailHtmlToPlainText(state.html || '') || gmailCurrentEmail?.snippet || '';
+        return;
+    }
+    if(state.html) {
+        bodyEl.style.whiteSpace = 'normal';
+        bodyEl.innerHTML = state.html;
+        return;
+    }
+    bodyEl.style.whiteSpace = 'pre-wrap';
+    bodyEl.textContent = state.text || gmailCurrentEmail?.snippet || '';
+}
+
+function gmailTogglePlainTextView(src) {
+    src = src || 'panel';
+    gmailPlainTextView[src] = !gmailPlainTextView[src];
+    gmailRenderPreviewBody(src);
 }
 
 function openGmailModal() {
@@ -4951,6 +4996,9 @@ async function gmailPreview(i, src) {
     if(fromEl) { fromEl.style.cursor='pointer'; fromEl.title='Compose new email to this address'; fromEl.onclick=()=>gmailComposeToAddress(dispEmail); }
     document.getElementById(ids.subject).textContent = em.subject;
     document.getElementById(ids.body).textContent = "Loading…";
+    gmailPlainTextView[src] = false;
+    gmailPreviewBodies[src] = null;
+    gmailRenderPreviewBody(src);
     const _rplySig = _getDefaultSig(); document.getElementById(ids.reply).innerHTML = _rplySig ? '<br><div class="email-sig-block" contenteditable="false" style="color:#888;border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px;font-size:12px;pointer-events:none;">' + _rplySig.replace(/\n/g,'<br>') + '</div>' : ''; try { const _rb=document.getElementById(ids.reply); const _range=document.createRange(); const _sel=window.getSelection(); if(_rb.firstChild){_range.setStartBefore(_rb.firstChild);}else{_range.setStart(_rb,0);} _range.collapse(true); _sel.removeAllRanges(); _sel.addRange(_range); } catch(e) {}
     const ov = document.getElementById(ids.overlay);
     ov.style.cssText = 'display:flex; flex-direction:column; position:absolute; inset:0; background:var(--bg); z-index:10; overflow:hidden;';
@@ -4961,8 +5009,12 @@ async function gmailPreview(i, src) {
             const r = await fetch('/api/imap/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, uid: em.id, mailbox: em._mailbox || 'INBOX' }) });
             if(!r.ok) throw new Error("IMAP fetch failed");
             const d = await r.json();
-            const bodyEl = document.getElementById(ids.body);
-            let bodyContent = ''; if(d.body && typeof d.body === 'object') { if(d.body.html) { bodyContent = d.body.html; bodyEl.style.whiteSpace = 'normal'; bodyEl.innerHTML = gmailSanitizeHtml(gmailStripQuotedHtml(bodyContent)); } else if(d.body.text) { bodyContent = d.body.text; bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = gmailStripQuotedReply(bodyContent); } } else if(d.body) { bodyContent = d.body; bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = gmailStripQuotedReply(bodyContent); } else { bodyEl.textContent = em.snippet; }
+            if(d.body && typeof d.body === 'object') {
+                if(d.body.html) gmailPreviewBodies[src] = { html: gmailSanitizeHtml(gmailStripQuotedHtml(d.body.html)), text: gmailStripQuotedReply(gmailHtmlToPlainText(d.body.html)) };
+                else if(d.body.text) gmailPreviewBodies[src] = { html: "", text: gmailStripQuotedReply(d.body.text) };
+            } else if(d.body) gmailPreviewBodies[src] = { html: "", text: gmailStripQuotedReply(d.body) };
+            else gmailPreviewBodies[src] = { html: "", text: em.snippet || "" };
+            gmailRenderPreviewBody(src);
         } else {
             const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${em.id}?format=full`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
             if(!r.ok) throw new Error("Failed to load");
@@ -4971,12 +5023,10 @@ async function gmailPreview(i, src) {
             const toHdr = hdrs.find(h => h.name.toLowerCase() === 'to');
             if(toEl && toHdr) { const toAddrMatch = toHdr.value.match(/<([^>]+)>/); const toAddr = toAddrMatch ? toAddrMatch[1].trim() : toHdr.value.trim().split(',')[0].trim(); toEl.textContent = 'To: ' + toAddr; }
             const { text, html } = gmailExtractBody(d.payload);
-            const bodyEl = document.getElementById(ids.body);
-            if(html) { bodyEl.style.whiteSpace = 'normal'; bodyEl.innerHTML = gmailSanitizeHtml(html); }
-            else if(text) { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = text; }
-            else { bodyEl.style.whiteSpace = 'pre-wrap'; bodyEl.textContent = em.snippet; }
+            gmailPreviewBodies[src] = { html: html ? gmailSanitizeHtml(html) : "", text: text || em.snippet || "" };
+            gmailRenderPreviewBody(src);
         }
-    } catch(e) { document.getElementById(ids.body).textContent = em.snippet; }
+    } catch(e) { gmailPreviewBodies[src] = { html: "", text: em.snippet || "" }; gmailRenderPreviewBody(src); }
     const _bEl = document.getElementById(ids.body); if(_bEl) { _bEl.addEventListener('click', function(ev) { const a = ev.target.closest('a'); if(a && a.href && (a.href.startsWith('mailto:') || a.protocol === 'mailto:')) { ev.preventDefault(); const addr = decodeURIComponent(a.href.replace(/^mailto:/i,'').split('?')[0]); if(addr) gmailComposeToAddress(addr); } }, { capture: true }); }
 }
 
