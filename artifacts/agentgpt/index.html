@@ -2316,6 +2316,13 @@ function renderAutomationBuilder() {
             .join('');
         const placeholder = step.type === 'callProfile' ? 'Profile name' : step.type === 'inputMessage' ? 'Message text' : step.type === 'wait' ? 'Milliseconds' : 'Command';
         const inputType = step.type === 'wait' ? 'number' : 'text';
+        const profileOptions = AI_PROFILES.map((profile) => `<option value="${_escH(profile.label)}" ${step.value === profile.label ? 'selected' : ''}>${_escH(profile.label)}</option>`).join('');
+        const unknownProfileOption = step.type === 'callProfile' && step.value && !AI_PROFILES.some((profile) => profile.label === step.value)
+            ? `<option value="${_escH(step.value)}" selected>${_escH(step.value)} (missing)</option>`
+            : '';
+        const valueControl = step.type === 'callProfile'
+            ? `<select class="pp-input" style="margin:0;" onchange="automationUpdateStep(${step.id}, 'value', this.value)"><option value="">Select a profile</option>${unknownProfileOption}${profileOptions}</select>`
+            : `<input class="pp-input" style="margin:0;" type="${inputType}" value="${(step.value || '').replace(/"/g,'&quot;')}" placeholder="${placeholder}" oninput="automationUpdateStep(${step.id}, 'value', this.value)">`;
         return `<div style="border:0.5px solid var(--border); border-radius:12px; padding:10px; display:flex; flex-direction:column; gap:8px;">
             <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
                 <span style="font-size:12px; font-weight:800;">Step ${index + 1}</span>
@@ -2324,7 +2331,7 @@ function renderAutomationBuilder() {
                 <button class="chip" onclick="automationMoveStep(${step.id}, 1)">↓</button>
                 <button class="chip" style="color:var(--danger); border-color:var(--danger);" onclick="automationRemoveStep(${step.id})">Remove</button>
             </div>
-            <input class="pp-input" style="margin:0;" type="${inputType}" value="${(step.value || '').replace(/"/g,'&quot;')}" placeholder="${placeholder}" oninput="automationUpdateStep(${step.id}, 'value', this.value)">
+            ${valueControl}
         </div>`;
     }).join('');
 
@@ -2374,6 +2381,56 @@ function automationMoveStep(id, direction) {
     _automationSteps = copy;
     renderAutomationBuilder();
 }
+
+function automationTestRun() {
+    const resultEl = document.getElementById('automation-test-result');
+    if (!resultEl) return;
+    const results = [];
+    let passCount = 0;
+    let failCount = 0;
+    if (!_automationSteps.length) {
+        results.push('❌ No steps found. Add at least one step to test.');
+        failCount++;
+    }
+    _automationSteps.forEach((rawStep, index) => {
+        const step = _normalizeAutomationStep(rawStep, index + 1);
+        const stepName = _automationStepLabels[step.type] || step.type;
+        const value = String(step.value || '').trim();
+        if (!value) {
+            results.push(`❌ Step ${index + 1} (${stepName}): empty value.`);
+            failCount++;
+            return;
+        }
+        if (step.type === 'callProfile') {
+            const profileExists = AI_PROFILES.some((profile) => profile.label === value);
+            if (!profileExists) {
+                results.push(`❌ Step ${index + 1} (${stepName}): missing profile "${value}".`);
+                failCount++;
+                return;
+            }
+            results.push(`✅ Step ${index + 1} (${stepName}): profile "${value}" is valid.`);
+            passCount++;
+            return;
+        }
+        if (step.type === 'wait') {
+            const ms = Number(value);
+            const validWait = Number.isFinite(ms) && ms >= 0;
+            if (!validWait) {
+                results.push(`❌ Step ${index + 1} (${stepName}): invalid wait value "${value}". Use a non-negative number.`);
+                failCount++;
+                return;
+            }
+            results.push(`✅ Step ${index + 1} (${stepName}): wait ${ms} ms is valid.`);
+            passCount++;
+            return;
+        }
+        results.push(`✅ Step ${index + 1} (${stepName}): value present.`);
+        passCount++;
+    });
+    const summary = `Test results — ${passCount} passed, ${failCount} failed`;
+    resultEl.textContent = [summary, ''.concat('-'.repeat(summary.length)), ...results].join('\n');
+}
+
 if (typeof window !== 'undefined') {
     window.toggleSrvPanel = toggleSrvPanel;
     window.openAutomationBuilder = openAutomationBuilder;
@@ -2387,6 +2444,7 @@ if (typeof window !== 'undefined') {
     window.automationCreateFlow = automationCreateFlow;
     window.automationSelectFlow = automationSelectFlow;
     window.automationDeleteCurrentFlow = automationDeleteCurrentFlow;
+    window.automationTestRun = automationTestRun;
 }
 function tplPanelSwitch(tab) {
     ['templates','services','links'].forEach(t => {
@@ -7202,11 +7260,14 @@ function _linkifyHtml(html) {
                     <button class="chip" onclick="automationAddStep('inputMessage')">+ Input message</button>
                     <button class="chip" onclick="automationAddStep('wait')">+ Wait</button>
                     <button class="chip" onclick="automationAddStep('runCommand')">+ Run command</button>
+                    <button class="chip" style="background:rgba(52,199,89,0.12); color:#1f9d54; border-color:rgba(52,199,89,0.35);" onclick="automationTestRun()">🧪 Test automation</button>
                 </div>
             </div>
             <div style="padding:14px; overflow:auto;">
                 <div style="font-size:12px; font-weight:700; color:#777; margin-bottom:6px;">Flow preview</div>
                 <pre id="automation-flow-preview" style="margin:0; background:#020617; color:#e2e8f0; border-radius:12px; padding:12px; min-height:360px; font-size:11px; line-height:1.45; overflow:auto;"></pre>
+                <div style="font-size:12px; font-weight:700; color:#777; margin:10px 0 6px;">Test result</div>
+                <pre id="automation-test-result" style="margin:0; background:var(--sec-bg); color:var(--text); border-radius:12px; padding:12px; min-height:160px; font-size:11px; line-height:1.45; overflow:auto;">Run “Test automation” to validate this flow.</pre>
             </div>
         </div>
     </div>
