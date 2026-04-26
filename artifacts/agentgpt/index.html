@@ -7021,6 +7021,16 @@ function _normalizeAutomationCommand(name) {
 async function _runAutomationFlow(flow, el, isTextField) {
     if(!flow || !Array.isArray(flow.steps)) return;
     const outputParts = [];
+    let latestAssistantText = '';
+    const resolveLatestAssistantText = () => {
+        for(let i = chatHistory.length - 1; i >= 0; i--) {
+            const msg = chatHistory[i];
+            if(!msg || msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
+            const out = msg.content.find(part => part && (part.type === 'output_text' || part.type === 'text'));
+            if(out && typeof out.text === 'string') return out.text.trim();
+        }
+        return '';
+    };
     for(const rawStep of flow.steps) {
         const step = _normalizeAutomationStep(rawStep, 0);
         if(step.type === 'callProfile') {
@@ -7036,13 +7046,27 @@ async function _runAutomationFlow(flow, el, isTextField) {
             continue;
         }
         if(step.type === 'inputMessage' || step.type === 'runCommand') {
-            if(String(step.value || '').trim()) outputParts.push(String(step.value));
+            let stepValue = String(step.value || '').trim();
+            if(!stepValue) continue;
+            if(latestAssistantText) {
+                stepValue = stepValue
+                    .replace(/\{\{\s*last_response\s*\}\}/gi, latestAssistantText)
+                    .replace(/\{\{\s*previous_response\s*\}\}/gi, latestAssistantText);
+            }
+            outputParts.push(stepValue);
+            if(el && el.id === 'note-input') {
+                el.value = stepValue;
+                sync();
+                await sendToAI();
+                latestAssistantText = resolveLatestAssistantText();
+            }
         }
     }
-    const finalText = outputParts.join('\n').trim();
+    const finalText = (el && el.id === 'note-input' && latestAssistantText)
+        ? latestAssistantText
+        : outputParts.join('\n').trim();
     if(finalText) _insertTextIntoTarget(el, finalText, isTextField);
-    if(el && el.id === 'note-input' && finalText) {
-        await sendToAI();
+    if(el && el.id === 'note-input') {
         notify(`Ran automation: ${flow.name || 'automation'}`, '#34c759', 1400);
     } else {
         notify(`Prepared automation: ${flow.name || 'automation'}`, '#34c759', 1400);
