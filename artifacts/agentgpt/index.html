@@ -6295,7 +6295,8 @@ function createFchatSession(profileLabel, bubbleConfig) {
         if (el) el.style.display = 'none';
     }
     const session = { id: Date.now().toString(), profileLabel: profileLabel || activeProfileLabel, chatId: null, bubbleConfig: bubbleConfig || null, atTarget: null };
-    if (_atMentionTargetEl) { session.atTarget = { el: _atMentionTargetEl, isTA: _atMentionIsTextArea, label: _atMentionTargetLabel, _insStart: _atMentionInsStart, _insEnd: _atMentionInsStart, _insSpanId: '', _savedRange: _atMentionSavedRange }; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; _atMentionInsStart = -1; _atMentionSavedRange = null; }
+    if (_atMentionTargetEl) { session.atTarget = { el: _atMentionTargetEl, isTA: _atMentionIsTextArea, label: _atMentionTargetLabel, _insStart: _atMentionInsStart, _insEnd: _atMentionInsStart, _insSpanId: '', _savedRange: _atMentionSavedRange, _replaceDraft: _atMentionReplaceDraft }; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; _atMentionInsStart = -1; _atMentionSavedRange = null; _atMentionReplaceDraft = false; }
+    else { _atMentionReplaceDraft = false; }
     _fchatSessions.push(session);
     _fchatActiveId = session.id;
     renderFchatBubbles();
@@ -6901,6 +6902,7 @@ let _atMentionIsTextArea = false;
 let _atMentionTargetLabel = '';
 let _atMentionInsStart = -1;
 let _atMentionSavedRange = null;
+let _atMentionReplaceDraft = false;
 let _slashPromptActive = false;
 function _writeToTargetPreserveSig(el, content, isTA) {
     if(isTA) { el.value = content; return; }
@@ -6914,6 +6916,19 @@ function _writeToTargetPreserveSig(el, content, isTA) {
 }
 function _insertOrReplaceSource(el, content, isTA, state) {
     if (!el || !state) return;
+    if (state._replaceDraft) {
+        if (isTA) {
+            state._insStart = 0;
+            state._insEnd = (el.value || '').length;
+        } else {
+            state._savedRange = null;
+            state._insSpanId = '';
+            Array.from(el.childNodes).forEach(n => {
+                if (!(n instanceof Element && n.classList && n.classList.contains('email-sig-block'))) n.remove();
+            });
+        }
+        state._replaceDraft = false;
+    }
     if (isTA) {
         if (state._insStart == null || state._insStart < 0) { state._insStart = el.value.length; state._insEnd = el.value.length; }
         const s = state._insStart, e = state._insEnd;
@@ -6996,6 +7011,7 @@ function _showAtMentionPicker(el, draft, isTextArea) {
 }
 async function _startAtMentionChat(el, draft, isTextArea, profileLabel, quickSend) {
     _closeAtMention(false);
+    _atMentionReplaceDraft = !!(quickSend && draft);
     if(isTextArea) { el.value = draft; _atMentionInsStart = el.value.length; _atMentionSavedRange = null; } else { el.innerText = draft; _atMentionInsStart = -1; try { const _r=document.createRange(); _r.selectNodeContents(el); _r.collapse(false); _atMentionSavedRange=_r; } catch(_e){ _atMentionSavedRange=null; } }
     if(draft) { const lines = draft.split('\n').filter(l=>l.trim()).slice(0,40); lines.forEach(l=>{ if(!CONTEXT_LINES.includes(l)) CONTEXT_LINES.push(l); }); cutIdx=CONTEXT_LINES.length-1; saveAll(true); }
     createFchatSession(profileLabel);
