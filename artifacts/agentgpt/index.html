@@ -7638,19 +7638,23 @@ function _clearReplyAiTarget() {
     _replyInsState = { spanId: '', savedRange: null };
     _updateReplyAiIndicator();
 }
-function _showReplyIndicatorMenu(event, anchorEl) {
+function _showSourceFieldMenu(event, anchorEl, items) {
     const evt = event || window.event || null;
     if (evt && typeof evt.stopPropagation === 'function') evt.stopPropagation();
     if (evt && evt.type === 'touchend' && typeof evt.preventDefault === 'function') evt.preventDefault();
-    const items = [{ label: '🔗 Unlink source field', cls: 'destructive', fn: () => _clearReplyAiTarget() }];
     if (!evt && anchorEl) {
         _showItemMenu({ stopPropagation: function(){}, currentTarget: anchorEl, target: anchorEl }, items);
         return;
     }
     _showItemMenu(evt, items);
 }
+function _showReplyIndicatorMenu(event, anchorEl) {
+    _showSourceFieldMenu(event, anchorEl, [
+        { label: '🔗 Unlink source field', cls: 'destructive', fn: () => _clearReplyAiTarget() }
+    ]);
+}
 function _clearAtMentionTarget() { const sess = _fchatSessions.find(s => s.id === _fchatActiveId); if(sess) sess.atTarget = null; _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; const ind = document.getElementById('fchat-at-indicator'); if(ind) ind.style.display = 'none'; }
-function _showAtIndicatorMenu(event, anchorEl) { const evt = event || window.event || null; if(evt && typeof evt.stopPropagation === 'function') evt.stopPropagation(); if(evt && evt.type === 'touchend' && typeof evt.preventDefault === 'function') evt.preventDefault(); let lastAiIdx = -1, lastUserIdx = -1; for(let i = chatHistory.length - 1; i >= 0; i--) { if(lastAiIdx === -1 && chatHistory[i].role === 'assistant') lastAiIdx = i; if(lastUserIdx === -1 && chatHistory[i].role === 'user') lastUserIdx = i; if(lastAiIdx !== -1 && lastUserIdx !== -1) break; } const items = []; if(lastUserIdx !== -1) items.push({label:'📝 Edit last request of the chat', fn:()=>editChatMsg(lastUserIdx)}); if(lastAiIdx !== -1) items.push({label:'✏️ Edit last response of the chat', fn:()=>editAIResponse(lastAiIdx)}); if(lastAiIdx !== -1) items.push({label:'🪄 Apply rule for last response', fn:()=>applyRuleForLastResponse(lastAiIdx)}); if(lastAiIdx !== -1) items.push({label:'📋 Copy with format for last response', fn:()=>copyFormattedLastResponse(lastAiIdx)}); items.push({label:'🔗 Unlink source field', cls:'destructive', fn:()=>_clearAtMentionTarget()}); if(!evt && anchorEl) { _showItemMenu({ stopPropagation: function(){}, currentTarget: anchorEl, target: anchorEl }, items); return; } _showItemMenu(evt, items); }
+function _showAtIndicatorMenu(event, anchorEl) { let lastAiIdx = -1, lastUserIdx = -1; for(let i = chatHistory.length - 1; i >= 0; i--) { if(lastAiIdx === -1 && chatHistory[i].role === 'assistant') lastAiIdx = i; if(lastUserIdx === -1 && chatHistory[i].role === 'user') lastUserIdx = i; if(lastAiIdx !== -1 && lastUserIdx !== -1) break; } const items = []; if(lastUserIdx !== -1) items.push({label:'📝 Edit last request of the chat', fn:()=>editChatMsg(lastUserIdx)}); if(lastAiIdx !== -1) items.push({label:'✏️ Edit last response of the chat', fn:()=>editAIResponse(lastAiIdx)}); if(lastAiIdx !== -1) items.push({label:'🪄 Apply rule for last response', fn:()=>applyRuleForLastResponse(lastAiIdx)}); if(lastAiIdx !== -1) items.push({label:'📋 Copy with format for last response', fn:()=>copyFormattedLastResponse(lastAiIdx)}); items.push({label:'🔗 Unlink source field', cls:'destructive', fn:()=>_clearAtMentionTarget()}); _showSourceFieldMenu(event, anchorEl, items); }
 function _updateAtMentionIndicator() { const ind = document.getElementById('fchat-at-indicator'); const lbl = document.getElementById('fchat-at-indicator-label'); if(!ind || !lbl) return; const sess = _fchatSessions.find(s => s.id === _fchatActiveId); const atT = sess && sess.atTarget; if(atT && atT.el && atT.label) { lbl.textContent = atT.label; ind.style.display = ''; } else { ind.style.display = 'none'; } }
 
 let NOTES = [];
