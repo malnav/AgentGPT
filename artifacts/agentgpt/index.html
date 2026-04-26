@@ -6158,20 +6158,25 @@ function _hsInitCardDrag() {
         clone.style.top = rect.top + 'px'; clone.style.left = rect.left + 'px'; clone.style.right = 'auto'; clone.style.width = rect.width + 'px'; clone.style.height = rect.height + 'px';
         document.body.appendChild(clone);
         card.classList.add('hs-dragging');
-        _drag = { card, clone, startX: clientX, startY: clientY, cloneTop: rect.top, cloneLeft: rect.left };
+        _drag = { card, clone, startX: clientX, startY: clientY, cloneTop: rect.top, cloneLeft: rect.left, hasMoved: false };
         document.body.style.userSelect = 'none';
     };
     const moveDrag = (clientX, clientY) => {
         if (!_drag) return;
-        _drag.clone.style.top = (_drag.cloneTop + (clientY - _drag.startY)) + 'px';
-        _drag.clone.style.left = (_drag.cloneLeft + (clientX - _drag.startX)) + 'px';
+        const deltaX = clientX - _drag.startX;
+        const deltaY = clientY - _drag.startY;
+        if (!_drag.hasMoved && Math.hypot(deltaX, deltaY) >= 8) _drag.hasMoved = true;
+        _drag.clone.style.top = (_drag.cloneTop + deltaY) + 'px';
+        _drag.clone.style.left = (_drag.cloneLeft + deltaX) + 'px';
     };
     const endDrag = () => {
         if (!_drag) return;
+        const didMove = _drag.hasMoved;
         const cloneRect = _drag.clone.getBoundingClientRect();
         const cx = cloneRect.left + cloneRect.width / 2; const cy = cloneRect.top + cloneRect.height / 2;
         _drag.clone.remove();
         _drag.card.classList.remove('hs-dragging');
+        if (!didMove) { document.body.style.userSelect = ''; _drag = null; return; }
         const cards = getCards().filter(c => c !== _drag.card);
         let best = null, bestDist = Infinity;
         cards.forEach(c => { const r = c.getBoundingClientRect(); const dx = cx - (r.left + r.width / 2); const dy = cy - (r.top + r.height / 2); const d = Math.sqrt(dx*dx + dy*dy); if (d < bestDist) { bestDist = d; best = c; } });
