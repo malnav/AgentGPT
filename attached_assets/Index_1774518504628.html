@@ -597,10 +597,40 @@ async function autoCleanupEmptyChats() {
 
 function bindInputEvents() {
     const noteIn = document.getElementById('note-input');
+    let slashMenuWasOpen = false;
+
+    function handleSlashMenu(value) {
+        const trimmed = value.trimStart();
+        const slashQuery = trimmed.startsWith('/') ? trimmed.slice(1).trim() : "";
+        const shouldOpenSlashMenu = trimmed.startsWith('/');
+        const tplPanel = document.getElementById('tpl-slide-panel');
+        const tplSearchBox = document.getElementById('tpl-search-box');
+        const tempSearchInput = document.getElementById('temp-search');
+
+        if (shouldOpenSlashMenu) {
+            activeSearch = slashQuery;
+            if (!tplPanel.classList.contains('open')) closeAllPanels('tpl-slide-panel');
+            tplPanel.classList.add('open');
+            tplSearchBox.style.display = 'block';
+            if (tempSearchInput) tempSearchInput.value = slashQuery;
+            renderTemplates();
+            slashMenuWasOpen = true;
+        } else if (slashMenuWasOpen && tplPanel.classList.contains('open')) {
+            tplPanel.classList.remove('open');
+            activeSearch = "";
+            if (tempSearchInput) tempSearchInput.value = "";
+            renderTemplates();
+            slashMenuWasOpen = false;
+        } else if (!shouldOpenSlashMenu) {
+            slashMenuWasOpen = false;
+        }
+    }
+
     noteIn.addEventListener('keyup', () => { lastCursorPos = noteIn.selectionStart; }); noteIn.addEventListener('click', () => { lastCursorPos = noteIn.selectionStart; });
     noteIn.addEventListener('input', () => { 
         lastCursorPos = noteIn.selectionStart; if(historyState.length === 0 || historyState[historyState.length-1] !== noteIn.value) { historyState.push(noteIn.value); redoState = []; } 
         activePromptIdx = -1; renderInlinePrompts(); sync(); 
+        handleSlashMenu(noteIn.value);
         let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) cur.draft = noteIn.value; }
     });
 }
