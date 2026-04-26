@@ -6943,6 +6943,53 @@ function _insertPromptIntoTarget(el, promptText, isTextField) {
     const finalText = base + promptText;
     _writeToTargetPreserveSig(el, _escH(finalText).replace(/\n/g, '<br>'), false);
 }
+function _insertTextIntoTarget(el, text, isTextField) {
+    if(!el) return;
+    if(isTextField) {
+        const current = el.value || '';
+        const slashPos = current.lastIndexOf('/');
+        const base = (slashPos >= 0 && slashPos === current.length - 1) ? current.slice(0, slashPos) : current;
+        el.value = base + text;
+        return;
+    }
+    const current = el.innerText || el.textContent || '';
+    const slashPos = current.lastIndexOf('/');
+    const base = (slashPos >= 0 && slashPos === current.length - 1) ? current.slice(0, slashPos) : current;
+    _writeToTargetPreserveSig(el, _escH(base + text).replace(/\n/g, '<br>'), false);
+}
+function _normalizeAutomationCommand(name) {
+    return String(name || '').trim().toLowerCase().replace(/\s+/g, '-');
+}
+async function _runAutomationFlow(flow, el, isTextField) {
+    if(!flow || !Array.isArray(flow.steps)) return;
+    const outputParts = [];
+    for(const rawStep of flow.steps) {
+        const step = _normalizeAutomationStep(rawStep, 0);
+        if(step.type === 'callProfile') {
+            const profileLabel = String(step.value || '').trim();
+            if(profileLabel && AI_PROFILES.find(p => p.label === profileLabel)) {
+                await switchProfileSession(profileLabel);
+            }
+            continue;
+        }
+        if(step.type === 'wait') {
+            const ms = Math.max(0, Math.min(2000, Number(step.value) || 0));
+            if(ms > 0) await new Promise(resolve => setTimeout(resolve, ms));
+            continue;
+        }
+        if(step.type === 'inputMessage' || step.type === 'runCommand') {
+            if(String(step.value || '').trim()) outputParts.push(String(step.value));
+        }
+    }
+    const finalText = outputParts.join('\n').trim();
+    if(finalText) _insertTextIntoTarget(el, finalText, isTextField);
+    if(el && el.id === 'note-input' && finalText) {
+        await sendToAI();
+        notify(`Ran automation: ${flow.name || 'automation'}`, '#34c759', 1400);
+    } else {
+        notify(`Prepared automation: ${flow.name || 'automation'}`, '#34c759', 1400);
+    }
+}
 function _closeSlashPromptMenu() {
     _slashPromptActive = false;
     const m = document.getElementById('_slash-prompts-ov');
@@ -6952,18 +6999,46 @@ function _showSlashPromptPicker(el, isTextField) {
     if(_slashPromptActive) return;
     _slashPromptActive = true;
     const filtP = PROMPTS.filter(p => p.profile === activeProfileLabel || p.profile === 'Global');
+    const automationFlows = (_automationFlows || []).map((flow) => ({
+        ...flow,
+        command: _normalizeAutomationCommand(flow.name)
+    })).filter(flow => flow.command);
     const ov = document.createElement('div');
     ov.id = '_slash-prompts-ov';
     ov.style.cssText = 'position:fixed;inset:0;z-index:9200;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);';
-    ov.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:16px 16px max(24px,env(safe-area-inset-bottom));max-height:72vh;display:flex;flex-direction:column;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;"><span style="font-size:16px;font-weight:800;color:var(--text);">🪄 Prompts</span><div id="_sp-close" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><div id="_slash-prompts-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;padding-bottom:4px;"></div><div id="_sp-manage" style="margin-top:12px;padding:13px 16px;border-radius:14px;background:rgba(0,122,255,0.08);cursor:pointer;text-align:center;font-size:13px;font-weight:700;color:var(--accent);flex-shrink:0;">📚 Manage Prompts</div></div>';
+    ov.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:16px 16px max(24px,env(safe-area-inset-bottom));max-height:72vh;display:flex;flex-direction:column;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;"><span style="font-size:16px;font-weight:800;color:var(--text);">⚡ Slash Commands</span><div id="_sp-close" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><div id="_slash-prompts-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;padding-bottom:4px;"></div><div style="display:flex;gap:8px;margin-top:12px;"><div id="_sp-manage" style="flex:1;padding:13px 16px;border-radius:14px;background:rgba(0,122,255,0.08);cursor:pointer;text-align:center;font-size:13px;font-weight:700;color:var(--accent);">📚 Manage Prompts</div><div id="_sp-manage-auto" style="flex:1;padding:13px 16px;border-radius:14px;background:rgba(52,199,89,0.12);cursor:pointer;text-align:center;font-size:13px;font-weight:700;color:#1f9d54;">⚡ Automations</div></div></div>';
     ov.onclick = function(e) { if(e.target === ov) _closeSlashPromptMenu(); };
     document.body.appendChild(ov);
     document.getElementById('_sp-close').onclick = function() { _closeSlashPromptMenu(); };
     document.getElementById('_sp-manage').onclick = function() { _closeSlashPromptMenu(); closeAllPanels(); manageSection('prompts'); };
+    document.getElementById('_sp-manage-auto').onclick = function() { _closeSlashPromptMenu(); openAutomationBuilder(); };
     const listEl = document.getElementById('_slash-prompts-list');
-    if (!filtP.length) {
-        listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#888;font-size:13px;">No prompts yet — tap Manage Prompts to add some.</div>';
+    if (!filtP.length && !automationFlows.length) {
+        listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#888;font-size:13px;">No slash commands yet — add prompts or automations.</div>';
         return;
+    }
+    if(automationFlows.length) {
+        const hdr = document.createElement('div');
+        hdr.style.cssText = 'font-size:11px;font-weight:800;color:#888;padding:4px 2px;';
+        hdr.textContent = 'AUTOMATIONS';
+        listEl.appendChild(hdr);
+        automationFlows.forEach(function(flow) {
+            const d = document.createElement('div');
+            d.style.cssText = 'padding:13px 16px;border-radius:14px;background:rgba(52,199,89,0.1);cursor:pointer;font-size:13px;font-weight:700;color:var(--text);';
+            d.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span>⚡ ${_escH(flow.name || 'Untitled automation')}</span><small style="font-size:10px;color:#888;">/${_escH(flow.command)}</small></div>`;
+            d.onclick = async function() {
+                await _runAutomationFlow(flow, el, isTextField);
+                _closeSlashPromptMenu();
+                if(el.focus) el.focus();
+            };
+            listEl.appendChild(d);
+        });
+    }
+    if(filtP.length) {
+        const hdr = document.createElement('div');
+        hdr.style.cssText = 'font-size:11px;font-weight:800;color:#888;padding:10px 2px 4px;';
+        hdr.textContent = 'PROMPTS';
+        listEl.appendChild(hdr);
     }
     filtP.forEach(function(p) {
         const d = document.createElement('div');

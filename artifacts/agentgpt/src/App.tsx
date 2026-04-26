@@ -42,6 +42,10 @@ function Home() {
   const [selectedAutomationId, setSelectedAutomationId] = useState<number | null>(null);
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+  const [isSlashPaletteOpen, setIsSlashPaletteOpen] = useState(false);
+  const [slashPaletteQuery, setSlashPaletteQuery] = useState("");
+  const [paletteActiveIndex, setPaletteActiveIndex] = useState(0);
   const [invokeResult, setInvokeResult] = useState(
     "Use / to list automations, /automation-name to run one, or ⚡️ to open automation UI."
   );
@@ -162,6 +166,64 @@ function Home() {
     localStorage.setItem(storageKey, JSON.stringify(automations));
   }, [automations]);
 
+  const automationCommands = useMemo(
+    () =>
+      automations.map((item) => ({
+        id: item.id,
+        name: item.name,
+        command: `/${item.name.replace(/\s+/g, "-")}`,
+        normalized: item.name.trim().toLowerCase().replace(/\s+/g, "-")
+      })),
+    [automations]
+  );
+
+  const commandToken = useMemo(() => {
+    if (!chatInput.startsWith("/")) return "";
+    return chatInput.slice(1).trim().toLowerCase();
+  }, [chatInput]);
+
+  const commandSuggestions = useMemo(() => {
+    if (!chatInput.startsWith("/")) return [];
+    if (!commandToken) return automationCommands;
+    return automationCommands.filter((item) => item.normalized.includes(commandToken));
+  }, [automationCommands, chatInput, commandToken]);
+
+  const paletteSuggestions = useMemo(() => {
+    if (!slashPaletteQuery.trim()) return automationCommands;
+    return automationCommands.filter((item) => item.normalized.includes(slashPaletteQuery.trim().toLowerCase()));
+  }, [automationCommands, slashPaletteQuery]);
+
+  useEffect(() => {
+    setActiveSuggestionIndex(0);
+  }, [chatInput]);
+
+  useEffect(() => {
+    setPaletteActiveIndex(0);
+  }, [slashPaletteQuery]);
+
+  useEffect(() => {
+    const handleGlobalSlash = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      const isTextEntry =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        Boolean(target?.closest("[contenteditable=\"true\"]"));
+
+      if (!isTextEntry) return;
+
+      event.preventDefault();
+      setIsSlashPaletteOpen(true);
+      setSlashPaletteQuery("");
+    };
+
+    window.addEventListener("keydown", handleGlobalSlash);
+    return () => window.removeEventListener("keydown", handleGlobalSlash);
+  }, []);
+
   const runInput = () => {
     const input = chatInput.trim();
     if (!input) {
@@ -231,6 +293,42 @@ function Home() {
     setInvokeResult(`Automation triggered from input:\n${payload}`);
   };
 
+  const applySuggestion = (command: string) => {
+    setChatInput(command);
+  };
+
+  const runAutomationFromToken = (token: string) => {
+    const normalizedToken = token.trim().toLowerCase().replace(/^\//, "");
+    if (!normalizedToken) {
+      const list = automationCommands.map((item) => item.command);
+      setInvokeResult(`Frontend automation list:\n${list.length > 0 ? list.join("\n") : "No automations yet."}`);
+      return;
+    }
+
+    const automation = automations.find((item) => item.name.trim().toLowerCase().replace(/\s+/g, "-") === normalizedToken);
+    if (!automation) {
+      setInvokeResult(`Automation \"${normalizedToken}\" not found. Available: ${automationCommands.map((item) => item.command).join(", ") || "none"}.`);
+      return;
+    }
+
+    setChatInput(`/${normalizedToken}`);
+    const payload = JSON.stringify(
+      {
+        invokedBy: `/${normalizedToken}`,
+        automation: automation.name,
+        steps: automation.steps.map((step) => {
+          if (step.type === "callProfile") return { type: step.type, profile: step.value };
+          if (step.type === "inputMessage") return { type: step.type, message: step.value };
+          if (step.type === "wait") return { type: step.type, ms: Number(step.value || 0) };
+          return { type: step.type, command: step.value };
+        })
+      },
+      null,
+      2
+    );
+    setInvokeResult(`Automation triggered from input:\n${payload}`);
+  };
+
   const preview = useMemo(
     () =>
       JSON.stringify(
@@ -281,8 +379,73 @@ function Home() {
             className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             value={chatInput}
             onChange={(event) => setChatInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (!chatInput.startsWith("/")) {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  runInput();
+                }
+                return;
+              }
+
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setActiveSuggestionIndex((current) =>
+                  commandSuggestions.length === 0 ? 0 : (current + 1) % commandSuggestions.length
+                );
+                return;
+              }
+
+              if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setActiveSuggestionIndex((current) =>
+                  commandSuggestions.length === 0
+                    ? 0
+                    : (current - 1 + commandSuggestions.length) % commandSuggestions.length
+                );
+                return;
+              }
+
+              if (event.key === "Tab" && commandSuggestions.length > 0) {
+                event.preventDefault();
+                applySuggestion(commandSuggestions[activeSuggestionIndex].command);
+                return;
+              }
+
+              if (event.key === "Enter") {
+                event.preventDefault();
+                if (commandSuggestions.length > 0 && commandToken) {
+                  runInput();
+                  return;
+                }
+                runInput();
+              }
+            }}
             placeholder="Try: /, /my-automation run this, or ⚡️"
           />
+          {chatInput.startsWith("/") ? (
+            <div className="mt-2 rounded-md border border-slate-200 bg-white p-2">
+              <p className="text-xs text-slate-500">Automation commands (↑↓ to navigate, Tab to fill, Enter to run)</p>
+              <div className="mt-2 max-h-40 space-y-1 overflow-y-auto">
+                {commandSuggestions.length === 0 ? (
+                  <p className="rounded px-2 py-1 text-xs text-slate-500">No matching automations.</p>
+                ) : (
+                  commandSuggestions.map((item, index) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`w-full rounded px-2 py-1 text-left text-xs ${
+                        index === activeSuggestionIndex ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+                      }`}
+                      onClick={() => applySuggestion(item.command)}
+                    >
+                      {item.command}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : null}
           <button type="button" className="mt-2 rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={runInput}>
             Parse and trigger
           </button>
@@ -441,6 +604,71 @@ function Home() {
               <div className="mt-6">
                 <h2 className="text-sm font-semibold">Flow preview</h2>
                 <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{preview}</pre>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {isSlashPaletteOpen ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-6">
+            <div className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold">Slash automation picker (homescreen inputs)</h2>
+                <button
+                  type="button"
+                  className="rounded border border-slate-300 px-2 py-1 text-xs"
+                  onClick={() => setIsSlashPaletteOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+              <input
+                autoFocus
+                className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                placeholder="Type automation name after /"
+                value={slashPaletteQuery}
+                onChange={(event) => setSlashPaletteQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowDown") {
+                    event.preventDefault();
+                    setPaletteActiveIndex((current) =>
+                      paletteSuggestions.length === 0 ? 0 : (current + 1) % paletteSuggestions.length
+                    );
+                  } else if (event.key === "ArrowUp") {
+                    event.preventDefault();
+                    setPaletteActiveIndex((current) =>
+                      paletteSuggestions.length === 0 ? 0 : (current - 1 + paletteSuggestions.length) % paletteSuggestions.length
+                    );
+                  } else if (event.key === "Enter") {
+                    event.preventDefault();
+                    const candidate = paletteSuggestions[paletteActiveIndex]?.normalized ?? slashPaletteQuery;
+                    runAutomationFromToken(candidate);
+                    setIsSlashPaletteOpen(false);
+                  } else if (event.key === "Escape") {
+                    setIsSlashPaletteOpen(false);
+                  }
+                }}
+              />
+              <div className="mt-3 max-h-56 space-y-1 overflow-y-auto">
+                {paletteSuggestions.length === 0 ? (
+                  <p className="rounded px-2 py-1 text-xs text-slate-500">No matching automations.</p>
+                ) : (
+                  paletteSuggestions.map((item, index) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`w-full rounded px-2 py-1 text-left text-xs ${
+                        index === paletteActiveIndex ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+                      }`}
+                      onClick={() => {
+                        runAutomationFromToken(item.normalized);
+                        setIsSlashPaletteOpen(false);
+                      }}
+                    >
+                      {item.command}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>
