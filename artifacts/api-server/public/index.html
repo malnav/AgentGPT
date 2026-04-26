@@ -6423,6 +6423,7 @@ let _atMentionIsTextArea = false;
 let _atMentionTargetLabel = '';
 let _atMentionInsStart = -1;
 let _atMentionSavedRange = null;
+let _slashPromptActive = false;
 function _writeToTargetPreserveSig(el, content, isTA) {
     if(isTA) { el.value = content; return; }
     const sigEl = el.querySelector('.email-sig-block');
@@ -6518,6 +6519,74 @@ function _showAtMentionPicker(el, draft, isTextArea) {
 }
 function _closeAtMention(keepAt) { _atMentionActive = false; if(keepAt) { _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; } const m = document.getElementById('_at-mention-menu'); if(m) m.remove(); if(!keepAt) setTimeout(_updateAtMentionIndicator, 300); }
 _initAtMention();
+
+function _insertPromptIntoTarget(el, promptText, isTextField) {
+    if(!el) return;
+    if(isTextField) {
+        const current = el.value || '';
+        const slashPos = current.lastIndexOf('/');
+        const base = (slashPos >= 0 && slashPos === current.length - 1) ? current.slice(0, slashPos) : current;
+        el.value = base + promptText;
+        return;
+    }
+    const current = el.innerText || el.textContent || '';
+    const slashPos = current.lastIndexOf('/');
+    const base = (slashPos >= 0 && slashPos === current.length - 1) ? current.slice(0, slashPos) : current;
+    const finalText = base + promptText;
+    _writeToTargetPreserveSig(el, _escH(finalText).replace(/\n/g, '<br>'), false);
+}
+function _closeSlashPromptMenu() {
+    _slashPromptActive = false;
+    const m = document.getElementById('_slash-prompts-ov');
+    if(m) m.remove();
+}
+function _showSlashPromptPicker(el, isTextField) {
+    if(_slashPromptActive) return;
+    _slashPromptActive = true;
+    const filtP = PROMPTS.filter(p => p.profile === activeProfileLabel || p.profile === 'Global');
+    const ov = document.createElement('div');
+    ov.id = '_slash-prompts-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9200;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);';
+    ov.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:16px 16px max(24px,env(safe-area-inset-bottom));max-height:72vh;display:flex;flex-direction:column;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;"><span style="font-size:16px;font-weight:800;color:var(--text);">🪄 Prompts</span><div id="_sp-close" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><div id="_slash-prompts-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;padding-bottom:4px;"></div><div id="_sp-manage" style="margin-top:12px;padding:13px 16px;border-radius:14px;background:rgba(0,122,255,0.08);cursor:pointer;text-align:center;font-size:13px;font-weight:700;color:var(--accent);flex-shrink:0;">📚 Manage Prompts</div></div>';
+    ov.onclick = function(e) { if(e.target === ov) _closeSlashPromptMenu(); };
+    document.body.appendChild(ov);
+    document.getElementById('_sp-close').onclick = function() { _closeSlashPromptMenu(); };
+    document.getElementById('_sp-manage').onclick = function() { _closeSlashPromptMenu(); closeAllPanels(); manageSection('prompts'); };
+    const listEl = document.getElementById('_slash-prompts-list');
+    if (!filtP.length) {
+        listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#888;font-size:13px;">No prompts yet — tap Manage Prompts to add some.</div>';
+        return;
+    }
+    filtP.forEach(function(p) {
+        const d = document.createElement('div');
+        d.style.cssText = 'padding:13px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;font-size:13px;font-weight:600;color:var(--text);';
+        d.textContent = p.label;
+        d.onclick = async function() {
+            const parsed = await parseServiceVariables(p.text);
+            if(parsed === null) return;
+            _insertPromptIntoTarget(el, parsed, isTextField);
+            _closeSlashPromptMenu();
+            if(el.focus) el.focus();
+        };
+        listEl.appendChild(d);
+    });
+}
+function _initSlashPromptPicker() {
+    document.addEventListener('keyup', function(e) {
+        if(e.key !== '/') return;
+        if(_slashPromptActive || _atMentionActive) return;
+        const el = e.target;
+        const isTA = el.tagName === 'TEXTAREA';
+        const isInp = el.tagName === 'INPUT' && el.type !== 'password' && el.type !== 'checkbox' && el.type !== 'range';
+        const isCE = el.isContentEditable;
+        if(!isTA && !isInp && !isCE) return;
+        const val = (isTA || isInp) ? (el.value || '') : (el.innerText || el.textContent || '');
+        if(!val.endsWith('/')) return;
+        e.stopPropagation();
+        _showSlashPromptPicker(el, isTA || isInp);
+    });
+}
+_initSlashPromptPicker();
 
 function _escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function linksInsert(id) { const lk=(CONFIG.links||[]).find(l=>l.id===id); if(!lk) return; insertAtCursor(`**${lk.title}**\n${lk.url}`,true,false); notify('Link inserted!','#34c759',1500); }
