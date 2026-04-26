@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -27,6 +27,8 @@ const stepLabels: Record<StepType, string> = {
   wait: "Wait (ms)",
   runCommand: "Run command"
 };
+
+const storageKey = "agentgpt.frontend.automations.v1";
 
 const defaultSteps: Step[] = [
   { id: 1, type: "callProfile", value: "sales-assistant" },
@@ -125,6 +127,38 @@ function Home() {
     }
   };
 
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+
+      const hydrated = parsed
+        .map((item, index) => ({
+          id: typeof item?.id === "number" ? item.id : index + 1,
+          name: typeof item?.name === "string" ? item.name : `Automation ${index + 1}`,
+          steps: Array.isArray(item?.steps)
+            ? item.steps.map((step: any, stepIndex: number) => ({
+                id: typeof step?.id === "number" ? step.id : stepIndex + 1,
+                type: step?.type as StepType,
+                value: typeof step?.value === "string" ? step.value : ""
+              }))
+            : []
+        }))
+        .filter((item) => item.name.trim());
+
+      setAutomations(hydrated);
+    } catch {
+      // ignore malformed local data
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(automations));
+  }, [automations]);
+
   const runInput = () => {
     const input = chatInput.trim();
     if (!input.startsWith("/")) {
@@ -191,9 +225,9 @@ function Home() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900">
       <div className="mx-auto max-w-5xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-bold">Automation Builder</h1>
+        <h1 className="text-2xl font-bold">Frontend Automation Builder</h1>
         <p className="mt-1 text-sm text-slate-600">
-          CRUD your automations and trigger them from any input using slash format (example: /my-automation).
+          Build automations directly in the frontend UI and trigger them from any input using slash format (example: /my-automation).
         </p>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">

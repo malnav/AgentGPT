@@ -2162,7 +2162,7 @@ function ctxSwitchTab(tab) {
     if(tab==='gmail') { if(gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box').value.trim() || null); } else { gmailLoadEmails(); } }
 }
 function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
-function toggleSrvPanel() { openAutomationBuilder(); }
+function toggleSrvPanel() { notify("Automation builder now lives in the frontend app.", "#0a84ff"); }
 
 let _automationFlowName = 'My automation';
 let _automationSteps = [
@@ -6958,7 +6958,7 @@ function _linkifyHtml(html) {
         </div>
         <div onclick="openModal('master-modal')" style="font-size:20px; cursor:pointer; opacity:0.55; padding:4px 4px;" title="Settings">⚙️</div>
         <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="font-size:16px; cursor:pointer; padding:5px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Open Workspace">🗂️</div>
-        <div onclick="toggleSrvPanel()" style="font-size:16px; cursor:pointer; padding:5px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Open Automation Builder">⚡</div>
+        <div onclick="toggleSrvPanel()" style="font-size:16px; cursor:pointer; padding:5px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Automation UI moved to frontend">⚡</div>
     </div>
     <div id="hs-body">
         <div id="hs-cards-wrap" style="margin-top:8px;">
