@@ -2412,6 +2412,35 @@ function openTodoEditModal(todoObj, onSave, preVid) { document.getElementById('t
 async function addTodo(fromGlobal, defaultVid) { let vid = defaultVid; if(!vid && !fromGlobal) { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); vid = (cur && cur.var_id) ? cur.var_id : _INBOX_VID; } openTodoEditModal({ text: '', date: null }, async (text, date, selectedVid) => { if(selectedVid === _INBOX_VID) { if(!GLOBAL_DATASETS[_INBOX_VID]) GLOBAL_DATASETS[_INBOX_VID] = { title: 'Inbox', data: {}, todos: [] }; } let ds = GLOBAL_DATASETS[selectedVid]; if(!ds) return; if(!ds.todos) ds.todos = []; ds.todos.push({ id: Date.now().toString(), text, done: false, date }); await saveAll(); renderChatTodos(); if(fromGlobal) { _populateGTodoFilters(); renderGlobalTodos(); } renderCalendar(); }, vid); }
 
 async function _hsQuickAddTodo() { const inp = document.getElementById('hs-todo-quick-input'); if(!inp) return; const text = inp.value.trim(); if(!text) { inp.focus(); return; } const dsSel = document.getElementById('hs-gtodo-ds-sel'); let vid = (dsSel && dsSel.value && dsSel.value !== 'all') ? dsSel.value : _INBOX_VID; if(vid === _INBOX_VID) { if(!GLOBAL_DATASETS[_INBOX_VID]) GLOBAL_DATASETS[_INBOX_VID] = { title: 'Inbox', data: {}, todos: [] }; } const ds = GLOBAL_DATASETS[vid]; if(!ds) return; if(!ds.todos) ds.todos = []; ds.todos.push({ id: Date.now().toString(), text, done: false, date: null }); inp.value = ''; await saveAll(); _populateGTodoFilters(); renderGlobalTodos(); renderChatTodos(); renderCalendar(); inp.focus(); }
+async function _hsQuickChatSend() {
+    const inp = document.getElementById('hs-chat-quick-input');
+    if(!inp) return;
+    const text = (inp.value || '').trim();
+    if(!text) { inp.focus(); return; }
+    try {
+        hideHomeScreen();
+        if (_fchatActiveId === null) {
+            createFchatSession(activeProfileLabel);
+        } else {
+            fchatMaximize(_fchatActiveId);
+        }
+        for(let i = 0; i < 30; i++) {
+            const noteIn = document.getElementById('note-input');
+            if(noteIn && !currentAborter) {
+                noteIn.value = text;
+                sync();
+                await sendToAI();
+                inp.value = '';
+                notify('Quick chat sent', '#34c759', 1300);
+                return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 40));
+        }
+        notify('Chat opened, but send is not ready yet.', '#ff9500', 2200);
+    } catch (e) {
+        notify('Quick chat failed: ' + (e.message || 'unknown error'), '#ff3b30', 2400);
+    }
+}
 async function editTodo(vid, todoId) { let ds = GLOBAL_DATASETS[vid]; if(!ds || !ds.todos) return; let t = ds.todos.find(x => String(x.id) === String(todoId)); if(!t) return; openTodoEditModal(t, async (text, date, newVid) => { if(String(newVid) !== String(vid)) { ds.todos = ds.todos.filter(x => String(x.id) !== String(todoId)); if(newVid === _INBOX_VID && !GLOBAL_DATASETS[_INBOX_VID]) GLOBAL_DATASETS[_INBOX_VID] = { title: 'Inbox', data: {}, todos: [] }; let newDs = GLOBAL_DATASETS[newVid]; if(!newDs) return; if(!newDs.todos) newDs.todos = []; newDs.todos.push({ ...t, text, date }); } else { t.text = text; t.date = date; } await saveAll(); renderChatTodos(); renderGlobalTodos(); renderCalendar(); }, vid); }
 
 async function toggleTodo(vid, todoId) { let ds = GLOBAL_DATASETS[vid]; if(!ds || !ds.todos) return; let t = ds.todos.find(x => String(x.id) === String(todoId)); if(t) t.done = !t.done; await saveAll(); renderChatTodos(); renderGlobalTodos(); }
@@ -7030,6 +7059,20 @@ function _linkifyHtml(html) {
                 <div onclick="_hsQuoteCache=null;_hsRenderQuote();" style="cursor:pointer;font-size:11px;color:var(--accent);padding:2px 8px;background:var(--sec-bg);border-radius:8px;">New</div>
             </div>
             <div id="hs-quote-body"></div>
+        </div>
+        <div class="hs-card" data-card-id="quick-chat">
+            <div class="hs-card-header">
+                <span class="hs-drag-handle">⠿</span>
+                <span class="hs-card-title">💬 Quick Chat</span>
+                <div style="font-size:11px;color:#888;">Enter to send</div>
+            </div>
+            <div style="padding:10px 12px 12px;">
+                <div style="font-size:12px; color:#888; margin-bottom:8px;">Draft input</div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input id="hs-chat-quick-input" type="text" placeholder="Type and press Enter…" autocomplete="off" maxlength="2000" onkeydown="if(event.key==='Enter')_hsQuickChatSend()" style="flex:1; border:none; border-radius:12px; padding:10px 12px; font-size:14px; background:var(--sec-bg); color:var(--text); outline:none; font-family:inherit;">
+                    <button type="button" onclick="_hsQuickChatSend()" style="border:none; width:36px; height:36px; border-radius:18px; background:var(--accent); color:#fff; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 4px 16px rgba(0,122,255,0.3);">↑</button>
+                </div>
+            </div>
         </div>
         <div class="hs-card" data-card-id="calendar">
             <div class="hs-card-header">
