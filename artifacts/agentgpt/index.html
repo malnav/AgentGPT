@@ -5907,6 +5907,19 @@ function _hsInitCardDrag() {
     const body = document.getElementById('hs-cards-wrap') || document.getElementById('hs-body'); if (!body) return;
     let _drag = null;
     const getCards = () => [...body.querySelectorAll('.hs-card')];
+    const getCardsInDisplayOrder = () => {
+        const cols = [...body.querySelectorAll(':scope > .hs-col-div')];
+        if (!cols.length) return [...body.querySelectorAll(':scope > .hs-card')];
+        const colCards = cols.map(col => [...col.querySelectorAll(':scope > .hs-card')]);
+        const maxRows = Math.max(...colCards.map(cards => cards.length), 0);
+        const ordered = [];
+        for (let row = 0; row < maxRows; row++) {
+            for (let col = 0; col < colCards.length; col++) {
+                if (colCards[col][row]) ordered.push(colCards[col][row]);
+            }
+        }
+        return ordered;
+    };
     const startDrag = (card, clientX, clientY) => {
         const rect = card.getBoundingClientRect();
         const clone = card.cloneNode(true);
@@ -5937,12 +5950,12 @@ function _hsInitCardDrag() {
         let best = null, bestDist = Infinity;
         cards.forEach(c => { const r = c.getBoundingClientRect(); const dx = cx - (r.left + r.width / 2); const dy = cy - (r.top + r.height / 2); const d = Math.sqrt(dx*dx + dy*dy); if (d < bestDist) { bestDist = d; best = c; } });
         if (best && bestDist < 300) {
-            const allCards = getCards(); const dragIdx = allCards.indexOf(_drag.card); const targetIdx = allCards.indexOf(best);
+            const allCards = getCardsInDisplayOrder(); const dragIdx = allCards.indexOf(_drag.card); const targetIdx = allCards.indexOf(best);
             const dragParent = _drag.card.parentNode; const bestParent = best.parentNode;
             if (dragIdx < targetIdx) bestParent.insertBefore(_drag.card, best.nextSibling); else bestParent.insertBefore(_drag.card, best);
             if(dragParent !== bestParent && dragParent.children.length === 0) dragParent.remove();
         }
-        const newOrder = getCards().map(c => c.dataset.cardId).filter(Boolean);
+        const newOrder = getCardsInDisplayOrder().map(c => c.dataset.cardId).filter(Boolean);
         if (newOrder.length) { CONFIG.hs_card_order = newOrder; saveAll(true); _hsApplyColumns(); }
         document.body.style.userSelect = ''; _drag = null;
     };
