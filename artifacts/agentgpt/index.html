@@ -2272,6 +2272,16 @@ function automationMoveStep(id, direction) {
     _automationSteps = copy;
     renderAutomationBuilder();
 }
+if (typeof window !== 'undefined') {
+    window.toggleSrvPanel = toggleSrvPanel;
+    window.openAutomationBuilder = openAutomationBuilder;
+    window.closeAutomationBuilder = closeAutomationBuilder;
+    window.automationSetFlowName = automationSetFlowName;
+    window.automationAddStep = automationAddStep;
+    window.automationUpdateStep = automationUpdateStep;
+    window.automationRemoveStep = automationRemoveStep;
+    window.automationMoveStep = automationMoveStep;
+}
 function tplPanelSwitch(tab) {
     ['templates','services','links'].forEach(t => {
         const btn = document.getElementById('tpl-panel-tab-btn-'+t);
