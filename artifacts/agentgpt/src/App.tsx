@@ -13,6 +13,12 @@ type Step = {
   value: string;
 };
 
+type Automation = {
+  id: number;
+  name: string;
+  steps: Step[];
+};
+
 const queryClient = new QueryClient();
 
 const stepLabels: Record<StepType, string> = {
@@ -22,12 +28,18 @@ const stepLabels: Record<StepType, string> = {
   runCommand: "Run command"
 };
 
+const defaultSteps: Step[] = [
+  { id: 1, type: "callProfile", value: "sales-assistant" },
+  { id: 2, type: "inputMessage", value: "Hello, summarize today leads." }
+];
+
 function Home() {
   const [flowName, setFlowName] = useState("My automation");
-  const [steps, setSteps] = useState<Step[]>([
-    { id: 1, type: "callProfile", value: "sales-assistant" },
-    { id: 2, type: "inputMessage", value: "Hello, summarize today leads." }
-  ]);
+  const [steps, setSteps] = useState<Step[]>(defaultSteps);
+  const [automations, setAutomations] = useState<Automation[]>([]);
+  const [selectedAutomationId, setSelectedAutomationId] = useState<number | null>(null);
+  const [chatInput, setChatInput] = useState("");
+  const [invokeResult, setInvokeResult] = useState("Use /automation-name in the box below to run one from any input.");
 
   const addStep = (type: StepType) => {
     setSteps((current) => {
@@ -59,6 +71,99 @@ function Home() {
     });
   };
 
+  const resetEditor = () => {
+    setFlowName("My automation");
+    setSteps(defaultSteps);
+    setSelectedAutomationId(null);
+  };
+
+  const saveAutomation = () => {
+    const trimmedName = flowName.trim();
+    if (!trimmedName) {
+      setInvokeResult("Automation name is required before saving.");
+      return;
+    }
+
+    if (selectedAutomationId === null) {
+      setAutomations((current) => {
+        const nextId = current.length > 0 ? Math.max(...current.map((item) => item.id)) + 1 : 1;
+        return [...current, { id: nextId, name: trimmedName, steps }];
+      });
+      setInvokeResult(`Created automation \"${trimmedName}\".`);
+      return;
+    }
+
+    setAutomations((current) =>
+      current.map((item) => (item.id === selectedAutomationId ? { ...item, name: trimmedName, steps } : item))
+    );
+    setInvokeResult(`Updated automation \"${trimmedName}\".`);
+  };
+
+  const loadAutomation = (automationId: number) => {
+    const automation = automations.find((item) => item.id === automationId);
+    if (!automation) return;
+
+    setSelectedAutomationId(automation.id);
+    setFlowName(automation.name);
+    setSteps(automation.steps);
+  };
+
+  const duplicateAutomation = (automationId: number) => {
+    setAutomations((current) => {
+      const automation = current.find((item) => item.id === automationId);
+      if (!automation) return current;
+
+      const nextId = current.length > 0 ? Math.max(...current.map((item) => item.id)) + 1 : 1;
+      return [...current, { ...automation, id: nextId, name: `${automation.name}-copy` }];
+    });
+  };
+
+  const deleteAutomation = (automationId: number) => {
+    setAutomations((current) => current.filter((item) => item.id !== automationId));
+    if (selectedAutomationId === automationId) {
+      resetEditor();
+    }
+  };
+
+  const runInput = () => {
+    const input = chatInput.trim();
+    if (!input.startsWith("/")) {
+      setInvokeResult("No automation call found. Prefix with /automation-name to invoke.");
+      return;
+    }
+
+    const token = input.slice(1).split(/\s+/)[0]?.trim().toLowerCase();
+    const automation = automations.find((item) => item.name.trim().toLowerCase().replace(/\s+/g, "-") === token);
+
+    if (!automation) {
+      setInvokeResult(`Automation \"${token}\" not found. Available: ${automations.map((item) => `/${item.name.replace(/\s+/g, "-")}`).join(", ") || "none"}.`);
+      return;
+    }
+
+    const payload = JSON.stringify(
+      {
+        invokedBy: input,
+        automation: automation.name,
+        steps: automation.steps.map((step) => {
+          if (step.type === "callProfile") {
+            return { type: step.type, profile: step.value };
+          }
+          if (step.type === "inputMessage") {
+            return { type: step.type, message: step.value };
+          }
+          if (step.type === "wait") {
+            return { type: step.type, ms: Number(step.value || 0) };
+          }
+          return { type: step.type, command: step.value };
+        })
+      },
+      null,
+      2
+    );
+
+    setInvokeResult(`Automation triggered from input:\n${payload}`);
+  };
+
   const preview = useMemo(
     () =>
       JSON.stringify(
@@ -85,19 +190,73 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900">
-      <div className="mx-auto max-w-4xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-5xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold">Automation Builder</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Build your flow step-by-step: call profile, input message, wait, and keep adding more steps.
+          CRUD your automations and trigger them from any input using slash format (example: /my-automation).
         </p>
 
-        <label className="mt-6 block text-sm font-medium">Flow name</label>
-        <input
-          className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          value={flowName}
-          onChange={(event) => setFlowName(event.target.value)}
-          placeholder="Name your automation"
-        />
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
+          <div>
+            <label className="block text-sm font-medium">Flow name</label>
+            <input
+              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              value={flowName}
+              onChange={(event) => setFlowName(event.target.value)}
+              placeholder="Name your automation"
+            />
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={saveAutomation}>
+                {selectedAutomationId === null ? "Create automation" : "Update automation"}
+              </button>
+              <button type="button" className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={resetEditor}>
+                New draft
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 p-4">
+            <h2 className="text-sm font-semibold">Automation list (CRUD)</h2>
+            <div className="mt-3 space-y-2">
+              {automations.length === 0 ? (
+                <p className="text-xs text-slate-500">No automations yet.</p>
+              ) : (
+                automations.map((automation) => (
+                  <div key={automation.id} className="rounded border border-slate-200 p-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium">{automation.name}</p>
+                      <p className="text-xs text-slate-500">/{automation.name.replace(/\s+/g, "-")}</p>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="rounded border border-slate-300 px-2 py-1 text-xs"
+                        onClick={() => loadAutomation(automation.id)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded border border-slate-300 px-2 py-1 text-xs"
+                        onClick={() => duplicateAutomation(automation.id)}
+                      >
+                        Duplicate
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded border border-red-300 px-2 py-1 text-xs text-red-600"
+                        onClick={() => deleteAutomation(automation.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
 
         <div className="mt-6 space-y-3">
           {steps.map((step, index) => (
@@ -172,9 +331,25 @@ function Home() {
           </button>
         </div>
 
-        <div className="mt-6">
-          <h2 className="text-sm font-semibold">Flow preview</h2>
-          <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{preview}</pre>
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <div>
+            <h2 className="text-sm font-semibold">Flow preview</h2>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{preview}</pre>
+          </div>
+
+          <div>
+            <h2 className="text-sm font-semibold">Invoke from any input (/)</h2>
+            <input
+              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              value={chatInput}
+              onChange={(event) => setChatInput(event.target.value)}
+              placeholder="Try: /my-automation run this for customer A"
+            />
+            <button type="button" className="mt-2 rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={runInput}>
+              Parse and trigger
+            </button>
+            <pre className="mt-2 min-h-44 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{invokeResult}</pre>
+          </div>
         </div>
       </div>
     </div>
