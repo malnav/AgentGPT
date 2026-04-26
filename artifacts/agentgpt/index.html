@@ -2174,277 +2174,31 @@ function ctxSwitchTab(tab) {
     if(tab==='gmail') { if(gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box').value.trim() || null); } else { gmailLoadEmails(); } }
 }
 function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
-function toggleSrvPanel() { openAutomationBuilder(); }
+function toggleSrvPanel() { notify('Automation Builder has been removed.', '#888'); }
 
-let _automationFlowName = 'My automation';
-let _automationSteps = [
-    { id: 1, type: 'callProfile', value: 'sales-assistant' },
-    { id: 2, type: 'inputMessage', value: 'Hello, summarize today leads.' }
-];
+let _automationFlowName = '';
+let _automationSteps = [];
 let _automationFlows = [];
 let _automationActiveId = null;
-const _automationStepLabels = {
-    callProfile: 'Call profile',
-    inputMessage: 'Input message',
-    wait: 'Wait (ms)',
-    runCommand: 'Run command'
-};
+const _automationStepLabels = {};
 
-function _defaultAutomationSteps() {
-    return [
-        { id: 1, type: 'callProfile', value: 'sales-assistant' },
-        { id: 2, type: 'inputMessage', value: 'Hello, summarize today leads.' }
-    ];
-}
-
-function _normalizeAutomationStep(step, fallbackId) {
-    return {
-        id: Number(step && step.id) || fallbackId,
-        type: _automationStepLabels[(step && step.type) || ''] ? step.type : 'inputMessage',
-        value: String((step && step.value) || '')
-    };
-}
-
-function _normalizeAutomationFlow(flow, fallbackId) {
-    const safeId = String((flow && flow.id) || fallbackId || Date.now());
-    const safeName = String((flow && flow.name) || 'My automation');
-    const rawSteps = Array.isArray(flow && flow.steps) ? flow.steps : [];
-    const safeSteps = (rawSteps.length ? rawSteps : _defaultAutomationSteps()).map((step, index) => _normalizeAutomationStep(step, index + 1));
-    return { id: safeId, name: safeName, steps: safeSteps };
-}
-
-function automationLoadFromConfig() {
-    const stored = Array.isArray(CONFIG.automations) ? CONFIG.automations : [];
-    _automationFlows = stored.map((flow, index) => _normalizeAutomationFlow(flow, String(index + 1)));
-    if (!_automationFlows.length) {
-        _automationFlows = [{ id: String(Date.now()), name: _automationFlowName, steps: _defaultAutomationSteps() }];
-    }
-    _automationActiveId = _automationFlows[0].id;
-    automationLoadFlow(_automationActiveId);
-}
-
-function automationLoadFlow(id) {
-    const flow = _automationFlows.find((item) => String(item.id) === String(id));
-    if (!flow) return;
-    _automationActiveId = flow.id;
-    _automationFlowName = flow.name;
-    _automationSteps = flow.steps.map((step, index) => _normalizeAutomationStep(step, index + 1));
-}
-
-function automationPersistDraft() {
-    if (!_automationActiveId) return;
-    _automationFlows = _automationFlows.map((flow) => {
-        if (String(flow.id) !== String(_automationActiveId)) return flow;
-        return {
-            ...flow,
-            name: _automationFlowName || 'Untitled automation',
-            steps: _automationSteps.map((step, index) => _normalizeAutomationStep(step, index + 1))
-        };
-    });
-}
-
-async function automationSaveCurrentFlow() {
-    automationPersistDraft();
-    CONFIG.automations = _automationFlows.map((flow) => ({
-        id: flow.id,
-        name: flow.name,
-        steps: flow.steps.map((step) => ({ id: step.id, type: step.type, value: step.value }))
-    }));
-    await saveAll();
-    notify('Automation saved', '#34c759');
-    renderAutomationBuilder();
-}
-
-function automationCreateFlow() {
-    const id = String(Date.now()) + String(Math.floor(Math.random() * 1000));
-    const flow = { id, name: 'New automation', steps: [] };
-    _automationFlows.push(flow);
-    automationLoadFlow(id);
-    renderAutomationBuilder();
-}
-
-function automationSelectFlow(id) {
-    automationPersistDraft();
-    automationLoadFlow(id);
-    renderAutomationBuilder();
-}
-
-async function automationDeleteCurrentFlow() {
-    if (!_automationActiveId) return;
-    if (_automationFlows.length <= 1) {
-        notify('Keep at least one automation', '#888');
-        return;
-    }
-    const removed = _automationFlows.find((flow) => String(flow.id) === String(_automationActiveId));
-    _automationFlows = _automationFlows.filter((flow) => String(flow.id) !== String(_automationActiveId));
-    const next = _automationFlows[0];
-    if (next) automationLoadFlow(next.id);
-    await automationSaveCurrentFlow();
-    notify(`Deleted ${removed ? removed.name : 'automation'}`, '#ff9500');
-}
-
-function openAutomationBuilder() {
-    const modal = document.getElementById('automation-builder-modal');
-    if (!modal) return;
-    closeAllPanels();
-    modal.style.display = 'flex';
-    renderAutomationBuilder();
-}
-
-function closeAutomationBuilder() {
-    const modal = document.getElementById('automation-builder-modal');
-    if (modal) modal.style.display = 'none';
-}
-
-function renderAutomationBuilder() {
-    const nameInput = document.getElementById('automation-flow-name');
-    const listEl = document.getElementById('automation-steps-list');
-    const previewEl = document.getElementById('automation-flow-preview');
-    if (!nameInput || !listEl || !previewEl) return;
-
-    automationPersistDraft();
-    const flowSelect = document.getElementById('automation-flow-select');
-    if (flowSelect) {
-        flowSelect.innerHTML = _automationFlows.map((flow) => `<option value="${flow.id}">${flow.name || 'Untitled automation'}</option>`).join('');
-        if (_automationActiveId) flowSelect.value = _automationActiveId;
-    }
-
-    nameInput.value = _automationFlowName;
-    listEl.innerHTML = _automationSteps.map((step, index) => {
-        const options = Object.entries(_automationStepLabels)
-            .map(([value, label]) => `<option value="${value}" ${step.type === value ? 'selected' : ''}>${label}</option>`)
-            .join('');
-        const placeholder = step.type === 'callProfile' ? 'Profile name' : step.type === 'inputMessage' ? 'Message text' : step.type === 'wait' ? 'Milliseconds' : 'Command';
-        const inputType = step.type === 'wait' ? 'number' : 'text';
-        const profileOptions = AI_PROFILES.map((profile) => `<option value="${_escH(profile.label)}" ${step.value === profile.label ? 'selected' : ''}>${_escH(profile.label)}</option>`).join('');
-        const unknownProfileOption = step.type === 'callProfile' && step.value && !AI_PROFILES.some((profile) => profile.label === step.value)
-            ? `<option value="${_escH(step.value)}" selected>${_escH(step.value)} (missing)</option>`
-            : '';
-        const valueControl = step.type === 'callProfile'
-            ? `<select class="pp-input" style="margin:0;" onchange="automationUpdateStep(${step.id}, 'value', this.value)"><option value="">Select a profile</option>${unknownProfileOption}${profileOptions}</select>`
-            : `<input class="pp-input" style="margin:0;" type="${inputType}" value="${(step.value || '').replace(/"/g,'&quot;')}" placeholder="${placeholder}" oninput="automationUpdateStep(${step.id}, 'value', this.value)">`;
-        return `<div style="border:0.5px solid var(--border); border-radius:12px; padding:10px; display:flex; flex-direction:column; gap:8px;">
-            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                <span style="font-size:12px; font-weight:800;">Step ${index + 1}</span>
-                <select class="pp-input" style="margin:0; padding:6px 8px; width:auto;" onchange="automationUpdateStep(${step.id}, 'type', this.value)">${options}</select>
-                <button class="chip" onclick="automationMoveStep(${step.id}, -1)">↑</button>
-                <button class="chip" onclick="automationMoveStep(${step.id}, 1)">↓</button>
-                <button class="chip" style="color:var(--danger); border-color:var(--danger);" onclick="automationRemoveStep(${step.id})">Remove</button>
-            </div>
-            ${valueControl}
-        </div>`;
-    }).join('');
-
-    previewEl.textContent = JSON.stringify({
-        name: _automationFlowName,
-        steps: _automationSteps.map((step) => {
-            if (step.type === 'callProfile') return { type: step.type, profile: step.value };
-            if (step.type === 'inputMessage') return { type: step.type, message: step.value };
-            if (step.type === 'wait') return { type: step.type, ms: Number(step.value || 0) };
-            return { type: step.type, command: step.value };
-        })
-    }, null, 2);
-}
-
-function automationSetFlowName(value) {
-    _automationFlowName = value;
-    renderAutomationBuilder();
-}
-
-function automationAddStep(type) {
-    const nextId = _automationSteps.length ? Math.max(..._automationSteps.map((s) => s.id)) + 1 : 1;
-    _automationSteps.push({ id: nextId, type, value: '' });
-    renderAutomationBuilder();
-}
-
-function automationUpdateStep(id, key, value) {
-    _automationSteps = _automationSteps.map((step) => {
-        if (step.id !== id) return step;
-        if (key === 'type') return { ...step, type: value, value: '' };
-        return { ...step, [key]: value };
-    });
-    renderAutomationBuilder();
-}
-
-function automationRemoveStep(id) {
-    _automationSteps = _automationSteps.filter((step) => step.id !== id);
-    renderAutomationBuilder();
-}
-
-function automationMoveStep(id, direction) {
-    const index = _automationSteps.findIndex((step) => step.id === id);
-    const nextIndex = index + direction;
-    if (index < 0 || nextIndex < 0 || nextIndex >= _automationSteps.length) return;
-    const copy = [..._automationSteps];
-    const [moved] = copy.splice(index, 1);
-    copy.splice(nextIndex, 0, moved);
-    _automationSteps = copy;
-    renderAutomationBuilder();
-}
-
-function automationTestRun() {
-    const resultEl = document.getElementById('automation-test-result');
-    if (!resultEl) return;
-    const results = [];
-    let passCount = 0;
-    let failCount = 0;
-    if (!_automationSteps.length) {
-        results.push('❌ No steps found. Add at least one step to test.');
-        failCount++;
-    }
-    _automationSteps.forEach((rawStep, index) => {
-        const step = _normalizeAutomationStep(rawStep, index + 1);
-        const stepName = _automationStepLabels[step.type] || step.type;
-        const value = String(step.value || '').trim();
-        if (!value) {
-            results.push(`❌ Step ${index + 1} (${stepName}): empty value.`);
-            failCount++;
-            return;
-        }
-        if (step.type === 'callProfile') {
-            const profileExists = AI_PROFILES.some((profile) => profile.label === value);
-            if (!profileExists) {
-                results.push(`❌ Step ${index + 1} (${stepName}): missing profile "${value}".`);
-                failCount++;
-                return;
-            }
-            results.push(`✅ Step ${index + 1} (${stepName}): profile "${value}" is valid.`);
-            passCount++;
-            return;
-        }
-        if (step.type === 'wait') {
-            const ms = Number(value);
-            const validWait = Number.isFinite(ms) && ms >= 0;
-            if (!validWait) {
-                results.push(`❌ Step ${index + 1} (${stepName}): invalid wait value "${value}". Use a non-negative number.`);
-                failCount++;
-                return;
-            }
-            results.push(`✅ Step ${index + 1} (${stepName}): wait ${ms} ms is valid.`);
-            passCount++;
-            return;
-        }
-        results.push(`✅ Step ${index + 1} (${stepName}): value present.`);
-        passCount++;
-    });
-    const summary = `Test results — ${passCount} passed, ${failCount} failed`;
-    resultEl.textContent = [summary, ''.concat('-'.repeat(summary.length)), ...results].join('\n');
-}
+function automationLoadFromConfig() { _automationFlows = []; }
+function automationSaveCurrentFlow() { notify('Automation Builder has been removed.', '#888'); return Promise.resolve(); }
+function automationCreateFlow() { notify('Automation Builder has been removed.', '#888'); }
+function automationSelectFlow() { notify('Automation Builder has been removed.', '#888'); }
+function automationDeleteCurrentFlow() { notify('Automation Builder has been removed.', '#888'); return Promise.resolve(); }
+function openAutomationBuilder() { notify('Automation Builder has been removed.', '#888'); }
+function closeAutomationBuilder() {}
+function renderAutomationBuilder() {}
+function automationSetFlowName() {}
+function automationAddStep() {}
+function automationUpdateStep() {}
+function automationRemoveStep() {}
+function automationMoveStep() {}
+function automationTestRun() {}
 
 if (typeof window !== 'undefined') {
     window.toggleSrvPanel = toggleSrvPanel;
-    window.openAutomationBuilder = openAutomationBuilder;
-    window.closeAutomationBuilder = closeAutomationBuilder;
-    window.automationSetFlowName = automationSetFlowName;
-    window.automationAddStep = automationAddStep;
-    window.automationUpdateStep = automationUpdateStep;
-    window.automationRemoveStep = automationRemoveStep;
-    window.automationMoveStep = automationMoveStep;
-    window.automationSaveCurrentFlow = automationSaveCurrentFlow;
-    window.automationCreateFlow = automationCreateFlow;
-    window.automationSelectFlow = automationSelectFlow;
-    window.automationDeleteCurrentFlow = automationDeleteCurrentFlow;
-    window.automationTestRun = automationTestRun;
 }
 function tplPanelSwitch(tab) {
     ['templates','services','links'].forEach(t => {
@@ -2487,8 +2241,7 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {}; _syncBubbleConfigs();
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", paypal_client_id: storedCfg.paypal_client_id || "", paypal_client_secret: storedCfg.paypal_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1, hs_hidden_cards: storedCfg.hs_hidden_cards || [], email_signatures: storedCfg.email_signatures || [], email_signature: storedCfg.email_signature || "", automations: storedCfg.automations || [] };
-    automationLoadFromConfig();
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", paypal_client_id: storedCfg.paypal_client_id || "", paypal_client_secret: storedCfg.paypal_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1, hs_hidden_cards: storedCfg.hs_hidden_cards || [], email_signatures: storedCfg.email_signatures || [], email_signature: storedCfg.email_signature || "" };
     _loadNotes(); if (CONFIG.home_screen) { const _hsEl = document.getElementById('home-screen'); if (_hsEl) _hsEl.style.display = 'flex'; const _pbEl = document.getElementById('profile-bubble'); if (_pbEl) _pbEl.style.display = 'none'; }
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
@@ -7061,63 +6814,7 @@ function _insertTextIntoTarget(el, text, isTextField) {
     const base = (slashPos >= 0 && slashPos === current.length - 1) ? current.slice(0, slashPos) : current;
     _writeToTargetPreserveSig(el, _escH(base + text).replace(/\n/g, '<br>'), false);
 }
-function _normalizeAutomationCommand(name) {
-    return String(name || '').trim().toLowerCase().replace(/\s+/g, '-');
-}
-async function _runAutomationFlow(flow, el, isTextField) {
-    if(!flow || !Array.isArray(flow.steps)) return;
-    const outputParts = [];
-    let latestAssistantText = '';
-    const resolveLatestAssistantText = () => {
-        for(let i = chatHistory.length - 1; i >= 0; i--) {
-            const msg = chatHistory[i];
-            if(!msg || msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
-            const out = msg.content.find(part => part && (part.type === 'output_text' || part.type === 'text'));
-            if(out && typeof out.text === 'string') return out.text.trim();
-        }
-        return '';
-    };
-    for(const rawStep of flow.steps) {
-        const step = _normalizeAutomationStep(rawStep, 0);
-        if(step.type === 'callProfile') {
-            const profileLabel = String(step.value || '').trim();
-            if(profileLabel && AI_PROFILES.find(p => p.label === profileLabel)) {
-                await switchProfileSession(profileLabel);
-            }
-            continue;
-        }
-        if(step.type === 'wait') {
-            const ms = Math.max(0, Math.min(2000, Number(step.value) || 0));
-            if(ms > 0) await new Promise(resolve => setTimeout(resolve, ms));
-            continue;
-        }
-        if(step.type === 'inputMessage' || step.type === 'runCommand') {
-            let stepValue = String(step.value || '').trim();
-            if(!stepValue) continue;
-            if(latestAssistantText) {
-                stepValue = stepValue
-                    .replace(/\{\{\s*last_response\s*\}\}/gi, latestAssistantText)
-                    .replace(/\{\{\s*previous_response\s*\}\}/gi, latestAssistantText);
-            }
-            outputParts.push(stepValue);
-            if(el && el.id === 'note-input') {
-                el.value = stepValue;
-                sync();
-                await sendToAI();
-                latestAssistantText = resolveLatestAssistantText();
-            }
-        }
-    }
-    const finalText = (el && el.id === 'note-input' && latestAssistantText)
-        ? latestAssistantText
-        : outputParts.join('\n').trim();
-    if(finalText) _insertTextIntoTarget(el, finalText, isTextField);
-    if(el && el.id === 'note-input') {
-        notify(`Ran automation: ${flow.name || 'automation'}`, '#34c759', 1400);
-    } else {
-        notify(`Prepared automation: ${flow.name || 'automation'}`, '#34c759', 1400);
-    }
-}
+function _normalizeAutomationCommand() { return ''; }
 function _closeSlashPromptMenu() {
     _slashPromptActive = false;
     const m = document.getElementById('_slash-prompts-ov');
@@ -7127,40 +6824,18 @@ function _showSlashPromptPicker(el, isTextField) {
     if(_slashPromptActive) return;
     _slashPromptActive = true;
     const filtP = PROMPTS.filter(p => p.profile === activeProfileLabel || p.profile === 'Global');
-    const automationFlows = (_automationFlows || []).map((flow) => ({
-        ...flow,
-        command: _normalizeAutomationCommand(flow.name)
-    })).filter(flow => flow.command);
-    const ov = document.createElement('div');
+        const ov = document.createElement('div');
     ov.id = '_slash-prompts-ov';
     ov.style.cssText = 'position:fixed;inset:0;z-index:9200;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);';
-    ov.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:16px 16px max(24px,env(safe-area-inset-bottom));max-height:72vh;display:flex;flex-direction:column;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;"><span style="font-size:16px;font-weight:800;color:var(--text);">⚡ Slash Commands</span><div id="_sp-close" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><div id="_slash-prompts-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;padding-bottom:4px;"></div><div style="display:flex;gap:8px;margin-top:12px;"><div id="_sp-manage" style="flex:1;padding:13px 16px;border-radius:14px;background:rgba(0,122,255,0.08);cursor:pointer;text-align:center;font-size:13px;font-weight:700;color:var(--accent);">📚 Manage Prompts</div><div id="_sp-manage-auto" style="flex:1;padding:13px 16px;border-radius:14px;background:rgba(52,199,89,0.12);cursor:pointer;text-align:center;font-size:13px;font-weight:700;color:#1f9d54;">⚡ Automations</div></div></div>';
+    ov.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:16px 16px max(24px,env(safe-area-inset-bottom));max-height:72vh;display:flex;flex-direction:column;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;"><span style="font-size:16px;font-weight:800;color:var(--text);">⚡ Slash Commands</span><div id="_sp-close" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><div id="_slash-prompts-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;padding-bottom:4px;"></div><div style="display:flex;gap:8px;margin-top:12px;"><div id="_sp-manage" style="flex:1;padding:13px 16px;border-radius:14px;background:rgba(0,122,255,0.08);cursor:pointer;text-align:center;font-size:13px;font-weight:700;color:var(--accent);">📚 Manage Prompts</div></div></div>';
     ov.onclick = function(e) { if(e.target === ov) _closeSlashPromptMenu(); };
     document.body.appendChild(ov);
     document.getElementById('_sp-close').onclick = function() { _closeSlashPromptMenu(); };
     document.getElementById('_sp-manage').onclick = function() { _closeSlashPromptMenu(); closeAllPanels(); manageSection('prompts'); };
-    document.getElementById('_sp-manage-auto').onclick = function() { _closeSlashPromptMenu(); openAutomationBuilder(); };
     const listEl = document.getElementById('_slash-prompts-list');
-    if (!filtP.length && !automationFlows.length) {
-        listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#888;font-size:13px;">No slash commands yet — add prompts or automations.</div>';
+    if (!filtP.length) {
+        listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#888;font-size:13px;">No slash commands yet — add prompts.</div>';
         return;
-    }
-    if(automationFlows.length) {
-        const hdr = document.createElement('div');
-        hdr.style.cssText = 'font-size:11px;font-weight:800;color:#888;padding:4px 2px;';
-        hdr.textContent = 'AUTOMATIONS';
-        listEl.appendChild(hdr);
-        automationFlows.forEach(function(flow) {
-            const d = document.createElement('div');
-            d.style.cssText = 'padding:13px 16px;border-radius:14px;background:rgba(52,199,89,0.1);cursor:pointer;font-size:13px;font-weight:700;color:var(--text);';
-            d.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span>⚡ ${_escH(flow.name || 'Untitled automation')}</span><small style="font-size:10px;color:#888;">/${_escH(flow.command)}</small></div>`;
-            d.onclick = async function() {
-                await _runAutomationFlow(flow, el, isTextField);
-                _closeSlashPromptMenu();
-                if(el.focus) el.focus();
-            };
-            listEl.appendChild(d);
-        });
     }
     if(filtP.length) {
         const hdr = document.createElement('div');
@@ -7305,44 +6980,6 @@ function _linkifyHtml(html) {
     </div>
 </div>
 
-<div id="automation-builder-modal" class="modal" style="display:none; z-index:9300; align-items:center; justify-content:center; padding:20px;">
-    <div style="width:min(880px, 100%); max-height:88vh; overflow:hidden; border-radius:20px; background:var(--bg); border:0.5px solid var(--border); box-shadow:0 20px 60px rgba(0,0,0,0.25); display:flex; flex-direction:column;">
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:0.5px solid var(--border);">
-            <div>
-                <div style="font-size:16px; font-weight:800; color:var(--accent);">⚡ Automation Builder</div>
-                <div style="font-size:12px; color:#888;">Build your flow with profile calls, messages, waits, and commands.</div>
-            </div>
-            <button class="chip" style="font-size:18px; line-height:1;" onclick="closeAutomationBuilder()">✕</button>
-        </div>
-        <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:0; min-height:420px;">
-            <div style="padding:14px; overflow:auto; border-right:0.5px solid var(--border);">
-                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
-                    <select id="automation-flow-select" class="pp-input" style="margin:0; min-width:180px;" onchange="automationSelectFlow(this.value)"></select>
-                    <button class="chip" onclick="automationCreateFlow()">+ New</button>
-                    <button class="chip" onclick="automationSaveCurrentFlow()">Save</button>
-                    <button class="chip" style="color:var(--danger); border-color:var(--danger);" onclick="automationDeleteCurrentFlow()">Delete</button>
-                </div>
-                <label style="display:block; font-size:12px; font-weight:700; color:#777; margin-bottom:6px;">Flow name</label>
-                <input id="automation-flow-name" class="pp-input" style="margin:0 0 10px 0;" placeholder="Name your automation" oninput="automationSetFlowName(this.value)">
-                <div id="automation-steps-list" style="display:flex; flex-direction:column; gap:8px;"></div>
-                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
-                    <button class="chip" onclick="automationAddStep('callProfile')">+ Call profile</button>
-                    <button class="chip" onclick="automationAddStep('inputMessage')">+ Input message</button>
-                    <button class="chip" onclick="automationAddStep('wait')">+ Wait</button>
-                    <button class="chip" onclick="automationAddStep('runCommand')">+ Run command</button>
-                    <button class="chip" style="background:rgba(52,199,89,0.12); color:#1f9d54; border-color:rgba(52,199,89,0.35);" onclick="automationTestRun()">🧪 Test automation</button>
-                </div>
-            </div>
-            <div style="padding:14px; overflow:auto;">
-                <div style="font-size:12px; font-weight:700; color:#777; margin-bottom:6px;">Flow preview</div>
-                <pre id="automation-flow-preview" style="margin:0; background:#020617; color:#e2e8f0; border-radius:12px; padding:12px; min-height:360px; font-size:11px; line-height:1.45; overflow:auto;"></pre>
-                <div style="font-size:12px; font-weight:700; color:#777; margin:10px 0 6px;">Test result</div>
-                <pre id="automation-test-result" style="margin:0; background:var(--sec-bg); color:var(--text); border-radius:12px; padding:12px; min-height:160px; font-size:11px; line-height:1.45; overflow:auto;">Run “Test automation” to validate this flow.</pre>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div id="profile-bubble" style="bottom:110px; right:18px;" title="Profile Chat Bubble" onclick="profileBubbleTap(event)">
     <span id="profile-bubble-icon">?</span>
 </div>
@@ -7362,8 +6999,7 @@ function _linkifyHtml(html) {
         </div>
         <div onclick="openModal('master-modal')" style="font-size:20px; cursor:pointer; opacity:0.55; padding:4px 4px;" title="Settings">⚙️</div>
         <div onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.toggle('open'); renderWorkspaceLists();" style="font-size:16px; cursor:pointer; padding:5px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Open Workspace">🗂️</div>
-        <div onclick="toggleSrvPanel()" style="font-size:16px; cursor:pointer; padding:5px 10px; background:rgba(0,0,0,0.07); border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);" title="Open Automation Builder">⚡</div>
-    </div>
+            </div>
     <div id="hs-body">
         <div id="hs-cards-wrap" style="margin-top:8px;">
         <div class="hs-card" data-card-id="weather">
