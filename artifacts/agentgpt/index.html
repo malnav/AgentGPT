@@ -4343,7 +4343,7 @@ async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
             const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: query || null, maxResults: limit, offset: offset, mailbox: emailCurrentMailbox }) });
             if(!res.ok) return { emails: [] };
             const data = await res.json();
-            const emails = (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name, _mailbox: emailCurrentMailbox }));
+            const emails = (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name, _mailbox: e._mailbox || emailCurrentMailbox }));
             return { emails, hasMore: emails.length >= limit };
         } catch(_) { return { emails: [] }; }
     }
@@ -4702,7 +4702,7 @@ async function gmailLoadMoreEmails() {
                 const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: gmailCurrentQuery || null, maxResults: 25, offset: currentOffset, mailbox: emailCurrentMailbox }) });
                 if(res.ok) {
                     const data = await res.json();
-                    const emails = (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name }));
+                    const emails = (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name, _mailbox: e._mailbox || emailCurrentMailbox }));
                     if(emails.length > 0) { imapOffsets[acct.id] = currentOffset + emails.length; newEmails = newEmails.concat(emails); }
                     if(emails.length >= 25) hasMore = true;
                 }
