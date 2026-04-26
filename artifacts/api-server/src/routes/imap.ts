@@ -75,6 +75,22 @@ function resolveMailbox(mailbox: string, mbNames: string[]): { resolved: string;
     return { resolved: fuzzy || "INBOX", flaggedSearch: false };
 }
 
+function extractFromAddresses(query: string): string[] {
+    const addrs: string[] = [];
+    const fromRe = /from:([\w.+@\-]+)/gi;
+    let match: RegExpExecArray | null;
+    while ((match = fromRe.exec(query)) !== null) addrs.push((match[1] || "").toLowerCase());
+    return [...new Set(addrs.filter(Boolean))];
+}
+
+function buildAddressCriteria(addrs: string[]): any {
+    if (!addrs.length) return { all: true };
+    const build = (a: string): any => ({ or: [{ from: a }, { to: a }, { body: a }] });
+    let crit = build(addrs[0]);
+    for (let i = 1; i < addrs.length; i++) crit = { or: [crit, build(addrs[i])] };
+    return crit;
+}
+
 router.post("/imap/fetch", async (req: Request, res: Response) => {
     const { host, port, user, pass, tls, query, maxResults = 25, offset = 0, mailbox = "INBOX" } = req.body;
     if (!host || !user || !pass) return res.status(400).json({ error: "Missing required fields: host, user, pass" });
@@ -87,24 +103,17 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
             await client.mailboxOpen(resolvedMailbox);
             console.log(`[IMAP] Opened mailbox: ${resolvedMailbox}, flaggedSearch: ${flaggedSearch}`);
             let searchCriteria: any = flaggedSearch ? { flagged: true } : { all: true };
+            const q = (query || "").trim();
+            const fromAddrs = q ? extractFromAddresses(q) : [];
             if (query && !flaggedSearch) {
-                const q = query.trim();
-                const fromAddrs: string[] = [];
-                const fromRe = /from:([\w.+@\-]+)/gi;
-                let fm: RegExpExecArray | null;
-                while ((fm = fromRe.exec(q)) !== null) fromAddrs.push(fm[1]);
                 if (fromAddrs.length > 0) {
-                    const build = (a: string): any => ({ or: [{ from: a }, { to: a }, { body: a }] });
-                    let crit = build(fromAddrs[0]);
-                    for (let i = 1; i < fromAddrs.length; i++) crit = { or: [crit, build(fromAddrs[i])] };
-                    searchCriteria = crit;
+                    searchCriteria = buildAddressCriteria(fromAddrs);
                 } else if (q.startsWith("subject:")) {
                     searchCriteria = { subject: q.slice(8).trim() };
                 } else {
                     searchCriteria = { or: [{ subject: q }, { body: q }] };
                 }
             } else if (query && flaggedSearch) {
-                const q = query.trim();
                 searchCriteria = { flagged: true, or: [{ subject: q }, { body: q }] };
             }
             const uids: number[] = await client.search(searchCriteria, { uid: true }) as number[];
@@ -143,7 +152,8 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                         });
 
                         await client.mailboxOpen(sentMailbox);
-                        const sentUids: number[] = await client.search({ all: true }, { uid: true }) as number[];
+                        const sentCriteria = fromAddrs.length > 0 ? buildAddressCriteria(fromAddrs) : { all: true };
+                        const sentUids: number[] = await client.search(sentCriteria, { uid: true }) as number[];
                         const sentSlice = [...sentUids].slice(-Math.max(75, take * 3)).reverse();
                         for await (const msg of client.fetch(sentSlice.length ? sentSlice : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
                             const allTargets = [
@@ -151,7 +161,9 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                                 ...flattenAddresses(msg.envelope?.cc),
                                 ...flattenAddresses(msg.envelope?.bcc),
                             ];
-                            const isRelated = allTargets.some((a) => inboxParticipants.has(a));
+                            const isRelated = fromAddrs.length > 0
+                                ? allTargets.some((a) => fromAddrs.includes(a))
+                                : allTargets.some((a) => inboxParticipants.has(a));
                             if (!isRelated) continue;
                             const threadKey = buildThreadKey(user, msg.envelope);
                             mergedResults.push({
