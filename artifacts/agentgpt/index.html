@@ -2174,7 +2174,104 @@ function ctxSwitchTab(tab) {
     if(tab==='gmail') { if(gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box').value.trim() || null); } else { gmailLoadEmails(); } }
 }
 function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
-function toggleSrvPanel() { tplPanelSwitch('services'); closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.add('open'); }
+function toggleSrvPanel() { openAutomationBuilder(); }
+
+let _automationFlowName = 'My automation';
+let _automationSteps = [
+    { id: 1, type: 'callProfile', value: 'sales-assistant' },
+    { id: 2, type: 'inputMessage', value: 'Hello, summarize today leads.' }
+];
+const _automationStepLabels = {
+    callProfile: 'Call profile',
+    inputMessage: 'Input message',
+    wait: 'Wait (ms)',
+    runCommand: 'Run command'
+};
+
+function openAutomationBuilder() {
+    const modal = document.getElementById('automation-builder-modal');
+    if (!modal) return;
+    closeAllPanels();
+    modal.style.display = 'flex';
+    renderAutomationBuilder();
+}
+
+function closeAutomationBuilder() {
+    const modal = document.getElementById('automation-builder-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderAutomationBuilder() {
+    const nameInput = document.getElementById('automation-flow-name');
+    const listEl = document.getElementById('automation-steps-list');
+    const previewEl = document.getElementById('automation-flow-preview');
+    if (!nameInput || !listEl || !previewEl) return;
+
+    nameInput.value = _automationFlowName;
+    listEl.innerHTML = _automationSteps.map((step, index) => {
+        const options = Object.entries(_automationStepLabels)
+            .map(([value, label]) => `<option value="${value}" ${step.type === value ? 'selected' : ''}>${label}</option>`)
+            .join('');
+        const placeholder = step.type === 'callProfile' ? 'Profile name' : step.type === 'inputMessage' ? 'Message text' : step.type === 'wait' ? 'Milliseconds' : 'Command';
+        const inputType = step.type === 'wait' ? 'number' : 'text';
+        return `<div style="border:0.5px solid var(--border); border-radius:12px; padding:10px; display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                <span style="font-size:12px; font-weight:800;">Step ${index + 1}</span>
+                <select class="pp-input" style="margin:0; padding:6px 8px; width:auto;" onchange="automationUpdateStep(${step.id}, 'type', this.value)">${options}</select>
+                <button class="chip" onclick="automationMoveStep(${step.id}, -1)">↑</button>
+                <button class="chip" onclick="automationMoveStep(${step.id}, 1)">↓</button>
+                <button class="chip" style="color:var(--danger); border-color:var(--danger);" onclick="automationRemoveStep(${step.id})">Remove</button>
+            </div>
+            <input class="pp-input" style="margin:0;" type="${inputType}" value="${(step.value || '').replace(/"/g,'&quot;')}" placeholder="${placeholder}" oninput="automationUpdateStep(${step.id}, 'value', this.value)">
+        </div>`;
+    }).join('');
+
+    previewEl.textContent = JSON.stringify({
+        name: _automationFlowName,
+        steps: _automationSteps.map((step) => {
+            if (step.type === 'callProfile') return { type: step.type, profile: step.value };
+            if (step.type === 'inputMessage') return { type: step.type, message: step.value };
+            if (step.type === 'wait') return { type: step.type, ms: Number(step.value || 0) };
+            return { type: step.type, command: step.value };
+        })
+    }, null, 2);
+}
+
+function automationSetFlowName(value) {
+    _automationFlowName = value;
+    renderAutomationBuilder();
+}
+
+function automationAddStep(type) {
+    const nextId = _automationSteps.length ? Math.max(..._automationSteps.map((s) => s.id)) + 1 : 1;
+    _automationSteps.push({ id: nextId, type, value: '' });
+    renderAutomationBuilder();
+}
+
+function automationUpdateStep(id, key, value) {
+    _automationSteps = _automationSteps.map((step) => {
+        if (step.id !== id) return step;
+        if (key === 'type') return { ...step, type: value, value: '' };
+        return { ...step, [key]: value };
+    });
+    renderAutomationBuilder();
+}
+
+function automationRemoveStep(id) {
+    _automationSteps = _automationSteps.filter((step) => step.id !== id);
+    renderAutomationBuilder();
+}
+
+function automationMoveStep(id, direction) {
+    const index = _automationSteps.findIndex((step) => step.id === id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= _automationSteps.length) return;
+    const copy = [..._automationSteps];
+    const [moved] = copy.splice(index, 1);
+    copy.splice(nextIndex, 0, moved);
+    _automationSteps = copy;
+    renderAutomationBuilder();
+}
 function tplPanelSwitch(tab) {
     ['templates','services','links'].forEach(t => {
         const btn = document.getElementById('tpl-panel-tab-btn-'+t);
@@ -6883,6 +6980,35 @@ function _linkifyHtml(html) {
                 <button class="chip" style="font-size:12px; padding:4px 10px; color:var(--accent);" onmousedown="event.preventDefault(); _composeInsertSignature()">✍️ Sig</button>
                 <span style="flex:1;"></span>
                 <button type="button" style="font-size:12px; color:#888; background:none; border:none; cursor:pointer; padding:4px 8px;" onclick="closeModal('email-compose-modal')">Discard</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="automation-builder-modal" class="modal" style="display:none; z-index:190; align-items:center; justify-content:center; padding:20px;">
+    <div style="width:min(880px, 100%); max-height:88vh; overflow:hidden; border-radius:20px; background:var(--bg); border:0.5px solid var(--border); box-shadow:0 20px 60px rgba(0,0,0,0.25); display:flex; flex-direction:column;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:0.5px solid var(--border);">
+            <div>
+                <div style="font-size:16px; font-weight:800; color:var(--accent);">⚡ Automation Builder</div>
+                <div style="font-size:12px; color:#888;">Build your flow with profile calls, messages, waits, and commands.</div>
+            </div>
+            <button class="chip" style="font-size:18px; line-height:1;" onclick="closeAutomationBuilder()">✕</button>
+        </div>
+        <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:0; min-height:420px;">
+            <div style="padding:14px; overflow:auto; border-right:0.5px solid var(--border);">
+                <label style="display:block; font-size:12px; font-weight:700; color:#777; margin-bottom:6px;">Flow name</label>
+                <input id="automation-flow-name" class="pp-input" style="margin:0 0 10px 0;" placeholder="Name your automation" oninput="automationSetFlowName(this.value)">
+                <div id="automation-steps-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
+                    <button class="chip" onclick="automationAddStep('callProfile')">+ Call profile</button>
+                    <button class="chip" onclick="automationAddStep('inputMessage')">+ Input message</button>
+                    <button class="chip" onclick="automationAddStep('wait')">+ Wait</button>
+                    <button class="chip" onclick="automationAddStep('runCommand')">+ Run command</button>
+                </div>
+            </div>
+            <div style="padding:14px; overflow:auto;">
+                <div style="font-size:12px; font-weight:700; color:#777; margin-bottom:6px;">Flow preview</div>
+                <pre id="automation-flow-preview" style="margin:0; background:#020617; color:#e2e8f0; border-radius:12px; padding:12px; min-height:360px; font-size:11px; line-height:1.45; overflow:auto;"></pre>
             </div>
         </div>
     </div>
