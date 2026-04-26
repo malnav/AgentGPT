@@ -2207,6 +2207,13 @@ function renderAutomationBuilder() {
             .join('');
         const placeholder = step.type === 'callProfile' ? 'Profile name' : step.type === 'inputMessage' ? 'Message text' : step.type === 'wait' ? 'Milliseconds' : 'Command';
         const inputType = step.type === 'wait' ? 'number' : 'text';
+        const profileOptions = (AI_PROFILES || []).map((p) => `<option value="${_escH(p.label)}" ${step.value === p.label ? 'selected' : ''}>${_escH(p.label)}</option>`).join('');
+        const valueControl = step.type === 'callProfile'
+            ? `<select class="pp-input" style="margin:0;" onchange="automationUpdateStep(${step.id}, 'value', this.value)">
+                <option value="">Select profile</option>
+                ${profileOptions}
+            </select>`
+            : `<input class="pp-input" style="margin:0;" type="${inputType}" value="${(step.value || '').replace(/"/g,'&quot;')}" placeholder="${placeholder}" oninput="automationUpdateStep(${step.id}, 'value', this.value)">`;
         return `<div style="border:0.5px solid var(--border); border-radius:12px; padding:10px; display:flex; flex-direction:column; gap:8px;">
             <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
                 <span style="font-size:12px; font-weight:800;">Step ${index + 1}</span>
@@ -2215,7 +2222,7 @@ function renderAutomationBuilder() {
                 <button class="chip" onclick="automationMoveStep(${step.id}, 1)">↓</button>
                 <button class="chip" style="color:var(--danger); border-color:var(--danger);" onclick="automationRemoveStep(${step.id})">Remove</button>
             </div>
-            <input class="pp-input" style="margin:0;" type="${inputType}" value="${(step.value || '').replace(/"/g,'&quot;')}" placeholder="${placeholder}" oninput="automationUpdateStep(${step.id}, 'value', this.value)">
+            ${valueControl}
         </div>`;
     }).join('');
 
@@ -2310,6 +2317,68 @@ function automationSaveCurrent() {
     }
     automationSaveState();
     renderAutomationBuilder();
+}
+function automationTestRun() {
+    const resultEl = document.getElementById('automation-test-result');
+    if (!resultEl) return;
+    const availableProfiles = new Set((AI_PROFILES || []).map((p) => p.label));
+    const now = new Date();
+    const lines = [];
+    let ok = true;
+    let activeProfile = CONFIG.def_profile || activeProfileLabel || '';
+    lines.push(`Test started: ${now.toLocaleString()}`);
+    if (!_automationSteps.length) {
+        lines.push('❌ No steps configured.');
+        ok = false;
+    }
+    _automationSteps.forEach((step, index) => {
+        const num = index + 1;
+        if (step.type === 'callProfile') {
+            const target = String(step.value || '').trim();
+            if (!target) {
+                lines.push(`${num}. ❌ Call profile: no profile selected.`);
+                ok = false;
+                return;
+            }
+            if (!availableProfiles.has(target)) {
+                lines.push(`${num}. ❌ Call profile: "${target}" not found.`);
+                ok = false;
+                return;
+            }
+            activeProfile = target;
+            lines.push(`${num}. ✅ Call profile: switched to "${target}".`);
+            return;
+        }
+        if (step.type === 'inputMessage') {
+            const text = String(step.value || '').trim();
+            if (!text) {
+                lines.push(`${num}. ⚠️ Input message is empty.`);
+            } else {
+                lines.push(`${num}. ✅ Input message (${Math.min(text.length, 120)} chars) queued for "${activeProfile || 'N/A'}".`);
+            }
+            return;
+        }
+        if (step.type === 'wait') {
+            const ms = Number(step.value || 0);
+            if (!Number.isFinite(ms) || ms < 0) {
+                lines.push(`${num}. ❌ Wait value must be a non-negative number.`);
+                ok = false;
+                return;
+            }
+            lines.push(`${num}. ✅ Wait ${ms} ms.`);
+            return;
+        }
+        const cmd = String(step.value || '').trim();
+        if (!cmd) {
+            lines.push(`${num}. ⚠️ Run command is empty.`);
+            return;
+        }
+        lines.push(`${num}. ✅ Run command prepared: ${cmd}`);
+    });
+    lines.push(ok ? 'Result: PASS (validation only, no live execution).' : 'Result: FAIL (fix invalid steps above).');
+    resultEl.textContent = lines.join('\n');
+    resultEl.style.borderColor = ok ? '#34c759' : '#ff3b30';
+    notify(ok ? 'Automation test passed' : 'Automation test found issues', ok ? '#34c759' : '#ff3b30');
 }
 function automationLoadItem(id) {
     const item = _automationList.find(x => x.id === id);
@@ -6921,6 +6990,7 @@ function _linkifyHtml(html) {
                 <div style="display:flex; gap:6px; flex-wrap:wrap; margin:0 0 10px 0;">
                     <button class="chip" onclick="automationSaveCurrent()">💾 Save automation</button>
                     <button class="chip" onclick="automationResetDraft()">➕ New draft</button>
+                    <button class="chip" style="background:rgba(52,199,89,0.12); border-color:rgba(52,199,89,0.5);" onclick="automationTestRun()">🧪 Test automation</button>
                 </div>
                 <div id="automation-steps-list" style="display:flex; flex-direction:column; gap:8px;"></div>
                 <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
@@ -6929,6 +6999,8 @@ function _linkifyHtml(html) {
                     <button class="chip" onclick="automationAddStep('wait')">+ Wait</button>
                     <button class="chip" onclick="automationAddStep('runCommand')">+ Run command</button>
                 </div>
+                <div style="font-size:12px; font-weight:700; color:#777; margin:12px 0 6px;">Test result</div>
+                <pre id="automation-test-result" style="margin:0; background:#111827; color:#e5e7eb; border-radius:12px; border:1px solid var(--border); padding:12px; min-height:120px; font-size:11px; line-height:1.45; overflow:auto;">Run “🧪 Test automation” to validate steps.</pre>
             </div>
             <div style="padding:14px; overflow:auto;">
                 <div style="font-size:12px; font-weight:700; color:#777; margin-bottom:6px;">Saved automation list (CRUD)</div>
