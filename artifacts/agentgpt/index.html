@@ -2181,12 +2181,107 @@ let _automationSteps = [
     { id: 1, type: 'callProfile', value: 'sales-assistant' },
     { id: 2, type: 'inputMessage', value: 'Hello, summarize today leads.' }
 ];
+let _automationFlows = [];
+let _automationActiveId = null;
 const _automationStepLabels = {
     callProfile: 'Call profile',
     inputMessage: 'Input message',
     wait: 'Wait (ms)',
     runCommand: 'Run command'
 };
+
+function _defaultAutomationSteps() {
+    return [
+        { id: 1, type: 'callProfile', value: 'sales-assistant' },
+        { id: 2, type: 'inputMessage', value: 'Hello, summarize today leads.' }
+    ];
+}
+
+function _normalizeAutomationStep(step, fallbackId) {
+    return {
+        id: Number(step && step.id) || fallbackId,
+        type: _automationStepLabels[(step && step.type) || ''] ? step.type : 'inputMessage',
+        value: String((step && step.value) || '')
+    };
+}
+
+function _normalizeAutomationFlow(flow, fallbackId) {
+    const safeId = String((flow && flow.id) || fallbackId || Date.now());
+    const safeName = String((flow && flow.name) || 'My automation');
+    const rawSteps = Array.isArray(flow && flow.steps) ? flow.steps : [];
+    const safeSteps = (rawSteps.length ? rawSteps : _defaultAutomationSteps()).map((step, index) => _normalizeAutomationStep(step, index + 1));
+    return { id: safeId, name: safeName, steps: safeSteps };
+}
+
+function automationLoadFromConfig() {
+    const stored = Array.isArray(CONFIG.automations) ? CONFIG.automations : [];
+    _automationFlows = stored.map((flow, index) => _normalizeAutomationFlow(flow, String(index + 1)));
+    if (!_automationFlows.length) {
+        _automationFlows = [{ id: String(Date.now()), name: _automationFlowName, steps: _defaultAutomationSteps() }];
+    }
+    _automationActiveId = _automationFlows[0].id;
+    automationLoadFlow(_automationActiveId);
+}
+
+function automationLoadFlow(id) {
+    const flow = _automationFlows.find((item) => String(item.id) === String(id));
+    if (!flow) return;
+    _automationActiveId = flow.id;
+    _automationFlowName = flow.name;
+    _automationSteps = flow.steps.map((step, index) => _normalizeAutomationStep(step, index + 1));
+}
+
+function automationPersistDraft() {
+    if (!_automationActiveId) return;
+    _automationFlows = _automationFlows.map((flow) => {
+        if (String(flow.id) !== String(_automationActiveId)) return flow;
+        return {
+            ...flow,
+            name: _automationFlowName || 'Untitled automation',
+            steps: _automationSteps.map((step, index) => _normalizeAutomationStep(step, index + 1))
+        };
+    });
+}
+
+async function automationSaveCurrentFlow() {
+    automationPersistDraft();
+    CONFIG.automations = _automationFlows.map((flow) => ({
+        id: flow.id,
+        name: flow.name,
+        steps: flow.steps.map((step) => ({ id: step.id, type: step.type, value: step.value }))
+    }));
+    await saveAll();
+    notify('Automation saved', '#34c759');
+    renderAutomationBuilder();
+}
+
+function automationCreateFlow() {
+    const id = String(Date.now()) + String(Math.floor(Math.random() * 1000));
+    const flow = { id, name: 'New automation', steps: [] };
+    _automationFlows.push(flow);
+    automationLoadFlow(id);
+    renderAutomationBuilder();
+}
+
+function automationSelectFlow(id) {
+    automationPersistDraft();
+    automationLoadFlow(id);
+    renderAutomationBuilder();
+}
+
+async function automationDeleteCurrentFlow() {
+    if (!_automationActiveId) return;
+    if (_automationFlows.length <= 1) {
+        notify('Keep at least one automation', '#888');
+        return;
+    }
+    const removed = _automationFlows.find((flow) => String(flow.id) === String(_automationActiveId));
+    _automationFlows = _automationFlows.filter((flow) => String(flow.id) !== String(_automationActiveId));
+    const next = _automationFlows[0];
+    if (next) automationLoadFlow(next.id);
+    await automationSaveCurrentFlow();
+    notify(`Deleted ${removed ? removed.name : 'automation'}`, '#ff9500');
+}
 
 function openAutomationBuilder() {
     const modal = document.getElementById('automation-builder-modal');
@@ -2206,6 +2301,13 @@ function renderAutomationBuilder() {
     const listEl = document.getElementById('automation-steps-list');
     const previewEl = document.getElementById('automation-flow-preview');
     if (!nameInput || !listEl || !previewEl) return;
+
+    automationPersistDraft();
+    const flowSelect = document.getElementById('automation-flow-select');
+    if (flowSelect) {
+        flowSelect.innerHTML = _automationFlows.map((flow) => `<option value="${flow.id}">${flow.name || 'Untitled automation'}</option>`).join('');
+        if (_automationActiveId) flowSelect.value = _automationActiveId;
+    }
 
     nameInput.value = _automationFlowName;
     listEl.innerHTML = _automationSteps.map((step, index) => {
@@ -2281,6 +2383,10 @@ if (typeof window !== 'undefined') {
     window.automationUpdateStep = automationUpdateStep;
     window.automationRemoveStep = automationRemoveStep;
     window.automationMoveStep = automationMoveStep;
+    window.automationSaveCurrentFlow = automationSaveCurrentFlow;
+    window.automationCreateFlow = automationCreateFlow;
+    window.automationSelectFlow = automationSelectFlow;
+    window.automationDeleteCurrentFlow = automationDeleteCurrentFlow;
 }
 function tplPanelSwitch(tab) {
     ['templates','services','links'].forEach(t => {
@@ -2323,7 +2429,8 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {}; _syncBubbleConfigs();
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", paypal_client_id: storedCfg.paypal_client_id || "", paypal_client_secret: storedCfg.paypal_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1, hs_hidden_cards: storedCfg.hs_hidden_cards || [], email_signatures: storedCfg.email_signatures || [], email_signature: storedCfg.email_signature || "" };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", paypal_client_id: storedCfg.paypal_client_id || "", paypal_client_secret: storedCfg.paypal_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1, hs_hidden_cards: storedCfg.hs_hidden_cards || [], email_signatures: storedCfg.email_signatures || [], email_signature: storedCfg.email_signature || "", automations: storedCfg.automations || [] };
+    automationLoadFromConfig();
     _loadNotes(); if (CONFIG.home_screen) { const _hsEl = document.getElementById('home-screen'); if (_hsEl) _hsEl.style.display = 'flex'; const _pbEl = document.getElementById('profile-bubble'); if (_pbEl) _pbEl.style.display = 'none'; }
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
@@ -7006,6 +7113,12 @@ function _linkifyHtml(html) {
         </div>
         <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:0; min-height:420px;">
             <div style="padding:14px; overflow:auto; border-right:0.5px solid var(--border);">
+                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+                    <select id="automation-flow-select" class="pp-input" style="margin:0; min-width:180px;" onchange="automationSelectFlow(this.value)"></select>
+                    <button class="chip" onclick="automationCreateFlow()">+ New</button>
+                    <button class="chip" onclick="automationSaveCurrentFlow()">Save</button>
+                    <button class="chip" style="color:var(--danger); border-color:var(--danger);" onclick="automationDeleteCurrentFlow()">Delete</button>
+                </div>
                 <label style="display:block; font-size:12px; font-weight:700; color:#777; margin-bottom:6px;">Flow name</label>
                 <input id="automation-flow-name" class="pp-input" style="margin:0 0 10px 0;" placeholder="Name your automation" oninput="automationSetFlowName(this.value)">
                 <div id="automation-steps-list" style="display:flex; flex-direction:column; gap:8px;"></div>
