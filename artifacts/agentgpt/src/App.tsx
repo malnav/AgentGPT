@@ -40,8 +40,11 @@ function Home() {
   const [steps, setSteps] = useState<Step[]>(defaultSteps);
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [selectedAutomationId, setSelectedAutomationId] = useState<number | null>(null);
+  const [isBuilderOpen, setIsBuilderOpen] = useState(true);
   const [chatInput, setChatInput] = useState("");
-  const [invokeResult, setInvokeResult] = useState("Use /automation-name in the box below to run one from any input.");
+  const [invokeResult, setInvokeResult] = useState(
+    "Use / to list automations, /automation-name to run one, or ⚡️ to open automation UI."
+  );
 
   const addStep = (type: StepType) => {
     setSteps((current) => {
@@ -161,12 +164,42 @@ function Home() {
 
   const runInput = () => {
     const input = chatInput.trim();
+    if (!input) {
+      setInvokeResult("Type / to list automations, /automation-name to run, or ⚡️ to open the builder.");
+      return;
+    }
+
+    if (input.startsWith("⚡️") || input.startsWith("⚡")) {
+      setIsBuilderOpen(true);
+      const token = input.replace(/^⚡️?/, "").trim().toLowerCase();
+      if (!token) {
+        setInvokeResult("Automation builder opened.");
+        return;
+      }
+
+      const automation = automations.find((item) => item.name.trim().toLowerCase().replace(/\s+/g, "-") === token);
+      if (automation) {
+        loadAutomation(automation.id);
+        setInvokeResult(`Opened automation UI for "${automation.name}".`);
+        return;
+      }
+
+      setInvokeResult(`Opened builder, but automation "${token}" was not found.`);
+      return;
+    }
+
     if (!input.startsWith("/")) {
       setInvokeResult("No automation call found. Prefix with /automation-name to invoke.");
       return;
     }
 
     const token = input.slice(1).split(/\s+/)[0]?.trim().toLowerCase();
+    if (!token) {
+      const list = automations.map((item) => `/${item.name.replace(/\s+/g, "-")}`);
+      setInvokeResult(`Frontend automation list:\n${list.length > 0 ? list.join("\n") : "No automations yet."}`);
+      return;
+    }
+
     const automation = automations.find((item) => item.name.trim().toLowerCase().replace(/\s+/g, "-") === token);
 
     if (!automation) {
@@ -227,164 +260,181 @@ function Home() {
       <div className="mx-auto max-w-5xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold">Frontend Automation Builder</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Build automations directly in the frontend UI and trigger them from any input using slash format (example: /my-automation).
+          Build automations directly in the frontend UI. Use / to list, /my-automation to run, and ⚡️ to open the automation UI.
         </p>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
-          <div>
-            <label className="block text-sm font-medium">Flow name</label>
-            <input
-              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              value={flowName}
-              onChange={(event) => setFlowName(event.target.value)}
-              placeholder="Name your automation"
-            />
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={saveAutomation}>
-                {selectedAutomationId === null ? "Create automation" : "Update automation"}
-              </button>
-              <button type="button" className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={resetEditor}>
-                New draft
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 p-4">
-            <h2 className="text-sm font-semibold">Automation list (CRUD)</h2>
-            <div className="mt-3 space-y-2">
-              {automations.length === 0 ? (
-                <p className="text-xs text-slate-500">No automations yet.</p>
-              ) : (
-                automations.map((automation) => (
-                  <div key={automation.id} className="rounded border border-slate-200 p-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium">{automation.name}</p>
-                      <p className="text-xs text-slate-500">/{automation.name.replace(/\s+/g, "-")}</p>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="rounded border border-slate-300 px-2 py-1 text-xs"
-                        onClick={() => loadAutomation(automation.id)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded border border-slate-300 px-2 py-1 text-xs"
-                        onClick={() => duplicateAutomation(automation.id)}
-                      >
-                        Duplicate
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded border border-red-300 px-2 py-1 text-xs text-red-600"
-                        onClick={() => deleteAutomation(automation.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+        <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <h2 className="text-sm font-semibold">Invoke from any input</h2>
+          <input
+            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            value={chatInput}
+            onChange={(event) => setChatInput(event.target.value)}
+            placeholder="Try: /, /my-automation run this, or ⚡️"
+          />
+          <button type="button" className="mt-2 rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={runInput}>
+            Parse and trigger
+          </button>
+          <pre className="mt-2 min-h-28 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{invokeResult}</pre>
         </div>
 
-        <div className="mt-6 space-y-3">
-          {steps.map((step, index) => (
-            <div key={step.id} className="rounded-lg border border-slate-200 p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-semibold">Step {index + 1}</span>
-                <select
-                  className="rounded border border-slate-300 px-2 py-1 text-sm"
-                  value={step.type}
-                  onChange={(event) => updateStep(step.id, { type: event.target.value as StepType, value: "" })}
-                >
-                  {Object.entries(stepLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="rounded border px-2 py-1 text-xs"
-                  onClick={() => moveStep(step.id, -1)}
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  className="rounded border px-2 py-1 text-xs"
-                  onClick={() => moveStep(step.id, 1)}
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  className="rounded border border-red-300 px-2 py-1 text-xs text-red-600"
-                  onClick={() => removeStep(step.id)}
-                >
-                  Remove
-                </button>
+        {isBuilderOpen ? (
+          <>
+            <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="block text-sm font-medium">Flow name</label>
+                  <button
+                    type="button"
+                    className="rounded border border-slate-300 px-2 py-1 text-xs"
+                    onClick={() => setIsBuilderOpen(false)}
+                  >
+                    Hide builder
+                  </button>
+                </div>
+                <input
+                  className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  value={flowName}
+                  onChange={(event) => setFlowName(event.target.value)}
+                  placeholder="Name your automation"
+                />
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={saveAutomation}>
+                    {selectedAutomationId === null ? "Create automation" : "Update automation"}
+                  </button>
+                  <button type="button" className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={resetEditor}>
+                    New draft
+                  </button>
+                </div>
               </div>
 
-              <input
-                className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={step.value}
-                type={step.type === "wait" ? "number" : "text"}
-                onChange={(event) => updateStep(step.id, { value: event.target.value })}
-                placeholder={
-                  step.type === "callProfile"
-                    ? "Profile name"
-                    : step.type === "inputMessage"
-                      ? "Message text"
-                      : step.type === "wait"
-                        ? "Milliseconds"
-                        : "Command"
-                }
-              />
+              <div className="rounded-lg border border-slate-200 p-4">
+                <h2 className="text-sm font-semibold">Automation list (CRUD)</h2>
+                <div className="mt-3 space-y-2">
+                  {automations.length === 0 ? (
+                    <p className="text-xs text-slate-500">No automations yet.</p>
+                  ) : (
+                    automations.map((automation) => (
+                      <div key={automation.id} className="rounded border border-slate-200 p-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">{automation.name}</p>
+                          <p className="text-xs text-slate-500">/{automation.name.replace(/\s+/g, "-")}</p>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="rounded border border-slate-300 px-2 py-1 text-xs"
+                            onClick={() => loadAutomation(automation.id)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded border border-slate-300 px-2 py-1 text-xs"
+                            onClick={() => duplicateAutomation(automation.id)}
+                          >
+                            Duplicate
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded border border-red-300 px-2 py-1 text-xs text-red-600"
+                            onClick={() => deleteAutomation(automation.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={() => addStep("callProfile")}>
-            + Call profile
-          </button>
-          <button type="button" className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={() => addStep("inputMessage")}>
-            + Input message
-          </button>
-          <button type="button" className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={() => addStep("wait")}>
-            + Wait
-          </button>
-          <button type="button" className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={() => addStep("runCommand")}>
-            + Run command
-          </button>
-        </div>
+            <div className="mt-6 space-y-3">
+              {steps.map((step, index) => (
+                <div key={step.id} className="rounded-lg border border-slate-200 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold">Step {index + 1}</span>
+                    <select
+                      className="rounded border border-slate-300 px-2 py-1 text-sm"
+                      value={step.type}
+                      onChange={(event) => updateStep(step.id, { type: event.target.value as StepType, value: "" })}
+                    >
+                      {Object.entries(stepLabels).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="rounded border px-2 py-1 text-xs"
+                      onClick={() => moveStep(step.id, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border px-2 py-1 text-xs"
+                      onClick={() => moveStep(step.id, 1)}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border border-red-300 px-2 py-1 text-xs text-red-600"
+                      onClick={() => removeStep(step.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <div>
-            <h2 className="text-sm font-semibold">Flow preview</h2>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{preview}</pre>
-          </div>
+                  <input
+                    className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    value={step.value}
+                    type={step.type === "wait" ? "number" : "text"}
+                    onChange={(event) => updateStep(step.id, { value: event.target.value })}
+                    placeholder={
+                      step.type === "callProfile"
+                        ? "Profile name"
+                        : step.type === "inputMessage"
+                          ? "Message text"
+                          : step.type === "wait"
+                            ? "Milliseconds"
+                            : "Command"
+                    }
+                  />
+                </div>
+              ))}
+            </div>
 
-          <div>
-            <h2 className="text-sm font-semibold">Invoke from any input (/)</h2>
-            <input
-              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              value={chatInput}
-              onChange={(event) => setChatInput(event.target.value)}
-              placeholder="Try: /my-automation run this for customer A"
-            />
-            <button type="button" className="mt-2 rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={runInput}>
-              Parse and trigger
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={() => addStep("callProfile")}>
+                + Call profile
+              </button>
+              <button type="button" className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={() => addStep("inputMessage")}>
+                + Input message
+              </button>
+              <button type="button" className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={() => addStep("wait")}>
+                + Wait
+              </button>
+              <button type="button" className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={() => addStep("runCommand")}>
+                + Run command
+              </button>
+            </div>
+
+            <div className="mt-6">
+              <h2 className="text-sm font-semibold">Flow preview</h2>
+              <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{preview}</pre>
+            </div>
+          </>
+        ) : (
+          <div className="mt-4">
+            <button type="button" className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={() => setIsBuilderOpen(true)}>
+              Open builder
             </button>
-            <pre className="mt-2 min-h-44 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{invokeResult}</pre>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
