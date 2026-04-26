@@ -1,9 +1,0 @@
-{
-  "name": "profile-and-message-sequence",
-  "steps": [
-    { "type": "callProfile", "profile": "sales-assistant" },
-    { "type": "inputMessage", "message": "Hello, please summarize today's leads." },
-    { "type": "wait", "ms": 500 },
-    { "type": "inputMessage", "message": "Now draft a follow-up email for the top 3 leads." }
-  ]
-}
