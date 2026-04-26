@@ -6973,23 +6973,41 @@ function _showAtMentionPicker(el, draft, isTextArea) {
     const menu = document.createElement('div');
     menu.id = '_at-mention-menu';
     menu.style.cssText = 'position:fixed;inset:0;z-index:9500;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);';
-    menu.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px 16px max(36px,env(safe-area-inset-bottom));"><div style="font-size:15px;font-weight:800;margin-bottom:6px;color:var(--text);">@ Chat with…</div><div style="font-size:11px;color:#888;margin-bottom:12px;">Opens a floating chat with this profile. Your current text becomes the context.</div><div id="at-mention-list" style="display:flex;flex-direction:column;gap:8px;"></div><button onclick="_closeAtMention(true);" style="width:100%;margin-top:14px;padding:12px;background:transparent;border:none;font-size:14px;color:#888;cursor:pointer;">Cancel (keep @)</button></div>';
+    menu.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px 16px max(36px,env(safe-area-inset-bottom));"><div style="font-size:15px;font-weight:800;margin-bottom:6px;color:var(--text);">@ Chat with…</div><div style="font-size:11px;color:#888;margin-bottom:12px;">Pick a profile, then either open chat or send your draft instantly.</div><div id="at-mention-list" style="display:flex;flex-direction:column;gap:8px;"></div><button onclick="_closeAtMention(true);" style="width:100%;margin-top:14px;padding:12px;background:transparent;border:none;font-size:14px;color:#888;cursor:pointer;">Cancel (keep @)</button></div>';
     menu.onclick = (e) => { if(e.target===menu) _closeAtMention(true); };
     document.body.appendChild(menu);
     const listEl = document.getElementById('at-mention-list');
     AI_PROFILES.forEach(p => {
         const d = document.createElement('div');
-        d.style.cssText = 'padding:12px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:10px;';
-        d.innerHTML = `<span style="font-size:22px;flex-shrink:0;">${p.emoji||'🤖'}</span><span>${p.label}</span>`;
+        d.style.cssText = 'padding:12px 16px;border-radius:14px;background:var(--sec-bg);font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:10px;';
+        const quickBtn = draft ? `<button style="margin-left:auto;border:none;background:var(--accent);color:#fff;border-radius:10px;padding:7px 11px;font-size:11px;font-weight:800;cursor:pointer;">⚡ Send</button>` : '';
+        d.innerHTML = `<span style="font-size:22px;flex-shrink:0;">${p.emoji||'🤖'}</span><span style="flex:1;">${p.label}</span>${quickBtn}`;
         d.onclick = (ev) => {
             ev.stopPropagation();
-            _closeAtMention(false);
-            if(isTextArea) { el.value = draft; _atMentionInsStart = el.value.length; _atMentionSavedRange = null; } else { el.innerText = draft; _atMentionInsStart = -1; try { const _r=document.createRange(); _r.selectNodeContents(el); _r.collapse(false); _atMentionSavedRange=_r; } catch(_e){ _atMentionSavedRange=null; } }
-            if(draft) { const lines = draft.split('\n').filter(l=>l.trim()).slice(0,40); lines.forEach(l=>{ if(!CONTEXT_LINES.includes(l)) CONTEXT_LINES.push(l); }); cutIdx=CONTEXT_LINES.length-1; saveAll(true); }
-            createFchatSession(p.label);
+            const shouldQuickSend = !!ev.target.closest('button');
+            _startAtMentionChat(el, draft, isTextArea, p.label, shouldQuickSend);
         };
         listEl.appendChild(d);
     });
+}
+async function _startAtMentionChat(el, draft, isTextArea, profileLabel, quickSend) {
+    _closeAtMention(false);
+    if(isTextArea) { el.value = draft; _atMentionInsStart = el.value.length; _atMentionSavedRange = null; } else { el.innerText = draft; _atMentionInsStart = -1; try { const _r=document.createRange(); _r.selectNodeContents(el); _r.collapse(false); _atMentionSavedRange=_r; } catch(_e){ _atMentionSavedRange=null; } }
+    if(draft) { const lines = draft.split('\n').filter(l=>l.trim()).slice(0,40); lines.forEach(l=>{ if(!CONTEXT_LINES.includes(l)) CONTEXT_LINES.push(l); }); cutIdx=CONTEXT_LINES.length-1; saveAll(true); }
+    createFchatSession(profileLabel);
+    if(!quickSend || !draft) return;
+    for(let i = 0; i < 25; i++) {
+        const noteIn = document.getElementById('note-input');
+        if(noteIn && !currentAborter) {
+            noteIn.value = draft;
+            sync();
+            await sendToAI();
+            notify('Quick message sent', '#34c759', 1400);
+            return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 40));
+    }
+    notify('Chat opened, but quick send was not ready yet.', '#ff9500', 2200);
 }
 function _closeAtMention(keepAt) { _atMentionActive = false; if(keepAt) { _atMentionTargetEl = null; _atMentionIsTextArea = false; _atMentionTargetLabel = ''; } const m = document.getElementById('_at-mention-menu'); if(m) m.remove(); if(!keepAt) setTimeout(_updateAtMentionIndicator, 300); }
 _initAtMention();
