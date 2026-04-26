@@ -899,10 +899,67 @@ async function generateDatasetTitleAI(var_id) {
 
 async function saveAiGenSettings() { CONFIG.ai_gen_prompts[activeCrud] = document.getElementById('ai-gen-prompt').value; CONFIG.ai_gen_models[activeCrud] = document.getElementById('ai-gen-model').value; await saveAll(); }
 
+async function runPromptCommandLine(cmdLine, parsedPromptText) {
+    const cmd = cmdLine.trim().replace(/^@+/, '').trim();
+    const lower = cmd.toLowerCase();
+
+    if (lower.startsWith('call profile ') || lower.startsWith('switch profile ') || lower.startsWith('profile ')) {
+        const profileLabel = cmd.replace(/^(call|switch)?\s*profile\s+/i, '').trim();
+        if (!profileLabel) return { handled: true };
+        const exists = AI_PROFILES.find(p => p.label === profileLabel);
+        if (!exists) {
+            notify(`Profile not found: ${profileLabel}`, "#ff3b30");
+            return { handled: true };
+        }
+        await switchProfileSession(profileLabel);
+        return { handled: true };
+    }
+
+    if (lower === 'send' || lower === 'send prompt' || lower === 'run') {
+        if (document.getElementById('note-input').value.trim().length === 0 && parsedPromptText.trim().length > 0) {
+            insertAtCursor(parsedPromptText, false, true);
+        }
+        await sendToAI();
+        return { handled: true };
+    }
+
+    if (lower.startsWith('send ')) {
+        const message = cmd.replace(/^send\s+/i, '').trim();
+        if (message) {
+            insertAtCursor(message, false, true);
+        } else if (parsedPromptText.trim().length > 0 && document.getElementById('note-input').value.trim().length === 0) {
+            insertAtCursor(parsedPromptText, false, true);
+        }
+        await sendToAI();
+        return { handled: true };
+    }
+
+    return { handled: false };
+}
+
 async function applyPrompt(idx) {
     const p = PROMPTS[idx]; if(!p) return; let parsed = await parseServiceVariables(p.text); if(parsed === null) return;
-    activePromptIdx = idx; renderInlinePrompts(); document.getElementById('note-input').value = ""; lastCursorPos = null;
-    insertAtCursor(parsed, false, true); if(p.model) document.getElementById('chatModel').value = p.model; sync(); 
+    activePromptIdx = idx; renderInlinePrompts();
+    if(p.model) document.getElementById('chatModel').value = p.model;
+
+    const lines = parsed.split('\n');
+    const commandLines = lines.filter(l => /^\s*@/.test(l));
+    const promptBody = lines.filter(l => !/^\s*@/.test(l)).join('\n').trim();
+
+    if (commandLines.length === 0) {
+        insertAtCursor(parsed, false, true);
+        sync();
+        return;
+    }
+
+    if (promptBody) {
+        insertAtCursor(promptBody, false, true);
+    }
+
+    for (const line of commandLines) {
+        await runPromptCommandLine(line, promptBody || parsed);
+    }
+    sync();
 }
 
 function savePromptFromChat(idx) { let rawText = getTextFromContent(chatHistory[idx].content); if(rawText.includes("\n\n[CONTEXT]\n")) rawText = rawText.split("\n\n[CONTEXT]\n")[0]; closeAllPanels(); manageSection('prompts'); document.getElementById('entry-t').value = rawText; }
