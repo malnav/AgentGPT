@@ -3453,7 +3453,29 @@ async function pushConfigToFirebase() {
 
 function _hsApplyColumns() {
     const b=document.getElementById('hs-body'); const wrap=document.getElementById('hs-cards-wrap'); if(!b||!wrap)return;
-    const allCards=[...wrap.querySelectorAll('.hs-card[data-card-id]')];
+    const cols = [...wrap.querySelectorAll(':scope > .hs-col-div')];
+    let allCards;
+    if (cols.length) {
+        const colCards = cols.map(col => [...col.querySelectorAll(':scope > .hs-card[data-card-id]')]);
+        const maxRows = Math.max(...colCards.map(cards => cards.length), 0);
+        allCards = [];
+        for (let row = 0; row < maxRows; row++) {
+            for (let col = 0; col < colCards.length; col++) {
+                if (colCards[col][row]) allCards.push(colCards[col][row]);
+            }
+        }
+    } else {
+        allCards = [...wrap.querySelectorAll(':scope > .hs-card[data-card-id]')];
+    }
+    const order = Array.isArray(CONFIG.hs_card_order) ? CONFIG.hs_card_order : null;
+    if (order && order.length) {
+        const rank = new Map(order.map((id, idx) => [id, idx]));
+        allCards.sort((a, b) => {
+            const aRank = rank.has(a.dataset.cardId) ? rank.get(a.dataset.cardId) : Number.MAX_SAFE_INTEGER;
+            const bRank = rank.has(b.dataset.cardId) ? rank.get(b.dataset.cardId) : Number.MAX_SAFE_INTEGER;
+            return aRank - bRank;
+        });
+    }
     wrap.querySelectorAll('.hs-col-div').forEach(d=>d.remove());
     allCards.forEach(c=>wrap.appendChild(c));
     b.classList.remove('hs-cols-2','hs-cols-3');
