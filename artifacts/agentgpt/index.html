@@ -2457,7 +2457,6 @@ async function _hsQuickChatSend() {
     const quickProfile = _hsQuickChatGetActiveProfile();
     const profileLabel = quickProfile.label || activeProfileLabel;
     try {
-        hideHomeScreen();
         if (_fchatActiveId === null) {
             createFchatSession(profileLabel);
         } else {
