@@ -5247,7 +5247,8 @@ async function gmailSendReply(src) {
     try {
         notify("Sending…", "#007aff", 2000);
         if(imapAcct) {
-            const r = await fetch('/api/imap/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, to: em.from, subject: subject, text: replyText, html: `<html><body>${replyHtml}</body></html>` }) });
+            const references = [em.references, em.messageId].flat().filter(Boolean).join(' ').trim();
+            const r = await fetch('/api/imap/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, to: em.from, subject: subject, text: replyText, html: `<html><body>${replyHtml}</body></html>`, inReplyTo: em.messageId || undefined, references: references || undefined }) });
             if(!r.ok) { const d = await r.json(); throw new Error(d.error || "Send failed: " + r.status); }
         } else {
             const boundary = `boundary_${Date.now()}`;
@@ -6695,7 +6696,8 @@ async function sendComposedEmail() {
     try {
         notify('Sending…', '#007aff', 2000);
         if (imapAcct) {
-            const r = await fetch('/api/imap/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, to, cc: cc||undefined, bcc: bcc||undefined, subject: subject || '(no subject)', text: bodyText, html: `<html><body>${bodyHtml}</body></html>` }) });
+            const replyReferences = _emailComposeReplyTarget ? [_emailComposeReplyTarget.references, _emailComposeReplyTarget.messageId].flat().filter(Boolean).join(' ').trim() : '';
+            const r = await fetch('/api/imap/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, to, cc: cc||undefined, bcc: bcc||undefined, subject: subject || '(no subject)', text: bodyText, html: `<html><body>${bodyHtml}</body></html>`, inReplyTo: (_emailComposeReplyTarget && _emailComposeReplyTarget.messageId) || undefined, references: replyReferences || undefined }) });
             if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Send failed: ' + r.status); }
         } else {
             if (!gmailAccessToken) { notify('Not signed in to Gmail', '#ff3b30'); return; }

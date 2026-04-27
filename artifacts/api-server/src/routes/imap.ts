@@ -58,6 +58,58 @@ function buildThreadKey(
     return `${owner}\x00${participantBlock}\x00${normalizedSubject}`;
 }
 
+function extractMessageIds(raw: any): string[] {
+    if (!raw) return [];
+    const parts = Array.isArray(raw) ? raw : [raw];
+    const extracted = parts
+        .flatMap((part: any) =>
+            String(part)
+                .split(/\s+/)
+                .map((entry) => entry.trim())
+                .filter(Boolean),
+        )
+        .map((entry) => {
+            const match = entry.match(/<[^>]+>/);
+            return (match ? match[0] : entry).toLowerCase();
+        })
+        .filter(Boolean);
+    return [...new Set(extracted)];
+}
+
+function assignConversationIds(emails: any[]): any[] {
+    const parentByMessageId = new Map<string, string>();
+    const messageById = new Map<string, any>();
+    const findRoot = (msgId: string): string => {
+        let current = msgId;
+        const seen = new Set<string>();
+        while (parentByMessageId.has(current) && !seen.has(current)) {
+            seen.add(current);
+            current = parentByMessageId.get(current)!;
+        }
+        return current;
+    };
+
+    for (const email of emails) {
+        const messageIds = extractMessageIds(email.messageId);
+        const refs = extractMessageIds(email.references);
+        const inReplyTo = extractMessageIds(email.inReplyTo);
+        const parentCandidates = [...inReplyTo, ...refs];
+        const resolvedParent = parentCandidates.find((id) => messageById.has(id));
+        for (const mid of messageIds) {
+            messageById.set(mid, email);
+            if (resolvedParent) parentByMessageId.set(mid, resolvedParent);
+        }
+    }
+
+    for (const email of emails) {
+        const messageIds = extractMessageIds(email.messageId);
+        const root = messageIds.length > 0 ? findRoot(messageIds[0]) : null;
+        email.threadId = root || email.threadId;
+        email.conversationId = root || email.threadId;
+    }
+    return emails;
+}
+
 function resolveMailbox(mailbox: string, mbNames: string[]): { resolved: string; flaggedSearch: boolean } {
     const mb = mailbox.trim();
     if (mb.toUpperCase() === "INBOX") return { resolved: "INBOX", flaggedSearch: false };
@@ -131,6 +183,8 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                     to: addr(msg.envelope?.to?.[0]),
                     date: msg.envelope?.date ? msg.envelope.date.toUTCString() : "",
                     messageId: msg.envelope?.messageId || "",
+                    inReplyTo: extractMessageIds(msg.envelope?.inReplyTo),
+                    references: extractMessageIds((msg.envelope as any)?.references),
                     snippet: "",
                     unread: !msg.flags?.has("\\Seen"),
                     _starred: msg.flags?.has("\\Flagged") || false,
@@ -174,6 +228,8 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                                 to: addr(msg.envelope?.to?.[0]),
                                 date: msg.envelope?.date ? msg.envelope.date.toUTCString() : "",
                                 messageId: msg.envelope?.messageId || "",
+                                inReplyTo: extractMessageIds(msg.envelope?.inReplyTo),
+                                references: extractMessageIds((msg.envelope as any)?.references),
                                 snippet: "",
                                 unread: false,
                                 _starred: msg.flags?.has("\\Flagged") || false,
@@ -192,7 +248,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                 const tb = new Date(b.date || 0).getTime();
                 return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
             });
-            return mergedResults.slice(0, Math.max(take * 2, take + 20));
+            return assignConversationIds(mergedResults).slice(0, Math.max(take * 2, take + 20));
         });
         return res.json({ emails });
     } catch (e: any) {
@@ -225,7 +281,7 @@ router.post("/imap/message", async (req: Request, res: Response) => {
 });
 
 router.post("/imap/send", async (req: Request, res: Response) => {
-    const { host, port, user, pass, tls, to, subject, text, html } = req.body;
+    const { host, port, user, pass, tls, to, cc, bcc, subject, text, html, inReplyTo, references } = req.body;
     if (!host || !user || !pass || !to || !subject) return res.status(400).json({ error: "Missing required fields: host, user, pass, to, subject" });
     try {
         const smtpHost = typeof host === "string" && host.startsWith("imap.") ? "smtp." + host.slice(5) : host;
@@ -241,9 +297,13 @@ router.post("/imap/send", async (req: Request, res: Response) => {
         await transporter.sendMail({
             from: user,
             to: to,
+            cc: cc || undefined,
+            bcc: bcc || undefined,
             subject: subject,
             text: text || undefined,
             html: html || undefined,
+            inReplyTo: inReplyTo || undefined,
+            references: references || undefined,
         });
         return res.json({ success: true, message: "Email sent" });
     } catch (e: any) {
