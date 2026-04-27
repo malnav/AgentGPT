@@ -2390,6 +2390,12 @@ let _gTodoFilterProf = 'all';
 let _todoDoneCollapsed = true;
 let _evSumCache = {};
 const _INBOX_VID = '_inbox';
+let _hsQuickChatProfileIdx = 0;
+const _hsQuickChatMockProfiles = [
+    { label: 'Agent', emoji: '🤖' },
+    { label: 'Analyst', emoji: '🧠' },
+    { label: 'Writer', emoji: '✍️' }
+];
 function getCurrentChatTodos() { if(_calPreviewVid && GLOBAL_DATASETS[_calPreviewVid]) { let ds = GLOBAL_DATASETS[_calPreviewVid]; if(!ds.todos) ds.todos = []; return { todos: ds.todos, vid: _calPreviewVid, datasetTitle: ds.title || 'Dataset' }; } let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur || !cur.var_id) return { todos: [], vid: null, datasetTitle: '' }; let ds = GLOBAL_DATASETS[cur.var_id]; if(!ds) return { todos: [], vid: null, datasetTitle: '' }; if(!ds.todos) ds.todos = []; return { todos: ds.todos, vid: cur.var_id, datasetTitle: ds.title || 'Dataset' }; }
 
 function buildTodoItemHtml(t, showMeta) { let dateLabel = t.date ? `<span style="font-size:10px; color:var(--accent); margin-left:4px;">📅 ${t.date}</span>` : ''; let metaLabel = (showMeta && t.datasetTitle) ? `<div style="font-size:10px; font-weight:700; color:var(--accent); margin-top:3px; opacity:0.8;">📁 ${t.datasetTitle}</div>` : ''; return `<div style="display:flex; align-items:flex-start; gap:10px; background:var(--sec-bg); border-radius:12px; padding:10px 12px; border:0.5px solid var(--border);"><div onclick="toggleTodo('${t.vid}','${t.id}')" style="flex-shrink:0; margin-top:2px; width:22px; height:22px; border-radius:50%; border:2px solid var(--accent); background:${t.done ? 'var(--accent)' : 'transparent'}; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#fff; font-size:13px;">${t.done ? '✓' : ''}</div><div style="flex:1; word-break:break-word; cursor:pointer;" onclick="editTodo('${t.vid}','${t.id}')"><div style="font-size:13px; ${t.done ? 'text-decoration:line-through; opacity:0.5;' : ''}">${t.text}${dateLabel}</div>${metaLabel}</div><div onclick="deleteTodo('${t.vid}','${t.id}')" style="cursor:pointer; opacity:0.4; font-size:16px; flex-shrink:0; padding-top:2px;">🗑️</div></div>`; }
@@ -2412,17 +2418,51 @@ function openTodoEditModal(todoObj, onSave, preVid) { document.getElementById('t
 async function addTodo(fromGlobal, defaultVid) { let vid = defaultVid; if(!vid && !fromGlobal) { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); vid = (cur && cur.var_id) ? cur.var_id : _INBOX_VID; } openTodoEditModal({ text: '', date: null }, async (text, date, selectedVid) => { if(selectedVid === _INBOX_VID) { if(!GLOBAL_DATASETS[_INBOX_VID]) GLOBAL_DATASETS[_INBOX_VID] = { title: 'Inbox', data: {}, todos: [] }; } let ds = GLOBAL_DATASETS[selectedVid]; if(!ds) return; if(!ds.todos) ds.todos = []; ds.todos.push({ id: Date.now().toString(), text, done: false, date }); await saveAll(); renderChatTodos(); if(fromGlobal) { _populateGTodoFilters(); renderGlobalTodos(); } renderCalendar(); }, vid); }
 
 async function _hsQuickAddTodo() { const inp = document.getElementById('hs-todo-quick-input'); if(!inp) return; const text = inp.value.trim(); if(!text) { inp.focus(); return; } const dsSel = document.getElementById('hs-gtodo-ds-sel'); let vid = (dsSel && dsSel.value && dsSel.value !== 'all') ? dsSel.value : _INBOX_VID; if(vid === _INBOX_VID) { if(!GLOBAL_DATASETS[_INBOX_VID]) GLOBAL_DATASETS[_INBOX_VID] = { title: 'Inbox', data: {}, todos: [] }; } const ds = GLOBAL_DATASETS[vid]; if(!ds) return; if(!ds.todos) ds.todos = []; ds.todos.push({ id: Date.now().toString(), text, done: false, date: null }); inp.value = ''; await saveAll(); _populateGTodoFilters(); renderGlobalTodos(); renderChatTodos(); renderCalendar(); inp.focus(); }
+function _hsQuickChatGetProfiles() {
+    return (AI_PROFILES && AI_PROFILES.length) ? AI_PROFILES : _hsQuickChatMockProfiles;
+}
+function _hsQuickChatGetActiveProfile() {
+    const profiles = _hsQuickChatGetProfiles();
+    if (!profiles.length) return { label: 'Agent', emoji: '🤖' };
+    if (_hsQuickChatProfileIdx >= profiles.length) _hsQuickChatProfileIdx = 0;
+    return profiles[_hsQuickChatProfileIdx];
+}
+function _hsQuickChatRenderProfile() {
+    const avatarEl = document.getElementById('hs-chat-profile-btn');
+    const inputEl = document.getElementById('hs-chat-quick-input');
+    const profile = _hsQuickChatGetActiveProfile();
+    const emoji = profile.emoji || '🤖';
+    const label = profile.label || 'Agent';
+    if (avatarEl) {
+        avatarEl.textContent = emoji;
+        avatarEl.setAttribute('aria-label', `Active quick chat profile: ${label}. Click to change profile.`);
+        avatarEl.title = `Profile: ${label} (click to change)`;
+    }
+    if (inputEl) {
+        inputEl.placeholder = `Message as ${label} (press Enter to send)…`;
+        inputEl.setAttribute('aria-label', `Quick chat input as ${label}. Press Enter to send.`);
+    }
+}
+function _hsQuickChatCycleProfile() {
+    const profiles = _hsQuickChatGetProfiles();
+    if (!profiles.length) return;
+    _hsQuickChatProfileIdx = (_hsQuickChatProfileIdx + 1) % profiles.length;
+    _hsQuickChatRenderProfile();
+}
 async function _hsQuickChatSend() {
     const inp = document.getElementById('hs-chat-quick-input');
     if(!inp) return;
     const text = (inp.value || '').trim();
     if(!text) { inp.focus(); return; }
+    const quickProfile = _hsQuickChatGetActiveProfile();
+    const profileLabel = quickProfile.label || activeProfileLabel;
     try {
         hideHomeScreen();
         if (_fchatActiveId === null) {
-            createFchatSession(activeProfileLabel);
+            createFchatSession(profileLabel);
         } else {
             fchatMaximize(_fchatActiveId);
+            if (activeProfileLabel !== profileLabel) changeFchatProfile(profileLabel);
         }
         for(let i = 0; i < 30; i++) {
             const noteIn = document.getElementById('note-input');
@@ -5810,6 +5850,7 @@ function showHomeScreen() {
         _hsApplyCardOrder();
         _hsApplyCardVisibility();
         _hsApplyColumns();
+        _hsQuickChatRenderProfile();
         return;
     }
     _hsActive = true;
@@ -5830,6 +5871,7 @@ function showHomeScreen() {
     _hsRenderQuote();
     _hsRenderDataset();
     _hsRenderNotes();
+    _hsQuickChatRenderProfile();
     emailFetchEmails(null);
     setTimeout(_hsRenderGmailConnectIfNeeded, 800);
 }
@@ -7067,10 +7109,16 @@ function _linkifyHtml(html) {
                 <div style="font-size:11px;color:#888;">Enter to send</div>
             </div>
             <div style="padding:10px 12px 12px;">
-                <div style="font-size:12px; color:#888; margin-bottom:8px;">Draft input</div>
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <input id="hs-chat-quick-input" type="text" placeholder="Type and press Enter…" autocomplete="off" maxlength="2000" onkeydown="if(event.key==='Enter')_hsQuickChatSend()" style="flex:1; border:none; border-radius:12px; padding:10px 12px; font-size:14px; background:var(--sec-bg); color:var(--text); outline:none; font-family:inherit;">
-                    <button type="button" onclick="_hsQuickChatSend()" style="border:none; width:36px; height:36px; border-radius:18px; background:var(--accent); color:#fff; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 4px 16px rgba(0,122,255,0.3);">↑</button>
+                <div style="display:flex; gap:8px; align-items:center; border:0.5px solid var(--border); border-radius:16px; padding:6px 8px; background:var(--sec-bg);">
+                    <button
+                        id="hs-chat-profile-btn"
+                        type="button"
+                        onclick="_hsQuickChatCycleProfile()"
+                        aria-label="Active quick chat profile. Click to change profile."
+                        title="Switch quick chat profile"
+                        style="border:none; width:34px; height:34px; border-radius:17px; background:var(--accent); color:#fff; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 4px 12px rgba(0,122,255,0.25);"
+                    >🤖</button>
+                    <input id="hs-chat-quick-input" type="text" placeholder="Message as Agent (press Enter to send)…" autocomplete="off" maxlength="2000" onkeydown="if(event.key==='Enter'){event.preventDefault();_hsQuickChatSend();}" style="flex:1; border:none; border-radius:10px; padding:10px 8px; font-size:14px; background:transparent; color:var(--text); outline:none; font-family:inherit;">
                 </div>
             </div>
         </div>
