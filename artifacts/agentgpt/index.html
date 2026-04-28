@@ -562,6 +562,14 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .hs-weather-pill { background:var(--sec-bg); border-radius:12px; padding:10px 12px; }
 .hs-weather-pill-label { font-size:9px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
 .hs-weather-pill-val { font-size:16px; font-weight:700; color:var(--text); }
+.hs-bookmark-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:0.5px solid var(--border); }
+.hs-bookmark-row:last-child { border-bottom:none; }
+.hs-bookmark-link { min-width:0; color:var(--text); text-decoration:none; }
+.hs-bookmark-title, .hs-bookmark-url { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hs-bookmark-title { font-size:12px; font-weight:700; }
+.hs-bookmark-url { font-size:11px; color:#888; margin-top:2px; }
+.hs-bookmark-remove { border:none; background:transparent; color:#888; font-size:11px; cursor:pointer; padding:3px 6px; border-radius:8px; }
+.hs-bookmark-remove:active { background:var(--sec-bg); }
 .hs-ds-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 .hs-ds-cell { background:var(--sec-bg); border-radius:12px; padding:9px 11px; min-width:0; overflow:hidden; }
 .hs-ds-key { font-size:9px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:0.4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2253,7 +2261,7 @@ async function init() {
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
     CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", paypal_client_id: storedCfg.paypal_client_id || "", paypal_client_secret: storedCfg.paypal_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1, hs_hidden_cards: storedCfg.hs_hidden_cards || [], email_signatures: storedCfg.email_signatures || [], email_signature: storedCfg.email_signature || "" };
-    _loadNotes(); if (CONFIG.home_screen) { const _hsEl = document.getElementById('home-screen'); if (_hsEl) _hsEl.style.display = 'flex'; const _pbEl = document.getElementById('profile-bubble'); if (_pbEl) _pbEl.style.display = 'none'; }
+    _loadNotes(); _loadBookmarks(); if (CONFIG.home_screen) { const _hsEl = document.getElementById('home-screen'); if (_hsEl) _hsEl.style.display = 'flex'; const _pbEl = document.getElementById('profile-bubble'); if (_pbEl) _pbEl.style.display = 'none'; }
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
@@ -6061,6 +6069,7 @@ function showHomeScreen() {
     _hsRenderQuote();
     _hsRenderDataset();
     _hsRenderNotes();
+    _hsRenderBookmarks();
     _hsQuickChatRenderProfile();
     emailFetchEmails(null);
     setTimeout(_hsRenderGmailConnectIfNeeded, 800);
@@ -7374,6 +7383,21 @@ function _linkifyHtml(html) {
             </div>
             <div id="hs-notes-body" style="min-height:80px; overflow-y:auto; max-height:320px; padding:8px 10px 10px;"></div>
         </div>
+        <div class="hs-card" data-card-id="bookmarks">
+            <div class="hs-card-header">
+                <span class="hs-drag-handle">⠿</span>
+                <span class="hs-card-title">⭐ Favorites</span>
+                <button class="chip" style="font-size:10px; padding:3px 9px; background:var(--accent); color:#fff; border:none; cursor:pointer;" onclick="_hsSaveBookmark()">+ Save</button>
+            </div>
+            <div class="hs-card-body">
+                <div style="display:grid; grid-template-columns:1fr 1.2fr; gap:6px; margin-bottom:8px;">
+                    <input id="hs-bookmark-title" class="pp-input" style="margin:0; font-size:12px; padding:7px 10px;" placeholder="Title">
+                    <input id="hs-bookmark-url" class="pp-input" style="margin:0; font-size:12px; padding:7px 10px;" placeholder="https://example.com">
+                </div>
+                <div id="hs-bookmark-error" style="font-size:11px; color:#ff3b30; min-height:14px; margin-bottom:2px;"></div>
+                <div id="hs-bookmarks-body" style="max-height:220px; overflow-y:auto;"></div>
+            </div>
+        </div>
         <div class="hs-card" data-card-id="email" style="overflow:hidden;">
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
@@ -7619,6 +7643,36 @@ function _updateAtMentionIndicator() { const ind = document.getElementById('fcha
 let NOTES = [];
 function _loadNotes() { try { NOTES = JSON.parse(localStorage.getItem('app_notes') || '[]'); } catch(e) { NOTES = []; } }
 function _saveNotes() { try { localStorage.setItem('app_notes', JSON.stringify(NOTES)); } catch(e) {} triggerAutoSync(); }
+let BOOKMARKS = [];
+const BOOKMARKS_KEY = 'favorite_bookmarks_widget';
+
+function _loadBookmarks() {
+    try { BOOKMARKS = JSON.parse(localStorage.getItem(BOOKMARKS_KEY) || '[]'); if(!Array.isArray(BOOKMARKS)) BOOKMARKS = []; }
+    catch(e) { BOOKMARKS = []; }
+}
+function _saveBookmarks() { try { localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(BOOKMARKS)); } catch(e) {} }
+function _normalizeBookmarkUrl(v) { const t = String(v || '').trim(); if(!t) return ''; return /^https?:\/\//i.test(t) ? t : `https://${t}`; }
+function _hsRenderBookmarks() {
+    const el = document.getElementById('hs-bookmarks-body'); if(!el) return;
+    if(!BOOKMARKS.length) { el.innerHTML = '<div class="hs-empty" style="padding:14px 0;">No bookmarks yet.</div>'; return; }
+    el.innerHTML = BOOKMARKS.map(b => `<div class="hs-bookmark-row"><a class="hs-bookmark-link" href="${_ehNotes(b.url)}" target="_blank" rel="noreferrer"><span class="hs-bookmark-title">${_ehNotes(b.title || b.url)}</span><span class="hs-bookmark-url">${_ehNotes(b.url)}</span></a><button class="hs-bookmark-remove" onclick="_hsRemoveBookmark('${String(b.id||'').replace(/'/g,\"\\\\'\")}')">Remove</button></div>`).join('');
+}
+function _hsSaveBookmark() {
+    const titleEl = document.getElementById('hs-bookmark-title');
+    const urlEl = document.getElementById('hs-bookmark-url');
+    const errEl = document.getElementById('hs-bookmark-error');
+    if(!titleEl || !urlEl || !errEl) return;
+    const normalized = _normalizeBookmarkUrl(urlEl.value);
+    errEl.textContent = '';
+    if(!normalized) { errEl.textContent = 'Please enter a URL.'; return; }
+    try { new URL(normalized); } catch(e) { errEl.textContent = 'Please enter a valid URL.'; return; }
+    BOOKMARKS.unshift({ id: Date.now().toString(), title: (titleEl.value || '').trim() || normalized, url: normalized });
+    _saveBookmarks();
+    _hsRenderBookmarks();
+    titleEl.value = '';
+    urlEl.value = '';
+}
+function _hsRemoveBookmark(id) { BOOKMARKS = BOOKMARKS.filter(b => String(b.id) !== String(id)); _saveBookmarks(); _hsRenderBookmarks(); }
 
 function _hsRenderNotes() { const el = document.getElementById('hs-notes-body'); if (!el) return; if (!NOTES.length) { el.innerHTML = '<div style="text-align:center;color:#888;font-size:12px;padding:24px 0;">No notes yet — tap + Add or save a chat response with ☆</div>'; return; } el.innerHTML = [...NOTES].sort((a,b)=>b.id-a.id).map(n => { const isFav = n.type === 'favorite'; const preview = (n.content || '').replace(/#+\s/g,'').replace(/\*+/g,'').replace(/`/g,'').slice(0, 80); const dateStr = new Date(n.id).toLocaleDateString([], {month:'short', day:'numeric'}); const jumpBtn = isFav && n.chatId ? `<div class="note-jump-btn" onclick="event.stopPropagation();_noteJumpToChat('${n.profileLabel}','${n.chatId}',${n.msgIdx})" title="Jump to chat">💬</div>` : ''; return `<div class="note-item" onclick="openNoteById(${n.id})"><div class="note-item-body"><div class="note-item-title"><span style="font-size:12px;">${isFav ? '⭐' : '📝'}</span><span class="note-item-name">${_ehNotes(n.title || 'Untitled')}</span><span class="note-item-date">${dateStr}</span></div><div class="note-item-preview">${_ehNotes(preview) || 'No content'}</div></div>${jumpBtn}</div>`; }).join(''); }
 
@@ -7643,5 +7697,8 @@ function saveAsFavorite(msgIdx) { const chatId = String(getSessions().current); 
 
 function _noteJumpToChat(profileLabel, chatId, msgIdx) { _openLinkedChat(profileLabel, chatId); function _tryHighlight(attemptsLeft) { const el = document.getElementById('msg-' + msgIdx); if(el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.transition = 'background 0.4s'; el.style.background = 'rgba(255,204,0,0.18)'; setTimeout(() => { el.style.background = ''; }, 1600); } else if(attemptsLeft > 0) { setTimeout(() => _tryHighlight(attemptsLeft - 1), 400); } } setTimeout(() => _tryHighlight(5), 600); }
 </script>
+
+
+
 </body>
 </html>
