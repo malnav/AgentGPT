@@ -1,0 +1,24 @@
+name: Auto-Merge Codex PRs
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronized]
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    # Optional: Only run if the PR is created by a specific bot or has a label
+    # if: github.event.pull_request.user.login == 'codex-bot' 
+    
+    permissions:
+      pull-requests: write
+      contents: write
+
+    steps:
+      - name: Automatically Merge PR
+        uses: "pascalgn/automerge-action@v0.16.2"
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          MERGE_METHOD: "squash" # Options: merge, squash, rebase
+          MERGE_LABELS: ""       # Empty means it will try to merge all PRs
+          MERGE_COMMIT_MESSAGE: "Auto-merged Codex PR: {pullRequest.title}"
