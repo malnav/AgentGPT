@@ -2097,6 +2097,13 @@ async function jumpToSession(profileLabel, sessionId) {
     if(activeProfileLabel !== profileLabel) { await switchProfileSession(profileLabel); }
     await loadSession(sessionId); closeAllPanels();
 }
+async function loadSessionFromProfile(profileLabel, sessionId) {
+    if(_hsActive) {
+        _openLinkedChat(profileLabel, sessionId);
+        return;
+    }
+    await jumpToSession(profileLabel, sessionId);
+}
 
 function addSwipeListener(element, onSwipeLeft, onSwipeRight) { 
     let startX = 0, startY = 0; 
