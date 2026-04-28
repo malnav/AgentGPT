@@ -4760,10 +4760,10 @@ function gmailRenderPreviewBody(src) {
         bodyEl.textContent = state.text || gmailHtmlToPlainText(state.html || '') || gmailCurrentEmail?.snippet || '';
         return;
     }
-    if(state.html) {
+    if(state.html && state.html.trim()) {
         bodyEl.style.whiteSpace = 'normal';
         bodyEl.innerHTML = state.html;
-        return;
+        if((bodyEl.textContent || '').trim() || bodyEl.querySelector('img,table,div,p,span,a,br,ul,ol,li')) return;
     }
     bodyEl.style.whiteSpace = 'pre-wrap';
     bodyEl.textContent = state.text || gmailCurrentEmail?.snippet || '';
@@ -5722,13 +5722,48 @@ function gmailExtractBody(payload, _depth) {
 
 function gmailStripQuotedReply(body) { let lines = body.split('\n'); let cutOff = -1; for(let i = 0; i < lines.length; i++) { let l = lines[i].trim(); if(l.match(/^On .+,.*wrote:$|^On .+ at .+ wrote:$|^>|^-----+|^_____+|^From:\s|^Sent:\s|^To:\s|^Date:\s|^Subject:\s|^\[.*\]\s*\[external\]/i)) { cutOff = i; break; } } if(cutOff > 0) return lines.slice(0, cutOff).join('\n').trim(); return body; }
 function gmailStripQuotedHtml(html) { let tmp = document.createElement('div'); tmp.innerHTML = html; let walkNodes = (node, depth) => { if(depth > 50) return true; for(let i = node.childNodes.length - 1; i >= 0; i--) { let child = node.childNodes[i]; if(child.nodeType === 3) { let t = child.textContent.trim(); if(t.match(/^On .+,.*wrote:$|^On .+ at .+ wrote:$|^From:|^Sent:|^To:|^Date:|^Subject:|^\[.*\]\s*\[external\]/i)) { return true; } } else if(child.nodeType === 1) { let el = child; if(el.tagName === 'BLOCKQUOTE' || (el.className||'').includes('quote') || (el.getAttribute('style')||'').includes('border-left')) { return true; } if(walkNodes(child, (depth||0) + 1)) { if(el.parentNode) el.parentNode.removeChild(el); return false; } } } return false; }; walkNodes(tmp, 0); return tmp.innerHTML; }
+function gmailNormalizeHtml(html) {
+    const raw = String(html || '').trim();
+    if(!raw) return '';
+    if(/<\/?[a-z][\s\S]*>/i.test(raw)) return raw;
+    if(/&lt;[a-z][\s\S]*&gt;/i.test(raw)) {
+        const txt = document.createElement('textarea');
+        txt.innerHTML = raw;
+        const decoded = (txt.value || '').trim();
+        if(/<\/?[a-z][\s\S]*>/i.test(decoded)) return decoded;
+    }
+    return raw;
+}
+
 function gmailSanitizeHtml(html) {
+    const normalized = gmailNormalizeHtml(html);
+    if(!normalized) return '';
     const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    tmp.querySelectorAll('script,style,link,meta,head,iframe,object,embed').forEach(el => el.remove());
-    tmp.querySelectorAll('[style]').forEach(el => { const allowed = (el.getAttribute('style')||'').replace(/expression\([^)]*\)/gi,''); el.setAttribute('style', allowed); });
+    tmp.innerHTML = normalized;
+    tmp.querySelectorAll('script,iframe,object,embed').forEach(el => el.remove());
+    tmp.querySelectorAll('*').forEach(el => {
+        [...el.attributes].forEach(attr => {
+            const name = (attr.name || '').toLowerCase();
+            const value = attr.value || '';
+            if(name.startsWith('on')) {
+                el.removeAttribute(attr.name);
+                return;
+            }
+            if((name === 'href' || name === 'src' || name === 'xlink:href') && /^\s*javascript:/i.test(value)) {
+                el.removeAttribute(attr.name);
+                return;
+            }
+            if(name === 'style') {
+                const safeStyle = value
+                    .replace(/expression\([^)]*\)/gi, '')
+                    .replace(/url\(\s*['"]?javascript:[^)]*\)/gi, '');
+                if(safeStyle) el.setAttribute('style', safeStyle);
+                else el.removeAttribute('style');
+            }
+        });
+    });
     tmp.querySelectorAll('a').forEach(a => { a.setAttribute('target','_blank'); a.setAttribute('rel','noopener noreferrer'); });
-    return tmp.innerHTML;
+    return tmp.innerHTML.trim();
 }
 
 async function gmailSendReply(src) {
