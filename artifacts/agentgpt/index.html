@@ -2607,7 +2607,7 @@ async function _hsQuickChatSend() {
     const inp = document.getElementById('hs-chat-quick-input');
     if(!inp) return;
     const text = (inp.value || '').trim();
-    if(!text) { inp.focus(); return; }
+    if(!text && pendingAttachments.length === 0) { inp.focus(); return; }
     const quickProfile = _hsQuickChatGetActiveProfile();
     const profileLabel = quickProfile.label || activeProfileLabel;
     try {
@@ -7296,7 +7296,16 @@ function _linkifyHtml(html) {
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">💬 Quick Chat</span>
-                <div style="font-size:11px;color:#888;">Enter to send</div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="font-size:11px;color:#888;">Enter to send</div>
+                    <button
+                        type="button"
+                        onclick="_openAttachMenu(event)"
+                        aria-label="Add quick chat attachment"
+                        title="Add attachment"
+                        style="border:none; width:22px; height:22px; border-radius:11px; background:var(--sec-bg); color:var(--accent); font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1; padding:0;"
+                    >➕</button>
+                </div>
             </div>
             <div style="padding:10px 12px 12px;">
                 <div style="display:flex; gap:8px; align-items:center; border:0.5px solid var(--border); border-radius:16px; padding:6px 8px; background:var(--sec-bg);">
