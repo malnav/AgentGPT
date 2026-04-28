@@ -3915,17 +3915,23 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
 
         const scrollEl = document.getElementById('mainScroll');
         const savedTop = scrollEl ? scrollEl.scrollTop : 0;
-        await refreshUI(); renderWorkspaceLists();
-        if (_hsActive) {
-            renderCalendar();
-            _populateGTodoFilters();
-            renderGlobalTodos();
-            _hsRenderDataset();
-        } else if(!currentAborter) {
-            renderChatHistory();
-            _freshSessionActive = false;
-            if(silent) requestAnimationFrame(() => { if(scrollEl) scrollEl.scrollTop = savedTop; });
-            else scrollToLastRequest();
+        const shouldSkipHomeRerender = _hsActive && silent;
+
+        if(!shouldSkipHomeRerender) {
+            await refreshUI(); renderWorkspaceLists();
+            if (_hsActive) {
+                renderCalendar();
+                _populateGTodoFilters();
+                renderGlobalTodos();
+                _hsRenderDataset();
+            } else if(!currentAborter) {
+                renderChatHistory();
+                _freshSessionActive = false;
+                if(silent) requestAnimationFrame(() => { if(scrollEl) scrollEl.scrollTop = savedTop; });
+                else scrollToLastRequest();
+            }
+        } else {
+            addLog("SYNC", "UI Skip", "Silent cloud sync while Home screen is active — skipped re-render");
         }
         let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Applied", `${n} chats loaded`);
