@@ -6796,12 +6796,38 @@ function gmailExtractAddr(from) {
     return (m ? m[1] : from.replace(/^"|"$/g, '').trim()).toLowerCase();
 }
 
+async function gmailBuildFullContextLines(em, fallbackBodyText) {
+    if (!em) return [];
+    const fromRaw = em.from || '';
+    const fromEmail = gmailExtractAddr(fromRaw);
+    const toRaw = em.to || '';
+    const ccRaw = em.cc || '';
+    const bccRaw = em.bcc || '';
+    const subject = em.subject || '(no subject)';
+    const dateText = em.date || '';
+    let bodyText = '';
+    try { bodyText = gmailCleanBodyText(await emailFetchBody(em)); } catch(_) {}
+    if (!bodyText && fallbackBodyText) bodyText = gmailCleanBodyText(fallbackBodyText);
+    const bodyLines = (bodyText || '').split('\n').map(l => l.trimEnd());
+    const nonEmptyBodyLines = bodyLines.filter(l => l.trim().length > 0);
+    const lines = [
+        'Header:',
+        'Subject: ' + subject,
+        'From: ' + (fromRaw || ''),
+        'From Email: ' + (fromEmail || ''),
+        'To: ' + (toRaw || ''),
+        'CC: ' + (ccRaw || ''),
+        'BCC: ' + (bccRaw || ''),
+        'Date: ' + dateText,
+        '',
+        'Body + Footer:'
+    ];
+    if (nonEmptyBodyLines.length) lines.push(...nonEmptyBodyLines);
+    return lines;
+}
+
 async function gmailFetchEmailLines(em) {
-    const fromName = em.from ? em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || em.from : '';
-    let bodyText = gmailCleanBodyText(await emailFetchBody(em));
-    const lines = [];
-    lines.push('From: ' + fromName + ' | Subject: ' + (em.subject || '(no subject)'));
-    bodyText.split('\n').map(l => l.trim()).filter(l => l.length > 1).forEach(l => lines.push(l));
+    const lines = await gmailBuildFullContextLines(em);
     lines.push('');
     return lines;
 }
@@ -7784,11 +7810,11 @@ function _pickReplyAiProfile(profileLabel) {
     _replyInsState = { spanId: '', markerEl: _atRange || null, savedRange: null };
     _updateReplyAiIndicator();
     openFloatingChat(profileLabel);
-    setTimeout(() => {
+    setTimeout(async () => {
         const bodyElId = _replyAiSrc === 'panel' ? 'gmail-preview-body' : 'gmail-modal-preview-body';
         const bodyEl = document.getElementById(bodyElId);
         const bodyText = bodyEl ? (bodyEl.innerText || bodyEl.textContent || '').trim() : '';
-        const lines = bodyText.split('\n').map(l => l.trim()).filter(l => l.length > 1);
+        const lines = await gmailBuildFullContextLines(gmailCurrentEmail, bodyText);
         if (lines.length > 0) {
             const subj = gmailCurrentEmail ? (gmailCurrentEmail.subject || gmailExtractAddr(gmailCurrentEmail.from) || 'Current Email') : 'Current Email';
             _addCtxGroup('📧 ' + subj, lines);
