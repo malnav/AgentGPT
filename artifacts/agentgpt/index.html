@@ -4263,6 +4263,30 @@ let emailCurrentMailbox = 'INBOX';
 let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
 
+function emailGetLocalSentEmails() {
+    const all = Array.isArray(CONFIG.local_sent_emails) ? CONFIG.local_sent_emails : [];
+    if(emailCurrentMailbox === 'Sent') return [...all];
+    if(emailCurrentMailbox === 'INBOX') return [...all];
+    return [];
+}
+
+function emailGetGuestEmails() {
+    const locals = emailGetLocalSentEmails();
+    return locals.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
+}
+
+function emailMergeLocalSent(emails) {
+    const locals = emailGetLocalSentEmails();
+    if(!locals.length) return emails;
+    const existing = new Set((emails||[]).map(e => `${e._accountId||''}:${e.id}`));
+    const merged = [...emails];
+    locals.forEach(em => {
+        const key = `${em._accountId||''}:${em.id}`;
+        if(!existing.has(key)) merged.push(em);
+    });
+    return merged;
+}
+
 function emailGetAllAccounts() {
     const list = [];
     if(CONFIG.google_client_id) list.push({ id: 'gmail', type: 'gmail', name: 'Gmail' });
@@ -4319,7 +4343,7 @@ async function emailFetchEmails(query) {
     const allAccts = emailGetAllAccounts();
     const selIds = selectedEmailAccountIds.length ? selectedEmailAccountIds : allAccts.map(a => a.id);
     const selAccts = allAccts.filter(a => selIds.includes(a.id));
-    if(!selAccts.length) { gmailEmails = []; gmailRenderEmails(); return; }
+    if(!selAccts.length) { gmailEmails = emailGetGuestEmails(); gmailRenderEmails(); return; }
     const hasGmail = selAccts.some(a => a.type === 'gmail');
     if(hasGmail && !gmailAccessToken) { gmailLoadEmails(query); return; }
     notify("Loading emails...", "#007aff", 1500);
@@ -4336,7 +4360,7 @@ async function emailFetchEmails(query) {
         }
     });
     merged.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
-    gmailEmails = merged;
+    gmailEmails = emailMergeLocalSent(merged);
     gmailHasMoreEmails = hasMore || !!gmailNextPageToken;
     gmailRenderEmails();
     emailUpdateResetBtn();
@@ -7009,7 +7033,7 @@ async function sendComposedEmail() {
             if (!r.ok) throw new Error('Send failed: ' + r.status);
         }
         notify(_emailComposeMode === 'reply' ? 'Reply sent!' : 'Email sent!', '#34c759', 3000);
-        const _sentAccts = emailGetAllAccounts(); const _sentFromId = fromSel && fromSel.style.display !== 'none' ? fromSel.value : (_sentAccts[0] && _sentAccts[0].id) || 'gmail'; const _sentAcct = _sentAccts.find(a => a.id === _sentFromId); const _sentFromStr = _sentAcct ? `${_sentAcct.name||_sentAcct.user||_sentAcct.id} <${_sentAcct.user||_sentAcct.id}>` : 'Me'; const _sentEmail = { id: 'sent_' + Date.now(), threadId: (_emailComposeReplyTarget && _emailComposeReplyTarget.threadId) || ('sent_' + Date.now()), subject: subject || '(no subject)', from: _sentFromStr, to, cc: cc || undefined, date: new Date().toUTCString(), snippet: bodyText.slice(0, 120), unread: false, _accountId: replyAcctId, _sent: true }; if (_emailComposeReplyTarget) { _emailComposeReplyTarget._replied = true; _sentEmail.threadId = _emailComposeReplyTarget.threadId; } gmailEmails.unshift(_sentEmail); gmailRenderEmails();
+        const _sentAccts = emailGetAllAccounts(); const _sentFromId = fromSel && fromSel.style.display !== 'none' ? fromSel.value : (_sentAccts[0] && _sentAccts[0].id) || 'gmail'; const _sentAcct = _sentAccts.find(a => a.id === _sentFromId); const _sentFromStr = _sentAcct ? `${_sentAcct.name||_sentAcct.user||_sentAcct.id} <${_sentAcct.user||_sentAcct.id}>` : 'Me'; const _sentEmail = { id: 'sent_' + Date.now(), threadId: (_emailComposeReplyTarget && _emailComposeReplyTarget.threadId) || ('sent_' + Date.now()), subject: subject || '(no subject)', from: _sentFromStr, to, cc: cc || undefined, date: new Date().toUTCString(), snippet: bodyText.slice(0, 120), unread: false, _accountId: replyAcctId, _sent: true }; if (_emailComposeReplyTarget) { _emailComposeReplyTarget._replied = true; _sentEmail.threadId = _emailComposeReplyTarget.threadId; } if(!Array.isArray(CONFIG.local_sent_emails)) CONFIG.local_sent_emails = []; CONFIG.local_sent_emails = [_sentEmail, ...CONFIG.local_sent_emails].slice(0, 400); saveAll(); gmailEmails = emailMergeLocalSent(gmailEmails); gmailRenderEmails();
         closeModal('email-compose-modal');
         _emailComposeReplyTarget = null;
     } catch (e) { notify('Failed to send: ' + e.message, '#ff3b30', 5000); }
