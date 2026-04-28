@@ -5872,6 +5872,23 @@ function gmailSanitizeHtml(html) {
     return tmp.innerHTML.trim();
 }
 
+function _extractEmailAddress(raw) {
+    if(!raw) return '';
+    const text = String(raw).trim();
+    const bracket = text.match(/<([^>]+)>/);
+    if(bracket && bracket[1]) return bracket[1].trim().toLowerCase();
+    const plain = text.match(/[\w.+-]+@[\w.-]+\.\w+/);
+    return plain ? plain[0].trim().toLowerCase() : '';
+}
+
+function _resolveReplyRecipient(em, acctUser) {
+    const fromAddr = _extractEmailAddress(em && em.from);
+    const toAddr = _extractEmailAddress(em && em.to);
+    const ownerAddr = _extractEmailAddress(acctUser || '');
+    if(ownerAddr && fromAddr && fromAddr === ownerAddr && toAddr) return em.to || toAddr;
+    return (em && em.from) || '';
+}
+
 async function gmailSendReply(src) {
     src = src || 'panel';
     const em = gmailCurrentEmail; if(!em) return;
@@ -5883,14 +5900,15 @@ async function gmailSendReply(src) {
     const subject = em.subject.startsWith('Re:') ? em.subject : 'Re: ' + em.subject;
     const acctId = em._accountId || 'gmail';
     const imapAcct = acctId !== 'gmail' ? (CONFIG.imap_accounts||[]).find(a => a.id === acctId) : null;
+    const replyRecipient = _resolveReplyRecipient(em, imapAcct ? imapAcct.user : '');
     try {
         notify("Sending…", "#007aff", 2000);
         if(imapAcct) {
-            const r = await fetch('/api/imap/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, to: em.from, subject: subject, text: replyText, html: `<html><body>${replyHtml}</body></html>` }) });
+            const r = await fetch('/api/imap/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, to: replyRecipient, subject: subject, text: replyText, html: `<html><body>${replyHtml}</body></html>` }) });
             if(!r.ok) { const d = await r.json(); throw new Error(d.error || "Send failed: " + r.status); }
         } else {
             const boundary = `boundary_${Date.now()}`;
-            const rawMsg = [`To: ${em.from}`, `Subject: ${subject}`, `In-Reply-To: ${em.messageId}`, `References: ${em.messageId}`, `MIME-Version: 1.0`, `Content-Type: multipart/alternative; boundary="${boundary}"`, ``, `--${boundary}`, `Content-Type: text/plain; charset=utf-8`, `Content-Transfer-Encoding: base64`, ``, _mimeBase64(replyText), ``, `--${boundary}`, `Content-Type: text/html; charset=utf-8`, `Content-Transfer-Encoding: base64`, ``, _mimeBase64(`<html><body>${replyHtml}</body></html>`), ``, `--${boundary}--`].join('\r\n');
+            const rawMsg = [`To: ${replyRecipient}`, `Subject: ${subject}`, `In-Reply-To: ${em.messageId}`, `References: ${em.messageId}`, `MIME-Version: 1.0`, `Content-Type: multipart/alternative; boundary="${boundary}"`, ``, `--${boundary}`, `Content-Type: text/plain; charset=utf-8`, `Content-Transfer-Encoding: base64`, ``, _mimeBase64(replyText), ``, `--${boundary}`, `Content-Type: text/html; charset=utf-8`, `Content-Transfer-Encoding: base64`, ``, _mimeBase64(`<html><body>${replyHtml}</body></html>`), ``, `--${boundary}--`].join('\r\n');
             const encoded = btoa(unescape(encodeURIComponent(rawMsg))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
             const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/send`, { method: 'POST', headers: { Authorization: `Bearer ${gmailAccessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: encoded, threadId: em.threadId }) });
             if(!r.ok) throw new Error("Send failed: " + r.status);
@@ -5907,7 +5925,7 @@ async function gmailSendReply(src) {
             threadId: em.threadId || em.id || ('sent_' + Date.now()),
             subject: subject || '(no subject)',
             from: _sentFromStr,
-            to: em.from || '',
+            to: replyRecipient || '',
             date: new Date().toUTCString(),
             snippet: replyText.slice(0, 120),
             unread: false,
@@ -6069,7 +6087,7 @@ function gmailOpenCompose() {
 
 function gmailComposeToAddress(addr) { const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts configured','#ff3b30'); return; } document.getElementById('email-compose-title').textContent = '📨 New Email'; document.getElementById('email-compose-to').value = addr||''; document.getElementById('email-compose-subject').value = ''; document.getElementById('email-compose-body').innerHTML = ''; document.getElementById('email-compose-reply-ref').style.display='none'; document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; _emailComposeMode='new'; _emailComposeReplyTarget=null; _emailComposeActiveSigId=''; _bindComposeSignatureSwipe(); const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); _applyDefaultComposeSignature(); }
 
-async function gmailTapEmailCompose(i, src) { await gmailPreview(i, src); const em = gmailCurrentEmail; if(!em) return; const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts — add Gmail or IMAP first','#ff3b30'); return; } document.getElementById('email-compose-title').textContent = '↩️ Reply'; document.getElementById('email-compose-to').value = em.from||''; document.getElementById('email-compose-subject').value = (em.subject||'').startsWith('Re:') ? em.subject : 'Re: '+(em.subject||''); document.getElementById('email-compose-body').innerHTML = ''; const refEl = document.getElementById('email-compose-reply-ref'); refEl.style.display=''; refEl.textContent=(em.subject||'')+(em.from?' — from '+em.from:''); document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; const cc=document.getElementById('email-compose-cc'); if(cc) cc.value=''; _emailComposeMode='reply'; _emailComposeReplyTarget=em; _emailComposeActiveSigId=''; _bindComposeSignatureSwipe(); const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); _applyDefaultComposeSignature(); }
+async function gmailTapEmailCompose(i, src) { await gmailPreview(i, src); const em = gmailCurrentEmail; if(!em) return; const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts — add Gmail or IMAP first','#ff3b30'); return; } const replyAcctId = em._accountId || 'gmail'; const imapAcct = replyAcctId !== 'gmail' ? (CONFIG.imap_accounts||[]).find(a => a.id === replyAcctId) : null; const replyRecipient = _resolveReplyRecipient(em, imapAcct ? imapAcct.user : ''); document.getElementById('email-compose-title').textContent = '↩️ Reply'; document.getElementById('email-compose-to').value = replyRecipient; document.getElementById('email-compose-subject').value = (em.subject||'').startsWith('Re:') ? em.subject : 'Re: '+(em.subject||''); document.getElementById('email-compose-body').innerHTML = ''; const refEl = document.getElementById('email-compose-reply-ref'); refEl.style.display=''; refEl.textContent=(em.subject||'')+(replyRecipient?' — to '+replyRecipient:''); document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; const cc=document.getElementById('email-compose-cc'); if(cc) cc.value=''; _emailComposeMode='reply'; _emailComposeReplyTarget=em; _emailComposeActiveSigId=''; _bindComposeSignatureSwipe(); const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); _applyDefaultComposeSignature(); }
 
 function gmailClosePreview(src) {
     src = src || 'panel';
@@ -7416,11 +7434,14 @@ function emailComposePickReply(idx) {
     const em = gmailEmails[idx];
     if (!em) return;
     _emailComposeReplyTarget = em;
-    document.getElementById('email-compose-to').value = em.from || '';
+    const replyAcctId = em._accountId || 'gmail';
+    const imapAcct = replyAcctId !== 'gmail' ? (CONFIG.imap_accounts||[]).find(a => a.id === replyAcctId) : null;
+    const replyRecipient = _resolveReplyRecipient(em, imapAcct ? imapAcct.user : '');
+    document.getElementById('email-compose-to').value = replyRecipient;
     document.getElementById('email-compose-subject').value = em.subject.startsWith('Re:') ? em.subject : 'Re: ' + em.subject;
     const refEl = document.getElementById('email-compose-reply-ref');
     refEl.style.display = 'block';
-    refEl.textContent = 'Replying to: ' + (em.subject || '(no subject)') + ' — ' + (em.from || '');
+    refEl.textContent = 'Replying to: ' + (em.subject || '(no subject)') + ' — ' + (replyRecipient || '');
     document.getElementById('email-compose-picker').style.display = 'none';
     document.getElementById('email-compose-form').style.display = 'flex';
     _applyDefaultComposeSignature();
