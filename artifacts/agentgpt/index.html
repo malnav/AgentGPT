@@ -4335,6 +4335,28 @@ let selectedEmailAccountIds = [];
 let emailCurrentMailbox = 'INBOX';
 let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
+let gmailReplyDraftSaveTimer = null;
+
+function gmailReplyDraftKey(em) {
+    if(!em) return '';
+    const acctId = em._accountId || 'gmail';
+    const threadish = em.threadId || em.messageId || em.id;
+    return `${acctId}:${threadish}`;
+}
+
+function gmailSaveReplyDraft(src) {
+    const em = gmailCurrentEmail;
+    if(!em) return;
+    const key = gmailReplyDraftKey(em);
+    if(!key) return;
+    const replyEl = document.getElementById(gmailIds(src || 'panel').reply);
+    if(!replyEl) return;
+    if(!CONFIG.email_reply_drafts || typeof CONFIG.email_reply_drafts !== 'object') CONFIG.email_reply_drafts = {};
+    const html = replyEl.innerHTML || '';
+    const text = (replyEl.textContent || '').trim();
+    if(!text) { delete CONFIG.email_reply_drafts[key]; return; }
+    CONFIG.email_reply_drafts[key] = html;
+}
 
 function emailGetLocalSentEmails() {
     const all = Array.isArray(CONFIG.local_sent_emails) ? CONFIG.local_sent_emails : [];
@@ -5549,7 +5571,11 @@ async function gmailPreview(i, src) {
     gmailPlainTextView[src] = false;
     gmailPreviewBodies[src] = null;
     gmailRenderPreviewBody(src);
-    const _rplySig = _getDefaultSig(); document.getElementById(ids.reply).innerHTML = _rplySig ? '<br><div class="email-sig-block" contenteditable="false" style="color:#888;border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px;font-size:12px;pointer-events:none;">' + _rplySig.replace(/\n/g,'<br>') + '</div>' : ''; try { const _rb=document.getElementById(ids.reply); const _range=document.createRange(); const _sel=window.getSelection(); if(_rb.firstChild){_range.setStartBefore(_rb.firstChild);}else{_range.setStart(_rb,0);} _range.collapse(true); _sel.removeAllRanges(); _sel.addRange(_range); } catch(e) {}
+    const _rplySig = _getDefaultSig();
+    const _draftKey = gmailReplyDraftKey(em);
+    const _savedDraft = _draftKey && CONFIG.email_reply_drafts ? CONFIG.email_reply_drafts[_draftKey] : '';
+    document.getElementById(ids.reply).innerHTML = _savedDraft || (_rplySig ? '<br><div class="email-sig-block" contenteditable="false" style="color:#888;border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px;font-size:12px;pointer-events:none;">' + _rplySig.replace(/\n/g,'<br>') + '</div>' : '');
+    try { const _rb=document.getElementById(ids.reply); const _range=document.createRange(); const _sel=window.getSelection(); if(_rb.firstChild){_range.setStartBefore(_rb.firstChild);}else{_range.setStart(_rb,0);} _range.collapse(true); _sel.removeAllRanges(); _sel.addRange(_range); } catch(e) {}
     const ov = document.getElementById(ids.overlay);
     ov.style.cssText = 'display:flex; flex-direction:column; position:absolute; inset:0; background:var(--bg); z-index:10; overflow:hidden;';
     try {
@@ -5644,8 +5670,29 @@ async function gmailSendReply(src) {
             const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/send`, { method: 'POST', headers: { Authorization: `Bearer ${gmailAccessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: encoded, threadId: em.threadId }) });
             if(!r.ok) throw new Error("Send failed: " + r.status);
         }
+        const _draftKey = gmailReplyDraftKey(em);
+        if(_draftKey && CONFIG.email_reply_drafts) delete CONFIG.email_reply_drafts[_draftKey];
         replyEl.innerHTML = "";
         em._replied = true;
+        const _allAccts = emailGetAllAccounts();
+        const _sentAcct = _allAccts.find(a => a.id === acctId);
+        const _sentFromStr = _sentAcct ? `${_sentAcct.name||_sentAcct.user||_sentAcct.id} <${_sentAcct.user||_sentAcct.id}>` : 'Me';
+        const _sentEmail = {
+            id: 'sent_' + Date.now(),
+            threadId: em.threadId || em.id || ('sent_' + Date.now()),
+            subject: subject || '(no subject)',
+            from: _sentFromStr,
+            to: em.from || '',
+            date: new Date().toUTCString(),
+            snippet: replyText.slice(0, 120),
+            unread: false,
+            _accountId: acctId,
+            _sent: true
+        };
+        if(!Array.isArray(CONFIG.local_sent_emails)) CONFIG.local_sent_emails = [];
+        CONFIG.local_sent_emails = [_sentEmail, ...CONFIG.local_sent_emails].slice(0, 400);
+        gmailEmails = emailMergeLocalSent(gmailEmails);
+        saveAll();
         gmailRenderEmails();
         notify("Reply sent! ↩", "#34c759", 3000);
         gmailClosePreview(src);
@@ -5657,6 +5704,9 @@ function gmailClearReply(src) {
     src = src || 'panel';
     const el = document.getElementById(gmailIds(src).reply);
     if(!el) return;
+    const em = gmailCurrentEmail;
+    const key = gmailReplyDraftKey(em);
+    if(key && CONFIG.email_reply_drafts) { delete CONFIG.email_reply_drafts[key]; saveAll(); }
     el.innerHTML = "";
     if(el.dataset.expanded === '1') {
         el.dataset.expanded = '0';
@@ -5796,6 +5846,9 @@ async function gmailTapEmailCompose(i, src) { await gmailPreview(i, src); const 
 
 function gmailClosePreview(src) {
     src = src || 'panel';
+    gmailSaveReplyDraft(src);
+    if(gmailReplyDraftSaveTimer) { clearTimeout(gmailReplyDraftSaveTimer); gmailReplyDraftSaveTimer = null; }
+    saveAll();
     document.getElementById(gmailIds(src).overlay).style.display = 'none';
     gmailCurrentEmail = null;
 }
@@ -7765,6 +7818,9 @@ let _replyInsState = { spanId: '', savedRange: null };
 
 function _onReplyBoxInput(src, e) {
     const el = e.target;
+    gmailSaveReplyDraft(src);
+    if(gmailReplyDraftSaveTimer) clearTimeout(gmailReplyDraftSaveTimer);
+    gmailReplyDraftSaveTimer = setTimeout(() => saveAll(), 500);
     const text = el.innerText || el.textContent || '';
     const atIdx = text.lastIndexOf('@');
     if (atIdx !== -1 && (atIdx === 0 || /[\s\n]/.test(text[atIdx - 1]))) {
