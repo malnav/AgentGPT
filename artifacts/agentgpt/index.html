@@ -2463,6 +2463,8 @@ async function _wsCreateDatasetFromSelection() {
     renderDatasetsList();
     renderSessionVariables();
     notify(`Created dataset and linked ${selected.length} chat${selected.length!==1?'s':''}.`, '#34c759');
+    await openDatasetFirstChat(vid);
+    await autoExtractVariables(true);
 }
 async function _wsAddSelectionToDataset() {
     const selected = _wsCollectSelectedChats();
