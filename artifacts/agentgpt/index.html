@@ -4863,6 +4863,34 @@ function gmailRelTime(dateStr) {
     return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'2-digit'});
 }
 
+function gmailDateSectionLabel(dateStr) {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Unknown Date';
+    const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startEmail = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const dayDiff = Math.floor((startToday - startEmail) / 86400000);
+    if (dayDiff === 0) return 'Today';
+    if (dayDiff === 1) return 'Yesterday';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function gmailRenderSectionedGroups(groups, src) {
+    const byDay = new Map();
+    groups.forEach((group) => {
+        const label = gmailDateSectionLabel(group[0]?.em?.date);
+        if (!byDay.has(label)) byDay.set(label, []);
+        byDay.get(label).push(group);
+    });
+    return Array.from(byDay.entries()).map(([label, dayGroups]) => {
+        const rows = dayGroups.map((g) => gmailThreadHtml(g, src)).join('');
+        return `<li style="list-style:none;">
+            <div style="padding:10px 14px 6px;font-size:11px;font-weight:800;letter-spacing:0.5px;color:#888;text-transform:uppercase;">${label}</div>
+            <ul style="list-style:none;padding:0;margin:0;">${rows}</ul>
+        </li>`;
+    }).join('');
+}
+
 function gmailThreadHtml(group, src) {
     const latest = group[0].em;
     const hasUnread = group.some(g => g.em.unread);
@@ -5026,8 +5054,8 @@ function gmailRenderEmails() {
         if(modalList) modalList.innerHTML = empty;
         gmailUpdateAddBtns(); return;
     }
-    if(panelList) panelList.innerHTML = groups.map(g => gmailThreadHtml(g, 'panel')).join('');
-    if(modalList) modalList.innerHTML = groups.map(g => gmailThreadHtml(g, 'modal')).join('');
+    if(panelList) panelList.innerHTML = gmailRenderSectionedGroups(groups, 'panel');
+    if(modalList) modalList.innerHTML = gmailRenderSectionedGroups(groups, 'modal');
     const psa = document.getElementById('gmail-panel-select-all'); if(psa) psa.checked = false;
     const msa = document.getElementById('gmail-modal-select-all'); if(msa) msa.checked = false;
     gmailUpdateAddBtns();
