@@ -986,7 +986,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                         <div id="gmail-preview-avatar" style="width:44px; height:44px; border-radius:50%; background:#54A0FF; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:800; color:#fff; flex-shrink:0; letter-spacing:-0.5px;"></div>
                         <div style="flex:1; min-width:0; padding-top:1px;">
                             <div id="gmail-preview-from" style="font-size:14px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
-                            <div id="gmail-preview-sender-email" style="font-size:11px; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:0px;"></div>
+                            <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                                <div id="gmail-preview-sender-email" style="font-size:11px; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:0px; min-width:0;"></div>
+                                <button id="gmail-preview-search-chat-btn" class="chip" style="display:none; font-size:10px; padding:2px 8px; white-space:nowrap; flex-shrink:0;" onclick="gmailSearchSenderInWorkspace('panel')" title="Search chats in workspace for this email">Search chats</button>
+                            </div>
                             <div id="gmail-preview-to" style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px;"></div>
                             <div id="gmail-preview-date" style="font-size:11px; color:#aaa; margin-top:2px;"></div>
                         </div>
@@ -1338,7 +1341,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                         <div id="gmail-modal-preview-avatar" style="width:48px; height:48px; border-radius:50%; background:#54A0FF; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:800; color:#fff; flex-shrink:0; letter-spacing:-0.5px;"></div>
                         <div style="flex:1; min-width:0; padding-top:2px;">
                             <div id="gmail-modal-preview-from" style="font-size:15px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
-                            <div id="gmail-modal-preview-sender-email" style="font-size:11px; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:0px;"></div>
+                            <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                                <div id="gmail-modal-preview-sender-email" style="font-size:11px; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:0px; min-width:0;"></div>
+                                <button id="gmail-modal-preview-search-chat-btn" class="chip" style="display:none; font-size:10px; padding:2px 8px; white-space:nowrap; flex-shrink:0;" onclick="gmailSearchSenderInWorkspace('modal')" title="Search chats in workspace for this email">Search chats</button>
+                            </div>
                             <div id="gmail-modal-preview-to" style="font-size:12px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px;"></div>
                             <div id="gmail-modal-preview-date" style="font-size:11px; color:#aaa; margin-top:2px;"></div>
                         </div>
@@ -1832,7 +1838,10 @@ async function _openPaypalInvoiceForm() {
         ov.innerHTML = `<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:18px 14px max(20px,env(safe-area-inset-bottom));">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><div><div style="font-size:17px;font-weight:800;">🧾 PayPal Invoice</div><div style="font-size:11px;color:#888;">Simple form with auto % calculations.</div></div><div style="font-size:22px;opacity:0.4;cursor:pointer;" onclick="document.getElementById('paypal-invoice-ov').remove()">✕</div></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-              <input id="ppf-customer-email" class="pp-input" placeholder="Customer email (optional)" value="${prefill.customer_email.replace(/"/g,'&quot;')}">
+              <div style="display:flex;gap:6px;grid-column:1 / -1;">
+                <input id="ppf-customer-email" class="pp-input" placeholder="Customer email (optional)" value="${prefill.customer_email.replace(/"/g,'&quot;')}" style="flex:1;">
+                <button id="ppf-search-workspace" class="chip" type="button" style="padding:0 10px;font-size:12px;white-space:nowrap;" title="Search chats in workspace by this email">Search chats</button>
+              </div>
               <input id="ppf-customer-name" class="pp-input" placeholder="Customer name (optional)" value="${prefill.customer_name.replace(/"/g,'&quot;')}">
               <input id="ppf-invoice-number" class="pp-input" placeholder="Invoice number (optional)" value="${prefill.invoice_number.replace(/"/g,'&quot;')}">
               <input id="ppf-currency" class="pp-input" placeholder="Currency (USD)" value="${prefill.currency_code.replace(/"/g,'&quot;')}">
@@ -1884,6 +1893,11 @@ async function _openPaypalInvoiceForm() {
         recalc();
 
         const closeWith = (val) => { ov.remove(); resolve(val); };
+        ov.querySelector('#ppf-search-workspace').onclick = () => {
+            const email = ov.querySelector('#ppf-customer-email').value.trim();
+            if(!email) return notify('Enter guest email first', '#ff9500', 2400);
+            _searchByEmail(email);
+        };
         ov.querySelector('#ppf-cancel').onclick = () => closeWith(null);
         ov.addEventListener('click', e => { if(e.target === ov) closeWith(null); });
         ov.querySelector('#ppf-save').onclick = () => {
@@ -2105,6 +2119,13 @@ async function jumpToSession(profileLabel, sessionId) {
     if(activeProfileLabel !== profileLabel) { await switchProfileSession(profileLabel); }
     await loadSession(sessionId); closeAllPanels();
 }
+async function loadSessionFromProfile(profileLabel, sessionId) {
+    if(_hsActive) {
+        _openLinkedChat(profileLabel, sessionId);
+        return;
+    }
+    await jumpToSession(profileLabel, sessionId);
+}
 
 function addSwipeListener(element, onSwipeLeft, onSwipeRight) { 
     let startX = 0, startY = 0; 
@@ -2267,7 +2288,7 @@ async function init() {
     if (migratedDs) { await dbHelper.set('histories', chatHistories); await dbHelper.set('datasets', GLOBAL_DATASETS); }
     activeProfileLabel = await dbHelper.get('activeProfile') || (AI_PROFILES[0] ? AI_PROFILES[0].label : "Agent");
     if(!AI_PROFILES.find(p => p.label === activeProfileLabel)) { activeProfileLabel = AI_PROFILES[0].label; }
-    bindInputEvents(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
+    bindInputEvents(); _bindReplySignatureSwipe(); if(CONFIG.ai_key) document.getElementById('ai-key-f').value = CONFIG.ai_key; 
     await autoCleanupEmptyChats(); await switchProfileSession(activeProfileLabel); await refreshUI(); if (CONFIG.home_screen) showHomeScreen(); initGestures(); initProfileBubble(); setTimeout(updateInputHeightVar, 100);
     startRealtimeSync();
     setTimeout(hideInitOverlay, 30000);
@@ -2410,6 +2431,11 @@ function _wsGetChatContext(chat) {
     const tail = userMsgs.slice(-5).map(m => getTextFromContent(m.content) || '').filter(Boolean).join(' ');
     return tail.replace(/\s+/g, ' ').trim();
 }
+function _wsGetChatMessageText(chat) {
+    const msgs = (chat.msgs || []).filter(m => m.role !== 'developer');
+    if(!msgs.length) return '';
+    return msgs.map(m => getTextFromContent(m.content) || '').filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+}
 function _wsToggleChatSelectMode() {
     _wsChatSelectMode = !_wsChatSelectMode;
     if(!_wsChatSelectMode) _wsSelectedChats = new Set();
@@ -2464,6 +2490,8 @@ async function _wsCreateDatasetFromSelection() {
     renderDatasetsList();
     renderSessionVariables();
     notify(`Created dataset and linked ${selected.length} chat${selected.length!==1?'s':''}.`, '#34c759');
+    await openDatasetFirstChat(vid);
+    await autoExtractVariables(true);
 }
 async function _wsAddSelectionToDataset() {
     const selected = _wsCollectSelectedChats();
@@ -2494,7 +2522,8 @@ function renderAllSessionsList() {
             let isActive = profLabel === activeProfileLabel && String(chat.id) === String(sData.current);
             let lastMsgTs = parseInt(chat.id) || 0;
             const context = _wsGetChatContext(chat);
-            const searchText = `${chat.title || ''} ${profLabel} ${context}`.toLowerCase();
+            const msgText = _wsGetChatMessageText(chat);
+            const searchText = `${chat.title || ''} ${profLabel} ${context} ${msgText}`.toLowerCase();
             const matchesSearch = !_wsChatSearch || searchText.includes(_wsChatSearch);
             if(chat.archived) {
                 if(matchesSearch) archivedChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs, isOrphan: !isValid, context });
@@ -2525,6 +2554,21 @@ function renderAllSessionsList() {
             : '';
         return `<li class="list-item ${isActive ? 'in-cut' : ''}" onclick="${_wsChatSelectMode ? `_wsToggleChatSelection('${profLabel}','${chat.id}')` : `loadSessionFromProfile('${profLabel}','${chat.id}')`}">${selectBox}<div style="flex:1; min-width:0; overflow:hidden;"><strong style="font-size:13px; display:flex; align-items:center; gap:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chat.title}${lockIcon}</strong><div style="display:flex; align-items:center; gap:5px; margin-top:2px; flex-wrap:wrap;"><span style="font-size:10px; color:${profColor}; font-weight:700;">${profLabel}</span>${orphanBadge}<span style="font-size:10px; color:#888;">· ${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div>${ctxText}</div>${_wsChatSelectMode ? '' : `<div class="inline-btn" data-sid="${chat.id}" data-prof="${profLabel}" data-pinned="${chat.pinned?'1':'0'}" onclick="event.stopPropagation(); openAllSessionMenu(event, this)" style="font-size:18px; font-weight:700; letter-spacing:1px;">⋯</div>`}</li>`;
     };
+    const wsGroupMeta = (ts) => {
+        if(!ts || !Number.isFinite(ts)) return { key: 'unknown', label: 'Unknown Date' };
+        const d = new Date(ts);
+        if(Number.isNaN(d.getTime())) return { key: 'unknown', label: 'Unknown Date' };
+        const dateKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const chatStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const dayDiff = Math.round((todayStart - chatStart) / 86400000);
+        if(dayDiff === 0) return { key: dateKey, label: 'Today' };
+        if(dayDiff === 1) return { key: dateKey, label: 'Yesterday' };
+        const fullLabel = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        return { key: dateKey, label: fullLabel };
+    };
+    const wsGroupHeaderHtml = (label) => `<li style="list-style:none;padding:9px 12px 6px;margin-top:6px;font-size:10px;font-weight:800;color:#888;letter-spacing:0.08em;text-transform:uppercase;">${label}</li>`;
 
     const sel = document.getElementById('ws-profile-filter');
     if(sel) {
@@ -2535,7 +2579,18 @@ function renderAllSessionsList() {
         if(!sel.value) { sel.value = 'all'; _wsProfileFilter = 'all'; }
     }
 
-    let html = allChats.length === 0 ? '<li style="color:#888; font-size:13px; padding:12px;">No chats matched your filters.</li>' : allChats.map(chatItemHtml).join('');
+    let html = '';
+    if(allChats.length === 0) {
+        html = '<li style="color:#888; font-size:13px; padding:12px;">No chats matched your filters.</li>';
+    } else {
+        let lastGroupKey = null;
+        html = allChats.map(item => {
+            const group = wsGroupMeta(item.lastMsgTs);
+            const header = group.key !== lastGroupKey ? wsGroupHeaderHtml(group.label) : '';
+            lastGroupKey = group.key;
+            return header + chatItemHtml(item);
+        }).join('');
+    }
     if(archivedChats.length > 0) {
         const collapsed = !window._allTabArchiveExpanded;
         const chev = collapsed ? '▶' : '▼';
@@ -2615,7 +2670,7 @@ async function _hsQuickChatSend() {
     const inp = document.getElementById('hs-chat-quick-input');
     if(!inp) return;
     const text = (inp.value || '').trim();
-    if(!text) { inp.focus(); return; }
+    if(!text && pendingAttachments.length === 0) { inp.focus(); return; }
     const quickProfile = _hsQuickChatGetActiveProfile();
     const profileLabel = quickProfile.label || activeProfileLabel;
     try {
@@ -2716,12 +2771,20 @@ function renderDatasetsList() {
     let archivedVids = sortedVids.filter(vid => GLOBAL_DATASETS[vid].archived);
     const _tg = (id) => `event.stopPropagation(); (function(el,btn){el.style.display=el.style.display==='none'?'block':'none'; if(btn)btn.style.opacity=el.style.display==='none'?'0.5':'0.8';})(document.getElementById('${id}'),this)`;
     _dsUpdateBulkBar();
-    let html = activeVids.map(vid => {
+    const _startOfDay = (ms) => { const d = new Date(ms); d.setHours(0,0,0,0); return d.getTime(); };
+    const _datasetDateLabel = (dayStartMs) => {
+        const todayStart = _startOfDay(Date.now());
+        const diffDays = Math.round((todayStart - dayStartMs) / 86400000);
+        if(diffDays === 0) return 'Today';
+        if(diffDays === 1) return 'Yesterday';
+        return new Date(dayStartMs).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+    const _renderDatasetItem = (vid) => {
         let ds = GLOBAL_DATASETS[vid]; let isCurrent = cur && String(vid) === String(cur.var_id);
         let varCount = Object.keys(ds.data || {}).length;
         let linkedChats = []; Object.keys(chatHistories).forEach(pName => { let s = chatHistories[pName]; if(s.list) s.list.forEach(c => { if(String(c.var_id) === String(vid) && !c.archived) { c._profile = pName; linkedChats.push(c); } }); });
-        if(!isCurrent && varCount === 0 && linkedChats.length === 0) return '';
-        if(!isCurrent && linkedChats.length > 0 && !linkedChats.some(c => existingProfiles.has(c._profile))) return '';
+        if(!isCurrent && varCount === 0 && linkedChats.length === 0) return null;
+        if(!isCurrent && linkedChats.length > 0 && !linkedChats.some(c => existingProfiles.has(c._profile))) return null;
         const isSel = _dsSelected.has(vid);
         const varsContent = varCount === 0 ? '<div style="padding:8px 12px; font-size:11px; color:#888;">No variables defined.</div>' : Object.entries(ds.data||{}).map(([k,v]) => { let raw = typeof v === 'object' ? (v.value||'') : (v||''); let plain = raw.replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').trim(); let locked = typeof v === 'object' && v.locked; let disp = plain.length > 55 ? plain.substring(0,55)+'…' : (plain||''); return `<div style="display:flex; gap:8px; padding:6px 12px; border-top:0.5px solid var(--border); font-size:11px; align-items:baseline; cursor:pointer;" onclick="event.stopPropagation(); closeAllPanels(); openDatasetFirstChat('${vid}')"><span style="font-weight:700; flex-shrink:0; min-width:60px; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:${locked?'var(--accent)':'var(--text)'};">${_eh(k)}</span><span style="color:#888; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-style:${disp?'normal':'italic'};">${disp ? _eh(disp) : 'empty'}</span>${locked?'<span style="font-size:9px; flex-shrink:0; opacity:0.6;">🔒</span>':''}</div>`; }).join('');
         if(_dsSelectMode) {
@@ -2729,7 +2792,22 @@ function renderDatasetsList() {
         }
         let chatsHtml = linkedChats.map(c => `<div draggable="true" ondragstart="_chatDragStart(event,'${c._profile}','${c.id}','${(c.title||'').replace(/'/g,"&#39;")}')" ontouchstart="_chatTouchStart(event,'${c._profile}','${c.id}','${(c.title||'').replace(/'/g,"&#39;")}',this)" ontouchmove="_chatTouchMove(event)" ontouchend="_chatTouchEnd(event)" style="font-size:12px; padding:10px 12px; border-top:0.5px solid var(--border); color:var(--accent); cursor:grab; background:var(--bg); margin-top:2px; display:flex; align-items:center; gap:6px; user-select:none; -webkit-user-select:none;"><span style="opacity:0.4; font-size:14px; flex-shrink:0;">⠿</span><span style="flex:1;" onclick="event.stopPropagation(); jumpToSession('${c._profile}','${c.id}')">💬 ${c.title} <span style="color:#888; font-size:10px;">(${c._profile})</span></span></div>`).join('');
         return `<li class="list-item" data-vid="${vid}" style="flex-direction:column; align-items:stretch;" ondragover="_chatDragOver(event,'${vid}')" ondrop="_chatDrop(event,'${vid}')"><div style="display:flex; justify-content:space-between; align-items:center; width:100%;"><div style="flex:1; cursor:pointer; min-width:0;" onclick="openDatasetFirstChat('${vid}')"><strong style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;">${_eh(ds.title||'Untitled Dataset')}</strong><div style="font-size:10px; color:#888; margin-top:4px; display:flex; align-items:center; gap:5px; flex-wrap:wrap;"><span onclick="${_tg('dsv-'+vid)}" style="color:var(--accent); font-weight:600; cursor:pointer; text-underline-offset:2px; text-decoration:underline; text-decoration-style:dotted;">${varCount} var${varCount!==1?'s':''}</span><span style="opacity:0.5;">·</span><span onclick="event.stopPropagation(); (function(el){el.style.display=el.style.display==='none'?'block':'none';})(document.getElementById('dsc-${vid}'))" style="cursor:pointer; display:flex; align-items:center; gap:2px;" title="Toggle linked chats">${linkedChats.length} chat${linkedChats.length!==1?'s':''} <span style="font-size:11px; opacity:0.5;">💬</span></span>${isCurrent?'<span style="font-size:10px; color:var(--accent); font-weight:700;"> · Active</span>':''}</div></div><div class="btn-row"><div class="inline-btn" data-vid="${vid}" onclick="event.stopPropagation(); openDatasetMenu(event, this)" style="font-size:18px; font-weight:700; letter-spacing:1px;">⋯</div></div></div><div id="dsv-${vid}" style="display:none; background:var(--sec-bg); margin-top:6px; border-radius:8px; overflow:hidden;">${varsContent}</div><div id="dsc-${vid}" style="display:none; background:var(--sec-bg); margin-top:6px; border-radius:8px; overflow:hidden;">${chatsHtml||'<div style="padding:8px 12px; font-size:11px; color:#888;">No chats linked. Drag a chat here.</div>'}</div></li>`;
-    }).join('');
+    };
+    const groupedDatasets = new Map();
+    activeVids.forEach(vid => {
+        const ds = GLOBAL_DATASETS[vid] || {};
+        const ts = ds._updated || Number(vid) || Date.now();
+        const dayStart = _startOfDay(ts);
+        if(!groupedDatasets.has(dayStart)) groupedDatasets.set(dayStart, []);
+        groupedDatasets.get(dayStart).push(vid);
+    });
+    const orderedDays = [...groupedDatasets.keys()].sort((a, b) => b - a);
+    let html = '';
+    orderedDays.forEach(dayStart => {
+        const items = groupedDatasets.get(dayStart).map(vid => _renderDatasetItem(vid)).filter(Boolean).join('');
+        if(!items) return;
+        html += `<li style="list-style:none; padding:10px 4px 6px; font-size:11px; font-weight:800; color:#888; text-transform:uppercase; letter-spacing:0.4px;">${_datasetDateLabel(dayStart)}</li>${items}`;
+    });
     let noDatasetChats = []; Object.keys(chatHistories).forEach(pName => { let s = chatHistories[pName]; if(s && s.list) s.list.forEach(c => { if(!c.var_id && !c.archived && existingProfiles.has(pName)) { c._profile = pName; noDatasetChats.push(c); } }); });
     if(noDatasetChats.length) { let noDs_isCurrent = cur && !cur.var_id; let noChatsHtml = noDatasetChats.map(c => `<div style="font-size:12px; padding:10px 12px; border-top:0.5px solid var(--border); background:var(--bg); display:flex; align-items:center; gap:6px; cursor:pointer;" onclick="jumpToSession('${c._profile}','${c.id}'); closeAllPanels()"><span style="flex:1;">💬 ${_eh(c.title||'Chat')}</span><span style="color:#888; font-size:10px;">(${c._profile})</span></div>`).join(''); html += `<li class="list-item" style="flex-direction:column; align-items:stretch;"><div style="display:flex; justify-content:space-between; align-items:center; width:100%;"><div style="flex:1; min-width:0;"><strong>📂 No Dataset</strong>${noDs_isCurrent?' <span style="font-size:10px; color:var(--accent);">(Active)</span>':''}<div style="font-size:10px; color:#888; margin-top:4px;">${noDatasetChats.length} chat${noDatasetChats.length!==1?'s':''}</div></div><div onclick="${_tg('ds-nodataset-exp')}" style="cursor:pointer; padding:6px 8px; font-size:14px; opacity:0.5; flex-shrink:0;">💬</div></div><div id="ds-nodataset-exp" style="display:none; background:var(--sec-bg); margin-top:6px; border-radius:8px; overflow:hidden;">${noChatsHtml}</div></li>`; }
     if(archivedVids.length) { let archHtml = archivedVids.map(vid => { let ds = GLOBAL_DATASETS[vid]; let varCount = Object.keys(ds.data||{}).length; return `<div style="font-size:12px; padding:10px 12px; border-top:0.5px solid var(--border); background:var(--bg); display:flex; align-items:center; gap:8px;"><div style="flex:1; min-width:0;"><div style="font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0.6;">${_eh(ds.title||'Untitled')}</div><div style="font-size:10px; color:#888; margin-top:2px;">${varCount} vars</div></div><button class="chip" onclick="event.stopPropagation(); _unarchiveDataset('${vid}')" style="font-size:10px; padding:3px 9px; flex-shrink:0; color:var(--accent);">Restore</button><div class="inline-btn" data-vid="${vid}" onclick="event.stopPropagation(); openDatasetMenu(event, this)" style="font-size:18px; font-weight:700; letter-spacing:1px;">⋯</div></div>`; }).join(''); html += `<li class="list-item" style="flex-direction:column; align-items:stretch; opacity:0.75;"><div style="display:flex; justify-content:space-between; align-items:center; width:100%;"><div style="flex:1; min-width:0;"><strong style="opacity:0.7;">🗄️ Archived (${archivedVids.length})</strong></div><div onclick="${_tg('ds-archived-exp')}" style="cursor:pointer; padding:6px 8px; font-size:14px; opacity:0.5; flex-shrink:0;">▼</div></div><div id="ds-archived-exp" style="display:none; background:var(--sec-bg); margin-top:6px; border-radius:8px; overflow:hidden;">${archHtml}</div></li>`; }
@@ -2772,7 +2850,18 @@ async function createNewDataset() { let newVid = Date.now().toString() + Math.fl
 let _varDragKey = null;
 
 function _getVarQuickActions(k, rawVal) { if(!rawVal) return ''; const plain = rawVal.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim(); let actions = ''; const isPhone = /^\+?[\d][\d\s\-\(\)]{5,18}[\d]$/.test(plain) && plain.replace(/\D/g,'').length >= 7; if(isPhone) { const digits = plain.replace(/\D/g,''); actions += `<a href="https://wa.me/${digits}" target="_blank" onclick="event.stopPropagation();" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#25d366;font-weight:700;text-decoration:none;background:rgba(37,211,102,0.12);border-radius:6px;padding:3px 8px;">💬 WhatsApp</a>`; } const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(plain); if(isEmail) { const esc = plain.replace(/'/g,"&#39;"); actions += `<span onclick="event.stopPropagation();_searchByEmail('${esc}');" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--accent);font-weight:700;background:rgba(0,122,255,0.1);border-radius:6px;padding:3px 8px;cursor:pointer;">🔍 Search chats</span>`; } return actions ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">${actions}</div>` : ''; }
-function _searchByEmail(email) { const hits = []; Object.entries(chatHistories).forEach(([prof, sData]) => { if(!sData||!sData.list) return; sData.list.forEach(s => { const found = (s.msgs||[]).some(m => { const c = typeof m.content==='string' ? m.content : JSON.stringify(m.content||''); return c.includes(email); }); if(found) hits.push({ prof, id: s.id, title: s.title||'Chat' }); }); }); if(!hits.length) { notify(`No chats found mentioning ${email}`, '#888', 3000); return; } notify(`Found in ${hits.length} chat${hits.length!==1?'s':''}. Opening workspace…`, 'var(--accent)', 3000); closeAllPanels(); const wp = document.getElementById('workspace-panel'); if(wp) { wp.classList.add('open'); renderWorkspaceLists(); } }
+function _searchByEmail(email) {
+    const term = String(email || '').trim();
+    if(!term) { notify('Enter an email first', '#888', 1800); return; }
+    closeAllPanels();
+    const wp = document.getElementById('workspace-panel');
+    if(wp) wp.classList.add('open');
+    switchWorkspaceTab('all');
+    const searchInput = document.getElementById('ws-chat-search');
+    if(searchInput) searchInput.value = term;
+    setWorkspaceChatSearch(term);
+    notify(`Searching workspace chats + context for: ${term}`, 'var(--accent)', 2200);
+}
 function renderSessionVariables() {
     let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current));
     let previewDs = _calPreviewVid ? GLOBAL_DATASETS[_calPreviewVid] : null;
@@ -4253,6 +4342,52 @@ let selectedEmailAccountIds = [];
 let emailCurrentMailbox = 'INBOX';
 let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
+let gmailReplyDraftSaveTimer = null;
+
+function gmailReplyDraftKey(em) {
+    if(!em) return '';
+    const acctId = em._accountId || 'gmail';
+    const threadish = em.threadId || em.messageId || em.id;
+    return `${acctId}:${threadish}`;
+}
+
+function gmailSaveReplyDraft(src) {
+    const em = gmailCurrentEmail;
+    if(!em) return;
+    const key = gmailReplyDraftKey(em);
+    if(!key) return;
+    const replyEl = document.getElementById(gmailIds(src || 'panel').reply);
+    if(!replyEl) return;
+    if(!CONFIG.email_reply_drafts || typeof CONFIG.email_reply_drafts !== 'object') CONFIG.email_reply_drafts = {};
+    const html = replyEl.innerHTML || '';
+    const text = (replyEl.textContent || '').trim();
+    if(!text) { delete CONFIG.email_reply_drafts[key]; return; }
+    CONFIG.email_reply_drafts[key] = html;
+}
+
+function emailGetLocalSentEmails() {
+    const all = Array.isArray(CONFIG.local_sent_emails) ? CONFIG.local_sent_emails : [];
+    if(emailCurrentMailbox === 'Sent') return [...all];
+    if(emailCurrentMailbox === 'INBOX') return [...all];
+    return [];
+}
+
+function emailGetGuestEmails() {
+    const locals = emailGetLocalSentEmails();
+    return locals.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
+}
+
+function emailMergeLocalSent(emails) {
+    const locals = emailGetLocalSentEmails();
+    if(!locals.length) return emails;
+    const existing = new Set((emails||[]).map(e => `${e._accountId||''}:${e.id}`));
+    const merged = [...emails];
+    locals.forEach(em => {
+        const key = `${em._accountId||''}:${em.id}`;
+        if(!existing.has(key)) merged.push(em);
+    });
+    return merged;
+}
 
 function emailGetAllAccounts() {
     const list = [];
@@ -4310,7 +4445,7 @@ async function emailFetchEmails(query) {
     const allAccts = emailGetAllAccounts();
     const selIds = selectedEmailAccountIds.length ? selectedEmailAccountIds : allAccts.map(a => a.id);
     const selAccts = allAccts.filter(a => selIds.includes(a.id));
-    if(!selAccts.length) { gmailEmails = []; gmailRenderEmails(); return; }
+    if(!selAccts.length) { gmailEmails = emailGetGuestEmails(); gmailRenderEmails(); return; }
     const hasGmail = selAccts.some(a => a.type === 'gmail');
     if(hasGmail && !gmailAccessToken) { gmailLoadEmails(query); return; }
     notify("Loading emails...", "#007aff", 1500);
@@ -4327,7 +4462,7 @@ async function emailFetchEmails(query) {
         }
     });
     merged.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
-    gmailEmails = merged;
+    gmailEmails = emailMergeLocalSent(merged);
     gmailHasMoreEmails = hasMore || !!gmailNextPageToken;
     gmailRenderEmails();
     emailUpdateResetBtn();
@@ -4436,22 +4571,122 @@ function renderEmailSettingsTab() {
             : '<div style="padding:14px; color:#888; font-size:13px; text-align:center;">No IMAP accounts yet.</div>';
     }
     const sigListEl = document.getElementById('email-signatures-list');
-    if(sigListEl) { const sigs = CONFIG.email_signatures||[]; sigListEl.innerHTML = sigs.length ? sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:0.5px solid var(--border);"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name}${s.isDefault?' <span style="font-size:10px;color:var(--accent);font-weight:800;">DEFAULT</span>':''}</div><div style="font-size:11px;color:#888;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(s.text||'').split('\n')[0].slice(0,55)}</div></div><span class="chip" style="font-size:10px;padding:3px 8px;flex-shrink:0;cursor:pointer;color:var(--accent);" onclick="_sigSetDefault('${s.id}')">★</span><span class="chip" style="font-size:11px;padding:5px 10px;flex-shrink:0;cursor:pointer;" onclick="_sigShowAdd('${s.id}')">Edit</span></div>`).join('') : '<div style="padding:14px;color:#888;font-size:13px;text-align:center;">No signatures yet — tap + Add.</div>'; }
+    if(sigListEl) { const sigs = CONFIG.email_signatures||[]; sigListEl.innerHTML = sigs.length ? sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:0.5px solid var(--border);"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name}${s.isDefault?' <span style="font-size:10px;color:var(--accent);font-weight:800;">DEFAULT</span>':''}</div><div style="font-size:11px;color:#888;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(s.text||'').split('\n')[0].slice(0,55)}</div><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;"><span class="chip" style="font-size:10px;padding:2px 7px;${String(CONFIG.email_signature_default_new||'')===String(s.id)?'background:rgba(0,122,255,0.14);color:var(--accent);font-weight:800;':''}" onclick="_sigSetModeDefault('${s.id}','new')">New</span><span class="chip" style="font-size:10px;padding:2px 7px;${String(CONFIG.email_signature_default_reply||'')===String(s.id)?'background:rgba(0,122,255,0.14);color:var(--accent);font-weight:800;':''}" onclick="_sigSetModeDefault('${s.id}','reply')">Reply</span></div></div><span class="chip" style="font-size:10px;padding:3px 8px;flex-shrink:0;cursor:pointer;color:var(--accent);" onclick="_sigSetDefault('${s.id}')">★</span><span class="chip" style="font-size:11px;padding:5px 10px;flex-shrink:0;cursor:pointer;" onclick="_sigShowAdd('${s.id}')">Edit</span></div>`).join('') : '<div style="padding:14px;color:#888;font-size:13px;text-align:center;">No signatures yet — tap + Add.</div>'; }
 }
 
-function _getDefaultSig() { const sigs = CONFIG.email_signatures||[]; if(!sigs.length) return CONFIG.email_signature||''; const def = sigs.find(s=>s.isDefault)||sigs[0]; return def?def.text:''; }
+function _getDefaultSigObj(mode) {
+    const sigs = CONFIG.email_signatures || [];
+    if(!sigs.length) return { id:'', text: CONFIG.email_signature || '', name: 'Signature' };
+    const modeId = mode === 'reply' ? (CONFIG.email_signature_default_reply || '') : (CONFIG.email_signature_default_new || '');
+    let chosen = modeId ? sigs.find(s => String(s.id) === String(modeId)) : null;
+    if(!chosen) chosen = sigs.find(s => s.isDefault) || sigs[0];
+    return chosen ? { id: chosen.id, text: chosen.text || '', name: chosen.name || 'Signature' } : { id:'', text:'', name:'Signature' };
+}
+function _getDefaultSig(mode) { return _getDefaultSigObj(mode).text || ''; }
+function _normalizeSignatureDefaults() {
+    const sigs = CONFIG.email_signatures || [];
+    if(!sigs.length) {
+        CONFIG.email_signature_default_new = '';
+        CONFIG.email_signature_default_reply = '';
+        return;
+    }
+    const legacyDefault = sigs.find(s => s.isDefault) || sigs[0];
+    const hasNew = sigs.some(s => String(s.id) === String(CONFIG.email_signature_default_new || ''));
+    const hasReply = sigs.some(s => String(s.id) === String(CONFIG.email_signature_default_reply || ''));
+    if(!hasNew) CONFIG.email_signature_default_new = legacyDefault.id;
+    if(!hasReply) CONFIG.email_signature_default_reply = legacyDefault.id;
+}
 
 function _sigShowAdd(id) { const sigs = CONFIG.email_signatures||[]; const sig = id ? sigs.find(s=>String(s.id)===String(id)) : null; const ov = document.createElement('div'); ov.id='sig-edit-overlay'; ov.style.cssText='position:fixed;inset:0;z-index:9900;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);'; ov.innerHTML=`<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px 16px max(24px,env(safe-area-inset-bottom));"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><span style="font-size:16px;font-weight:800;color:var(--text);">${sig?'Edit':'New'} Signature</span><div onclick="document.getElementById('sig-edit-overlay').remove();" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><input id="sig-name-f" class="pp-input" placeholder="Name (e.g. Casual, Formal)" value="${sig?sig.name.replace(/"/g,'&quot;'):''}" style="margin-bottom:10px;font-size:13px;"><textarea id="sig-text-f" class="pp-input" rows="4" placeholder="Signature text…" style="font-size:13px;resize:none;">${sig?sig.text:''}</textarea><div style="display:flex;gap:8px;margin-top:12px;">${sig?`<button class="chip" onclick="_sigDelete('${sig.id}')" style="flex:1;font-size:13px;padding:12px;color:#ff3b30;background:transparent;border:0.5px solid #ff3b30;">Delete</button>`:''}<button class="chip" onclick="_sigSave('${sig?sig.id:''}')" style="flex:2;font-size:13px;padding:12px;background:var(--accent);color:#fff;font-weight:700;">Save</button></div></div>`; ov.onclick=(e)=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov); setTimeout(()=>{const f=document.getElementById('sig-name-f');if(f)f.focus();},200); }
 
-function _sigSave(id) { const name=(document.getElementById('sig-name-f').value||'').trim()||'Signature'; const text=document.getElementById('sig-text-f').value||''; if(!CONFIG.email_signatures) CONFIG.email_signatures=[]; if(id) { const s=CONFIG.email_signatures.find(x=>String(x.id)===String(id)); if(s){s.name=name;s.text=text;} } else { CONFIG.email_signatures.push({id:String(Date.now()),name,text,isDefault:CONFIG.email_signatures.length===0}); } saveAll(); renderEmailSettingsTab(); const ov=document.getElementById('sig-edit-overlay'); if(ov) ov.remove(); notify('Signature saved','#34c759',1200); }
+function _sigSave(id) { const name=(document.getElementById('sig-name-f').value||'').trim()||'Signature'; const text=document.getElementById('sig-text-f').value||''; if(!CONFIG.email_signatures) CONFIG.email_signatures=[]; if(id) { const s=CONFIG.email_signatures.find(x=>String(x.id)===String(id)); if(s){s.name=name;s.text=text;} } else { const sid=String(Date.now()); CONFIG.email_signatures.push({id:sid,name,text,isDefault:CONFIG.email_signatures.length===0}); if(CONFIG.email_signatures.length===1){CONFIG.email_signature_default_new=sid;CONFIG.email_signature_default_reply=sid;} } _normalizeSignatureDefaults(); saveAll(); renderEmailSettingsTab(); const ov=document.getElementById('sig-edit-overlay'); if(ov) ov.remove(); notify('Signature saved','#34c759',1200); }
 
-function _sigDelete(id) { CONFIG.email_signatures=(CONFIG.email_signatures||[]).filter(s=>String(s.id)!==String(id)); saveAll(); renderEmailSettingsTab(); const ov=document.getElementById('sig-edit-overlay'); if(ov) ov.remove(); notify('Signature deleted','#888',1200); }
+function _sigDelete(id) { CONFIG.email_signatures=(CONFIG.email_signatures||[]).filter(s=>String(s.id)!==String(id)); if(String(CONFIG.email_signature_default_new||'')===String(id)) CONFIG.email_signature_default_new=''; if(String(CONFIG.email_signature_default_reply||'')===String(id)) CONFIG.email_signature_default_reply=''; _normalizeSignatureDefaults(); saveAll(); renderEmailSettingsTab(); const ov=document.getElementById('sig-edit-overlay'); if(ov) ov.remove(); notify('Signature deleted','#888',1200); }
 
 function _sigSetDefault(id) { (CONFIG.email_signatures||[]).forEach(s=>{s.isDefault=String(s.id)===String(id);}); saveAll(); renderEmailSettingsTab(); notify('Default signature set','#34c759',1200); }
+function _sigSetModeDefault(id, mode) { if(mode==='reply') CONFIG.email_signature_default_reply = id; else CONFIG.email_signature_default_new = id; _normalizeSignatureDefaults(); saveAll(); renderEmailSettingsTab(); notify(`${mode==='reply'?'Reply':'New mail'} default set`,'#34c759',1200); }
 
-function _composeInsertSignature() { const sigs = CONFIG.email_signatures||[]; const defSig = _getDefaultSig(); if(!sigs.length && !defSig) { notify('No signature set — add one in Email Settings','#ff9f0a',2000); return; } if(sigs.length<=1) { _insertSigText(defSig); return; } const menu=document.createElement('div'); menu.style.cssText='position:fixed;inset:0;z-index:9200;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);'; menu.innerHTML='<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:16px 16px 36px;"><div style="font-size:15px;font-weight:800;margin-bottom:12px;color:var(--text);">Choose Signature</div><div id="sig-pick-list" style="display:flex;flex-direction:column;gap:8px;"></div><button onclick="this.closest(\'[style*=inset:0]\').remove();" style="width:100%;margin-top:12px;padding:12px;background:transparent;border:none;font-size:14px;color:#888;cursor:pointer;">Cancel</button></div>'; menu.onclick=(e)=>{if(e.target===menu)menu.remove();}; document.body.appendChild(menu); const listEl=document.getElementById('sig-pick-list'); sigs.forEach(s=>{const d=document.createElement('div'); d.style.cssText='padding:12px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;'; d.innerHTML=`<div style="font-size:13px;font-weight:700;color:var(--text);">${s.name}${s.isDefault?' ★':''}</div><div style="font-size:11px;color:#888;margin-top:3px;">${(s.text||'').split('\n')[0].slice(0,60)}</div>`; d.onclick=(e)=>{e.stopPropagation();menu.remove();_insertSigText(s.text);}; listEl.appendChild(d); }); }
+function _composeInsertSignature() { const sigs = CONFIG.email_signatures||[]; const defSig = _getDefaultSig(_emailComposeMode); if(!sigs.length && !defSig) { notify('No signature set — add one in Email Settings','#ff9f0a',2000); return; } if(sigs.length<=1) { const d = _getDefaultSigObj(_emailComposeMode); _insertSigText(defSig, d.id); return; } const menu=document.createElement('div'); menu.style.cssText='position:fixed;inset:0;z-index:9200;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);'; menu.innerHTML='<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:16px 16px 36px;"><div style="font-size:15px;font-weight:800;margin-bottom:12px;color:var(--text);">Choose Signature</div><div id="sig-pick-list" style="display:flex;flex-direction:column;gap:8px;"></div><button onclick="this.closest(\'[style*=inset:0]\').remove();" style="width:100%;margin-top:12px;padding:12px;background:transparent;border:none;font-size:14px;color:#888;cursor:pointer;">Cancel</button></div>'; menu.onclick=(e)=>{if(e.target===menu)menu.remove();}; document.body.appendChild(menu); const listEl=document.getElementById('sig-pick-list'); sigs.forEach(s=>{const d=document.createElement('div'); d.style.cssText='padding:12px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;'; d.innerHTML=`<div style="font-size:13px;font-weight:700;color:var(--text);">${s.name}${s.isDefault?' ★':''}</div><div style="font-size:11px;color:#888;margin-top:3px;">${(s.text||'').split('\n')[0].slice(0,60)}</div>`; d.onclick=(e)=>{e.stopPropagation();menu.remove();_insertSigText(s.text, s.id);}; listEl.appendChild(d); }); }
 
-function _insertSigText(text) { if(!text) return; const body=document.getElementById('email-compose-body'); if(!body) return; const existing=body.querySelector('.email-sig-block'); if(existing) existing.remove(); const sigDiv=document.createElement('div'); sigDiv.className='email-sig-block'; sigDiv.style.cssText='color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;'; sigDiv.innerHTML=text.replace(/\n/g,'<br>'); body.appendChild(document.createElement('br')); body.appendChild(sigDiv); }
+function _insertSigText(text, sigId) {
+    const body=document.getElementById('email-compose-body');
+    if(!body) return;
+    const existing=body.querySelector('.email-sig-block');
+    if(existing) {
+        const prev = existing.previousSibling;
+        if(prev && prev.nodeName === 'BR') prev.remove();
+        existing.remove();
+    }
+    _emailComposeActiveSigId = sigId || '';
+    if(!text) return;
+    const sigDiv=document.createElement('div');
+    sigDiv.className='email-sig-block';
+    sigDiv.style.cssText='color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;';
+    sigDiv.innerHTML=text.replace(/\n/g,'<br>');
+    body.appendChild(document.createElement('br'));
+    body.appendChild(sigDiv);
+}
+const _replySigState = { panel: '', modal: '' };
+let _replySigSwipeBound = false;
+function _setReplySignature(src, sigId) {
+    const boxId = src === 'modal' ? 'gmail-modal-reply-box' : 'gmail-reply-box';
+    const box = document.getElementById(boxId);
+    if(!box) return;
+    const sigs = CONFIG.email_signatures || [];
+    let sig = sigId ? sigs.find(s => String(s.id) === String(sigId)) : null;
+    if(!sig) {
+        const def = _getDefaultSigObj('reply');
+        sig = sigs.find(s => String(s.id) === String(def.id)) || (def.text ? { id: def.id, text: def.text, name: def.name } : null);
+    }
+    const existing = box.querySelector('.email-sig-block');
+    if(existing) {
+        const prev = existing.previousSibling;
+        if(prev && prev.nodeName === 'BR') prev.remove();
+        existing.remove();
+    }
+    _replySigState[src] = sig ? String(sig.id || '') : '';
+    if(!sig || !sig.text) return;
+    const sigDiv = document.createElement('div');
+    sigDiv.className = 'email-sig-block';
+    sigDiv.contentEditable = 'false';
+    sigDiv.style.cssText = 'color:#888;border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px;font-size:12px;pointer-events:none;';
+    sigDiv.innerHTML = String(sig.text).replace(/\n/g,'<br>');
+    box.appendChild(document.createElement('br'));
+    box.appendChild(sigDiv);
+}
+function _cycleReplySignature(src, dir) {
+    const sigs = CONFIG.email_signatures || [];
+    if(sigs.length < 2) return;
+    let idx = sigs.findIndex(s => String(s.id) === String(_replySigState[src] || ''));
+    if(idx < 0) idx = sigs.findIndex(s => String(s.id) === String((_getDefaultSigObj('reply') || {}).id || ''));
+    idx = idx < 0 ? 0 : idx;
+    const next = sigs[(idx + dir + sigs.length) % sigs.length];
+    _setReplySignature(src, next.id);
+    notify(`Reply signature: ${next.name || 'Signature'}`, '#007aff', 1200);
+}
+function _bindReplySignatureSwipe() {
+    if(_replySigSwipeBound) return;
+    ['panel','modal'].forEach(src => {
+        const boxId = src === 'modal' ? 'gmail-modal-reply-box' : 'gmail-reply-box';
+        const box = document.getElementById(boxId);
+        if(!box) return;
+        let sx = 0, sy = 0;
+        box.addEventListener('touchstart', (e) => {
+            if(!e.touches || !e.touches[0]) return;
+            sx = e.touches[0].clientX;
+            sy = e.touches[0].clientY;
+        }, { passive: true });
+        box.addEventListener('touchend', (e) => {
+            if(!e.changedTouches || !e.changedTouches[0]) return;
+            const dx = e.changedTouches[0].clientX - sx;
+            const dy = e.changedTouches[0].clientY - sy;
+            if(Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.1) return;
+            if(dx < 0) _cycleReplySignature(src, 1);
+            else _cycleReplySignature(src, -1);
+        }, { passive: true });
+    });
+    _replySigSwipeBound = true;
+}
 
 function saveEmailSignature() { notify('Use + Add to manage signatures','#007aff',2000); }
 
@@ -4468,8 +4703,16 @@ function gmailIds(src) {
         avatar:  m ? 'gmail-modal-preview-avatar'  : 'gmail-preview-avatar',
         body:        m ? 'gmail-modal-preview-body'       : 'gmail-preview-body',
         reply:       m ? 'gmail-modal-reply-box'          : 'gmail-reply-box',
-        senderEmail: m ? 'gmail-modal-preview-sender-email' : 'gmail-preview-sender-email'
+        senderEmail: m ? 'gmail-modal-preview-sender-email' : 'gmail-preview-sender-email',
+        senderSearchBtn: m ? 'gmail-modal-preview-search-chat-btn' : 'gmail-preview-search-chat-btn'
     };
+}
+
+function gmailSearchSenderInWorkspace(src) {
+    const ids = gmailIds(src || 'panel');
+    const email = (document.getElementById(ids.senderEmail)?.textContent || '').trim();
+    if(!email) { notify('No sender email found', '#888', 1800); return; }
+    _searchByEmail(email);
 }
 
 function gmailHtmlToPlainText(html) {
@@ -4862,6 +5105,34 @@ function gmailRelTime(dateStr) {
     return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'2-digit'});
 }
 
+function gmailDateSectionLabel(dateStr) {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Unknown Date';
+    const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startEmail = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const dayDiff = Math.floor((startToday - startEmail) / 86400000);
+    if (dayDiff === 0) return 'Today';
+    if (dayDiff === 1) return 'Yesterday';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function gmailRenderSectionedGroups(groups, src) {
+    const byDay = new Map();
+    groups.forEach((group) => {
+        const label = gmailDateSectionLabel(group[0]?.em?.date);
+        if (!byDay.has(label)) byDay.set(label, []);
+        byDay.get(label).push(group);
+    });
+    return Array.from(byDay.entries()).map(([label, dayGroups]) => {
+        const rows = dayGroups.map((g) => gmailThreadHtml(g, src)).join('');
+        return `<li style="list-style:none;">
+            <div style="padding:10px 14px 6px;font-size:11px;font-weight:800;letter-spacing:0.5px;color:#888;text-transform:uppercase;">${label}</div>
+            <ul style="list-style:none;padding:0;margin:0;">${rows}</ul>
+        </li>`;
+    }).join('');
+}
+
 function gmailThreadHtml(group, src) {
     const latest = group[0].em;
     const hasUnread = group.some(g => g.em.unread);
@@ -5025,8 +5296,8 @@ function gmailRenderEmails() {
         if(modalList) modalList.innerHTML = empty;
         gmailUpdateAddBtns(); return;
     }
-    if(panelList) panelList.innerHTML = groups.map(g => gmailThreadHtml(g, 'panel')).join('');
-    if(modalList) modalList.innerHTML = groups.map(g => gmailThreadHtml(g, 'modal')).join('');
+    if(panelList) panelList.innerHTML = gmailRenderSectionedGroups(groups, 'panel');
+    if(modalList) modalList.innerHTML = gmailRenderSectionedGroups(groups, 'modal');
     const psa = document.getElementById('gmail-panel-select-all'); if(psa) psa.checked = false;
     const msa = document.getElementById('gmail-modal-select-all'); if(msa) msa.checked = false;
     gmailUpdateAddBtns();
@@ -5352,7 +5623,15 @@ async function gmailPreview(i, src) {
     const dateEl = document.getElementById(ids.date);
     if(dateEl) dateEl.textContent = em.date;
     const senderEmailEl = document.getElementById(ids.senderEmail);
-    if(senderEmailEl) { senderEmailEl.textContent = nameMatch && dispName ? dispEmail : ''; senderEmailEl.style.cursor='pointer'; senderEmailEl.title='Compose new email to this address'; senderEmailEl.onclick=()=>gmailComposeToAddress(dispEmail); }
+    const senderSearchBtn = document.getElementById(ids.senderSearchBtn);
+    if(senderEmailEl) {
+        const senderText = nameMatch && dispName ? dispEmail : '';
+        senderEmailEl.textContent = senderText;
+        senderEmailEl.style.cursor='pointer';
+        senderEmailEl.title='Compose new email to this address';
+        senderEmailEl.onclick=()=>gmailComposeToAddress(dispEmail);
+        if(senderSearchBtn) senderSearchBtn.style.display = senderText ? 'inline-flex' : 'none';
+    }
     const fromEl = document.getElementById(ids.from);
     if(fromEl) { fromEl.style.cursor='pointer'; fromEl.title='Compose new email to this address'; fromEl.onclick=()=>gmailComposeToAddress(dispEmail); }
     document.getElementById(ids.subject).textContent = em.subject;
@@ -5360,7 +5639,8 @@ async function gmailPreview(i, src) {
     gmailPlainTextView[src] = false;
     gmailPreviewBodies[src] = null;
     gmailRenderPreviewBody(src);
-    const _rplySig = _getDefaultSig(); document.getElementById(ids.reply).innerHTML = _rplySig ? '<br><div class="email-sig-block" contenteditable="false" style="color:#888;border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px;font-size:12px;pointer-events:none;">' + _rplySig.replace(/\n/g,'<br>') + '</div>' : ''; try { const _rb=document.getElementById(ids.reply); const _range=document.createRange(); const _sel=window.getSelection(); if(_rb.firstChild){_range.setStartBefore(_rb.firstChild);}else{_range.setStart(_rb,0);} _range.collapse(true); _sel.removeAllRanges(); _sel.addRange(_range); } catch(e) {}
+    _setReplySignature(src, '');
+    try { const _rb=document.getElementById(ids.reply); const _range=document.createRange(); const _sel=window.getSelection(); if(_rb.firstChild){_range.setStartBefore(_rb.firstChild);}else{_range.setStart(_rb,0);} _range.collapse(true); _sel.removeAllRanges(); _sel.addRange(_range); } catch(e) {}
     const ov = document.getElementById(ids.overlay);
     ov.style.cssText = 'display:flex; flex-direction:column; position:absolute; inset:0; background:var(--bg); z-index:10; overflow:hidden;';
     try {
@@ -5455,8 +5735,29 @@ async function gmailSendReply(src) {
             const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/send`, { method: 'POST', headers: { Authorization: `Bearer ${gmailAccessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: encoded, threadId: em.threadId }) });
             if(!r.ok) throw new Error("Send failed: " + r.status);
         }
+        const _draftKey = gmailReplyDraftKey(em);
+        if(_draftKey && CONFIG.email_reply_drafts) delete CONFIG.email_reply_drafts[_draftKey];
         replyEl.innerHTML = "";
         em._replied = true;
+        const _allAccts = emailGetAllAccounts();
+        const _sentAcct = _allAccts.find(a => a.id === acctId);
+        const _sentFromStr = _sentAcct ? `${_sentAcct.name||_sentAcct.user||_sentAcct.id} <${_sentAcct.user||_sentAcct.id}>` : 'Me';
+        const _sentEmail = {
+            id: 'sent_' + Date.now(),
+            threadId: em.threadId || em.id || ('sent_' + Date.now()),
+            subject: subject || '(no subject)',
+            from: _sentFromStr,
+            to: em.from || '',
+            date: new Date().toUTCString(),
+            snippet: replyText.slice(0, 120),
+            unread: false,
+            _accountId: acctId,
+            _sent: true
+        };
+        if(!Array.isArray(CONFIG.local_sent_emails)) CONFIG.local_sent_emails = [];
+        CONFIG.local_sent_emails = [_sentEmail, ...CONFIG.local_sent_emails].slice(0, 400);
+        gmailEmails = emailMergeLocalSent(gmailEmails);
+        saveAll();
         gmailRenderEmails();
         notify("Reply sent! ↩", "#34c759", 3000);
         gmailClosePreview(src);
@@ -5468,6 +5769,9 @@ function gmailClearReply(src) {
     src = src || 'panel';
     const el = document.getElementById(gmailIds(src).reply);
     if(!el) return;
+    const em = gmailCurrentEmail;
+    const key = gmailReplyDraftKey(em);
+    if(key && CONFIG.email_reply_drafts) { delete CONFIG.email_reply_drafts[key]; saveAll(); }
     el.innerHTML = "";
     if(el.dataset.expanded === '1') {
         el.dataset.expanded = '0';
@@ -5584,8 +5888,7 @@ function gmailOpenCompose() {
     document.getElementById('email-compose-title').textContent = '📨 New Email';
     document.getElementById('email-compose-to').value = '';
     document.getElementById('email-compose-subject').value = '';
-    const sig = _getDefaultSig();
-    document.getElementById('email-compose-body').innerHTML = sig ? '<br><br><div class="email-sig-block" style="color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">'+sig.replace(/\n/g,'<br>')+'</div>' : '';
+    document.getElementById('email-compose-body').innerHTML = '';
     document.getElementById('email-compose-reply-ref').style.display = 'none';
     document.getElementById('email-compose-picker').style.display = 'none';
     document.getElementById('email-compose-form').style.display = 'flex';
@@ -5595,18 +5898,24 @@ function gmailOpenCompose() {
     const bcc = document.getElementById('email-compose-bcc'); if(bcc) bcc.value = '';
     _emailComposeMode = 'new';
     _emailComposeReplyTarget = null;
+    _emailComposeActiveSigId = '';
+    _bindComposeSignatureSwipe();
     const fromSel = document.getElementById('email-compose-from');
     fromSel.innerHTML = allAccts.map(a => `<option value="${a.id}">${a.name||a.user||a.id}</option>`).join('');
     fromSel.style.display = allAccts.length > 0 ? '' : 'none';
     openModal('email-compose-modal');
+    _applyDefaultComposeSignature();
 }
 
-function gmailComposeToAddress(addr) { const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts configured','#ff3b30'); return; } document.getElementById('email-compose-title').textContent = '📨 New Email'; document.getElementById('email-compose-to').value = addr||''; document.getElementById('email-compose-subject').value = ''; const sig = _getDefaultSig(); document.getElementById('email-compose-body').innerHTML = sig ? '<br><br><div class="email-sig-block" style="color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">'+sig.replace(/\n/g,'<br>')+'</div>' : ''; document.getElementById('email-compose-reply-ref').style.display='none'; document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; _emailComposeMode='new'; _emailComposeReplyTarget=null; const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); }
+function gmailComposeToAddress(addr) { const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts configured','#ff3b30'); return; } document.getElementById('email-compose-title').textContent = '📨 New Email'; document.getElementById('email-compose-to').value = addr||''; document.getElementById('email-compose-subject').value = ''; document.getElementById('email-compose-body').innerHTML = ''; document.getElementById('email-compose-reply-ref').style.display='none'; document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; _emailComposeMode='new'; _emailComposeReplyTarget=null; _emailComposeActiveSigId=''; _bindComposeSignatureSwipe(); const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); _applyDefaultComposeSignature(); }
 
-async function gmailTapEmailCompose(i, src) { await gmailPreview(i, src); const em = gmailCurrentEmail; if(!em) return; const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts — add Gmail or IMAP first','#ff3b30'); return; } document.getElementById('email-compose-title').textContent = '↩️ Reply'; document.getElementById('email-compose-to').value = em.from||''; document.getElementById('email-compose-subject').value = (em.subject||'').startsWith('Re:') ? em.subject : 'Re: '+(em.subject||''); const sig = _getDefaultSig(); document.getElementById('email-compose-body').innerHTML = sig ? '<br><br><div class="email-sig-block" style="color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">'+sig.replace(/\n/g,'<br>')+'</div>' : ''; const refEl = document.getElementById('email-compose-reply-ref'); refEl.style.display=''; refEl.textContent=(em.subject||'')+(em.from?' — from '+em.from:''); document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; const cc=document.getElementById('email-compose-cc'); if(cc) cc.value=''; _emailComposeMode='reply'; _emailComposeReplyTarget=em; const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); }
+async function gmailTapEmailCompose(i, src) { await gmailPreview(i, src); const em = gmailCurrentEmail; if(!em) return; const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts — add Gmail or IMAP first','#ff3b30'); return; } document.getElementById('email-compose-title').textContent = '↩️ Reply'; document.getElementById('email-compose-to').value = em.from||''; document.getElementById('email-compose-subject').value = (em.subject||'').startsWith('Re:') ? em.subject : 'Re: '+(em.subject||''); document.getElementById('email-compose-body').innerHTML = ''; const refEl = document.getElementById('email-compose-reply-ref'); refEl.style.display=''; refEl.textContent=(em.subject||'')+(em.from?' — from '+em.from:''); document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; const cc=document.getElementById('email-compose-cc'); if(cc) cc.value=''; _emailComposeMode='reply'; _emailComposeReplyTarget=em; _emailComposeActiveSigId=''; _bindComposeSignatureSwipe(); const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); _applyDefaultComposeSignature(); }
 
 function gmailClosePreview(src) {
     src = src || 'panel';
+    gmailSaveReplyDraft(src);
+    if(gmailReplyDraftSaveTimer) { clearTimeout(gmailReplyDraftSaveTimer); gmailReplyDraftSaveTimer = null; }
+    saveAll();
     document.getElementById(gmailIds(src).overlay).style.display = 'none';
     gmailCurrentEmail = null;
 }
@@ -6631,12 +6940,38 @@ function gmailExtractAddr(from) {
     return (m ? m[1] : from.replace(/^"|"$/g, '').trim()).toLowerCase();
 }
 
+async function gmailBuildFullContextLines(em, fallbackBodyText) {
+    if (!em) return [];
+    const fromRaw = em.from || '';
+    const fromEmail = gmailExtractAddr(fromRaw);
+    const toRaw = em.to || '';
+    const ccRaw = em.cc || '';
+    const bccRaw = em.bcc || '';
+    const subject = em.subject || '(no subject)';
+    const dateText = em.date || '';
+    let bodyText = '';
+    try { bodyText = gmailCleanBodyText(await emailFetchBody(em)); } catch(_) {}
+    if (!bodyText && fallbackBodyText) bodyText = gmailCleanBodyText(fallbackBodyText);
+    const bodyLines = (bodyText || '').split('\n').map(l => l.trimEnd());
+    const nonEmptyBodyLines = bodyLines.filter(l => l.trim().length > 0);
+    const lines = [
+        'Header:',
+        'Subject: ' + subject,
+        'From: ' + (fromRaw || ''),
+        'From Email: ' + (fromEmail || ''),
+        'To: ' + (toRaw || ''),
+        'CC: ' + (ccRaw || ''),
+        'BCC: ' + (bccRaw || ''),
+        'Date: ' + dateText,
+        '',
+        'Body + Footer:'
+    ];
+    if (nonEmptyBodyLines.length) lines.push(...nonEmptyBodyLines);
+    return lines;
+}
+
 async function gmailFetchEmailLines(em) {
-    const fromName = em.from ? em.from.replace(/<[^>]+>/, '').replace(/^"|"$/g, '').trim() || em.from : '';
-    let bodyText = gmailCleanBodyText(await emailFetchBody(em));
-    const lines = [];
-    lines.push('From: ' + fromName + ' | Subject: ' + (em.subject || '(no subject)'));
-    bodyText.split('\n').map(l => l.trim()).filter(l => l.length > 1).forEach(l => lines.push(l));
+    const lines = await gmailBuildFullContextLines(em);
     lines.push('');
     return lines;
 }
@@ -6747,6 +7082,49 @@ async function toggleBubbleProfile(label, enabled) {
 
 let _emailComposeMode = 'new';
 let _emailComposeReplyTarget = null;
+let _emailComposeActiveSigId = '';
+let _composeSwipeBound = false;
+
+function _applyDefaultComposeSignature() {
+    const def = _getDefaultSigObj(_emailComposeMode);
+    if(def && def.text) _insertSigText(def.text, def.id);
+}
+
+function _cycleComposeSignature(dir) {
+    const sigs = CONFIG.email_signatures || [];
+    if(sigs.length < 2) return;
+    let idx = sigs.findIndex(s => String(s.id) === String(_emailComposeActiveSigId || ''));
+    if(idx < 0) {
+        const d = _getDefaultSigObj(_emailComposeMode);
+        idx = sigs.findIndex(s => String(s.id) === String(d.id || ''));
+    }
+    idx = idx < 0 ? 0 : idx;
+    const nextIdx = (idx + dir + sigs.length) % sigs.length;
+    const nextSig = sigs[nextIdx];
+    _insertSigText(nextSig.text || '', nextSig.id);
+    notify(`Signature: ${nextSig.name || 'Signature'}`, '#007aff', 1200);
+}
+
+function _bindComposeSignatureSwipe() {
+    if(_composeSwipeBound) return;
+    const body = document.getElementById('email-compose-body');
+    if(!body) return;
+    let sx = 0, sy = 0;
+    body.addEventListener('touchstart', (e) => {
+        if(!e.touches || !e.touches[0]) return;
+        sx = e.touches[0].clientX;
+        sy = e.touches[0].clientY;
+    }, { passive: true });
+    body.addEventListener('touchend', (e) => {
+        if(!e.changedTouches || !e.changedTouches[0]) return;
+        const dx = e.changedTouches[0].clientX - sx;
+        const dy = e.changedTouches[0].clientY - sy;
+        if(Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.1) return;
+        if(dx < 0) _cycleComposeSignature(1);
+        else _cycleComposeSignature(-1);
+    }, { passive: true });
+    _composeSwipeBound = true;
+}
 
 async function _editAiSave() {
     const editInput = document.getElementById('edit-ai-input');
@@ -6764,6 +7142,8 @@ async function _doOpenComposeModal(mode) {
     const bodyEl = document.getElementById('email-compose-body');
     const sourceHtml = document.getElementById('edit-ai-input').innerHTML;
     bodyEl.innerHTML = sourceHtml;
+    _emailComposeActiveSigId = '';
+    _bindComposeSignatureSwipe();
     _fillToSuggestions();
     if (mode === 'new') {
         document.getElementById('email-compose-title').textContent = '📨 Draft New Email';
@@ -6781,6 +7161,7 @@ async function _doOpenComposeModal(mode) {
             fromSel.style.display = 'none';
         }
         openModal('email-compose-modal');
+        _applyDefaultComposeSignature();
     } else {
         document.getElementById('email-compose-title').textContent = '↩️ Reply to Email';
         const listEl = document.getElementById('email-compose-pick-list');
@@ -6835,6 +7216,8 @@ function draftEmailFromBubble(idx, mode) {
     const doOpen = () => {
         _emailComposeMode = mode; _emailComposeReplyTarget = null;
         document.getElementById('email-compose-body').innerHTML = bodyHtml;
+        _emailComposeActiveSigId = '';
+        _bindComposeSignatureSwipe();
         _fillToSuggestions();
         if(mode === 'new') {
             document.getElementById('email-compose-title').textContent = '📨 Draft New Email';
@@ -6847,6 +7230,7 @@ function draftEmailFromBubble(idx, mode) {
             fromSel.innerHTML = allAccts.map(a => `<option value="${a.id}">${a.name || a.user || a.id}</option>`).join('');
             fromSel.style.display = allAccts.length > 0 ? '' : 'none';
             openModal('email-compose-modal');
+            _applyDefaultComposeSignature();
         } else {
             document.getElementById('email-compose-title').textContent = '↩️ Reply to Email';
             const listEl = document.getElementById('email-compose-pick-list');
@@ -6875,6 +7259,7 @@ function emailComposePickReply(idx) {
     refEl.textContent = 'Replying to: ' + (em.subject || '(no subject)') + ' — ' + (em.from || '');
     document.getElementById('email-compose-picker').style.display = 'none';
     document.getElementById('email-compose-form').style.display = 'flex';
+    _applyDefaultComposeSignature();
 }
 
 async function sendComposedEmail() {
@@ -6914,7 +7299,7 @@ async function sendComposedEmail() {
             if (!r.ok) throw new Error('Send failed: ' + r.status);
         }
         notify(_emailComposeMode === 'reply' ? 'Reply sent!' : 'Email sent!', '#34c759', 3000);
-        const _sentAccts = emailGetAllAccounts(); const _sentFromId = fromSel && fromSel.style.display !== 'none' ? fromSel.value : (_sentAccts[0] && _sentAccts[0].id) || 'gmail'; const _sentAcct = _sentAccts.find(a => a.id === _sentFromId); const _sentFromStr = _sentAcct ? `${_sentAcct.name||_sentAcct.user||_sentAcct.id} <${_sentAcct.user||_sentAcct.id}>` : 'Me'; const _sentEmail = { id: 'sent_' + Date.now(), threadId: (_emailComposeReplyTarget && _emailComposeReplyTarget.threadId) || ('sent_' + Date.now()), subject: subject || '(no subject)', from: _sentFromStr, to, cc: cc || undefined, date: new Date().toUTCString(), snippet: bodyText.slice(0, 120), unread: false, _accountId: replyAcctId, _sent: true }; if (_emailComposeReplyTarget) { _emailComposeReplyTarget._replied = true; _sentEmail.threadId = _emailComposeReplyTarget.threadId; } gmailEmails.unshift(_sentEmail); gmailRenderEmails();
+        const _sentAccts = emailGetAllAccounts(); const _sentFromId = fromSel && fromSel.style.display !== 'none' ? fromSel.value : (_sentAccts[0] && _sentAccts[0].id) || 'gmail'; const _sentAcct = _sentAccts.find(a => a.id === _sentFromId); const _sentFromStr = _sentAcct ? `${_sentAcct.name||_sentAcct.user||_sentAcct.id} <${_sentAcct.user||_sentAcct.id}>` : 'Me'; const _sentEmail = { id: 'sent_' + Date.now(), threadId: (_emailComposeReplyTarget && _emailComposeReplyTarget.threadId) || ('sent_' + Date.now()), subject: subject || '(no subject)', from: _sentFromStr, to, cc: cc || undefined, date: new Date().toUTCString(), snippet: bodyText.slice(0, 120), unread: false, _accountId: replyAcctId, _sent: true }; if (_emailComposeReplyTarget) { _emailComposeReplyTarget._replied = true; _sentEmail.threadId = _emailComposeReplyTarget.threadId; } if(!Array.isArray(CONFIG.local_sent_emails)) CONFIG.local_sent_emails = []; CONFIG.local_sent_emails = [_sentEmail, ...CONFIG.local_sent_emails].slice(0, 400); saveAll(); gmailEmails = emailMergeLocalSent(gmailEmails); gmailRenderEmails();
         closeModal('email-compose-modal');
         _emailComposeReplyTarget = null;
     } catch (e) { notify('Failed to send: ' + e.message, '#ff3b30', 5000); }
@@ -7305,7 +7690,16 @@ function _linkifyHtml(html) {
             <div class="hs-card-header">
                 <span class="hs-drag-handle">⠿</span>
                 <span class="hs-card-title">💬 Quick Chat</span>
-                <div style="font-size:11px;color:#888;">Enter to send</div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="font-size:11px;color:#888;">Enter to send</div>
+                    <button
+                        type="button"
+                        onclick="_openAttachMenu(event)"
+                        aria-label="Add quick chat attachment"
+                        title="Add attachment"
+                        style="border:none; width:22px; height:22px; border-radius:11px; background:var(--sec-bg); color:var(--accent); font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1; padding:0;"
+                    >➕</button>
+                </div>
             </div>
             <div style="padding:10px 12px 12px;">
                 <div style="display:flex; gap:8px; align-items:center; border:0.5px solid var(--border); border-radius:16px; padding:6px 8px; background:var(--sec-bg);">
@@ -7507,6 +7901,9 @@ let _replyInsState = { spanId: '', savedRange: null };
 
 function _onReplyBoxInput(src, e) {
     const el = e.target;
+    gmailSaveReplyDraft(src);
+    if(gmailReplyDraftSaveTimer) clearTimeout(gmailReplyDraftSaveTimer);
+    gmailReplyDraftSaveTimer = setTimeout(() => saveAll(), 500);
     const text = el.innerText || el.textContent || '';
     const atIdx = text.lastIndexOf('@');
     if (atIdx !== -1 && (atIdx === 0 || /[\s\n]/.test(text[atIdx - 1]))) {
@@ -7575,11 +7972,11 @@ function _pickReplyAiProfile(profileLabel) {
     _replyInsState = { spanId: '', markerEl: _atRange || null, savedRange: null };
     _updateReplyAiIndicator();
     openFloatingChat(profileLabel);
-    setTimeout(() => {
+    setTimeout(async () => {
         const bodyElId = _replyAiSrc === 'panel' ? 'gmail-preview-body' : 'gmail-modal-preview-body';
         const bodyEl = document.getElementById(bodyElId);
         const bodyText = bodyEl ? (bodyEl.innerText || bodyEl.textContent || '').trim() : '';
-        const lines = bodyText.split('\n').map(l => l.trim()).filter(l => l.length > 1);
+        const lines = await gmailBuildFullContextLines(gmailCurrentEmail, bodyText);
         if (lines.length > 0) {
             const subj = gmailCurrentEmail ? (gmailCurrentEmail.subject || gmailExtractAddr(gmailCurrentEmail.from) || 'Current Email') : 'Current Email';
             _addCtxGroup('📧 ' + subj, lines);
