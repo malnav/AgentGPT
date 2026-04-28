@@ -1824,7 +1824,10 @@ async function _openPaypalInvoiceForm() {
         ov.innerHTML = `<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:18px 14px max(20px,env(safe-area-inset-bottom));">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><div><div style="font-size:17px;font-weight:800;">🧾 PayPal Invoice</div><div style="font-size:11px;color:#888;">Simple form with auto % calculations.</div></div><div style="font-size:22px;opacity:0.4;cursor:pointer;" onclick="document.getElementById('paypal-invoice-ov').remove()">✕</div></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-              <input id="ppf-customer-email" class="pp-input" placeholder="Customer email (optional)" value="${prefill.customer_email.replace(/"/g,'&quot;')}">
+              <div style="display:flex;gap:6px;grid-column:1 / -1;">
+                <input id="ppf-customer-email" class="pp-input" placeholder="Customer email (optional)" value="${prefill.customer_email.replace(/"/g,'&quot;')}" style="flex:1;">
+                <button id="ppf-search-workspace" class="chip" type="button" style="padding:0 10px;font-size:12px;white-space:nowrap;" title="Search chats in workspace by this email">Search chats</button>
+              </div>
               <input id="ppf-customer-name" class="pp-input" placeholder="Customer name (optional)" value="${prefill.customer_name.replace(/"/g,'&quot;')}">
               <input id="ppf-invoice-number" class="pp-input" placeholder="Invoice number (optional)" value="${prefill.invoice_number.replace(/"/g,'&quot;')}">
               <input id="ppf-currency" class="pp-input" placeholder="Currency (USD)" value="${prefill.currency_code.replace(/"/g,'&quot;')}">
@@ -1876,6 +1879,11 @@ async function _openPaypalInvoiceForm() {
         recalc();
 
         const closeWith = (val) => { ov.remove(); resolve(val); };
+        ov.querySelector('#ppf-search-workspace').onclick = () => {
+            const email = ov.querySelector('#ppf-customer-email').value.trim();
+            if(!email) return notify('Enter guest email first', '#ff9500', 2400);
+            _searchByEmail(email);
+        };
         ov.querySelector('#ppf-cancel').onclick = () => closeWith(null);
         ov.addEventListener('click', e => { if(e.target === ov) closeWith(null); });
         ov.querySelector('#ppf-save').onclick = () => {
@@ -4256,6 +4264,30 @@ let emailCurrentMailbox = 'INBOX';
 let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
 
+function emailGetLocalSentEmails() {
+    const all = Array.isArray(CONFIG.local_sent_emails) ? CONFIG.local_sent_emails : [];
+    if(emailCurrentMailbox === 'Sent') return [...all];
+    if(emailCurrentMailbox === 'INBOX') return [...all];
+    return [];
+}
+
+function emailGetGuestEmails() {
+    const locals = emailGetLocalSentEmails();
+    return locals.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
+}
+
+function emailMergeLocalSent(emails) {
+    const locals = emailGetLocalSentEmails();
+    if(!locals.length) return emails;
+    const existing = new Set((emails||[]).map(e => `${e._accountId||''}:${e.id}`));
+    const merged = [...emails];
+    locals.forEach(em => {
+        const key = `${em._accountId||''}:${em.id}`;
+        if(!existing.has(key)) merged.push(em);
+    });
+    return merged;
+}
+
 function emailGetAllAccounts() {
     const list = [];
     if(CONFIG.google_client_id) list.push({ id: 'gmail', type: 'gmail', name: 'Gmail' });
@@ -4312,7 +4344,7 @@ async function emailFetchEmails(query) {
     const allAccts = emailGetAllAccounts();
     const selIds = selectedEmailAccountIds.length ? selectedEmailAccountIds : allAccts.map(a => a.id);
     const selAccts = allAccts.filter(a => selIds.includes(a.id));
-    if(!selAccts.length) { gmailEmails = []; gmailRenderEmails(); return; }
+    if(!selAccts.length) { gmailEmails = emailGetGuestEmails(); gmailRenderEmails(); return; }
     const hasGmail = selAccts.some(a => a.type === 'gmail');
     if(hasGmail && !gmailAccessToken) { gmailLoadEmails(query); return; }
     notify("Loading emails...", "#007aff", 1500);
@@ -4329,7 +4361,7 @@ async function emailFetchEmails(query) {
         }
     });
     merged.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
-    gmailEmails = merged;
+    gmailEmails = emailMergeLocalSent(merged);
     gmailHasMoreEmails = hasMore || !!gmailNextPageToken;
     gmailRenderEmails();
     emailUpdateResetBtn();
@@ -4903,6 +4935,34 @@ function gmailRelTime(dateStr) {
     return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'2-digit'});
 }
 
+function gmailDateSectionLabel(dateStr) {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Unknown Date';
+    const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startEmail = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const dayDiff = Math.floor((startToday - startEmail) / 86400000);
+    if (dayDiff === 0) return 'Today';
+    if (dayDiff === 1) return 'Yesterday';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function gmailRenderSectionedGroups(groups, src) {
+    const byDay = new Map();
+    groups.forEach((group) => {
+        const label = gmailDateSectionLabel(group[0]?.em?.date);
+        if (!byDay.has(label)) byDay.set(label, []);
+        byDay.get(label).push(group);
+    });
+    return Array.from(byDay.entries()).map(([label, dayGroups]) => {
+        const rows = dayGroups.map((g) => gmailThreadHtml(g, src)).join('');
+        return `<li style="list-style:none;">
+            <div style="padding:10px 14px 6px;font-size:11px;font-weight:800;letter-spacing:0.5px;color:#888;text-transform:uppercase;">${label}</div>
+            <ul style="list-style:none;padding:0;margin:0;">${rows}</ul>
+        </li>`;
+    }).join('');
+}
+
 function gmailThreadHtml(group, src) {
     const latest = group[0].em;
     const hasUnread = group.some(g => g.em.unread);
@@ -5066,8 +5126,8 @@ function gmailRenderEmails() {
         if(modalList) modalList.innerHTML = empty;
         gmailUpdateAddBtns(); return;
     }
-    if(panelList) panelList.innerHTML = groups.map(g => gmailThreadHtml(g, 'panel')).join('');
-    if(modalList) modalList.innerHTML = groups.map(g => gmailThreadHtml(g, 'modal')).join('');
+    if(panelList) panelList.innerHTML = gmailRenderSectionedGroups(groups, 'panel');
+    if(modalList) modalList.innerHTML = gmailRenderSectionedGroups(groups, 'modal');
     const psa = document.getElementById('gmail-panel-select-all'); if(psa) psa.checked = false;
     const msa = document.getElementById('gmail-modal-select-all'); if(msa) msa.checked = false;
     gmailUpdateAddBtns();
@@ -7004,7 +7064,7 @@ async function sendComposedEmail() {
             if (!r.ok) throw new Error('Send failed: ' + r.status);
         }
         notify(_emailComposeMode === 'reply' ? 'Reply sent!' : 'Email sent!', '#34c759', 3000);
-        const _sentAccts = emailGetAllAccounts(); const _sentFromId = fromSel && fromSel.style.display !== 'none' ? fromSel.value : (_sentAccts[0] && _sentAccts[0].id) || 'gmail'; const _sentAcct = _sentAccts.find(a => a.id === _sentFromId); const _sentFromStr = _sentAcct ? `${_sentAcct.name||_sentAcct.user||_sentAcct.id} <${_sentAcct.user||_sentAcct.id}>` : 'Me'; const _sentEmail = { id: 'sent_' + Date.now(), threadId: (_emailComposeReplyTarget && _emailComposeReplyTarget.threadId) || ('sent_' + Date.now()), subject: subject || '(no subject)', from: _sentFromStr, to, cc: cc || undefined, date: new Date().toUTCString(), snippet: bodyText.slice(0, 120), unread: false, _accountId: replyAcctId, _sent: true }; if (_emailComposeReplyTarget) { _emailComposeReplyTarget._replied = true; _sentEmail.threadId = _emailComposeReplyTarget.threadId; } gmailEmails.unshift(_sentEmail); gmailRenderEmails();
+        const _sentAccts = emailGetAllAccounts(); const _sentFromId = fromSel && fromSel.style.display !== 'none' ? fromSel.value : (_sentAccts[0] && _sentAccts[0].id) || 'gmail'; const _sentAcct = _sentAccts.find(a => a.id === _sentFromId); const _sentFromStr = _sentAcct ? `${_sentAcct.name||_sentAcct.user||_sentAcct.id} <${_sentAcct.user||_sentAcct.id}>` : 'Me'; const _sentEmail = { id: 'sent_' + Date.now(), threadId: (_emailComposeReplyTarget && _emailComposeReplyTarget.threadId) || ('sent_' + Date.now()), subject: subject || '(no subject)', from: _sentFromStr, to, cc: cc || undefined, date: new Date().toUTCString(), snippet: bodyText.slice(0, 120), unread: false, _accountId: replyAcctId, _sent: true }; if (_emailComposeReplyTarget) { _emailComposeReplyTarget._replied = true; _sentEmail.threadId = _emailComposeReplyTarget.threadId; } if(!Array.isArray(CONFIG.local_sent_emails)) CONFIG.local_sent_emails = []; CONFIG.local_sent_emails = [_sentEmail, ...CONFIG.local_sent_emails].slice(0, 400); saveAll(); gmailEmails = emailMergeLocalSent(gmailEmails); gmailRenderEmails();
         closeModal('email-compose-modal');
         _emailComposeReplyTarget = null;
     } catch (e) { notify('Failed to send: ' + e.message, '#ff3b30', 5000); }
