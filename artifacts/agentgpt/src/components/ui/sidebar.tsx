@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, VariantProps } from "class-variance-authority"
-import { PanelLeftIcon } from "lucide-react"
+import { PanelLeftIcon, PinIcon, PinOffIcon } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/tooltip"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
+const SIDEBAR_LOCK_COOKIE_NAME = "sidebar_lock_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
@@ -39,7 +40,10 @@ type SidebarContextProps = {
   openMobile: boolean
   setOpenMobile: (open: boolean) => void
   isMobile: boolean
+  locked: boolean
+  setLocked: (locked: boolean) => void
   toggleSidebar: () => void
+  toggleLock: () => void
 }
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null)
@@ -68,6 +72,17 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
+  const [locked, setLocked] = React.useState(false)
+
+  React.useEffect(() => {
+    const lockCookie = document.cookie
+      .split("; ")
+      .find((entry) => entry.startsWith(`${SIDEBAR_LOCK_COOKIE_NAME}=`))
+      ?.split("=")[1]
+    if (lockCookie) {
+      setLocked(lockCookie === "true")
+    }
+  }, [])
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -92,6 +107,19 @@ function SidebarProvider({
   const toggleSidebar = React.useCallback(() => {
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)
   }, [isMobile, setOpen, setOpenMobile])
+
+  const setLockedWithCookie = React.useCallback(
+    (value: boolean | ((value: boolean) => boolean)) => {
+      const lockState = typeof value === "function" ? value(locked) : value
+      setLocked(lockState)
+      document.cookie = `${SIDEBAR_LOCK_COOKIE_NAME}=${lockState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+    },
+    [locked]
+  )
+
+  const toggleLock = React.useCallback(() => {
+    setLockedWithCookie((value) => !value)
+  }, [setLockedWithCookie])
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -119,11 +147,25 @@ function SidebarProvider({
       open,
       setOpen,
       isMobile,
+      locked,
+      setLocked: setLockedWithCookie,
       openMobile,
       setOpenMobile,
       toggleSidebar,
+      toggleLock,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+    [
+      state,
+      open,
+      setOpen,
+      isMobile,
+      locked,
+      setLockedWithCookie,
+      openMobile,
+      setOpenMobile,
+      toggleSidebar,
+      toggleLock,
+    ]
   )
 
   return (
@@ -163,7 +205,8 @@ function Sidebar({
   variant?: "sidebar" | "floating" | "inset"
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+  const { isMobile, state, openMobile, setOpenMobile, locked, setOpen, open } =
+    useSidebar()
 
   if (collapsible === "none") {
     return (
@@ -214,6 +257,13 @@ function Sidebar({
       data-side={side}
       data-slot="sidebar"
     >
+      {side === "left" && !locked && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-y-0 left-0 z-20 hidden w-3 md:block"
+          onMouseEnter={() => setOpen(true)}
+        />
+      )}
       {/* This is what handles the sidebar gap on desktop */}
       <div
         data-slot="sidebar-gap"
@@ -239,6 +289,19 @@ function Sidebar({
             : "group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)] group-data-[side=left]:border-r group-data-[side=right]:border-l",
           className
         )}
+        onMouseLeave={(event) => {
+          if (locked || !open) {
+            return
+          }
+          const nextTarget = event.relatedTarget
+          if (
+            nextTarget instanceof Node &&
+            event.currentTarget.contains(nextTarget)
+          ) {
+            return
+          }
+          setOpen(false)
+        }}
         {...props}
       >
         <div
@@ -275,6 +338,32 @@ function SidebarTrigger({
     >
       <PanelLeftIcon />
       <span className="sr-only">Toggle Sidebar</span>
+    </Button>
+  )
+}
+
+function SidebarLockTrigger({
+  className,
+  onClick,
+  ...props
+}: React.ComponentProps<typeof Button>) {
+  const { locked, toggleLock } = useSidebar()
+
+  return (
+    <Button
+      data-sidebar="lock-trigger"
+      data-slot="sidebar-lock-trigger"
+      variant={locked ? "secondary" : "ghost"}
+      size="icon"
+      className={cn("h-7 w-7", className)}
+      onClick={(event) => {
+        onClick?.(event)
+        toggleLock()
+      }}
+      {...props}
+    >
+      {locked ? <PinIcon /> : <PinOffIcon />}
+      <span className="sr-only">{locked ? "Unlock Sidebar" : "Lock Sidebar"}</span>
     </Button>
   )
 }
@@ -709,6 +798,7 @@ export {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarInput,
+  SidebarLockTrigger,
   SidebarInset,
   SidebarMenu,
   SidebarMenuAction,
