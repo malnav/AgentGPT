@@ -978,7 +978,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                         <div id="gmail-preview-avatar" style="width:44px; height:44px; border-radius:50%; background:#54A0FF; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:800; color:#fff; flex-shrink:0; letter-spacing:-0.5px;"></div>
                         <div style="flex:1; min-width:0; padding-top:1px;">
                             <div id="gmail-preview-from" style="font-size:14px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
-                            <div id="gmail-preview-sender-email" style="font-size:11px; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:0px;"></div>
+                            <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                                <div id="gmail-preview-sender-email" style="font-size:11px; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:0px; min-width:0;"></div>
+                                <button id="gmail-preview-search-chat-btn" class="chip" style="display:none; font-size:10px; padding:2px 8px; white-space:nowrap; flex-shrink:0;" onclick="gmailSearchSenderInWorkspace('panel')" title="Search chats in workspace for this email">Search chats</button>
+                            </div>
                             <div id="gmail-preview-to" style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px;"></div>
                             <div id="gmail-preview-date" style="font-size:11px; color:#aaa; margin-top:2px;"></div>
                         </div>
@@ -1330,7 +1333,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                         <div id="gmail-modal-preview-avatar" style="width:48px; height:48px; border-radius:50%; background:#54A0FF; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:800; color:#fff; flex-shrink:0; letter-spacing:-0.5px;"></div>
                         <div style="flex:1; min-width:0; padding-top:2px;">
                             <div id="gmail-modal-preview-from" style="font-size:15px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
-                            <div id="gmail-modal-preview-sender-email" style="font-size:11px; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:0px;"></div>
+                            <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                                <div id="gmail-modal-preview-sender-email" style="font-size:11px; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:0px; min-width:0;"></div>
+                                <button id="gmail-modal-preview-search-chat-btn" class="chip" style="display:none; font-size:10px; padding:2px 8px; white-space:nowrap; flex-shrink:0;" onclick="gmailSearchSenderInWorkspace('modal')" title="Search chats in workspace for this email">Search chats</button>
+                            </div>
                             <div id="gmail-modal-preview-to" style="font-size:12px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px;"></div>
                             <div id="gmail-modal-preview-date" style="font-size:11px; color:#aaa; margin-top:2px;"></div>
                         </div>
@@ -4541,8 +4547,16 @@ function gmailIds(src) {
         avatar:  m ? 'gmail-modal-preview-avatar'  : 'gmail-preview-avatar',
         body:        m ? 'gmail-modal-preview-body'       : 'gmail-preview-body',
         reply:       m ? 'gmail-modal-reply-box'          : 'gmail-reply-box',
-        senderEmail: m ? 'gmail-modal-preview-sender-email' : 'gmail-preview-sender-email'
+        senderEmail: m ? 'gmail-modal-preview-sender-email' : 'gmail-preview-sender-email',
+        senderSearchBtn: m ? 'gmail-modal-preview-search-chat-btn' : 'gmail-preview-search-chat-btn'
     };
+}
+
+function gmailSearchSenderInWorkspace(src) {
+    const ids = gmailIds(src || 'panel');
+    const email = (document.getElementById(ids.senderEmail)?.textContent || '').trim();
+    if(!email) { notify('No sender email found', '#888', 1800); return; }
+    _searchByEmail(email);
 }
 
 function gmailHtmlToPlainText(html) {
@@ -5453,7 +5467,15 @@ async function gmailPreview(i, src) {
     const dateEl = document.getElementById(ids.date);
     if(dateEl) dateEl.textContent = em.date;
     const senderEmailEl = document.getElementById(ids.senderEmail);
-    if(senderEmailEl) { senderEmailEl.textContent = nameMatch && dispName ? dispEmail : ''; senderEmailEl.style.cursor='pointer'; senderEmailEl.title='Compose new email to this address'; senderEmailEl.onclick=()=>gmailComposeToAddress(dispEmail); }
+    const senderSearchBtn = document.getElementById(ids.senderSearchBtn);
+    if(senderEmailEl) {
+        const senderText = nameMatch && dispName ? dispEmail : '';
+        senderEmailEl.textContent = senderText;
+        senderEmailEl.style.cursor='pointer';
+        senderEmailEl.title='Compose new email to this address';
+        senderEmailEl.onclick=()=>gmailComposeToAddress(dispEmail);
+        if(senderSearchBtn) senderSearchBtn.style.display = senderText ? 'inline-flex' : 'none';
+    }
     const fromEl = document.getElementById(ids.from);
     if(fromEl) { fromEl.style.cursor='pointer'; fromEl.title='Compose new email to this address'; fromEl.onclick=()=>gmailComposeToAddress(dispEmail); }
     document.getElementById(ids.subject).textContent = em.subject;
