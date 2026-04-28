@@ -2547,6 +2547,21 @@ function renderAllSessionsList() {
             : '';
         return `<li class="list-item ${isActive ? 'in-cut' : ''}" onclick="${_wsChatSelectMode ? `_wsToggleChatSelection('${profLabel}','${chat.id}')` : `loadSessionFromProfile('${profLabel}','${chat.id}')`}">${selectBox}<div style="flex:1; min-width:0; overflow:hidden;"><strong style="font-size:13px; display:flex; align-items:center; gap:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chat.title}${lockIcon}</strong><div style="display:flex; align-items:center; gap:5px; margin-top:2px; flex-wrap:wrap;"><span style="font-size:10px; color:${profColor}; font-weight:700;">${profLabel}</span>${orphanBadge}<span style="font-size:10px; color:#888;">· ${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div>${ctxText}</div>${_wsChatSelectMode ? '' : `<div class="inline-btn" data-sid="${chat.id}" data-prof="${profLabel}" data-pinned="${chat.pinned?'1':'0'}" onclick="event.stopPropagation(); openAllSessionMenu(event, this)" style="font-size:18px; font-weight:700; letter-spacing:1px;">⋯</div>`}</li>`;
     };
+    const wsGroupMeta = (ts) => {
+        if(!ts || !Number.isFinite(ts)) return { key: 'unknown', label: 'Unknown Date' };
+        const d = new Date(ts);
+        if(Number.isNaN(d.getTime())) return { key: 'unknown', label: 'Unknown Date' };
+        const dateKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const chatStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const dayDiff = Math.round((todayStart - chatStart) / 86400000);
+        if(dayDiff === 0) return { key: dateKey, label: 'Today' };
+        if(dayDiff === 1) return { key: dateKey, label: 'Yesterday' };
+        const fullLabel = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        return { key: dateKey, label: fullLabel };
+    };
+    const wsGroupHeaderHtml = (label) => `<li style="list-style:none;padding:9px 12px 6px;margin-top:6px;font-size:10px;font-weight:800;color:#888;letter-spacing:0.08em;text-transform:uppercase;">${label}</li>`;
 
     const sel = document.getElementById('ws-profile-filter');
     if(sel) {
@@ -2557,7 +2572,18 @@ function renderAllSessionsList() {
         if(!sel.value) { sel.value = 'all'; _wsProfileFilter = 'all'; }
     }
 
-    let html = allChats.length === 0 ? '<li style="color:#888; font-size:13px; padding:12px;">No chats matched your filters.</li>' : allChats.map(chatItemHtml).join('');
+    let html = '';
+    if(allChats.length === 0) {
+        html = '<li style="color:#888; font-size:13px; padding:12px;">No chats matched your filters.</li>';
+    } else {
+        let lastGroupKey = null;
+        html = allChats.map(item => {
+            const group = wsGroupMeta(item.lastMsgTs);
+            const header = group.key !== lastGroupKey ? wsGroupHeaderHtml(group.label) : '';
+            lastGroupKey = group.key;
+            return header + chatItemHtml(item);
+        }).join('');
+    }
     if(archivedChats.length > 0) {
         const collapsed = !window._allTabArchiveExpanded;
         const chev = collapsed ? '▶' : '▼';
