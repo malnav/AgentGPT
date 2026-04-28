@@ -2259,7 +2259,8 @@ async function init() {
     AI_PROFILES = sanitizeImport(await dbHelper.get('profiles') || DEFAULT_DATA.profiles, 'profiles'); PROMPTS = sanitizeImport(await dbHelper.get('prompts') || DEFAULT_DATA.prompts, 'prompts'); TEMPLATES = sanitizeImport(await dbHelper.get('templates') || DEFAULT_DATA.templates, 'templates'); API_SERVICES = sanitizeImport(await dbHelper.get('tools') || DEFAULT_DATA.tools, 'tools'); AI_MODELS = sanitizeImport(await dbHelper.get('models') || DEFAULT_DATA.models, 'models'); GLOBAL_DATASETS = await dbHelper.get('datasets') || {}; _syncBubbleConfigs();
     const storedCfg = await dbHelper.get('config') || {};
     const legacyBg = storedCfg.bg_model || "";
-    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", paypal_client_id: storedCfg.paypal_client_id || "", paypal_client_secret: storedCfg.paypal_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1, hs_hidden_cards: storedCfg.hs_hidden_cards || [], email_signatures: storedCfg.email_signatures || [], email_signature: storedCfg.email_signature || "" };
+    CONFIG = { ai_key: storedCfg.ai_key || "", def_profile: storedCfg.def_profile || "", def_model: storedCfg.def_model || "", title_model: storedCfg.title_model || legacyBg, extract_model: storedCfg.extract_model || legacyBg, suggest_model: storedCfg.suggest_model || legacyBg, ai_gen_prompts: { ...DEFAULT_DATA.ai_prompts, ...(storedCfg.ai_gen_prompts || {}) }, ai_gen_models: storedCfg.ai_gen_models || {}, fb_api: storedCfg.fb_api || "", fb_project: storedCfg.fb_project || "", fb_auto: true, def_ctx: storedCfg.def_ctx || "all", cal_profiles: storedCfg.cal_profiles || null, google_client_id: storedCfg.google_client_id || "", google_client_secret: storedCfg.google_client_secret || "", paypal_client_id: storedCfg.paypal_client_id || "", paypal_client_secret: storedCfg.paypal_client_secret || "", bubble_profiles: storedCfg.bubble_profiles || null, imap_accounts: storedCfg.imap_accounts || [], links: storedCfg.links || [], home_screen: storedCfg.home_screen !== false, hs_card_order: storedCfg.hs_card_order || null, hs_columns: storedCfg.hs_columns || 1, hs_hidden_cards: storedCfg.hs_hidden_cards || [], email_signatures: storedCfg.email_signatures || [], email_signature: storedCfg.email_signature || "", email_signature_default_new: storedCfg.email_signature_default_new || "", email_signature_default_reply: storedCfg.email_signature_default_reply || "" };
+    _normalizeSignatureDefaults();
     _loadNotes(); if (CONFIG.home_screen) { const _hsEl = document.getElementById('home-screen'); if (_hsEl) _hsEl.style.display = 'flex'; const _pbEl = document.getElementById('profile-bubble'); if (_pbEl) _pbEl.style.display = 'none'; }
     chatHistories = await dbHelper.get('histories') || {};
     let migratedDs = false; Object.keys(chatHistories).forEach(p => { if (chatHistories[p].vars) { Object.assign(GLOBAL_DATASETS, chatHistories[p].vars); delete chatHistories[p].vars; migratedDs = true; } });
@@ -4437,22 +4438,61 @@ function renderEmailSettingsTab() {
             : '<div style="padding:14px; color:#888; font-size:13px; text-align:center;">No IMAP accounts yet.</div>';
     }
     const sigListEl = document.getElementById('email-signatures-list');
-    if(sigListEl) { const sigs = CONFIG.email_signatures||[]; sigListEl.innerHTML = sigs.length ? sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:0.5px solid var(--border);"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name}${s.isDefault?' <span style="font-size:10px;color:var(--accent);font-weight:800;">DEFAULT</span>':''}</div><div style="font-size:11px;color:#888;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(s.text||'').split('\n')[0].slice(0,55)}</div></div><span class="chip" style="font-size:10px;padding:3px 8px;flex-shrink:0;cursor:pointer;color:var(--accent);" onclick="_sigSetDefault('${s.id}')">★</span><span class="chip" style="font-size:11px;padding:5px 10px;flex-shrink:0;cursor:pointer;" onclick="_sigShowAdd('${s.id}')">Edit</span></div>`).join('') : '<div style="padding:14px;color:#888;font-size:13px;text-align:center;">No signatures yet — tap + Add.</div>'; }
+    if(sigListEl) { const sigs = CONFIG.email_signatures||[]; sigListEl.innerHTML = sigs.length ? sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:0.5px solid var(--border);"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name}${s.isDefault?' <span style="font-size:10px;color:var(--accent);font-weight:800;">DEFAULT</span>':''}</div><div style="font-size:11px;color:#888;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(s.text||'').split('\n')[0].slice(0,55)}</div><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;"><span class="chip" style="font-size:10px;padding:2px 7px;${String(CONFIG.email_signature_default_new||'')===String(s.id)?'background:rgba(0,122,255,0.14);color:var(--accent);font-weight:800;':''}" onclick="_sigSetModeDefault('${s.id}','new')">New</span><span class="chip" style="font-size:10px;padding:2px 7px;${String(CONFIG.email_signature_default_reply||'')===String(s.id)?'background:rgba(0,122,255,0.14);color:var(--accent);font-weight:800;':''}" onclick="_sigSetModeDefault('${s.id}','reply')">Reply</span></div></div><span class="chip" style="font-size:10px;padding:3px 8px;flex-shrink:0;cursor:pointer;color:var(--accent);" onclick="_sigSetDefault('${s.id}')">★</span><span class="chip" style="font-size:11px;padding:5px 10px;flex-shrink:0;cursor:pointer;" onclick="_sigShowAdd('${s.id}')">Edit</span></div>`).join('') : '<div style="padding:14px;color:#888;font-size:13px;text-align:center;">No signatures yet — tap + Add.</div>'; }
 }
 
-function _getDefaultSig() { const sigs = CONFIG.email_signatures||[]; if(!sigs.length) return CONFIG.email_signature||''; const def = sigs.find(s=>s.isDefault)||sigs[0]; return def?def.text:''; }
+function _getDefaultSigObj(mode) {
+    const sigs = CONFIG.email_signatures || [];
+    if(!sigs.length) return { id:'', text: CONFIG.email_signature || '', name: 'Signature' };
+    const modeId = mode === 'reply' ? (CONFIG.email_signature_default_reply || '') : (CONFIG.email_signature_default_new || '');
+    let chosen = modeId ? sigs.find(s => String(s.id) === String(modeId)) : null;
+    if(!chosen) chosen = sigs.find(s => s.isDefault) || sigs[0];
+    return chosen ? { id: chosen.id, text: chosen.text || '', name: chosen.name || 'Signature' } : { id:'', text:'', name:'Signature' };
+}
+function _getDefaultSig(mode) { return _getDefaultSigObj(mode).text || ''; }
+function _normalizeSignatureDefaults() {
+    const sigs = CONFIG.email_signatures || [];
+    if(!sigs.length) {
+        CONFIG.email_signature_default_new = '';
+        CONFIG.email_signature_default_reply = '';
+        return;
+    }
+    const legacyDefault = sigs.find(s => s.isDefault) || sigs[0];
+    const hasNew = sigs.some(s => String(s.id) === String(CONFIG.email_signature_default_new || ''));
+    const hasReply = sigs.some(s => String(s.id) === String(CONFIG.email_signature_default_reply || ''));
+    if(!hasNew) CONFIG.email_signature_default_new = legacyDefault.id;
+    if(!hasReply) CONFIG.email_signature_default_reply = legacyDefault.id;
+}
 
 function _sigShowAdd(id) { const sigs = CONFIG.email_signatures||[]; const sig = id ? sigs.find(s=>String(s.id)===String(id)) : null; const ov = document.createElement('div'); ov.id='sig-edit-overlay'; ov.style.cssText='position:fixed;inset:0;z-index:9900;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);'; ov.innerHTML=`<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px 16px max(24px,env(safe-area-inset-bottom));"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><span style="font-size:16px;font-weight:800;color:var(--text);">${sig?'Edit':'New'} Signature</span><div onclick="document.getElementById('sig-edit-overlay').remove();" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><input id="sig-name-f" class="pp-input" placeholder="Name (e.g. Casual, Formal)" value="${sig?sig.name.replace(/"/g,'&quot;'):''}" style="margin-bottom:10px;font-size:13px;"><textarea id="sig-text-f" class="pp-input" rows="4" placeholder="Signature text…" style="font-size:13px;resize:none;">${sig?sig.text:''}</textarea><div style="display:flex;gap:8px;margin-top:12px;">${sig?`<button class="chip" onclick="_sigDelete('${sig.id}')" style="flex:1;font-size:13px;padding:12px;color:#ff3b30;background:transparent;border:0.5px solid #ff3b30;">Delete</button>`:''}<button class="chip" onclick="_sigSave('${sig?sig.id:''}')" style="flex:2;font-size:13px;padding:12px;background:var(--accent);color:#fff;font-weight:700;">Save</button></div></div>`; ov.onclick=(e)=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov); setTimeout(()=>{const f=document.getElementById('sig-name-f');if(f)f.focus();},200); }
 
-function _sigSave(id) { const name=(document.getElementById('sig-name-f').value||'').trim()||'Signature'; const text=document.getElementById('sig-text-f').value||''; if(!CONFIG.email_signatures) CONFIG.email_signatures=[]; if(id) { const s=CONFIG.email_signatures.find(x=>String(x.id)===String(id)); if(s){s.name=name;s.text=text;} } else { CONFIG.email_signatures.push({id:String(Date.now()),name,text,isDefault:CONFIG.email_signatures.length===0}); } saveAll(); renderEmailSettingsTab(); const ov=document.getElementById('sig-edit-overlay'); if(ov) ov.remove(); notify('Signature saved','#34c759',1200); }
+function _sigSave(id) { const name=(document.getElementById('sig-name-f').value||'').trim()||'Signature'; const text=document.getElementById('sig-text-f').value||''; if(!CONFIG.email_signatures) CONFIG.email_signatures=[]; if(id) { const s=CONFIG.email_signatures.find(x=>String(x.id)===String(id)); if(s){s.name=name;s.text=text;} } else { const sid=String(Date.now()); CONFIG.email_signatures.push({id:sid,name,text,isDefault:CONFIG.email_signatures.length===0}); if(CONFIG.email_signatures.length===1){CONFIG.email_signature_default_new=sid;CONFIG.email_signature_default_reply=sid;} } _normalizeSignatureDefaults(); saveAll(); renderEmailSettingsTab(); const ov=document.getElementById('sig-edit-overlay'); if(ov) ov.remove(); notify('Signature saved','#34c759',1200); }
 
-function _sigDelete(id) { CONFIG.email_signatures=(CONFIG.email_signatures||[]).filter(s=>String(s.id)!==String(id)); saveAll(); renderEmailSettingsTab(); const ov=document.getElementById('sig-edit-overlay'); if(ov) ov.remove(); notify('Signature deleted','#888',1200); }
+function _sigDelete(id) { CONFIG.email_signatures=(CONFIG.email_signatures||[]).filter(s=>String(s.id)!==String(id)); if(String(CONFIG.email_signature_default_new||'')===String(id)) CONFIG.email_signature_default_new=''; if(String(CONFIG.email_signature_default_reply||'')===String(id)) CONFIG.email_signature_default_reply=''; _normalizeSignatureDefaults(); saveAll(); renderEmailSettingsTab(); const ov=document.getElementById('sig-edit-overlay'); if(ov) ov.remove(); notify('Signature deleted','#888',1200); }
 
 function _sigSetDefault(id) { (CONFIG.email_signatures||[]).forEach(s=>{s.isDefault=String(s.id)===String(id);}); saveAll(); renderEmailSettingsTab(); notify('Default signature set','#34c759',1200); }
+function _sigSetModeDefault(id, mode) { if(mode==='reply') CONFIG.email_signature_default_reply = id; else CONFIG.email_signature_default_new = id; _normalizeSignatureDefaults(); saveAll(); renderEmailSettingsTab(); notify(`${mode==='reply'?'Reply':'New mail'} default set`,'#34c759',1200); }
 
-function _composeInsertSignature() { const sigs = CONFIG.email_signatures||[]; const defSig = _getDefaultSig(); if(!sigs.length && !defSig) { notify('No signature set — add one in Email Settings','#ff9f0a',2000); return; } if(sigs.length<=1) { _insertSigText(defSig); return; } const menu=document.createElement('div'); menu.style.cssText='position:fixed;inset:0;z-index:9200;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);'; menu.innerHTML='<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:16px 16px 36px;"><div style="font-size:15px;font-weight:800;margin-bottom:12px;color:var(--text);">Choose Signature</div><div id="sig-pick-list" style="display:flex;flex-direction:column;gap:8px;"></div><button onclick="this.closest(\'[style*=inset:0]\').remove();" style="width:100%;margin-top:12px;padding:12px;background:transparent;border:none;font-size:14px;color:#888;cursor:pointer;">Cancel</button></div>'; menu.onclick=(e)=>{if(e.target===menu)menu.remove();}; document.body.appendChild(menu); const listEl=document.getElementById('sig-pick-list'); sigs.forEach(s=>{const d=document.createElement('div'); d.style.cssText='padding:12px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;'; d.innerHTML=`<div style="font-size:13px;font-weight:700;color:var(--text);">${s.name}${s.isDefault?' ★':''}</div><div style="font-size:11px;color:#888;margin-top:3px;">${(s.text||'').split('\n')[0].slice(0,60)}</div>`; d.onclick=(e)=>{e.stopPropagation();menu.remove();_insertSigText(s.text);}; listEl.appendChild(d); }); }
+function _composeInsertSignature() { const sigs = CONFIG.email_signatures||[]; const defSig = _getDefaultSig(_emailComposeMode); if(!sigs.length && !defSig) { notify('No signature set — add one in Email Settings','#ff9f0a',2000); return; } if(sigs.length<=1) { const d = _getDefaultSigObj(_emailComposeMode); _insertSigText(defSig, d.id); return; } const menu=document.createElement('div'); menu.style.cssText='position:fixed;inset:0;z-index:9200;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);'; menu.innerHTML='<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:16px 16px 36px;"><div style="font-size:15px;font-weight:800;margin-bottom:12px;color:var(--text);">Choose Signature</div><div id="sig-pick-list" style="display:flex;flex-direction:column;gap:8px;"></div><button onclick="this.closest(\'[style*=inset:0]\').remove();" style="width:100%;margin-top:12px;padding:12px;background:transparent;border:none;font-size:14px;color:#888;cursor:pointer;">Cancel</button></div>'; menu.onclick=(e)=>{if(e.target===menu)menu.remove();}; document.body.appendChild(menu); const listEl=document.getElementById('sig-pick-list'); sigs.forEach(s=>{const d=document.createElement('div'); d.style.cssText='padding:12px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;'; d.innerHTML=`<div style="font-size:13px;font-weight:700;color:var(--text);">${s.name}${s.isDefault?' ★':''}</div><div style="font-size:11px;color:#888;margin-top:3px;">${(s.text||'').split('\n')[0].slice(0,60)}</div>`; d.onclick=(e)=>{e.stopPropagation();menu.remove();_insertSigText(s.text, s.id);}; listEl.appendChild(d); }); }
 
-function _insertSigText(text) { if(!text) return; const body=document.getElementById('email-compose-body'); if(!body) return; const existing=body.querySelector('.email-sig-block'); if(existing) existing.remove(); const sigDiv=document.createElement('div'); sigDiv.className='email-sig-block'; sigDiv.style.cssText='color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;'; sigDiv.innerHTML=text.replace(/\n/g,'<br>'); body.appendChild(document.createElement('br')); body.appendChild(sigDiv); }
+function _insertSigText(text, sigId) {
+    const body=document.getElementById('email-compose-body');
+    if(!body) return;
+    const existing=body.querySelector('.email-sig-block');
+    if(existing) {
+        const prev = existing.previousSibling;
+        if(prev && prev.nodeName === 'BR') prev.remove();
+        existing.remove();
+    }
+    _emailComposeActiveSigId = sigId || '';
+    if(!text) return;
+    const sigDiv=document.createElement('div');
+    sigDiv.className='email-sig-block';
+    sigDiv.style.cssText='color:#888;border-top:1px solid var(--border);padding-top:8px;margin-top:8px;';
+    sigDiv.innerHTML=text.replace(/\n/g,'<br>');
+    body.appendChild(document.createElement('br'));
+    body.appendChild(sigDiv);
+}
 
 function saveEmailSignature() { notify('Use + Add to manage signatures','#007aff',2000); }
 
@@ -6747,6 +6787,49 @@ async function toggleBubbleProfile(label, enabled) {
 
 let _emailComposeMode = 'new';
 let _emailComposeReplyTarget = null;
+let _emailComposeActiveSigId = '';
+let _composeSwipeBound = false;
+
+function _applyDefaultComposeSignature() {
+    const def = _getDefaultSigObj(_emailComposeMode);
+    if(def && def.text) _insertSigText(def.text, def.id);
+}
+
+function _cycleComposeSignature(dir) {
+    const sigs = CONFIG.email_signatures || [];
+    if(sigs.length < 2) return;
+    let idx = sigs.findIndex(s => String(s.id) === String(_emailComposeActiveSigId || ''));
+    if(idx < 0) {
+        const d = _getDefaultSigObj(_emailComposeMode);
+        idx = sigs.findIndex(s => String(s.id) === String(d.id || ''));
+    }
+    idx = idx < 0 ? 0 : idx;
+    const nextIdx = (idx + dir + sigs.length) % sigs.length;
+    const nextSig = sigs[nextIdx];
+    _insertSigText(nextSig.text || '', nextSig.id);
+    notify(`Signature: ${nextSig.name || 'Signature'}`, '#007aff', 1200);
+}
+
+function _bindComposeSignatureSwipe() {
+    if(_composeSwipeBound) return;
+    const body = document.getElementById('email-compose-body');
+    if(!body) return;
+    let sx = 0, sy = 0;
+    body.addEventListener('touchstart', (e) => {
+        if(!e.touches || !e.touches[0]) return;
+        sx = e.touches[0].clientX;
+        sy = e.touches[0].clientY;
+    }, { passive: true });
+    body.addEventListener('touchend', (e) => {
+        if(!e.changedTouches || !e.changedTouches[0]) return;
+        const dx = e.changedTouches[0].clientX - sx;
+        const dy = e.changedTouches[0].clientY - sy;
+        if(Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.1) return;
+        if(dx < 0) _cycleComposeSignature(1);
+        else _cycleComposeSignature(-1);
+    }, { passive: true });
+    _composeSwipeBound = true;
+}
 
 async function _editAiSave() {
     const editInput = document.getElementById('edit-ai-input');
@@ -6764,6 +6847,8 @@ async function _doOpenComposeModal(mode) {
     const bodyEl = document.getElementById('email-compose-body');
     const sourceHtml = document.getElementById('edit-ai-input').innerHTML;
     bodyEl.innerHTML = sourceHtml;
+    _emailComposeActiveSigId = '';
+    _bindComposeSignatureSwipe();
     _fillToSuggestions();
     if (mode === 'new') {
         document.getElementById('email-compose-title').textContent = '📨 Draft New Email';
@@ -6781,6 +6866,7 @@ async function _doOpenComposeModal(mode) {
             fromSel.style.display = 'none';
         }
         openModal('email-compose-modal');
+        _applyDefaultComposeSignature();
     } else {
         document.getElementById('email-compose-title').textContent = '↩️ Reply to Email';
         const listEl = document.getElementById('email-compose-pick-list');
@@ -6835,6 +6921,8 @@ function draftEmailFromBubble(idx, mode) {
     const doOpen = () => {
         _emailComposeMode = mode; _emailComposeReplyTarget = null;
         document.getElementById('email-compose-body').innerHTML = bodyHtml;
+        _emailComposeActiveSigId = '';
+        _bindComposeSignatureSwipe();
         _fillToSuggestions();
         if(mode === 'new') {
             document.getElementById('email-compose-title').textContent = '📨 Draft New Email';
@@ -6847,6 +6935,7 @@ function draftEmailFromBubble(idx, mode) {
             fromSel.innerHTML = allAccts.map(a => `<option value="${a.id}">${a.name || a.user || a.id}</option>`).join('');
             fromSel.style.display = allAccts.length > 0 ? '' : 'none';
             openModal('email-compose-modal');
+            _applyDefaultComposeSignature();
         } else {
             document.getElementById('email-compose-title').textContent = '↩️ Reply to Email';
             const listEl = document.getElementById('email-compose-pick-list');
@@ -6875,6 +6964,7 @@ function emailComposePickReply(idx) {
     refEl.textContent = 'Replying to: ' + (em.subject || '(no subject)') + ' — ' + (em.from || '');
     document.getElementById('email-compose-picker').style.display = 'none';
     document.getElementById('email-compose-form').style.display = 'flex';
+    _applyDefaultComposeSignature();
 }
 
 async function sendComposedEmail() {
