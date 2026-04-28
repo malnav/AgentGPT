@@ -3511,6 +3511,15 @@ function _hsGetCardsMeta() {
         return { id, title };
     }).filter(x => x.id);
 }
+function _hsSyncColumnButtons() {
+    const c = parseInt(CONFIG.hs_columns) || 1;
+    [1,2,3].forEach(n => {
+        const btn = document.getElementById('hs-col-btn-' + n);
+        if (!btn) return;
+        btn.style.background = n === c ? 'var(--accent)' : 'transparent';
+        btn.style.color = n === c ? '#fff' : 'var(--text)';
+    });
+}
 function _hsRenderWidgetToggleMenu() {
     const list = document.getElementById('hs-widget-menu-list');
     if (!list) return;
@@ -3524,7 +3533,7 @@ function _hsRenderWidgetToggleMenu() {
     const hiddenCount = _hsGetHiddenCardsSet().size;
     list.innerHTML += `<div class="hs-widget-actions"><button class="hs-widget-action-btn" onclick="_hsResetHiddenCards()">Show all</button><button class="hs-widget-action-btn primary" onclick="_hsToggleWidgetMenu(event)">Done</button></div>`;
     if (hiddenCount === 0) list.innerHTML += `<div class="hs-widget-empty">All widgets are currently visible.</div>`;
-    _hsApplyColumns();
+    _hsSyncColumnButtons();
 }
 async function _hsSetCardVisibility(cardId, visible) {
     const items = _hsGetCardsMeta();
