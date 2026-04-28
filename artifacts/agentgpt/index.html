@@ -810,6 +810,17 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
     </div>
     <div id="wview-all" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column;">
+        <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
+            <input id="ws-chat-search" class="pp-input" placeholder="Search chats + context…" style="margin:0; flex:1; font-size:12px; padding:7px 10px;" oninput="setWorkspaceChatSearch(this.value)">
+            <button id="ws-chat-select-btn" class="chip" style="font-size:11px; padding:4px 8px;" onclick="_wsToggleChatSelectMode()">☑ Select</button>
+        </div>
+        <div id="ws-chat-bulk-bar" style="display:none; flex-wrap:wrap; gap:6px; align-items:center; padding:6px 0 10px; border-bottom:0.5px solid var(--border); margin-bottom:8px;">
+            <span id="ws-chat-bulk-count" style="font-size:12px; font-weight:700; color:var(--accent); flex:1;">0 selected</span>
+            <button class="chip" style="font-size:11px; padding:4px 8px;" onclick="_wsSelectAllVisibleChats()">All</button>
+            <button class="chip" style="font-size:11px; padding:4px 8px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="_wsCreateDatasetFromSelection()">+ Dataset</button>
+            <button class="chip" style="font-size:11px; padding:4px 8px; background:rgba(0,122,255,0.1); color:var(--accent);" onclick="_wsAddSelectionToDataset()">↳ Add to…</button>
+            <button class="chip" style="font-size:11px; padding:4px 8px;" onclick="_wsClearChatSelection()">✕</button>
+        </div>
         <ul id="all-sessions-list" style="list-style:none; padding:0; margin:0;"></ul>
     </div>
     <div id="wview-current" style="flex:1; overflow-y:auto; padding:12px; display:none; flex-direction:column;">
@@ -2378,10 +2389,153 @@ async function _newChatForDataset(vid) { const p = AI_PROFILES.find(x => x.label
 async function createAndLinkNewDataset() { let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur) return; let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let newVid = Date.now().toString() + Math.floor(Math.random()*1000); GLOBAL_DATASETS[newVid] = { title: (p ? p.label : "New") + " Data Set", data: {} }; cur.var_id = newVid; await saveAll(); renderSessionVariables(); renderDatasetsList(); notify("Dataset created & linked!", "#34c759"); }
 function switchWorkspaceTab(tab) { if(tab === 'current') tab = 'all'; ['all','data'].forEach(k => { const vw=document.getElementById('wview-'+k); const tb=document.getElementById('wtab-'+k); const bb=document.getElementById('wtab-'+k+'-btns'); if(vw) vw.style.display = k === tab ? 'flex' : 'none'; if(tb) tb.classList.toggle('active', k === tab); if(bb) bb.style.display = k === tab ? 'flex' : 'none'; }); const cbb=document.getElementById('wtab-current-btns'); if(cbb) cbb.style.display='none'; if(tab === 'all') renderAllSessionsList(); if(tab === 'data') renderDatasetsList(); }
 let _wsProfileFilter = 'all';
+let _wsChatSearch = '';
+let _wsChatSelectMode = false;
+let _wsSelectedChats = new Set();
+let _wsVisibleChatKeys = [];
 function setWsProfileFilter(val) { _wsProfileFilter = val; renderAllSessionsList(); }
-function renderAllSessionsList() { let validProfiles = new Set(AI_PROFILES.map(p => p.label)); let allChats = [], archivedChats = []; Object.entries(chatHistories).forEach(([profLabel, sData]) => { if(!sData || !sData.list) return; const isValid = validProfiles.has(profLabel); const matchFilter = _wsProfileFilter === 'all' || _wsProfileFilter === profLabel; sData.list.forEach(chat => { let msgCount = (chat.msgs||[]).filter(m => m.role !== 'developer').length; if(msgCount === 0) return; let isActive = profLabel === activeProfileLabel && String(chat.id) === String(sData.current); let lastMsgTs = parseInt(chat.id) || 0; if(chat.archived) { archivedChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs, isOrphan: !isValid }); } else if(isValid && matchFilter) { allChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs }); } }); }); allChats.sort((a, b) => { if(a.chat.pinned && !b.chat.pinned) return -1; if(!a.chat.pinned && b.chat.pinned) return 1; return b.lastMsgTs - a.lastMsgTs; }); archivedChats.sort((a, b) => b.lastMsgTs - a.lastMsgTs); const chatItemHtml = ({ chat, profLabel, msgCount, isActive, isOrphan }) => { let lockIcon = chat.title_locked ? ' <span style="font-size:9px; opacity:0.5;" title="Title locked">🔒</span>' : ''; let profColor = isOrphan ? '#888' : 'var(--accent)'; let orphanBadge = isOrphan ? ' <span style="font-size:9px; background:rgba(255,149,0,0.12); color:#ff9500; padding:1px 4px; border-radius:4px;">deleted profile</span>' : ''; return `<li class="list-item ${isActive ? 'in-cut' : ''}" onclick="loadSessionFromProfile('${profLabel}','${chat.id}')"><div style="flex:1; min-width:0; overflow:hidden;"><strong style="font-size:13px; display:flex; align-items:center; gap:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chat.title}${lockIcon}</strong><div style="display:flex; align-items:center; gap:5px; margin-top:2px; flex-wrap:wrap;"><span style="font-size:10px; color:${profColor}; font-weight:700;">${profLabel}</span>${orphanBadge}<span style="font-size:10px; color:#888;">· ${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div></div><div class="inline-btn" data-sid="${chat.id}" data-prof="${profLabel}" data-pinned="${chat.pinned?'1':'0'}" onclick="event.stopPropagation(); openAllSessionMenu(event, this)" style="font-size:18px; font-weight:700; letter-spacing:1px;">⋯</div></li>`; }; const sel = document.getElementById('ws-profile-filter'); if(sel) { const curVal = sel.value || _wsProfileFilter; const opts = '<option value="all">All Profiles</option>' + AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join(''); sel.innerHTML = opts; sel.value = curVal; if(!sel.value) { sel.value = 'all'; _wsProfileFilter = 'all'; } } let html = allChats.length === 0 ? '<li style="color:#888; font-size:13px; padding:12px;">No active chats yet.</li>' : allChats.map(chatItemHtml).join(''); if(archivedChats.length > 0) { const collapsed = !window._allTabArchiveExpanded; const chev = collapsed ? '▶' : '▼'; html += `<li style="list-style:none; padding:0; margin-top:14px;"><div onclick="window._allTabArchiveExpanded=!window._allTabArchiveExpanded; renderAllSessionsList();" style="display:flex;align-items:center;gap:6px;padding:7px 12px;cursor:pointer;font-size:11px;font-weight:700;color:#888;letter-spacing:0.04em;user-select:none;border-radius:8px;background:var(--sec-bg);"><span>${chev}</span><span>🗄️ ARCHIVED (${archivedChats.length})</span></div>${collapsed?'':'<ul style="list-style:none;padding:0;margin:4px 0 0;opacity:0.75;">' + archivedChats.map(chatItemHtml).join('') + '</ul>'}</li>`; } document.getElementById('all-sessions-list').innerHTML = html; }
-async function loadSessionFromProfile(profLabel, chatId) { if(_hsActive && _fchatActiveId === null) { _openLinkedChat(profLabel, chatId); return; } if(profLabel !== activeProfileLabel) { activeProfileLabel = profLabel; await dbHelper.set('activeProfile', activeProfileLabel); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(chatId)); if(cur) { sData.current = chatId; chatHistories[activeProfileLabel] = sData; chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; } await saveAll(true); closeAllPanels(); await refreshUI(); renderChatHistory(); requestAnimationFrame(() => scrollToLastRequest(true)); } else { await loadSession(chatId); } }
-async function togglePinChat(profLabel, chatId) { let sData = chatHistories[profLabel]; if(!sData) return; let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat) return; chat.pinned = !chat.pinned; await saveAll(); renderAllSessionsList(); }
+function setWorkspaceChatSearch(val) { _wsChatSearch = String(val || '').toLowerCase().trim(); renderAllSessionsList(); }
+function _wsChatKey(profLabel, chatId) { return `${profLabel}|${chatId}`; }
+function _wsGetChatContext(chat) {
+    const userMsgs = (chat.msgs || []).filter(m => m.role !== 'developer');
+    if(!userMsgs.length) return '';
+    const tail = userMsgs.slice(-5).map(m => getTextFromContent(m.content) || '').filter(Boolean).join(' ');
+    return tail.replace(/\s+/g, ' ').trim();
+}
+function _wsToggleChatSelectMode() {
+    _wsChatSelectMode = !_wsChatSelectMode;
+    if(!_wsChatSelectMode) _wsSelectedChats = new Set();
+    renderAllSessionsList();
+}
+function _wsToggleChatSelection(profLabel, chatId) {
+    const key = _wsChatKey(profLabel, chatId);
+    if(_wsSelectedChats.has(key)) _wsSelectedChats.delete(key);
+    else _wsSelectedChats.add(key);
+    _wsUpdateBulkBar();
+    renderAllSessionsList();
+}
+function _wsClearChatSelection() { _wsSelectedChats = new Set(); _wsUpdateBulkBar(); renderAllSessionsList(); }
+function _wsSelectAllVisibleChats() {
+    if(!_wsVisibleChatKeys.length) return;
+    const allSelected = _wsVisibleChatKeys.every(k => _wsSelectedChats.has(k));
+    if(allSelected) _wsVisibleChatKeys.forEach(k => _wsSelectedChats.delete(k));
+    else _wsVisibleChatKeys.forEach(k => _wsSelectedChats.add(k));
+    _wsUpdateBulkBar();
+    renderAllSessionsList();
+}
+function _wsUpdateBulkBar() {
+    const bar = document.getElementById('ws-chat-bulk-bar');
+    const count = document.getElementById('ws-chat-bulk-count');
+    const btn = document.getElementById('ws-chat-select-btn');
+    if(bar) bar.style.display = _wsChatSelectMode ? 'flex' : 'none';
+    if(count) count.textContent = `${_wsSelectedChats.size} selected`;
+    if(btn) btn.textContent = _wsChatSelectMode ? 'Done' : '☑ Select';
+}
+function _wsCollectSelectedChats() {
+    const selected = [];
+    _wsSelectedChats.forEach(key => {
+        const [profLabel, chatId] = key.split('|');
+        const sData = chatHistories[profLabel];
+        if(!sData || !sData.list) return;
+        const chat = sData.list.find(c => String(c.id) === String(chatId));
+        if(chat) selected.push({ profLabel, chat });
+    });
+    return selected;
+}
+async function _wsCreateDatasetFromSelection() {
+    const selected = _wsCollectSelectedChats();
+    if(!selected.length) return notify('Select chats first.', '#888');
+    const p = AI_PROFILES.find(x => x.label === activeProfileLabel);
+    const vid = Date.now().toString() + Math.floor(Math.random() * 1000);
+    GLOBAL_DATASETS[vid] = { title: (p ? p.label : 'New') + ' Data Set', data: {} };
+    selected.forEach(({chat}) => { chat.var_id = vid; });
+    await saveAll();
+    _wsChatSelectMode = false;
+    _wsSelectedChats = new Set();
+    renderAllSessionsList();
+    renderDatasetsList();
+    renderSessionVariables();
+    notify(`Created dataset and linked ${selected.length} chat${selected.length!==1?'s':''}.`, '#34c759');
+}
+async function _wsAddSelectionToDataset() {
+    const selected = _wsCollectSelectedChats();
+    if(!selected.length) return notify('Select chats first.', '#888');
+    _openDatasetPickerModal(async (vid) => {
+        if(!vid) return;
+        selected.forEach(({chat}) => { chat.var_id = vid; });
+        await saveAll();
+        _wsChatSelectMode = false;
+        _wsSelectedChats = new Set();
+        renderAllSessionsList();
+        renderDatasetsList();
+        renderSessionVariables();
+        const ds = GLOBAL_DATASETS[vid];
+        notify(`Added ${selected.length} chat${selected.length!==1?'s':''} to ${ds && ds.title ? ds.title : 'dataset'}.`, '#34c759');
+    });
+}
+function renderAllSessionsList() {
+    let validProfiles = new Set(AI_PROFILES.map(p => p.label));
+    let allChats = [], archivedChats = [];
+    Object.entries(chatHistories).forEach(([profLabel, sData]) => {
+        if(!sData || !sData.list) return;
+        const isValid = validProfiles.has(profLabel);
+        const matchFilter = _wsProfileFilter === 'all' || _wsProfileFilter === profLabel;
+        sData.list.forEach(chat => {
+            let msgCount = (chat.msgs || []).filter(m => m.role !== 'developer').length;
+            if(msgCount === 0) return;
+            let isActive = profLabel === activeProfileLabel && String(chat.id) === String(sData.current);
+            let lastMsgTs = parseInt(chat.id) || 0;
+            const context = _wsGetChatContext(chat);
+            const searchText = `${chat.title || ''} ${profLabel} ${context}`.toLowerCase();
+            const matchesSearch = !_wsChatSearch || searchText.includes(_wsChatSearch);
+            if(chat.archived) {
+                if(matchesSearch) archivedChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs, isOrphan: !isValid, context });
+            } else if(isValid && matchFilter && matchesSearch) {
+                allChats.push({ chat, profLabel, msgCount, isActive, lastMsgTs, context });
+            }
+        });
+    });
+
+    allChats.sort((a, b) => {
+        if(a.chat.pinned && !b.chat.pinned) return -1;
+        if(!a.chat.pinned && b.chat.pinned) return 1;
+        return b.lastMsgTs - a.lastMsgTs;
+    });
+    archivedChats.sort((a, b) => b.lastMsgTs - a.lastMsgTs);
+
+    _wsVisibleChatKeys = allChats.map(item => _wsChatKey(item.profLabel, item.chat.id));
+
+    const chatItemHtml = ({ chat, profLabel, msgCount, isActive, isOrphan, context }) => {
+        let lockIcon = chat.title_locked ? ' <span style="font-size:9px; opacity:0.5;" title="Title locked">🔒</span>' : '';
+        let profColor = isOrphan ? '#888' : 'var(--accent)';
+        let orphanBadge = isOrphan ? ' <span style="font-size:9px; background:rgba(255,149,0,0.12); color:#ff9500; padding:1px 4px; border-radius:4px;">deleted profile</span>' : '';
+        const key = _wsChatKey(profLabel, chat.id);
+        const checked = _wsSelectedChats.has(key);
+        const ctxText = context ? `<div style="font-size:10px;color:#888;margin-top:3px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${context.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : '';
+        const selectBox = _wsChatSelectMode
+            ? `<div onclick="event.stopPropagation(); _wsToggleChatSelection('${profLabel}','${chat.id}')" style="width:19px;height:19px;border-radius:6px;border:2px solid ${checked?'var(--accent)':'var(--border)'};background:${checked?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:11px;">${checked?'✓':''}</div>`
+            : '';
+        return `<li class="list-item ${isActive ? 'in-cut' : ''}" onclick="${_wsChatSelectMode ? `_wsToggleChatSelection('${profLabel}','${chat.id}')` : `loadSessionFromProfile('${profLabel}','${chat.id}')`}">${selectBox}<div style="flex:1; min-width:0; overflow:hidden;"><strong style="font-size:13px; display:flex; align-items:center; gap:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${chat.title}${lockIcon}</strong><div style="display:flex; align-items:center; gap:5px; margin-top:2px; flex-wrap:wrap;"><span style="font-size:10px; color:${profColor}; font-weight:700;">${profLabel}</span>${orphanBadge}<span style="font-size:10px; color:#888;">· ${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div>${ctxText}</div>${_wsChatSelectMode ? '' : `<div class="inline-btn" data-sid="${chat.id}" data-prof="${profLabel}" data-pinned="${chat.pinned?'1':'0'}" onclick="event.stopPropagation(); openAllSessionMenu(event, this)" style="font-size:18px; font-weight:700; letter-spacing:1px;">⋯</div>`}</li>`;
+    };
+
+    const sel = document.getElementById('ws-profile-filter');
+    if(sel) {
+        const curVal = sel.value || _wsProfileFilter;
+        const opts = '<option value="all">All Profiles</option>' + AI_PROFILES.map(p => `<option value="${p.label}">${p.label}</option>`).join('');
+        sel.innerHTML = opts;
+        sel.value = curVal;
+        if(!sel.value) { sel.value = 'all'; _wsProfileFilter = 'all'; }
+    }
+
+    let html = allChats.length === 0 ? '<li style="color:#888; font-size:13px; padding:12px;">No chats matched your filters.</li>' : allChats.map(chatItemHtml).join('');
+    if(archivedChats.length > 0) {
+        const collapsed = !window._allTabArchiveExpanded;
+        const chev = collapsed ? '▶' : '▼';
+        html += `<li style="list-style:none; padding:0; margin-top:14px;"><div onclick="window._allTabArchiveExpanded=!window._allTabArchiveExpanded; renderAllSessionsList();" style="display:flex;align-items:center;gap:6px;padding:7px 12px;cursor:pointer;font-size:11px;font-weight:700;color:#888;letter-spacing:0.04em;user-select:none;border-radius:8px;background:var(--sec-bg);"><span>${chev}</span><span>🗄️ ARCHIVED (${archivedChats.length})</span></div>${collapsed?'':'<ul style="list-style:none;padding:0;margin:4px 0 0;opacity:0.75;">' + archivedChats.map(chatItemHtml).join('') + '</ul>'}</li>`;
+    }
+    document.getElementById('all-sessions-list').innerHTML = html;
+    _wsUpdateBulkBar();
+}
 async function deleteSessionFromProfile(profLabel, chatId) { openConfirm("Delete this chat session?", async () => { let sData = chatHistories[profLabel]; if(!sData || !sData.list) return; sData.list = sData.list.filter(s => String(s.id) !== String(chatId)); if(sData.list.length === 0) { const defId = Date.now().toString() + Math.floor(Math.random()*1000); sData.list.push({ id: defId, title: "Chat", msgs: [], var_id: defId }); sData.current = defId; } if(String(sData.current) === String(chatId)) sData.current = sData.list[0].id; if(profLabel === activeProfileLabel) { chatHistory = sData.list.find(x => String(x.id) === String(sData.current))?.msgs || []; renderChatHistory(); } await saveAll(); renderAllSessionsList(); renderSessionsList(); }); }
 
 let globalTodoFilter = 'all';
