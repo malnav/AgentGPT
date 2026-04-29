@@ -5801,10 +5801,7 @@ async function gmailPreview(i, src) {
     if(avatarEl) { avatarEl.style.background = avatarColor; avatarEl.textContent = initial; }
     document.getElementById(ids.from).textContent = dispName || dispEmail;
     const toEl = document.getElementById(ids.to);
-    if(toEl) {
-        const toText = (em.to || '').trim();
-        toEl.textContent = toText ? `To: ${toText}` : '';
-    }
+    if(toEl) toEl.textContent = nameMatch && dispName ? dispEmail : '';
     const dateEl = document.getElementById(ids.date);
     if(dateEl) dateEl.textContent = em.date;
     const senderEmailEl = document.getElementById(ids.senderEmail);
