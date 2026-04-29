@@ -6,6 +6,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>AgentGPT</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
 <style>
@@ -322,6 +323,15 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #vars-slide-panel { bottom: 0; top: 0 !important; border-radius: 0; }
 #workspace-panel { top: 0 !important; bottom: 0 !important; border-radius: 0; }
 #workspace-panel.open { z-index: 510 !important; }
+#workspace-hover-rail {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 12px;
+  z-index: 9048;
+  display: none;
+}
 #workspace-panel > .panel-header,
 #vars-slide-panel > .panel-header { padding-top: max(8px, calc(var(--sat, env(safe-area-inset-top, 0px)) + 8px)) !important; }
 .ctx-panel {
@@ -670,6 +680,10 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
   /* ── Panels: full-height overlays (not persistent) ── */
   .side-panel, .ctx-panel { width: min(360px, 85%) !important; top: 0 !important; bottom: 0 !important; }
   .ctx-panel { border-radius: 14px 0 0 14px !important; }
+  #workspace-panel.workspace-locked {
+    transition: left 0.2s ease;
+  }
+  #workspace-hover-rail.workspace-locked { display: block; }
 
   /* ── Chat: nicely centered, not full-width ── */
   .bubble { min-width: 28%; max-width: 58%; }
@@ -790,6 +804,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 <div id="scroll-bottom-btn">↓</div>
 
 <div class="pull-indicator global-pull" onclick="toggleVarsPanel()"></div>
+<div id="workspace-hover-rail" aria-hidden="true"></div>
 
 <div id="workspace-panel" class="side-panel left-panel" style="z-index: 158;">
     <div class="panel-header" style="padding:8px 14px;">
@@ -799,14 +814,16 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
         <div id="wtab-all-btns" style="display:flex; gap:4px; align-items:center; margin-left:6px;">
             <select id="ws-profile-filter" onchange="setWsProfileFilter(this.value)" style="font-size:10px; border-radius:8px; border:0.5px solid var(--glass-border); background:var(--sec-bg); color:var(--text); padding:3px 4px; flex-shrink:0; max-width:76px; cursor:pointer;"><option value="all">All</option></select>
+            <button id="workspace-lock-btn" class="chip" style="font-size:14px; padding:2px 8px;" onclick="toggleWorkspacePanelLock()" title="Lock workspace sidebar hover mode">📌</button>
             <button class="chip" style="font-size:18px; padding:2px 12px; background:var(--accent); color:#fff; font-weight:bold;" onclick="_workspaceNewChat()" title="New Chat">+</button>
-            <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
+            <div onclick="closeAllPanels(null, { forceWorkspaceClose: true })" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
         <div id="wtab-current-btns" style="display:none;"></div>
         <div id="wtab-data-btns" style="display:none; gap:8px; align-items:center; margin-left:8px;">
             <button class="chip" id="ds-select-btn" style="font-size:11px; padding:3px 9px;" onclick="_dsToggleSelectMode()" title="Select datasets">☑ Select</button>
+            <button id="workspace-lock-btn-data" class="chip" style="font-size:14px; padding:2px 8px;" onclick="toggleWorkspacePanelLock()" title="Lock workspace sidebar hover mode">📌</button>
             <button class="chip" style="font-size:18px; padding:2px 10px; background:var(--accent); color:#fff; font-weight:bold;" onclick="_workspaceNewChat()" title="New Chat">+</button>
-            <div onclick="closeAllPanels()" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
+            <div onclick="closeAllPanels(null, { forceWorkspaceClose: true })" style="font-size:22px; cursor:pointer; padding:2px 6px;">✕</div>
         </div>
     </div>
     <div id="wview-all" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column;">
@@ -2190,8 +2207,98 @@ function initGestures() {
         }, { passive: false });
     }
     document.querySelectorAll('.side-panel, .ctx-panel, .modal').forEach(lockPanelScroll);
+    initWorkspacePanelHoverMode();
 }
-function closeAllPanels(except = null) { ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'workspace-panel'].forEach(id => { if(id !== except) { let el = document.getElementById(id); if(el) el.classList.remove('open'); } }); }
+let _workspacePanelLocked = false;
+let _workspacePanelHoverReady = false;
+let _workspacePanelHoverHideTimer = null;
+
+function _isWorkspaceHoverCapable() {
+    return window.matchMedia('(pointer:fine)').matches && window.innerWidth >= 1100;
+}
+function _setWorkspacePanelVisibility(show) {
+    const panel = document.getElementById('workspace-panel');
+    if(!panel) return;
+    if(show) {
+        panel.classList.add('open');
+        renderWorkspaceLists();
+    } else {
+        panel.classList.remove('open');
+    }
+}
+function _scheduleWorkspacePanelHide(delay = 120) {
+    if(!_workspacePanelLocked || !_isWorkspaceHoverCapable()) return;
+    clearTimeout(_workspacePanelHoverHideTimer);
+    _workspacePanelHoverHideTimer = setTimeout(() => _setWorkspacePanelVisibility(false), delay);
+}
+function _cancelWorkspacePanelHide() {
+    clearTimeout(_workspacePanelHoverHideTimer);
+}
+function _syncWorkspacePanelLockUI() {
+    const hoverRail = document.getElementById('workspace-hover-rail');
+    const panel = document.getElementById('workspace-panel');
+    ['workspace-lock-btn', 'workspace-lock-btn-data'].forEach(id => {
+        const btn = document.getElementById(id);
+        if(!btn) return;
+        btn.style.background = _workspacePanelLocked ? 'var(--accent)' : 'var(--sec-bg)';
+        btn.style.color = _workspacePanelLocked ? '#fff' : 'var(--text)';
+        btn.title = _workspacePanelLocked ? 'Unlock workspace sidebar hover mode' : 'Lock workspace sidebar hover mode';
+        btn.textContent = _workspacePanelLocked ? '📍' : '📌';
+    });
+    if(hoverRail) hoverRail.classList.toggle('workspace-locked', _workspacePanelLocked && _isWorkspaceHoverCapable());
+    if(panel) panel.classList.toggle('workspace-locked', _workspacePanelLocked && _isWorkspaceHoverCapable());
+}
+function toggleWorkspacePanelLock(force) {
+    _workspacePanelLocked = typeof force === 'boolean' ? force : !_workspacePanelLocked;
+    if(_workspacePanelLocked && !_isWorkspaceHoverCapable()) {
+        _workspacePanelLocked = false;
+        notify('Workspace lock works on desktop-sized screens with a mouse/trackpad.', '#888', 2200);
+    }
+    _syncWorkspacePanelLockUI();
+    if(_workspacePanelLocked) _setWorkspacePanelVisibility(true);
+}
+function initWorkspacePanelHoverMode() {
+    if(_workspacePanelHoverReady) return;
+    _workspacePanelHoverReady = true;
+    const hoverRail = document.getElementById('workspace-hover-rail');
+    const panel = document.getElementById('workspace-panel');
+    if(!hoverRail || !panel) return;
+    hoverRail.addEventListener('mouseenter', () => {
+        if(!_workspacePanelLocked || !_isWorkspaceHoverCapable()) return;
+        _cancelWorkspacePanelHide();
+        _setWorkspacePanelVisibility(true);
+    });
+    panel.addEventListener('mouseenter', () => {
+        if(!_workspacePanelLocked) return;
+        _cancelWorkspacePanelHide();
+    });
+    panel.addEventListener('mouseleave', () => _scheduleWorkspacePanelHide());
+    document.addEventListener('mousemove', (event) => {
+        if(!_workspacePanelLocked || !_isWorkspaceHoverCapable()) return;
+        if(event.clientX <= 14) {
+            _cancelWorkspacePanelHide();
+            _setWorkspacePanelVisibility(true);
+            return;
+        }
+        const panelRect = panel.getBoundingClientRect();
+        const outsidePanel = event.clientX > panelRect.right + 8;
+        if(panel.classList.contains('open') && outsidePanel) _scheduleWorkspacePanelHide(90);
+    });
+    window.addEventListener('resize', () => {
+        _syncWorkspacePanelLockUI();
+        if(!_isWorkspaceHoverCapable() && _workspacePanelLocked) toggleWorkspacePanelLock(false);
+    });
+    _syncWorkspacePanelLockUI();
+}
+function closeAllPanels(except = null, opts = {}) {
+    const forceWorkspaceClose = !!opts.forceWorkspaceClose;
+    ['vars-slide-panel', 'ctx-slide-panel', 'tpl-slide-panel', 'workspace-panel'].forEach(id => {
+        if(id === except) return;
+        if(id === 'workspace-panel' && _workspacePanelLocked && _isWorkspaceHoverCapable() && !forceWorkspaceClose) return;
+        let el = document.getElementById(id);
+        if(el) el.classList.remove('open');
+    });
+}
 function toggleVarsPanel() { _calPreviewVid = null; closeAllPanels('vars-slide-panel'); document.getElementById('vars-slide-panel').classList.toggle('open'); if(document.getElementById('vars-slide-panel').classList.contains('open')) renderSessionVariables(); }
 function toggleCtxPanel() { closeAllPanels('ctx-slide-panel'); document.getElementById('ctx-slide-panel').classList.toggle('open'); }
 function ctxSwitchTab(tab) {
@@ -4089,6 +4196,18 @@ let applyInProgress = false;
 let lastOwnPushToken = null;
 let pendingCloudData = null;
 
+function pruneUndefinedDeep(value) {
+    if(Array.isArray(value)) return value.map(pruneUndefinedDeep);
+    if(value && typeof value === "object") {
+        const next = {};
+        Object.entries(value).forEach(([k, v]) => {
+            if(v !== undefined) next[k] = pruneUndefinedDeep(v);
+        });
+        return next;
+    }
+    return value;
+}
+
 async function initFirebase() {
     if(!CONFIG.fb_api || !CONFIG.fb_project) return null;
     if(fbDb) return fbDb;
@@ -4107,7 +4226,7 @@ async function pushToFirebase(manual = false) {
         const pushToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
         lastOwnPushToken = pushToken;
         const batch = writeBatch(db);
-        const payload = { profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, notes: NOTES, push_token: pushToken, last_sync: Date.now() };
+        const payload = pruneUndefinedDeep({ profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, notes: NOTES, push_token: pushToken, last_sync: Date.now() });
         const histStr = JSON.stringify(chatHistories); const chunks = []; const chunkSize = 300000;
         for(let i = 0; i < histStr.length; i += chunkSize) chunks.push(histStr.substring(i, i + chunkSize));
         payload.chunks_count = chunks.length;
@@ -4752,10 +4871,10 @@ function gmailRenderPreviewBody(src) {
         bodyEl.textContent = state.text || gmailHtmlToPlainText(state.html || '') || gmailCurrentEmail?.snippet || '';
         return;
     }
-    if(state.html) {
+    if(state.html && state.html.trim()) {
         bodyEl.style.whiteSpace = 'normal';
         bodyEl.innerHTML = state.html;
-        return;
+        if((bodyEl.textContent || '').trim() || bodyEl.querySelector('img,table,div,p,span,a,br,ul,ol,li')) return;
     }
     bodyEl.style.whiteSpace = 'pre-wrap';
     bodyEl.textContent = state.text || gmailCurrentEmail?.snippet || '';
@@ -4786,13 +4905,25 @@ function gmailEnsureScript(onReady) {
     }
 }
 
+let gmailRefreshEndpointAvailable = true;
+
 async function gmailBackendRefresh() {
     const clientId = CONFIG.google_client_id || "";
     const clientSecret = CONFIG.google_client_secret || "";
-    if (!clientId || !clientSecret) return false;
+    if (!clientId || !clientSecret || !gmailRefreshEndpointAvailable) return false;
     try {
+        const hasTokenResp = await fetch('/api/gmail/has-token');
+        if (!hasTokenResp.ok) {
+            if (hasTokenResp.status === 404) gmailRefreshEndpointAvailable = false;
+            return false;
+        }
+        const hasTokenData = await hasTokenResp.json();
+        if (!hasTokenData.hasToken) return false;
         const resp = await fetch('/api/gmail/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }) });
-        if (!resp.ok) return false;
+        if (!resp.ok) {
+            if (resp.status === 404) gmailRefreshEndpointAvailable = false;
+            return false;
+        }
         const data = await resp.json();
         if (data.access_token) { gmailAccessToken = data.access_token; updateProfileBubble(); return true; }
         return false;
@@ -4906,6 +5037,7 @@ function gmailInitTokenClient(query, silent) {
 }
 
 async function gmailStoreHint() {
+    if (!gmailAccessToken) return;
     try {
         const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
         if(r.ok) { const d = await r.json(); if(d.email) localStorage.setItem('gmail_hint', d.email); }
@@ -5630,7 +5762,10 @@ async function gmailPreview(i, src) {
     if(avatarEl) { avatarEl.style.background = avatarColor; avatarEl.textContent = initial; }
     document.getElementById(ids.from).textContent = dispName || dispEmail;
     const toEl = document.getElementById(ids.to);
-    if(toEl) toEl.textContent = nameMatch && dispName ? dispEmail : '';
+    if(toEl) {
+        const toText = (em.to || '').trim();
+        toEl.textContent = toText ? `To: ${toText}` : '';
+    }
     const dateEl = document.getElementById(ids.date);
     if(dateEl) dateEl.textContent = em.date;
     const senderEmailEl = document.getElementById(ids.senderEmail);
@@ -5714,13 +5849,65 @@ function gmailExtractBody(payload, _depth) {
 
 function gmailStripQuotedReply(body) { let lines = body.split('\n'); let cutOff = -1; for(let i = 0; i < lines.length; i++) { let l = lines[i].trim(); if(l.match(/^On .+,.*wrote:$|^On .+ at .+ wrote:$|^>|^-----+|^_____+|^From:\s|^Sent:\s|^To:\s|^Date:\s|^Subject:\s|^\[.*\]\s*\[external\]/i)) { cutOff = i; break; } } if(cutOff > 0) return lines.slice(0, cutOff).join('\n').trim(); return body; }
 function gmailStripQuotedHtml(html) { let tmp = document.createElement('div'); tmp.innerHTML = html; let walkNodes = (node, depth) => { if(depth > 50) return true; for(let i = node.childNodes.length - 1; i >= 0; i--) { let child = node.childNodes[i]; if(child.nodeType === 3) { let t = child.textContent.trim(); if(t.match(/^On .+,.*wrote:$|^On .+ at .+ wrote:$|^From:|^Sent:|^To:|^Date:|^Subject:|^\[.*\]\s*\[external\]/i)) { return true; } } else if(child.nodeType === 1) { let el = child; if(el.tagName === 'BLOCKQUOTE' || (el.className||'').includes('quote') || (el.getAttribute('style')||'').includes('border-left')) { return true; } if(walkNodes(child, (depth||0) + 1)) { if(el.parentNode) el.parentNode.removeChild(el); return false; } } } return false; }; walkNodes(tmp, 0); return tmp.innerHTML; }
+function gmailNormalizeHtml(html) {
+    const raw = String(html || '').trim();
+    if(!raw) return '';
+    if(/<\/?[a-z][\s\S]*>/i.test(raw)) return raw;
+    if(/&lt;[a-z][\s\S]*&gt;/i.test(raw)) {
+        const txt = document.createElement('textarea');
+        txt.innerHTML = raw;
+        const decoded = (txt.value || '').trim();
+        if(/<\/?[a-z][\s\S]*>/i.test(decoded)) return decoded;
+    }
+    return raw;
+}
+
 function gmailSanitizeHtml(html) {
+    const normalized = gmailNormalizeHtml(html);
+    if(!normalized) return '';
     const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    tmp.querySelectorAll('script,style,link,meta,head,iframe,object,embed').forEach(el => el.remove());
-    tmp.querySelectorAll('[style]').forEach(el => { const allowed = (el.getAttribute('style')||'').replace(/expression\([^)]*\)/gi,''); el.setAttribute('style', allowed); });
+    tmp.innerHTML = normalized;
+    tmp.querySelectorAll('script,iframe,object,embed').forEach(el => el.remove());
+    tmp.querySelectorAll('*').forEach(el => {
+        [...el.attributes].forEach(attr => {
+            const name = (attr.name || '').toLowerCase();
+            const value = attr.value || '';
+            if(name.startsWith('on')) {
+                el.removeAttribute(attr.name);
+                return;
+            }
+            if((name === 'href' || name === 'src' || name === 'xlink:href') && /^\s*javascript:/i.test(value)) {
+                el.removeAttribute(attr.name);
+                return;
+            }
+            if(name === 'style') {
+                const safeStyle = value
+                    .replace(/expression\([^)]*\)/gi, '')
+                    .replace(/url\(\s*['"]?javascript:[^)]*\)/gi, '');
+                if(safeStyle) el.setAttribute('style', safeStyle);
+                else el.removeAttribute('style');
+            }
+        });
+    });
     tmp.querySelectorAll('a').forEach(a => { a.setAttribute('target','_blank'); a.setAttribute('rel','noopener noreferrer'); });
-    return tmp.innerHTML;
+    return tmp.innerHTML.trim();
+}
+
+function _extractEmailAddress(raw) {
+    if(!raw) return '';
+    const text = String(raw).trim();
+    const bracket = text.match(/<([^>]+)>/);
+    if(bracket && bracket[1]) return bracket[1].trim().toLowerCase();
+    const plain = text.match(/[\w.+-]+@[\w.-]+\.\w+/);
+    return plain ? plain[0].trim().toLowerCase() : '';
+}
+
+function _resolveReplyRecipient(em, acctUser) {
+    const fromAddr = _extractEmailAddress(em && em.from);
+    const toAddr = _extractEmailAddress(em && em.to);
+    const ownerAddr = _extractEmailAddress(acctUser || '');
+    if(ownerAddr && fromAddr && fromAddr === ownerAddr && toAddr) return em.to || toAddr;
+    return (em && em.from) || '';
 }
 
 async function gmailSendReply(src) {
@@ -5734,14 +5921,15 @@ async function gmailSendReply(src) {
     const subject = em.subject.startsWith('Re:') ? em.subject : 'Re: ' + em.subject;
     const acctId = em._accountId || 'gmail';
     const imapAcct = acctId !== 'gmail' ? (CONFIG.imap_accounts||[]).find(a => a.id === acctId) : null;
+    const replyRecipient = _resolveReplyRecipient(em, imapAcct ? imapAcct.user : '');
     try {
         notify("Sending…", "#007aff", 2000);
         if(imapAcct) {
-            const r = await fetch('/api/imap/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, to: em.from, subject: subject, text: replyText, html: `<html><body>${replyHtml}</body></html>` }) });
+            const r = await fetch('/api/imap/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: imapAcct.host, port: imapAcct.port, user: imapAcct.user, pass: imapAcct.pass, tls: imapAcct.tls, to: replyRecipient, subject: subject, text: replyText, html: `<html><body>${replyHtml}</body></html>` }) });
             if(!r.ok) { const d = await r.json(); throw new Error(d.error || "Send failed: " + r.status); }
         } else {
             const boundary = `boundary_${Date.now()}`;
-            const rawMsg = [`To: ${em.from}`, `Subject: ${subject}`, `In-Reply-To: ${em.messageId}`, `References: ${em.messageId}`, `MIME-Version: 1.0`, `Content-Type: multipart/alternative; boundary="${boundary}"`, ``, `--${boundary}`, `Content-Type: text/plain; charset=utf-8`, `Content-Transfer-Encoding: base64`, ``, _mimeBase64(replyText), ``, `--${boundary}`, `Content-Type: text/html; charset=utf-8`, `Content-Transfer-Encoding: base64`, ``, _mimeBase64(`<html><body>${replyHtml}</body></html>`), ``, `--${boundary}--`].join('\r\n');
+            const rawMsg = [`To: ${replyRecipient}`, `Subject: ${subject}`, `In-Reply-To: ${em.messageId}`, `References: ${em.messageId}`, `MIME-Version: 1.0`, `Content-Type: multipart/alternative; boundary="${boundary}"`, ``, `--${boundary}`, `Content-Type: text/plain; charset=utf-8`, `Content-Transfer-Encoding: base64`, ``, _mimeBase64(replyText), ``, `--${boundary}`, `Content-Type: text/html; charset=utf-8`, `Content-Transfer-Encoding: base64`, ``, _mimeBase64(`<html><body>${replyHtml}</body></html>`), ``, `--${boundary}--`].join('\r\n');
             const encoded = btoa(unescape(encodeURIComponent(rawMsg))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
             const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/send`, { method: 'POST', headers: { Authorization: `Bearer ${gmailAccessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: encoded, threadId: em.threadId }) });
             if(!r.ok) throw new Error("Send failed: " + r.status);
@@ -5758,7 +5946,7 @@ async function gmailSendReply(src) {
             threadId: em.threadId || em.id || ('sent_' + Date.now()),
             subject: subject || '(no subject)',
             from: _sentFromStr,
-            to: em.from || '',
+            to: replyRecipient || '',
             date: new Date().toUTCString(),
             snippet: replyText.slice(0, 120),
             unread: false,
@@ -5920,7 +6108,7 @@ function gmailOpenCompose() {
 
 function gmailComposeToAddress(addr) { const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts configured','#ff3b30'); return; } document.getElementById('email-compose-title').textContent = '📨 New Email'; document.getElementById('email-compose-to').value = addr||''; document.getElementById('email-compose-subject').value = ''; document.getElementById('email-compose-body').innerHTML = ''; document.getElementById('email-compose-reply-ref').style.display='none'; document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; _emailComposeMode='new'; _emailComposeReplyTarget=null; _emailComposeActiveSigId=''; _bindComposeSignatureSwipe(); const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); _applyDefaultComposeSignature(); }
 
-async function gmailTapEmailCompose(i, src) { await gmailPreview(i, src); const em = gmailCurrentEmail; if(!em) return; const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts — add Gmail or IMAP first','#ff3b30'); return; } document.getElementById('email-compose-title').textContent = '↩️ Reply'; document.getElementById('email-compose-to').value = em.from||''; document.getElementById('email-compose-subject').value = (em.subject||'').startsWith('Re:') ? em.subject : 'Re: '+(em.subject||''); document.getElementById('email-compose-body').innerHTML = ''; const refEl = document.getElementById('email-compose-reply-ref'); refEl.style.display=''; refEl.textContent=(em.subject||'')+(em.from?' — from '+em.from:''); document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; const cc=document.getElementById('email-compose-cc'); if(cc) cc.value=''; _emailComposeMode='reply'; _emailComposeReplyTarget=em; _emailComposeActiveSigId=''; _bindComposeSignatureSwipe(); const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); _applyDefaultComposeSignature(); }
+async function gmailTapEmailCompose(i, src) { await gmailPreview(i, src); const em = gmailCurrentEmail; if(!em) return; const allAccts = emailGetAllAccounts(); if(!allAccts.length) { notify('No email accounts — add Gmail or IMAP first','#ff3b30'); return; } const replyAcctId = em._accountId || 'gmail'; const imapAcct = replyAcctId !== 'gmail' ? (CONFIG.imap_accounts||[]).find(a => a.id === replyAcctId) : null; const replyRecipient = _resolveReplyRecipient(em, imapAcct ? imapAcct.user : ''); document.getElementById('email-compose-title').textContent = '↩️ Reply'; document.getElementById('email-compose-to').value = replyRecipient; document.getElementById('email-compose-subject').value = (em.subject||'').startsWith('Re:') ? em.subject : 'Re: '+(em.subject||''); document.getElementById('email-compose-body').innerHTML = ''; const refEl = document.getElementById('email-compose-reply-ref'); refEl.style.display=''; refEl.textContent=(em.subject||'')+(replyRecipient?' — to '+replyRecipient:''); document.getElementById('email-compose-picker').style.display='none'; document.getElementById('email-compose-form').style.display='flex'; const ccRow=document.getElementById('email-compose-cc-row'); if(ccRow) ccRow.style.display='none'; const cc=document.getElementById('email-compose-cc'); if(cc) cc.value=''; _emailComposeMode='reply'; _emailComposeReplyTarget=em; _emailComposeActiveSigId=''; _bindComposeSignatureSwipe(); const fromSel=document.getElementById('email-compose-from'); fromSel.innerHTML=allAccts.map(a=>`<option value="${a.id}">${a.name||a.user||a.id}</option>`).join(''); fromSel.style.display=allAccts.length>1?'':'none'; openModal('email-compose-modal'); _applyDefaultComposeSignature(); }
 
 function gmailClosePreview(src) {
     src = src || 'panel';
@@ -6306,9 +6494,9 @@ function _getFchatCurSession() { if (_fchatActiveId === null) return null; const
 function _updateNoteInputPlaceholder() { const noteIn = document.getElementById('note-input'); if(!noteIn) return; const cur = _getFchatCurSession(); const ds = cur && cur.var_id ? GLOBAL_DATASETS[cur.var_id] : null; noteIn.placeholder = ds ? (ds.title || 'Dataset') : 'Draft text...'; }
 function _updateFchatDsLabel() { const el = document.getElementById('fchat-ds-label'); if (!el) return; const cur = _getFchatCurSession(); const ds = cur && cur.var_id ? GLOBAL_DATASETS[cur.var_id] : null; el.textContent = ds ? (ds.title || 'Dataset') : 'No dataset'; _updateNoteInputPlaceholder(); }
 
-function _openDatasetPickerModal(onSelect) { const existing = document.getElementById('_ds-picker-ov'); if (existing) existing.remove(); const ov = document.createElement('div'); ov.id = '_ds-picker-ov'; ov.style.cssText = 'position:fixed;inset:0;z-index:9300;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);'; ov.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:16px 16px max(28px,env(safe-area-inset-bottom));max-height:75vh;display:flex;flex-direction:column;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;"><span style="font-size:16px;font-weight:800;color:var(--text);">📊 Choose Dataset</span><div id="_ds-picker-close" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><div id="_ds-picker-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;padding-bottom:4px;"></div></div>'; ov.onclick = function(e) { if (e.target === ov) ov.remove(); }; document.body.appendChild(ov); document.getElementById('_ds-picker-close').onclick = function() { ov.remove(); }; const listEl = document.getElementById('_ds-picker-list'); const noDs = document.createElement('div'); noDs.style.cssText = 'padding:13px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;font-size:13px;font-weight:600;color:#888;flex-shrink:0;'; noDs.textContent = '— No dataset'; noDs.onclick = function() { ov.remove(); onSelect(null); }; listEl.appendChild(noDs); const vids = Object.keys(GLOBAL_DATASETS).filter(vid => !GLOBAL_DATASETS[vid].archived).sort((a,b) => { const ua = GLOBAL_DATASETS[a]._updated||Number(a); const ub = GLOBAL_DATASETS[b]._updated||Number(b); return ub-ua; }); if (!vids.length) { const empty = document.createElement('div'); empty.style.cssText = 'padding:20px;text-align:center;color:#888;font-size:13px;'; empty.textContent = 'No datasets yet.'; listEl.appendChild(empty); } vids.forEach(vid => { const ds = GLOBAL_DATASETS[vid]; const d = document.createElement('div'); d.style.cssText = 'padding:13px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;font-size:13px;font-weight:700;color:var(--text);flex-shrink:0;'; d.textContent = '📊 ' + (ds.title || 'Dataset'); d.onclick = function() { ov.remove(); onSelect(vid); }; listEl.appendChild(d); }); }
+function _openDatasetPickerModal(onSelect, selectedVid) { const existing = document.getElementById('_ds-picker-ov'); if (existing) existing.remove(); const ov = document.createElement('div'); ov.id = '_ds-picker-ov'; ov.style.cssText = 'position:fixed;inset:0;z-index:9300;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);'; ov.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:16px 16px max(28px,env(safe-area-inset-bottom));max-height:75vh;display:flex;flex-direction:column;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;"><span style="font-size:16px;font-weight:800;color:var(--text);">📊 Choose Dataset</span><div id="_ds-picker-close" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><div id="_ds-picker-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;padding-bottom:4px;"></div></div>'; ov.onclick = function(e) { if (e.target === ov) ov.remove(); }; document.body.appendChild(ov); document.getElementById('_ds-picker-close').onclick = function() { ov.remove(); }; const listEl = document.getElementById('_ds-picker-list'); const noDs = document.createElement('div'); const noneSelected = !selectedVid; noDs.style.cssText = 'padding:13px 16px;border-radius:14px;background:' + (noneSelected ? 'rgba(0,122,255,0.12)' : 'var(--sec-bg)') + ';border:0.5px solid ' + (noneSelected ? 'rgba(0,122,255,0.35)' : 'transparent') + ';cursor:pointer;font-size:13px;font-weight:' + (noneSelected ? '800' : '600') + ';color:' + (noneSelected ? 'var(--accent)' : '#888') + ';display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;'; noDs.innerHTML = '<span>— No dataset</span>' + (noneSelected ? '<span style="font-size:14px;">✓</span>' : ''); noDs.onclick = function() { ov.remove(); onSelect(null); }; listEl.appendChild(noDs); let vids = Object.keys(GLOBAL_DATASETS).filter(vid => !GLOBAL_DATASETS[vid].archived).sort((a,b) => { const ua = GLOBAL_DATASETS[a]._updated||Number(a); const ub = GLOBAL_DATASETS[b]._updated||Number(b); return ub-ua; }); if (selectedVid && vids.includes(String(selectedVid))) { vids = [String(selectedVid)].concat(vids.filter(vid => String(vid) !== String(selectedVid))); } if (!vids.length) { const empty = document.createElement('div'); empty.style.cssText = 'padding:20px;text-align:center;color:#888;font-size:13px;'; empty.textContent = 'No datasets yet.'; listEl.appendChild(empty); } vids.forEach(vid => { const ds = GLOBAL_DATASETS[vid]; const isSelected = String(vid) === String(selectedVid); const d = document.createElement('div'); d.style.cssText = 'padding:13px 16px;border-radius:14px;background:' + (isSelected ? 'rgba(0,122,255,0.12)' : 'var(--sec-bg)') + ';border:0.5px solid ' + (isSelected ? 'rgba(0,122,255,0.35)' : 'transparent') + ';cursor:pointer;font-size:13px;font-weight:' + (isSelected ? '800' : '700') + ';color:' + (isSelected ? 'var(--accent)' : 'var(--text)') + ';display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;'; d.innerHTML = '<span>📊 ' + (ds.title || 'Dataset') + '</span>' + (isSelected ? '<span style="font-size:14px;">✓</span>' : ''); d.onclick = function() { ov.remove(); onSelect(vid); }; listEl.appendChild(d); }); }
 
-function _fchatPickDataset(e) { if (e && e.stopPropagation) e.stopPropagation(); _openDatasetPickerModal(async (vid) => { const cur = _getFchatCurSession(); if (cur) { cur.var_id = vid; await saveAll(); _updateFchatDsLabel(); } }); }
+function _fchatPickDataset(e) { if (e && e.stopPropagation) e.stopPropagation(); const cur = _getFchatCurSession(); const selectedVid = cur && cur.var_id ? cur.var_id : null; _openDatasetPickerModal(async (vid) => { const active = _getFchatCurSession(); if (active) { active.var_id = vid; await saveAll(); _updateFchatDsLabel(); } }, selectedVid); }
 
 function changeFchatProfile(profileLabel) {
     if (_fchatActiveId === null) return;
@@ -7267,11 +7455,14 @@ function emailComposePickReply(idx) {
     const em = gmailEmails[idx];
     if (!em) return;
     _emailComposeReplyTarget = em;
-    document.getElementById('email-compose-to').value = em.from || '';
+    const replyAcctId = em._accountId || 'gmail';
+    const imapAcct = replyAcctId !== 'gmail' ? (CONFIG.imap_accounts||[]).find(a => a.id === replyAcctId) : null;
+    const replyRecipient = _resolveReplyRecipient(em, imapAcct ? imapAcct.user : '');
+    document.getElementById('email-compose-to').value = replyRecipient;
     document.getElementById('email-compose-subject').value = em.subject.startsWith('Re:') ? em.subject : 'Re: ' + em.subject;
     const refEl = document.getElementById('email-compose-reply-ref');
     refEl.style.display = 'block';
-    refEl.textContent = 'Replying to: ' + (em.subject || '(no subject)') + ' — ' + (em.from || '');
+    refEl.textContent = 'Replying to: ' + (em.subject || '(no subject)') + ' — ' + (replyRecipient || '');
     document.getElementById('email-compose-picker').style.display = 'none';
     document.getElementById('email-compose-form').style.display = 'flex';
     _applyDefaultComposeSignature();
