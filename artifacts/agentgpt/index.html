@@ -593,6 +593,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 @keyframes fcbubble-in { from { transform:scale(0) translateY(16px); opacity:0; } to { transform:scale(1) translateY(0); opacity:1; } }
 #fchat-header { display:flex; flex-direction:column; align-items:stretch; padding:calc(var(--sat, env(safe-area-inset-top, 0px)) + 8px) 12px 6px 12px; gap:5px; flex-shrink:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-bottom:0.5px solid var(--glass-border); position:relative; }
 #fchat-header-row1 { display:flex; align-items:center; gap:6px; }
+#fchat-sync-badge { display:none; flex-shrink:0; font-size:12px; line-height:1; cursor:default; user-select:none; }
+#fchat-sync-badge.pending { animation:sync-pulse 1.2s ease-in-out infinite; }
 #floating-chat .sys-icons { display:none !important; }
 #floating-chat .top-nav { top: env(safe-area-inset-top, 0px) !important; }
 #floating-chat .scroll-area { padding-top: max(12px, env(safe-area-inset-top, 12px)) !important; }
@@ -1107,7 +1109,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
     <div id="main-ctx-bar" style="display:flex; align-items:center; gap:4px; padding:4px 6px 2px 10px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch;">
         <div id="fchat-reply-indicator" style="display:none; flex-shrink:0; font-size:10px; font-weight:800; color:#fff; background:var(--accent); border-radius:8px; padding:3px 8px; cursor:pointer; white-space:nowrap;" onclick="_showReplyIndicatorMenu(event, this)" ontouchend="_showReplyIndicatorMenu(event, this)" title="Tap for options">✏️ → Reply ▾</div>
         <div id="fchat-at-indicator" style="display:none; flex-shrink:0; font-size:10px; font-weight:800; color:#fff; background:#8e44ad; border-radius:8px; padding:3px 8px; cursor:pointer; white-space:nowrap; max-width:140px; overflow:hidden; text-overflow:ellipsis;" onclick="_showAtIndicatorMenu(event, this)" ontouchend="_showAtIndicatorMenu(event, this)" title="Tap for options">✏️ → <span id="fchat-at-indicator-label"></span> ▾</div>
-        <div id="fchat-context-label" onclick="closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI();" style="font-size:11px; color:#888; flex-shrink:0; cursor:pointer; white-space:nowrap;">No context</div>
+        <div id="fchat-context-label" onclick="closeAllPanels(); document.getElementById('ctx-slide-panel').classList.add('open'); refreshUI();" style="font-size:11px; color:#888; flex-shrink:0; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;"><span id="fchat-sync-badge">☁️</span><span>No context</span></div>
         <div id="fchat-ctx-btns" style="display:none; gap:3px; flex-shrink:0;"></div>
         <div style="flex:1;"></div>
         <div class="fc-win-ctrl" onclick="goHomeFromFloatingChat(event)" style="font-size:20px; line-height:1; cursor:pointer; padding:3px 5px; color:#888; flex-shrink:0; font-weight:300; letter-spacing:-2px;" title="Minimize">—</div>
@@ -2364,10 +2366,11 @@ function renderInlinePrompts() {
 
 async function saveAll(skipCloud = false) { 
     try {
-        let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { cur.msgs = chatHistory; if(GLOBAL_DATASETS[cur.var_id]) GLOBAL_DATASETS[cur.var_id]._updated = Date.now(); } }
+        let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { const ts = Date.now(); cur.msgs = chatHistory; cur._last_local_edit = ts; if(GLOBAL_DATASETS[cur.var_id]) GLOBAL_DATASETS[cur.var_id]._updated = ts; } }
         CONFIG._ts = Date.now();
         await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
         if(!skipCloud) triggerAutoSync(); 
+        updateFchatSyncBadge(skipCloud ? null : 'pending');
     } catch(e) { console.error("DB Save Error:", e); notify("⚠️ DB Error: " + (e.name || "Write Failed"), "#ff3b30", 4000); }
 }
 
@@ -4203,6 +4206,29 @@ let isInitializing = true;
 let applyInProgress = false;
 let lastOwnPushToken = null;
 let pendingCloudData = null;
+let lastCloudSyncAt = 0;
+let lastCloudSyncError = null;
+
+function _getCurrentChatRef() {
+    const sData = chatHistories && chatHistories[activeProfileLabel];
+    if(!sData || !Array.isArray(sData.list)) return null;
+    return sData.list.find(x => String(x.id) === String(sData.current)) || null;
+}
+function updateFchatSyncBadge(forceState = null) {
+    const badge = document.getElementById('fchat-sync-badge');
+    const floating = document.getElementById('floating-chat');
+    if(!badge || !floating || floating.style.display === 'none') { if(badge) badge.style.display = 'none'; return; }
+    if(!CONFIG.fb_api || !CONFIG.fb_project) { badge.className = 'offline'; badge.textContent = '⚪'; badge.title = 'Cloud sync off'; badge.style.display = 'block'; return; }
+    if(forceState === 'error') { badge.className = 'error'; badge.textContent = '🔴'; badge.title = lastCloudSyncError || 'Last cloud sync failed'; badge.style.display = 'block'; return; }
+    if(syncTimer || isInitializing || forceState === 'pending') { badge.className = 'pending'; badge.textContent = '🟡'; badge.title = 'Syncing'; badge.style.display = 'block'; return; }
+    const cur = _getCurrentChatRef();
+    const editTs = cur && cur._last_local_edit ? Number(cur._last_local_edit) : 0;
+    const synced = !cur || editTs === 0 || editTs <= lastCloudSyncAt;
+    badge.className = synced ? 'synced' : 'pending';
+    badge.textContent = synced ? '🟢' : '🟡';
+    badge.title = synced ? 'Synced to cloud' : 'Pending cloud sync';
+    badge.style.display = 'block';
+}
 
 function pruneUndefinedDeep(value) {
     if(Array.isArray(value)) return value.map(pruneUndefinedDeep);
@@ -4241,11 +4267,14 @@ async function pushToFirebase(manual = false) {
         batch.set(doc(db, "quicknote_data", "primary_user"), payload);
         for(let i = 0; i < chunks.length; i++) batch.set(doc(db, "quicknote_data", "primary_hist_" + i), { data: chunks[i] });
         await batch.commit();
+        lastCloudSyncAt = Date.now();
+        lastCloudSyncError = null;
         let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Push", `OK — ${n} chats`);
         hideSyncIndicator(true);
+        updateFchatSyncBadge();
         if(manual) notify("☁️ Pushed to cloud!", "#34c759");
-    } catch(e) { addLog("SYNC", "Push Error", e.message); hideSyncIndicator(false); notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
+    } catch(e) { lastCloudSyncError = e && (e.code || e.message) ? String(e.code || e.message) : "unknown"; addLog("SYNC", "Push Error", e.message); hideSyncIndicator(false); updateFchatSyncBadge('error'); notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
 }
 
 function mergeHistoriesSafe(local, cloud) {
@@ -4282,6 +4311,7 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
         if(data.datasets) GLOBAL_DATASETS = data.datasets;
         if(data.notes && Array.isArray(data.notes)) { NOTES = data.notes; _saveNotes(); if(_hsActive) _hsRenderNotes(); }
         chatHistories = isInitial ? mergeHistoriesSafe(chatHistories, newHistories) : newHistories;
+        if(data.last_sync) { lastCloudSyncAt = Number(data.last_sync) || lastCloudSyncAt; lastCloudSyncError = null; }
 
         if(silent) {
             if(AI_PROFILES.find(p => p.label === prevActiveProfile)) activeProfileLabel = prevActiveProfile;
@@ -4333,6 +4363,7 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
         }
         let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Applied", `${n} chats loaded`);
+        updateFchatSyncBadge();
     } catch(e) { addLog("SYNC", "Apply Error", e.message); }
     finally {
         applyInProgress = false;
@@ -6865,6 +6896,7 @@ function _openFchatPanel(session) {
     if (wrapper && wrapper.parentNode !== el) el.appendChild(wrapper);
     if (wrapper) wrapper.style.display = '';
     el.style.display = 'flex';
+    updateFchatSyncBadge();
     _initFchatWindow();
     _fcWinInitDrag(el);
     renderFchatHeader(session);
@@ -6920,6 +6952,7 @@ function fchatCloseBubble(sessionId) {
         if (wrapper) wrapper.style.display = '';
         if (el) el.style.display = 'none';
     }
+    updateFchatSyncBadge();
     renderFchatBubbles();
 }
 
