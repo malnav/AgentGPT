@@ -6,6 +6,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>AgentGPT</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
 <style>
@@ -4912,13 +4913,25 @@ function gmailEnsureScript(onReady) {
     }
 }
 
+let gmailRefreshEndpointAvailable = true;
+
 async function gmailBackendRefresh() {
     const clientId = CONFIG.google_client_id || "";
     const clientSecret = CONFIG.google_client_secret || "";
-    if (!clientId || !clientSecret) return false;
+    if (!clientId || !clientSecret || !gmailRefreshEndpointAvailable) return false;
     try {
+        const hasTokenResp = await fetch('/api/gmail/has-token');
+        if (!hasTokenResp.ok) {
+            if (hasTokenResp.status === 404) gmailRefreshEndpointAvailable = false;
+            return false;
+        }
+        const hasTokenData = await hasTokenResp.json();
+        if (!hasTokenData.hasToken) return false;
         const resp = await fetch('/api/gmail/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }) });
-        if (!resp.ok) return false;
+        if (!resp.ok) {
+            if (resp.status === 404) gmailRefreshEndpointAvailable = false;
+            return false;
+        }
         const data = await resp.json();
         if (data.access_token) { gmailAccessToken = data.access_token; updateProfileBubble(); return true; }
         return false;
@@ -5032,6 +5045,7 @@ function gmailInitTokenClient(query, silent) {
 }
 
 async function gmailStoreHint() {
+    if (!gmailAccessToken) return;
     try {
         const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
         if(r.ok) { const d = await r.json(); if(d.email) localStorage.setItem('gmail_hint', d.email); }
