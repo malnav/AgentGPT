@@ -4203,6 +4203,18 @@ let applyInProgress = false;
 let lastOwnPushToken = null;
 let pendingCloudData = null;
 
+function pruneUndefinedDeep(value) {
+    if(Array.isArray(value)) return value.map(pruneUndefinedDeep);
+    if(value && typeof value === "object") {
+        const next = {};
+        Object.entries(value).forEach(([k, v]) => {
+            if(v !== undefined) next[k] = pruneUndefinedDeep(v);
+        });
+        return next;
+    }
+    return value;
+}
+
 async function initFirebase() {
     if(!CONFIG.fb_api || !CONFIG.fb_project) return null;
     if(fbDb) return fbDb;
@@ -4221,7 +4233,7 @@ async function pushToFirebase(manual = false) {
         const pushToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
         lastOwnPushToken = pushToken;
         const batch = writeBatch(db);
-        const payload = { profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, notes: NOTES, push_token: pushToken, last_sync: Date.now() };
+        const payload = pruneUndefinedDeep({ profiles: AI_PROFILES, prompts: PROMPTS, templates: TEMPLATES, tools: API_SERVICES, models: AI_MODELS, config: CONFIG, datasets: GLOBAL_DATASETS, notes: NOTES, push_token: pushToken, last_sync: Date.now() });
         const histStr = JSON.stringify(chatHistories); const chunks = []; const chunkSize = 300000;
         for(let i = 0; i < histStr.length; i += chunkSize) chunks.push(histStr.substring(i, i + chunkSize));
         payload.chunks_count = chunks.length;
