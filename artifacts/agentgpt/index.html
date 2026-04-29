@@ -593,6 +593,11 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 @keyframes fcbubble-in { from { transform:scale(0) translateY(16px); opacity:0; } to { transform:scale(1) translateY(0); opacity:1; } }
 #fchat-header { display:flex; flex-direction:column; align-items:stretch; padding:calc(var(--sat, env(safe-area-inset-top, 0px)) + 8px) 12px 6px 12px; gap:5px; flex-shrink:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-bottom:0.5px solid var(--glass-border); position:relative; }
 #fchat-header-row1 { display:flex; align-items:center; gap:6px; }
+#fchat-sync-badge { position:absolute; top:8px; left:8px; z-index:3; pointer-events:none; font-size:10px; font-weight:800; letter-spacing:0.01em; border-radius:999px; padding:4px 8px; background:rgba(20,20,30,0.65); color:#fff; border:0.5px solid rgba(255,255,255,0.25); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); display:none; }
+#fchat-sync-badge.synced { background:rgba(52,199,89,0.9); border-color:rgba(255,255,255,0.35); }
+#fchat-sync-badge.pending { background:rgba(255,149,0,0.9); border-color:rgba(255,255,255,0.35); animation:sync-pulse 1.2s ease-in-out infinite; }
+#fchat-sync-badge.offline { background:rgba(120,120,128,0.9); border-color:rgba(255,255,255,0.28); }
+#fchat-sync-badge.error { background:rgba(255,59,48,0.9); border-color:rgba(255,255,255,0.35); }
 #floating-chat .sys-icons { display:none !important; }
 #floating-chat .top-nav { top: env(safe-area-inset-top, 0px) !important; }
 #floating-chat .scroll-area { padding-top: max(12px, env(safe-area-inset-top, 12px)) !important; }
@@ -2364,10 +2369,11 @@ function renderInlinePrompts() {
 
 async function saveAll(skipCloud = false) { 
     try {
-        let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { cur.msgs = chatHistory; if(GLOBAL_DATASETS[cur.var_id]) GLOBAL_DATASETS[cur.var_id]._updated = Date.now(); } }
+        let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { const ts = Date.now(); cur.msgs = chatHistory; cur._last_local_edit = ts; if(GLOBAL_DATASETS[cur.var_id]) GLOBAL_DATASETS[cur.var_id]._updated = ts; } }
         CONFIG._ts = Date.now();
         await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
         if(!skipCloud) triggerAutoSync(); 
+        updateFchatSyncBadge(skipCloud ? null : 'pending');
     } catch(e) { console.error("DB Save Error:", e); notify("⚠️ DB Error: " + (e.name || "Write Failed"), "#ff3b30", 4000); }
 }
 
@@ -4203,6 +4209,28 @@ let isInitializing = true;
 let applyInProgress = false;
 let lastOwnPushToken = null;
 let pendingCloudData = null;
+let lastCloudSyncAt = 0;
+let lastCloudSyncError = null;
+
+function _getCurrentChatRef() {
+    const sData = chatHistories && chatHistories[activeProfileLabel];
+    if(!sData || !Array.isArray(sData.list)) return null;
+    return sData.list.find(x => String(x.id) === String(sData.current)) || null;
+}
+function updateFchatSyncBadge(forceState = null) {
+    const badge = document.getElementById('fchat-sync-badge');
+    const floating = document.getElementById('floating-chat');
+    if(!badge || !floating || floating.style.display === 'none') { if(badge) badge.style.display = 'none'; return; }
+    if(!CONFIG.fb_api || !CONFIG.fb_project) { badge.className = 'offline'; badge.textContent = '☁️ Off'; badge.style.display = 'block'; return; }
+    if(forceState === 'error') { badge.className = 'error'; badge.textContent = '☁️ Failed'; badge.title = lastCloudSyncError || 'Last cloud sync failed'; badge.style.display = 'block'; return; }
+    if(syncTimer || isInitializing || forceState === 'pending') { badge.className = 'pending'; badge.textContent = '☁️ Syncing'; badge.style.display = 'block'; return; }
+    const cur = _getCurrentChatRef();
+    const editTs = cur && cur._last_local_edit ? Number(cur._last_local_edit) : 0;
+    const synced = !cur || editTs === 0 || editTs <= lastCloudSyncAt;
+    badge.className = synced ? 'synced' : 'pending';
+    badge.textContent = synced ? '☁️ Synced' : '☁️ Pending';
+    badge.style.display = 'block';
+}
 
 function pruneUndefinedDeep(value) {
     if(Array.isArray(value)) return value.map(pruneUndefinedDeep);
@@ -4241,11 +4269,14 @@ async function pushToFirebase(manual = false) {
         batch.set(doc(db, "quicknote_data", "primary_user"), payload);
         for(let i = 0; i < chunks.length; i++) batch.set(doc(db, "quicknote_data", "primary_hist_" + i), { data: chunks[i] });
         await batch.commit();
+        lastCloudSyncAt = Date.now();
+        lastCloudSyncError = null;
         let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Push", `OK — ${n} chats`);
         hideSyncIndicator(true);
+        updateFchatSyncBadge();
         if(manual) notify("☁️ Pushed to cloud!", "#34c759");
-    } catch(e) { addLog("SYNC", "Push Error", e.message); hideSyncIndicator(false); notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
+    } catch(e) { lastCloudSyncError = e && (e.code || e.message) ? String(e.code || e.message) : "unknown"; addLog("SYNC", "Push Error", e.message); hideSyncIndicator(false); updateFchatSyncBadge('error'); notify("⚠️ Sync push failed: " + (e.code || e.message || "unknown"), "#ff3b30", 5000); }
 }
 
 function mergeHistoriesSafe(local, cloud) {
@@ -4282,6 +4313,7 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
         if(data.datasets) GLOBAL_DATASETS = data.datasets;
         if(data.notes && Array.isArray(data.notes)) { NOTES = data.notes; _saveNotes(); if(_hsActive) _hsRenderNotes(); }
         chatHistories = isInitial ? mergeHistoriesSafe(chatHistories, newHistories) : newHistories;
+        if(data.last_sync) { lastCloudSyncAt = Number(data.last_sync) || lastCloudSyncAt; lastCloudSyncError = null; }
 
         if(silent) {
             if(AI_PROFILES.find(p => p.label === prevActiveProfile)) activeProfileLabel = prevActiveProfile;
@@ -4333,6 +4365,7 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
         }
         let n = 0; Object.values(chatHistories).forEach(p => n += (p.list ? p.list.length : 0));
         addLog("SYNC", "Cloud Applied", `${n} chats loaded`);
+        updateFchatSyncBadge();
     } catch(e) { addLog("SYNC", "Apply Error", e.message); }
     finally {
         applyInProgress = false;
@@ -6865,6 +6898,7 @@ function _openFchatPanel(session) {
     if (wrapper && wrapper.parentNode !== el) el.appendChild(wrapper);
     if (wrapper) wrapper.style.display = '';
     el.style.display = 'flex';
+    updateFchatSyncBadge();
     _initFchatWindow();
     _fcWinInitDrag(el);
     renderFchatHeader(session);
@@ -6920,6 +6954,7 @@ function fchatCloseBubble(sessionId) {
         if (wrapper) wrapper.style.display = '';
         if (el) el.style.display = 'none';
     }
+    updateFchatSyncBadge();
     renderFchatBubbles();
 }
 
@@ -8020,6 +8055,7 @@ function _linkifyHtml(html) {
 
 <div id="fchat-bubble-bar"></div>
 <div id="floating-chat" style="display:none;">
+    <div id="fchat-sync-badge">☁️ Sync</div>
     <div id="fchat-header" style="display:none;"></div>
     <div id="fc-resize-handle">⌟</div>
 </div>
