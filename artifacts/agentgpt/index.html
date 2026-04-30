@@ -861,12 +861,12 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <span id="active-dataset-title" style="flex:1; font-size:13px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; color:var(--accent);" onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); switchWorkspaceTab('data'); renderDatasetsList();" title="Open in Data tab">Data Set</span>
             <div style="position:relative; flex-shrink:0;">
                 <button class="chip" onclick="_toggleVarsPanelMenu(event)" title="More actions" style="font-size:13px; padding:3px 8px; flex-shrink:0; letter-spacing:1px; font-weight:700;">⋯</button>
-                <div id="vars-panel-menu" style="display:none; position:absolute; top:calc(100% + 4px); right:0; z-index:620; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; padding:6px; min-width:152px; box-shadow:0 8px 24px rgba(0,0,0,0.18);">
-                    <button class="chip" onclick="_closeVarsPanelMenu(); _renameActiveDataset()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; margin-bottom:2px; display:flex; align-items:center; gap:8px; border-radius:9px;">✏️ Rename</button>
-                    <button class="chip" onclick="_closeVarsPanelMenu(); _aiTitleActiveDataset()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; margin-bottom:2px; display:flex; align-items:center; gap:8px; border-radius:9px;">🪄 AI Title</button>
-                    <button class="chip" onclick="_closeVarsPanelMenu(); _archiveCurrentDataset()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; margin-bottom:2px; display:flex; align-items:center; gap:8px; border-radius:9px; background:rgba(255,149,0,0.1); color:#ff9500;">🗄️ Archive</button>
-                    <button class="chip" onclick="_closeVarsPanelMenu(); editExtractionRules()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; margin-bottom:2px; display:flex; align-items:center; gap:8px; border-radius:9px;">⚙️ Rules</button>
-                    <button class="chip" id="var-select-btn" onclick="_closeVarsPanelMenu(); toggleVarSelectMode()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; display:flex; align-items:center; gap:8px; border-radius:9px;">☑ Bulk Select</button>
+                <div id="vars-panel-menu" style="display:none; position:absolute; top:calc(100% + 4px); right:0; z-index:12000; pointer-events:auto; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; padding:6px; min-width:152px; box-shadow:0 8px 24px rgba(0,0,0,0.18);">
+                    <button class="chip" type="button" data-vpm-action="rename" onclick="_closeVarsPanelMenu(); _renameActiveDataset()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; margin-bottom:2px; display:flex; align-items:center; gap:8px; border-radius:9px;">✏️ Rename</button>
+                    <button class="chip" type="button" data-vpm-action="ai-title" onclick="_closeVarsPanelMenu(); _aiTitleActiveDataset()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; margin-bottom:2px; display:flex; align-items:center; gap:8px; border-radius:9px;">🪄 AI Title</button>
+                    <button class="chip" type="button" data-vpm-action="archive" onclick="_closeVarsPanelMenu(); _archiveCurrentDataset()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; margin-bottom:2px; display:flex; align-items:center; gap:8px; border-radius:9px; background:rgba(255,149,0,0.1); color:#ff9500;">🗄️ Archive</button>
+                    <button class="chip" type="button" data-vpm-action="rules" onclick="_closeVarsPanelMenu(); editExtractionRules()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; margin-bottom:2px; display:flex; align-items:center; gap:8px; border-radius:9px;">⚙️ Rules</button>
+                    <button class="chip" type="button" id="var-select-btn" data-vpm-action="bulk-select" onclick="_closeVarsPanelMenu(); toggleVarSelectMode()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; display:flex; align-items:center; gap:8px; border-radius:9px;">☑ Bulk Select</button>
                 </div>
             </div>
             <button class="chip" onclick="autoExtractVariables(true)" title="Extract vars from all linked chats" style="font-size:11px; padding:3px 7px; flex-shrink:0; background:var(--accent); color:#fff;">✨</button>
@@ -883,6 +883,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div class="sub-tab-btn" id="vsubtab-todos" onclick="switchVarsSubTab('todos')" style="padding:5px 8px; font-size:11px;">✅ Todos</div>
             <div class="sub-tab-btn" id="vsubtab-chats" onclick="switchVarsSubTab('chats')" style="padding:5px 8px; font-size:11px;">💬 Chats</div>
             <div class="sub-tab-btn" id="vsubtab-history" onclick="switchVarsSubTab('history')" style="padding:5px 8px; font-size:11px;">🕐 History</div>
+            <div class="sub-tab-btn" id="vsubtab-emails" onclick="switchVarsSubTab('emails')" style="padding:5px 8px; font-size:11px;">📧 Emails</div>
             <div id="vtab-todo-actions" style="display:none; margin-left:auto; gap:3px; align-items:center; flex-shrink:0;">
                 <button class="chip" style="font-size:11px; padding:3px 7px; color:var(--accent);" onclick="aiGenTodos()" title="AI Gen Todos">🪄</button>
                 <button class="chip" style="font-size:14px; padding:1px 9px; background:var(--accent); color:#fff; font-weight:bold;" onclick="addTodo()" title="New Todo">+</button>
@@ -893,6 +894,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <button class="chip" style="font-size:11px; padding:4px 9px;" onclick="bulkVarSelectAll()">All</button>
                 <button class="chip" style="font-size:11px; padding:4px 9px; background:rgba(0,122,255,0.1); color:var(--accent);" onclick="bulkVarLock(true)">🔒 Lock</button>
                 <button class="chip" style="font-size:11px; padding:4px 9px;" onclick="bulkVarLock(false)">🔓 Unlock</button>
+                <button class="chip" style="font-size:11px; padding:4px 9px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="bulkVarAddToContext()">➕ Ctx</button>
                 <button class="chip" style="font-size:11px; padding:4px 9px; background:rgba(255,59,48,0.1); color:#ff3b30;" onclick="bulkVarDelete()">🗑️ Del</button>
                 <button class="chip" style="font-size:11px; padding:4px 9px;" onclick="toggleVarSelectMode()">Done</button>
                 <span id="var-bulk-count" style="font-size:11px; color:#888; font-weight:600;"></span>
@@ -917,6 +919,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
         <div id="vsubview-history" style="display:none; flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y; padding:12px 14px;">
             <div id="vars-history-list"></div>
+        </div>
+        <div id="vsubview-emails" style="display:none; flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y; padding:12px 14px;">
+            <div id="vars-related-emails-list"></div>
         </div>
     </div>
 </div>
@@ -985,6 +990,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div class="email-action-icon" onclick="gmailArchiveEmail(gmailCurrentIdx,'panel')" title="Archive">📥</div>
                 <div class="email-action-icon" onclick="gmailTrashEmail(gmailCurrentIdx,'panel')" title="Delete" style="color:#ff3b30;">🗑️</div>
                 <span id="gmail-view-toggle-panel" class="chip" style="font-size:10px; padding:4px 9px; white-space:nowrap; flex-shrink:0;" onclick="gmailTogglePlainTextView('panel')">TXT</span>
+                <span class="chip" style="font-size:10px; padding:4px 9px; white-space:nowrap; flex-shrink:0;" onclick="addFloatingChatContext('related')" title="Find related emails by sender or body mention">Related</span>
                 <span class="chip" style="font-size:10px; padding:4px 9px; background:var(--accent); color:#fff; font-weight:700; white-space:nowrap; flex-shrink:0;" onclick="gmailAddEmailToContext(false,'panel')">+ Context</span>
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
@@ -1340,6 +1346,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div class="email-action-icon" onclick="gmailArchiveEmail(gmailCurrentIdx,'modal')" title="Archive">📥</div>
                 <div class="email-action-icon" onclick="gmailTrashEmail(gmailCurrentIdx,'modal')" title="Delete" style="color:#ff3b30;">🗑️</div>
                 <span id="gmail-view-toggle-modal" class="chip" style="font-size:11px; padding:5px 11px; white-space:nowrap; flex-shrink:0;" onclick="gmailTogglePlainTextView('modal')">TXT</span>
+                <span class="chip" style="font-size:11px; padding:5px 11px; white-space:nowrap; flex-shrink:0;" onclick="addFloatingChatContext('related')" title="Find related emails by sender or body mention">Related</span>
                 <span class="chip" style="font-size:11px; padding:5px 11px; background:var(--accent); color:#fff; font-weight:700; white-space:nowrap; flex-shrink:0;" onclick="gmailAddEmailToContext(false,'modal')">+ Context</span>
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
@@ -1577,7 +1584,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <div id="datasets-picker-modal" class="modal" style="z-index: 505;"><div class="modal-header"><h3>Select Data Set</h3><div onclick="closeModal('datasets-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="datasets-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div>
 
-<div id="var-edit-modal" class="modal" style="z-index: 510;">
+<div id="var-edit-modal" class="modal" style="z-index: 9301;">
     <div class="modal-header"><h3 style="color:var(--accent);">Edit Variable</h3><div onclick="closeModal('var-edit-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
     <div style="padding:8px 14px; border-bottom:0.5px solid var(--border);">
         <input type="text" id="var-edit-name" class="pp-input" placeholder="Variable name..." style="font-weight:700; font-size:14px; font-family:monospace; margin:0;">
@@ -2496,9 +2503,50 @@ async function linksImportFromPanel() {
     notify(`Imported ${count} link${count!==1?'s':''}!`, '#34c759', 2500);
 }
 function switchVarsTab(t) { switchVarsSubTab(t === 'vars' ? 'vars' : t); }
-function switchVarsSubTab(t) { _closeVarsPanelMenu(); ['vars','todos','chats','history'].forEach(k => { const stab=document.getElementById('vsubtab-'+k); if(stab)stab.classList.toggle('active', t===k); const sview=document.getElementById('vsubview-'+k); if(sview){ sview.style.display = t===k ? (k==='todos'?'flex':'block') : 'none'; if(t===k&&k==='todos')sview.style.flexDirection='column'; } const btns=document.getElementById('vtab-'+k+'-btns'); if(btns)btns.style.display = t===k ? 'flex' : 'none'; }); const ta=document.getElementById('vtab-todo-actions'); if(ta)ta.style.display = t==='todos' ? 'flex' : 'none'; if(t==='todos') renderChatTodos(); if(t==='chats') _renderVarsLinkedChats(); if(t==='history') _renderVarsHistory(); }
-function _toggleVarsPanelMenu(e) { if(e)e.stopPropagation(); const m=document.getElementById('vars-panel-menu'); if(!m)return; const isOpen=m.style.display!=='none'; m.style.display=isOpen?'none':'block'; if(!isOpen){ const close=ev=>{if(!m.contains(ev.target)){m.style.display='none'; document.removeEventListener('click',close,true);}}; setTimeout(()=>document.addEventListener('click',close,true),10); } }
+function switchVarsSubTab(t) { _closeVarsPanelMenu(); ['vars','todos','chats','history','emails'].forEach(k => { const stab=document.getElementById('vsubtab-'+k); if(stab)stab.classList.toggle('active', t===k); const sview=document.getElementById('vsubview-'+k); if(sview){ sview.style.display = t===k ? (k==='todos'?'flex':'block') : 'none'; if(t===k&&k==='todos')sview.style.flexDirection='column'; } const btns=document.getElementById('vtab-'+k+'-btns'); if(btns)btns.style.display = t===k ? 'flex' : 'none'; }); const ta=document.getElementById('vtab-todo-actions'); if(ta)ta.style.display = t==='todos' ? 'flex' : 'none'; if(t==='todos') renderChatTodos(); if(t==='chats') _renderVarsLinkedChats(); if(t==='history') _renderVarsHistory(); if(t==='emails') _renderVarsRelatedEmails(); }
+function _toggleVarsPanelMenu(e) {
+    if(e) e.stopPropagation();
+    const m=document.getElementById('vars-panel-menu');
+    if(m) m.style.display='none';
+    _showItemMenu(e || { stopPropagation(){}, currentTarget: document.getElementById('vars-slide-panel') }, [
+        { label:'✏️ Rename', fn:()=>_renameActiveDataset() },
+        { label:'🪄 AI Title', fn:()=>_aiTitleActiveDataset() },
+        { label:'🗄️ Archive', fn:()=>_archiveCurrentDataset() },
+        { label:'⚙️ Rules', fn:()=>editExtractionRules() },
+        { label:'☑ Bulk Select', fn:()=>toggleVarSelectMode() }
+    ]);
+}
 function _closeVarsPanelMenu() { const m=document.getElementById('vars-panel-menu'); if(m)m.style.display='none'; }
+function _runVarsPanelMenuAction(action) {
+    _closeVarsPanelMenu();
+    if(action==='rename') return _renameActiveDataset();
+    if(action==='ai-title') return _aiTitleActiveDataset();
+    if(action==='archive') return _archiveCurrentDataset();
+    if(action==='rules') return editExtractionRules();
+    if(action==='bulk-select') return toggleVarSelectMode();
+}
+(function _bindVarsPanelMenuTouch() {
+    const menu = document.getElementById('vars-panel-menu');
+    if(!menu || menu._touchBound) return;
+    menu._touchBound = true;
+    const stop = (ev) => { ev.stopPropagation(); };
+    menu.addEventListener('pointerdown', stop);
+    menu.addEventListener('mousedown', stop);
+    menu.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('[data-vpm-action]');
+        if(!btn) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        _runVarsPanelMenuAction(btn.dataset.vpmAction);
+    });
+    menu.addEventListener('touchstart', (ev) => {
+        const btn = ev.target.closest('[data-vpm-action]');
+        if(!btn) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        _runVarsPanelMenuAction(btn.dataset.vpmAction);
+    }, { passive: false });
+})();
 let _vChatsSelected = new Set();
 function _renderVarsLinkedChats() { const el=document.getElementById('vars-chats-list'); if(!el)return; const sData=getSessions(); const cur=sData.list.find(x=>String(x.id)===String(sData.current)); const vid=_calPreviewVid||(cur&&cur.var_id?cur.var_id:null); if(!vid){el.innerHTML='<div style="color:#888;font-size:13px;text-align:center;padding:24px 0;">No dataset linked.</div>';return;} let linkedChats=[]; Object.entries(chatHistories).forEach(([profLabel,pData])=>{if(!pData||!pData.list)return; pData.list.forEach(chat=>{if(String(chat.var_id)===String(vid)&&!chat.archived){const msgCount=(chat.msgs||[]).filter(m=>m.role!=='developer').length; linkedChats.push({profLabel,chat,msgCount});}}); }); if(!linkedChats.length){el.innerHTML='<div style="color:#888;font-size:13px;text-align:center;padding:24px 0;">No chats linked to this dataset.</div>';return;} const allKeys=linkedChats.map(x=>x.chat.id+'|'+x.profLabel); const selCount=_vChatsSelected.size; const bulkBar=selCount>0?`<div style="display:flex;align-items:center;gap:6px;padding:6px 0 10px;flex-wrap:wrap;border-bottom:0.5px solid var(--border);margin-bottom:6px;"><span style="font-size:12px;font-weight:700;color:var(--accent);flex:1;">${selCount} selected</span><button class="chip" style="font-size:11px;padding:4px 8px;" onclick="window._vChatsSelectAllFn()">All</button><button class="chip" style="font-size:11px;padding:4px 8px;background:rgba(255,149,0,0.1);color:#ff9500;" onclick="_vChatsBulkArchive()">🗄️ Archive</button><button class="chip" style="font-size:11px;padding:4px 8px;" onclick="_vChatsSelected=new Set();_renderVarsLinkedChats()">✕</button></div>`:`<div style="padding:4px 0 8px;border-bottom:0.5px solid var(--border);margin-bottom:6px;"><button class="chip" style="font-size:11px;padding:4px 8px;" onclick="window._vChatsSelectAllFn()">☑ Select all</button></div>`; window._vChatsSelectAllFn = () => { if(_vChatsSelected.size===allKeys.length) _vChatsSelected=new Set(); else allKeys.forEach(k=>_vChatsSelected.add(k)); _renderVarsLinkedChats(); }; el.innerHTML=bulkBar+linkedChats.map(({profLabel,chat,msgCount})=>{ const key=chat.id+'|'+profLabel; const isSel=_vChatsSelected.has(key); return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:${isSel?'rgba(0,122,255,0.09)':'var(--sec-bg)'};margin-bottom:6px;cursor:pointer;" onclick="_openLinkedChat('${profLabel}','${chat.id}')"><div onclick="event.stopPropagation();_vChatsToggleSel('${key}')" style="width:20px;height:20px;border-radius:6px;border:2px solid ${isSel?'var(--accent)':'var(--border)'};background:${isSel?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;color:#fff;cursor:pointer;">${isSel?'✓':''}</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${chat.title||'Chat'}</div><div style="font-size:10px;color:#888;margin-top:2px;">${profLabel} · ${msgCount} msg${msgCount!==1?'s':''}</div></div><div style="font-size:11px;color:var(--accent);flex-shrink:0;">Open →</div></div>`; }).join(''); }
 function _vChatsToggleSel(key) { if(_vChatsSelected.has(key))_vChatsSelected.delete(key); else _vChatsSelected.add(key); _renderVarsLinkedChats(); }
@@ -2944,8 +2992,166 @@ async function _unarchiveDataset(vid) { const ds=GLOBAL_DATASETS[vid]; if(!ds)re
 async function createNewDataset() { let newVid = Date.now().toString() + Math.floor(Math.random()*1000); GLOBAL_DATASETS[newVid] = { title: "New Data Set", data: {} }; await saveAll(); renderDatasetsList(); }
 
 let _varDragKey = null;
+let _varsRelatedSelected = new Set();
 
 function _getVarQuickActions(k, rawVal) { if(!rawVal) return ''; const plain = rawVal.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim(); let actions = ''; const isPhone = /^\+?[\d][\d\s\-\(\)]{5,18}[\d]$/.test(plain) && plain.replace(/\D/g,'').length >= 7; if(isPhone) { const digits = plain.replace(/\D/g,''); actions += `<a href="https://wa.me/${digits}" target="_blank" onclick="event.stopPropagation();" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#25d366;font-weight:700;text-decoration:none;background:rgba(37,211,102,0.12);border-radius:6px;padding:3px 8px;">💬 WhatsApp</a>`; } const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(plain); if(isEmail) { const esc = plain.replace(/'/g,"&#39;"); actions += `<span onclick="event.stopPropagation();_searchByEmail('${esc}');" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--accent);font-weight:700;background:rgba(0,122,255,0.1);border-radius:6px;padding:3px 8px;cursor:pointer;">🔍 Search chats</span>`; } return actions ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">${actions}</div>` : ''; }
+function _getActiveDatasetEmailValue() {
+    const vars = getActiveVars() || {};
+    const preferredKeys = ['email','customer_email','client_email','user_email'];
+    for(const k of preferredKeys) {
+        const raw = vars[k];
+        const val = raw && typeof raw === 'object' ? raw.value : raw;
+        if(val && String(val).trim()) return String(val).trim();
+    }
+    const emailRe = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
+    for(const key of Object.keys(vars)) {
+        const raw = vars[key];
+        const val = raw && typeof raw === 'object' ? raw.value : raw;
+        const m = String(val || '').match(emailRe);
+        if(m) return m[0];
+    }
+    return '';
+}
+async function _renderVarsRelatedEmails() {
+    const wrap = document.getElementById('vars-related-emails-list');
+    if(!wrap) return;
+    const accounts = emailGetAllAccounts();
+    if(accounts.length && (!gmailEmails || !gmailEmails.length)) {
+        wrap.innerHTML = `<div style="font-size:12px; color:#888; text-align:center; padding:12px 0;">Loading emails from connected accounts…</div>`;
+        try { await gmailLoadEmails(); } catch(_) {}
+    }
+    const email = _getActiveDatasetEmailValue();
+    if(!email) {
+        wrap.innerHTML = '<div style="font-size:13px; color:#888; text-align:center; padding:12px 0;">No email variable found in this dataset. Add a variable like <strong>email</strong> or <strong>customer_email</strong>.</div>';
+        return;
+    }
+    wrap.innerHTML = `<div style="font-size:12px; color:#888; text-align:center; padding:12px 0;">Finding related emails for <strong>${email.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong>…</div>`;
+    let list = [];
+    if(_varsRelatedEmailCache.email === email && (_varsRelatedEmailCache.items || []).length) list = _varsRelatedEmailCache.items;
+    else {
+        list = await _findRelatedEmailsForAddress(email);
+        _varsRelatedEmailCache = { email, items: list || [] };
+    }
+    if(!list.length) {
+        wrap.innerHTML = `<div style="font-size:13px; color:#888; text-align:center; padding:12px 0;">No related emails found for <strong>${email.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong>.</div>`;
+        return;
+    }
+    wrap.innerHTML = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;"><div style="font-size:11px; color:#888;">${list.length} related email${list.length!==1?'s':''} for <strong>${email.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong></div><button class="chip" style="font-size:10px; padding:3px 8px;" onclick="_varsRelatedToggleAll(true)">All</button><button class="chip" style="font-size:10px; padding:3px 8px;" onclick="_varsRelatedToggleAll(false)">None</button><button class="chip" style="font-size:10px; padding:3px 8px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="_varsRelatedExtractVarsSelected()">Extract Vars</button><button class="chip" style="font-size:10px; padding:3px 8px; background:var(--accent); color:#fff;" onclick="_varsRelatedAddSelectedToContext()">+ Context</button></div>` + list.map((em, idx) => {
+        const from = (em.from || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const subj = (em.subject || '(No subject)').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const dt = (em.date || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const enc = btoa(unescape(encodeURIComponent(JSON.stringify(em))));
+        const key = (em._accountId || '') + ':' + (em.id || em.messageId || idx);
+        const checked = _varsRelatedSelected.has(key) ? 'checked' : '';
+        return `<div class="list-item" style="display:block; padding:10px 12px; margin-bottom:6px;"><div style="display:flex; gap:8px; align-items:flex-start;"><input type="checkbox" ${checked} onchange="_varsRelatedToggleSelect('${key.replace(/'/g,"\\'")}', this.checked)" style="margin-top:2px; width:16px; height:16px; accent-color:var(--accent);"><div style="flex:1; min-width:0;"><div style="font-size:12px; font-weight:700; color:var(--text);">${subj}</div><div style="font-size:11px; color:#888; margin-top:2px;">${from}</div><div style="font-size:10px; color:#aaa; margin-top:2px;">🗓️ ${dt || 'Unknown date'}</div><div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;"><button class="chip" style="font-size:10px; padding:4px 8px;" onclick="_varsRelatedPreviewEmail('${enc}')">Preview</button><button class="chip" style="font-size:10px; padding:4px 8px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="_varsRelatedExtractVarValue('${enc}')">Extract Vars</button><button class="chip" style="font-size:10px; padding:4px 8px; background:var(--accent); color:#fff;" onclick="_varsRelatedAddToContext('${enc}')">+ Context</button></div></div></div></div>`;
+    }).join('');
+}
+function _varsRelatedCurrentList() { return (_varsRelatedEmailCache && _varsRelatedEmailCache.items) ? _varsRelatedEmailCache.items : []; }
+function _varsRelatedEmailKey(em, idx) { return (em._accountId || '') + ':' + (em.id || em.messageId || idx); }
+function _varsRelatedToggleSelect(key, checked) { if(checked) _varsRelatedSelected.add(key); else _varsRelatedSelected.delete(key); }
+function _varsRelatedToggleAll(sel) { const list = _varsRelatedCurrentList(); if(sel) list.forEach((em, idx) => _varsRelatedSelected.add(_varsRelatedEmailKey(em, idx))); else _varsRelatedSelected.clear(); _renderVarsRelatedEmails(); }
+function _varsRelatedSelectedEmails() { const list = _varsRelatedCurrentList(); return list.filter((em, idx) => _varsRelatedSelected.has(_varsRelatedEmailKey(em, idx))); }
+function _varsDecodeEmail(encoded) { try { return JSON.parse(decodeURIComponent(escape(atob(encoded)))); } catch(_) { return null; } }
+async function _varsRelatedPreviewEmail(encoded) {
+    const em = _varsDecodeEmail(encoded); if(!em) return notify('Email not found', '#ff3b30', 1500);
+    const title = em.subject || '(no subject)';
+    const from = em.from || '';
+    const date = em.date || '';
+    notify('Loading email preview…', '#007aff', 1200);
+    let body = '';
+    try { body = gmailCleanBodyText(await emailFetchBody(em)); } catch(_) {}
+    const previewBody = body || em.snippet || '(No preview available)';
+    const existingPreview = document.getElementById('related-email-preview-modal');
+    if (existingPreview) existingPreview.remove();
+    const pov = document.createElement('div');
+    pov.id = 'related-email-preview-modal';
+    pov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.38);display:flex;align-items:flex-end;justify-content:center;';
+    const safeTitle = _eh(title), safeFrom = _eh(from), safeDate = _eh(date);
+    const safeBody = _eh(String(previewBody).slice(0, 4000)).replace(/\n/g, '<br>');
+    pov.innerHTML = `<div style="background:var(--bg);width:100%;max-width:620px;max-height:82vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:14px 14px max(18px,env(safe-area-inset-bottom));"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;"><div style="font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📧 ${safeTitle}</div><div id="related-email-preview-close" style="font-size:22px;cursor:pointer;opacity:0.6;">✕</div></div><div style="font-size:12px;color:#666;margin-bottom:10px;"><b>From:</b> ${safeFrom}<br><b>Date:</b> ${safeDate}</div><div style="overflow-y:auto;flex:1;font-size:12px;line-height:1.6;color:var(--text);background:var(--sec-bg);padding:10px;border-radius:10px;">${safeBody || '(No preview available)'}</div></div>`;
+    pov.onclick = (evt) => { if (evt.target === pov) pov.remove(); };
+    document.body.appendChild(pov);
+    const closeBtn = document.getElementById('related-email-preview-close'); if (closeBtn) closeBtn.onclick = () => pov.remove();
+}
+async function _varsRelatedAddToContext(encoded) {
+    const em = _varsDecodeEmail(encoded); if(!em) return notify('Email not found', '#ff3b30', 1500);
+    const lines = await gmailFetchEmailLines(em);
+    if (!lines.length) return notify('No readable email content', '#888', 1600);
+    _addCtxGroup(em.subject || gmailExtractAddr(em.from) || 'Email', lines);
+    _updateFchatContextLabel();
+    notify('Email added to context', '#34c759', 1800);
+}
+async function _varsRelatedExtractVarValue(encoded) {
+    const em = _varsDecodeEmail(encoded); if(!em) return notify('Email not found', '#ff3b30', 1500);
+    return _varsRelatedExtractVarsFromEmails([em]);
+}
+async function _varsRelatedExtractVarsSelected() {
+    const selected = _varsRelatedSelectedEmails();
+    if(!selected.length) return notify('Select email(s) first', '#888', 1600);
+    return _varsRelatedExtractVarsFromEmails(selected);
+}
+async function _varsRelatedExtractVarsFromEmails(emails) {
+    if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30");
+    const vars = getActiveVars();
+    const p = AI_PROFILES.find(x => x.label === activeProfileLabel);
+    const keys = (p && p.expected_vars && p.expected_vars.length) ? p.expected_vars : Object.keys(vars || {});
+    if(!keys.length) return notify('No variable keys available to extract', '#888', 1800);
+    const chunks = [];
+    for(const em of emails) {
+        const lines = await gmailFetchEmailLines(em);
+        chunks.push(`Subject: ${em.subject || ''}\nFrom: ${em.from || ''}\nTo: ${em.to || ''}\n` + (lines || []).join('\n').slice(0, 3000));
+    }
+    const historyText = chunks.join('\n\n---\n\n').slice(0, 10000);
+    const sysPrompt = _getAiPrompt('var_extract').replace('[VARS]', JSON.stringify(keys)).replace('[PROFILE]', p ? p.text : 'N/A').replace('[DATA]', '{}');
+    let obj = null;
+    try {
+        const mdl = _getAiModel('var_extract', getExtractModel());
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` },
+            body: JSON.stringify({
+                model: mdl,
+                messages: [
+                    { role: "system", content: sysPrompt },
+                    { role: "user", content: `Email history:\n${historyText}` }
+                ],
+                response_format: { type: "json_object" }
+            })
+        });
+        if(!res.ok) throw new Error('API error');
+        const d = await res.json();
+        const raw = d.choices && d.choices[0] && d.choices[0].message ? d.choices[0].message.content : '{}';
+        obj = JSON.parse(raw || '{}');
+    } catch(_) {
+        return notify('Extraction failed', '#ff3b30', 1700);
+    }
+    let updated = 0;
+    keys.forEach(k => {
+        if(obj[k] == null || obj[k] === '') return;
+        const htmlVal = String(obj[k]).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+        vars[k] = { value: htmlVal, locked: false };
+        updated++;
+    });
+    if(!updated) return notify('No variable values extracted', '#888', 1700);
+    const sData = getSessions(); const cur = sData.list.find(x => String(x.id) === String(sData.current)); const activeVid = _calPreviewVid || (cur && cur.var_id);
+    if(activeVid) _dsTakeSnapshot(activeVid, 'Email extract');
+    await saveAll();
+    renderSessionVariables();
+    notify(`Updated ${updated} var(s) from ${emails.length} email(s)`, '#34c759', 2000);
+}
+async function _varsRelatedAddSelectedToContext() {
+    const selected = _varsRelatedSelectedEmails();
+    if(!selected.length) return notify('Select email(s) first', '#888', 1600);
+    let added = 0;
+    for(const em of selected) {
+        const lines = await gmailFetchEmailLines(em);
+        if (!lines.length) continue;
+        _addCtxGroup(em.subject || gmailExtractAddr(em.from) || 'Email', lines);
+        added++;
+    }
+    _updateFchatContextLabel();
+    notify(`${added} email(s) added to context`, '#34c759', 1800);
+}
 function _searchByEmail(email) {
     const term = String(email || '').trim();
     if(!term) { notify('Enter an email first', '#888', 1800); return; }
@@ -3008,6 +3214,7 @@ function toggleVarSelectMode() { _varSelectMode=!_varSelectMode; _varSelected=ne
 function _varToggleSel(k) { if(_varSelected.has(k))_varSelected.delete(k);else _varSelected.add(k); const c=document.getElementById('var-bulk-count'); if(c)c.textContent=_varSelected.size?`${_varSelected.size} selected`:''; renderSessionVariables(); }
 function bulkVarSelectAll() { let p=AI_PROFILES.find(x=>x.label===activeProfileLabel); const all=p?p.expected_vars||[]:[];  if(_varSelected.size===all.length)_varSelected=new Set();else all.forEach(k=>_varSelected.add(k)); const c=document.getElementById('var-bulk-count'); if(c)c.textContent=_varSelected.size?`${_varSelected.size} selected`:''; renderSessionVariables(); }
 async function bulkVarLock(lock) { if(!_varSelected.size)return notify('Select variables first','#888'); const vars=getActiveVars(); _varSelected.forEach(k=>{ if(typeof vars[k]==='string')vars[k]={value:vars[k],locked:false}; if(vars[k])vars[k].locked=lock;else vars[k]={value:'',locked:lock}; }); await saveAll(); notify((lock?'Locked':'Unlocked')+' '+_varSelected.size+' variable(s)','#34c759'); renderSessionVariables(); }
+async function bulkVarAddToContext() { if(!_varSelected.size) return notify('Select variables first','#888'); const vars=getActiveVars(); let added=0; [..._varSelected].forEach(k=>{ let vObj=vars[k]; let v=(typeof vObj==='object'&&vObj!==null)?(vObj.value||''):(vObj||''); let line=`${k}: ${v}`; if(!CONTEXT_LINES.includes(line)) { CONTEXT_LINES.push(line); added++; } }); cutIdx=CONTEXT_LINES.length?CONTEXT_LINES.length-1:cutIdx; await saveAll(true); refreshUI(); notify(`${added} variable${added!==1?'s':''} added to context`,'#34c759'); }
 async function bulkVarDelete() { if(!_varSelected.size)return notify('Select variables first','#888'); openConfirm(`Delete ${_varSelected.size} selected variable(s)?`,async()=>{ let p=AI_PROFILES.find(x=>x.label===activeProfileLabel); const vars=getActiveVars(); _varSelected.forEach(k=>{ if(p&&p.expected_vars)p.expected_vars=p.expected_vars.filter(v=>v!==k); delete vars[k]; }); _varSelected=new Set(); const c=document.getElementById('var-bulk-count'); if(c)c.textContent=''; await saveAll(); renderSessionVariables(); notify('Variables deleted','#ff3b30'); }); }
 function showVarMenu(k, e, isLocked, isDateVar) {
   closeVarMenu();
@@ -4009,7 +4216,7 @@ function setContextWithExpand(on) { cutIdx = on ? CONTEXT_LINES.length - 1 : -1;
 function popState() { const noteIn = document.getElementById('note-input'); if(historyState.length > 0) { redoState.push(noteIn.value); noteIn.value = historyState.pop(); sync(); } }
 function redoStateAction() { const noteIn = document.getElementById('note-input'); if(redoState.length > 0) { historyState.push(noteIn.value); noteIn.value = redoState.pop(); sync(); } }
 async function openModal(id) { 
-    closeAllPanels(); 
+    if (id !== 'var-edit-modal') closeAllPanels(); 
     if(id === 'workspace-modal') await autoCleanupEmptyChats();
     document.getElementById(id).style.display = 'flex'; 
     if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); } 
@@ -4469,6 +4676,7 @@ let emailCurrentMailbox = 'INBOX';
 let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
 let gmailReplyDraftSaveTimer = null;
+let _varsRelatedEmailCache = { email: '', items: [] };
 
 function gmailReplyDraftKey(em) {
     if(!em) return '';
@@ -5863,7 +6071,7 @@ function gmailSanitizeHtml(html) {
     if(!normalized) return '';
     const tmp = document.createElement('div');
     tmp.innerHTML = normalized;
-    tmp.querySelectorAll('script,iframe,object,embed').forEach(el => el.remove());
+    tmp.querySelectorAll('script,iframe,object,embed,style,link,meta,base,title').forEach(el => el.remove());
     tmp.querySelectorAll('*').forEach(el => {
         [...el.attributes].forEach(attr => {
             const name = (attr.name || '').toLowerCase();
@@ -5886,7 +6094,30 @@ function gmailSanitizeHtml(html) {
         });
     });
     tmp.querySelectorAll('a').forEach(a => { a.setAttribute('target','_blank'); a.setAttribute('rel','noopener noreferrer'); });
-    return tmp.innerHTML.trim();
+
+    // Mobile-safe normalization: prevent horizontal overflow while preserving structure.
+    tmp.querySelectorAll('img,video,canvas,svg').forEach(el => {
+        const style = (el.getAttribute('style') || '').trim();
+        const extra = 'max-width:100%;height:auto;';
+        el.setAttribute('style', style ? `${style};${extra}` : extra);
+        el.removeAttribute('width');
+        if(el.tagName !== 'SVG') el.removeAttribute('height');
+    });
+
+    tmp.querySelectorAll('table').forEach(table => {
+        const style = (table.getAttribute('style') || '').trim();
+        const extra = 'max-width:100%;width:100%;table-layout:fixed;';
+        table.setAttribute('style', style ? `${style};${extra}` : extra);
+        table.removeAttribute('width');
+    });
+
+    tmp.querySelectorAll('td,th,pre,code,blockquote').forEach(el => {
+        const style = (el.getAttribute('style') || '').trim();
+        const extra = 'word-break:break-word;overflow-wrap:anywhere;';
+        el.setAttribute('style', style ? `${style};${extra}` : extra);
+    });
+
+    return `<div style="max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;">${tmp.innerHTML.trim()}</div>`;
 }
 
 function _extractEmailAddress(raw) {
@@ -7058,28 +7289,90 @@ function _updateFchatContextLabel() {
     lbl.textContent = parts.join(' · ');
 }
 
+async function _findRelatedEmailsForAddress(senderAddr) {
+    const allAccts = emailGetAllAccounts();
+    if (!allAccts.length) { notify('No email accounts configured', '#888', 1800); return []; }
+    const senderLc = String(senderAddr || '').toLowerCase();
+    const query = `from:${senderAddr} OR to:${senderAddr} OR "${senderAddr}"`;
+    const found = [];
+    const seen = new Set();
+    notify(`Finding related emails… (0/${allAccts.length} accounts)`, '#007aff', 2500);
+    for (let ai = 0; ai < allAccts.length; ai++) {
+        const acct = allAccts[ai];
+        notify(`Finding related emails… (${ai + 1}/${allAccts.length})`, '#007aff', 2000);
+        if (acct.type === 'gmail') {
+            if (!gmailAccessToken) continue;
+            let pageToken = '';
+            let page = 0;
+            const pageLimit = 50;
+            while (page < 8) {
+                const pageQs = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+                const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${pageLimit}&q=${encodeURIComponent(query)}${pageQs}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+                if (!listRes.ok) break;
+                const listData = await listRes.json();
+                const msgs = listData.messages || [];
+                if (!msgs.length) break;
+                const details = await Promise.all(msgs.map(async m => {
+                    const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+                    if (!r.ok) return null;
+                    const d = await r.json();
+                    const hdr = d.payload && d.payload.headers ? d.payload.headers : [];
+                    const get = n => ((hdr.find(h => h.name === n) || {}).value) || '';
+                    const labels = d.labelIds || [];
+                    return { id: m.id, threadId: m.threadId, subject: get('Subject') || '(no subject)', from: get('From'), to: get('To'), date: get('Date'), messageId: get('Message-ID'), snippet: d.snippet || '', unread: labels.includes('UNREAD'), _starred: labels.includes('STARRED'), _accountId: 'gmail', _listUnsubscribe: get('List-Unsubscribe'), _precedence: get('Precedence'), _autoSubmitted: get('Auto-Submitted') };
+                }));
+                details.filter(Boolean).forEach(e => {
+                    const key = (e._accountId || '') + ':' + (e.id || e.messageId || '');
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    found.push(e);
+                });
+                pageToken = listData.nextPageToken || '';
+                if (!pageToken) break;
+                page++;
+            }
+        } else {
+            let offset = 0;
+            const batch = 50;
+            for (let page = 0; page < 8; page++) {
+                const res = await emailFetchFromAccount(acct, query, batch, offset);
+                const emails = res && res.emails ? res.emails : [];
+                emails.forEach(e => {
+                    const key = (e._accountId || acct.id || '') + ':' + (e.id || e.messageId || '');
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    found.push(e);
+                });
+                if (emails.length < batch) break;
+                offset += batch;
+            }
+        }
+    }
+    notify('Verifying body/snippet matches…', '#007aff', 1800);
+    const related = [];
+    for (const e of found) {
+        const fromMatch = gmailExtractAddr(e.from) === senderAddr;
+        if (fromMatch) { related.push(e); continue; }
+        let bodyMatch = false;
+        if ((e.snippet || '').toLowerCase().includes(senderLc)) bodyMatch = true;
+        if (!bodyMatch) {
+            const lines = await gmailFetchEmailLines(e);
+            const bodyText = (lines || []).join('\n').toLowerCase();
+            bodyMatch = bodyText.includes(senderLc);
+        }
+        if (bodyMatch) related.push(e);
+    }
+    return related;
+}
+
 async function addFloatingChatContext(type) {
     if (type === 'clear') { CONTEXT_LINES.splice(0); cutIdx = -1; _ctxGroups = []; _updateFchatContextLabel(); refreshUI(); notify('Context cleared', '#888', 1500); return; }
     if (type === 'related') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
         const senderAddr = gmailExtractAddr(em.from); if (!senderAddr) { notify('Cannot extract sender address', '#ff3b30', 1800); return; }
-        const sourceEmails = Array.isArray(gmailEmails) ? gmailEmails : [];
-        if (!sourceEmails.length) { notify('No emails loaded yet', '#888', 1800); return; }
-        notify('Finding related emails…', '#007aff', 1800);
-        const related = [];
-        for (const e of sourceEmails) {
-            const fromMatch = gmailExtractAddr(e.from) === senderAddr;
-            if (fromMatch) { related.push(e); continue; }
-            let bodyMatch = false;
-            if ((e.snippet || '').toLowerCase().includes(senderAddr.toLowerCase())) bodyMatch = true;
-            if (!bodyMatch) {
-                const lines = await gmailFetchEmailLines(e);
-                const bodyText = (lines || []).join('\n').toLowerCase();
-                bodyMatch = bodyText.includes(senderAddr.toLowerCase());
-            }
-            if (bodyMatch) related.push(e);
-        }
-        if (!related.length) { notify('No related emails found', '#888', 1800); return; }
+        const related = await _findRelatedEmailsForAddress(senderAddr);
+        if (!related.length) { notify('No related emails found across all accounts', '#888', 2200); return; }
+        notify(`Found ${related.length} related email(s)`, '#34c759', 2200);
         _openRelatedEmailsPicker(related, senderAddr);
     } else if (type === 'address_scan') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
@@ -7162,6 +7455,7 @@ function _openRelatedEmailsPicker(relatedEmails, senderAddr) {
                 <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
                 <div style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${meta}</div>
             </div>
+            <button type="button" class="chip related-email-preview-btn" data-idx="${idx}" style="flex-shrink:0;font-size:10px;padding:4px 8px;background:rgba(0,122,255,0.12);color:var(--accent);border:0.5px solid rgba(0,122,255,0.25);">Preview</button>
         </label>`;
     }).join('');
     ov.innerHTML = `<div style="background:var(--bg);width:100%;max-width:560px;max-height:78vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:14px 14px max(18px,env(safe-area-inset-bottom));">
@@ -7176,6 +7470,43 @@ function _openRelatedEmailsPicker(relatedEmails, senderAddr) {
     ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
     document.body.appendChild(ov);
     document.getElementById('related-emails-close').onclick = () => ov.remove();
+    ov.querySelectorAll('.related-email-preview-btn').forEach(btn => {
+        btn.onclick = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.idx);
+            const em = relatedEmails[idx];
+            if (!em) { notify('Email not found', '#ff3b30', 1500); return; }
+            const title = em.subject || '(no subject)';
+            const from = em.from || '';
+            const date = em.date || '';
+            notify('Loading email preview…', '#007aff', 1200);
+            let body = '';
+            try { body = gmailCleanBodyText(await emailFetchBody(em)); } catch(_) {}
+            const previewBody = body || em.snippet || '(No preview available)';
+            const existingPreview = document.getElementById('related-email-preview-modal');
+            if (existingPreview) existingPreview.remove();
+            const pov = document.createElement('div');
+            pov.id = 'related-email-preview-modal';
+            pov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.38);display:flex;align-items:flex-end;justify-content:center;';
+            const safeTitle = _eh(title);
+            const safeFrom = _eh(from);
+            const safeDate = _eh(date);
+            const safeBody = _eh(previewBody.slice(0, 4000)).replace(/\n/g, '<br>');
+            pov.innerHTML = `<div style="background:var(--bg);width:100%;max-width:620px;max-height:82vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:14px 14px max(18px,env(safe-area-inset-bottom));">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+                    <div style="font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📧 ${safeTitle}</div>
+                    <div id="related-email-preview-close" style="font-size:22px;cursor:pointer;opacity:0.6;">✕</div>
+                </div>
+                <div style="font-size:12px;color:#666;margin-bottom:10px;"><b>From:</b> ${safeFrom}<br><b>Date:</b> ${safeDate}</div>
+                <div style="overflow-y:auto;flex:1;font-size:12px;line-height:1.6;color:var(--text);background:var(--sec-bg);padding:10px;border-radius:10px;">${safeBody || '(No preview available)'}</div>
+            </div>`;
+            pov.onclick = (evt) => { if (evt.target === pov) pov.remove(); };
+            document.body.appendChild(pov);
+            const closeBtn = document.getElementById('related-email-preview-close');
+            if (closeBtn) closeBtn.onclick = () => pov.remove();
+        };
+    });
     document.getElementById('related-emails-add-btn').onclick = async () => {
         const selectedIdx = Array.from(ov.querySelectorAll('.related-email-chk:checked')).map(cb => parseInt(cb.dataset.idx));
         if (!selectedIdx.length) { notify('No related emails selected', '#ff3b30', 1800); return; }
