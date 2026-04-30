@@ -8316,6 +8316,11 @@ function _pickReplyAiProfile(profileLabel) {
     _updateReplyAiIndicator();
     _replyLinkDatasetBySenderMatch();
     openFloatingChat(profileLabel);
+    Promise.resolve(_replyLinkDatasetBySenderMatch()).then(() => {
+        for (let i = 0; i < 8; i++) {
+            setTimeout(() => { if (typeof _updateFchatDsLabel === 'function') _updateFchatDsLabel(); else _updateNoteInputPlaceholder(); }, 80 + (i * 70));
+        }
+    });
     setTimeout(async () => {
         const bodyElId = _replyAiSrc === 'panel' ? 'gmail-preview-body' : 'gmail-modal-preview-body';
         const bodyEl = document.getElementById(bodyElId);
