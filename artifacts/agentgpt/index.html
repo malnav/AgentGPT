@@ -6205,17 +6205,17 @@ function gmailExpandReply(src) {
         el.style.height = '';
         el.dataset.expanded = '0';
         if (replySection) replySection.style.flex = '';
-        if (emailBody) emailBody.style.flex = '1';
+        if (emailBody) emailBody.style.flex = '1 1 auto';
     } else {
-        el.style.minHeight = '38vh';
-        el.style.maxHeight = 'none';
-        el.style.height = src === 'panel' ? '52vh' : '56vh';
+        el.style.minHeight = '36vh';
+        el.style.maxHeight = src === 'panel' ? '42vh' : '46vh';
+        el.style.height = '';
         el.dataset.expanded = '1';
-        if (replySection) replySection.style.flex = '1';
-        if (emailBody) emailBody.style.flex = '0 0 auto';
+        if (replySection) replySection.style.flex = '0 0 auto';
+        if (emailBody) emailBody.style.flex = '1 1 auto';
     }
     el.focus();
-    requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' }));
+    requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }));
 }
 function gmailClearReply(src) {
     src = src || 'panel';
