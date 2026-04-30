@@ -5979,7 +5979,33 @@ async function gmailSendReply(src) {
     } catch(e) { notify("Failed to send: " + e.message, "#ff3b30", 5000); }
 }
 
-function gmailExpandReply(src) { const id = src === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box'; const el = document.getElementById(id); if (!el) return; const isExp = el.dataset.expanded === '1'; const replySection = el.closest('div[style*="border-top"]'); const overlayId = src === 'panel' ? 'gmail-preview-overlay' : 'gmail-modal-preview'; const overlay = document.getElementById(overlayId) || el.parentElement.parentElement.parentElement.parentElement; const emailBody = overlay ? Array.from(overlay.children).find(c => c.style && (c.style.flex === '1' || c.style.flex.startsWith('1 '))) : null; if (isExp) { el.style.minHeight = src === 'panel' ? '120px' : '140px'; el.style.maxHeight = src === 'panel' ? '200px' : '220px'; el.dataset.expanded = '0'; if (replySection) replySection.style.flex = ''; if (emailBody) emailBody.style.flex = '1'; } else { el.style.minHeight = '38vh'; el.style.maxHeight = '60vh'; el.dataset.expanded = '1'; if (replySection) replySection.style.flex = '1'; if (emailBody) emailBody.style.flex = '0 0 auto'; } el.focus(); }
+function gmailExpandReply(src) {
+    const id = src === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box';
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isExp = el.dataset.expanded === '1';
+    const replySection = el.closest('div[style*="border-top"]');
+    const overlayId = src === 'panel' ? 'gmail-preview-overlay' : 'gmail-modal-preview';
+    const overlay = document.getElementById(overlayId) || el.parentElement.parentElement.parentElement.parentElement;
+    const emailBody = overlay ? Array.from(overlay.children).find(c => c.style && (c.style.flex === '1' || c.style.flex.startsWith('1 '))) : null;
+    if (isExp) {
+        el.style.minHeight = src === 'panel' ? '120px' : '140px';
+        el.style.maxHeight = src === 'panel' ? '200px' : '220px';
+        el.style.height = '';
+        el.dataset.expanded = '0';
+        if (replySection) replySection.style.flex = '';
+        if (emailBody) emailBody.style.flex = '1';
+    } else {
+        el.style.minHeight = '38vh';
+        el.style.maxHeight = 'none';
+        el.style.height = src === 'panel' ? '52vh' : '56vh';
+        el.dataset.expanded = '1';
+        if (replySection) replySection.style.flex = '1';
+        if (emailBody) emailBody.style.flex = '0 0 auto';
+    }
+    el.focus();
+    requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' }));
+}
 function gmailClearReply(src) {
     src = src || 'panel';
     const el = document.getElementById(gmailIds(src).reply);
