@@ -2499,7 +2499,18 @@ async function linksImportFromPanel() {
 }
 function switchVarsTab(t) { switchVarsSubTab(t === 'vars' ? 'vars' : t); }
 function switchVarsSubTab(t) { _closeVarsPanelMenu(); ['vars','todos','chats','history'].forEach(k => { const stab=document.getElementById('vsubtab-'+k); if(stab)stab.classList.toggle('active', t===k); const sview=document.getElementById('vsubview-'+k); if(sview){ sview.style.display = t===k ? (k==='todos'?'flex':'block') : 'none'; if(t===k&&k==='todos')sview.style.flexDirection='column'; } const btns=document.getElementById('vtab-'+k+'-btns'); if(btns)btns.style.display = t===k ? 'flex' : 'none'; }); const ta=document.getElementById('vtab-todo-actions'); if(ta)ta.style.display = t==='todos' ? 'flex' : 'none'; if(t==='todos') renderChatTodos(); if(t==='chats') _renderVarsLinkedChats(); if(t==='history') _renderVarsHistory(); }
-function _toggleVarsPanelMenu(e) { if(e)e.stopPropagation(); const m=document.getElementById('vars-panel-menu'); if(!m)return; const isOpen=m.style.display!=='none'; m.style.display=isOpen?'none':'block'; if(!isOpen){ const close=ev=>{if(!m.contains(ev.target)){m.style.display='none'; document.removeEventListener('click',close,true);}}; setTimeout(()=>document.addEventListener('click',close,true),10); } }
+function _toggleVarsPanelMenu(e) {
+    if(e) e.stopPropagation();
+    const m=document.getElementById('vars-panel-menu');
+    if(m) m.style.display='none';
+    _showItemMenu(e || { stopPropagation(){}, currentTarget: document.getElementById('vars-slide-panel') }, [
+        { label:'✏️ Rename', fn:()=>_renameActiveDataset() },
+        { label:'🪄 AI Title', fn:()=>_aiTitleActiveDataset() },
+        { label:'🗄️ Archive', fn:()=>_archiveCurrentDataset() },
+        { label:'⚙️ Rules', fn:()=>editExtractionRules() },
+        { label:'☑ Bulk Select', fn:()=>toggleVarSelectMode() }
+    ]);
+}
 function _closeVarsPanelMenu() { const m=document.getElementById('vars-panel-menu'); if(m)m.style.display='none'; }
 function _runVarsPanelMenuAction(action) {
     _closeVarsPanelMenu();
