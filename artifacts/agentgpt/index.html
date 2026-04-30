@@ -3033,8 +3033,60 @@ async function _renderVarsRelatedEmails() {
     wrap.innerHTML = `<div style="font-size:11px; color:#888; margin-bottom:8px;">${list.length} related email${list.length!==1?'s':''} for <strong>${email.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong></div>` + list.map(em => {
         const from = (em.from || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const subj = (em.subject || '(No subject)').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        return `<div class="list-item" style="display:block; padding:10px 12px; margin-bottom:6px;" onclick="gmailOpenEmailById('${String(em.id || '').replace(/'/g,"\\'")}')"><div style="font-size:12px; font-weight:700; color:var(--text);">${subj}</div><div style="font-size:11px; color:#888; margin-top:2px;">${from}</div></div>`;
+        const enc = btoa(unescape(encodeURIComponent(JSON.stringify(em))));
+        return `<div class="list-item" style="display:block; padding:10px 12px; margin-bottom:6px;"><div style="font-size:12px; font-weight:700; color:var(--text);">${subj}</div><div style="font-size:11px; color:#888; margin-top:2px;">${from}</div><div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;"><button class="chip" style="font-size:10px; padding:4px 8px;" onclick="_varsRelatedPreviewEmail('${enc}')">Preview</button><button class="chip" style="font-size:10px; padding:4px 8px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="_varsRelatedExtractVarValue('${enc}')">Extract Var</button><button class="chip" style="font-size:10px; padding:4px 8px; background:var(--accent); color:#fff;" onclick="_varsRelatedAddToContext('${enc}')">+ Context</button></div></div>`;
     }).join('');
+}
+function _varsDecodeEmail(encoded) { try { return JSON.parse(decodeURIComponent(escape(atob(encoded)))); } catch(_) { return null; } }
+async function _varsRelatedPreviewEmail(encoded) {
+    const em = _varsDecodeEmail(encoded); if(!em) return notify('Email not found', '#ff3b30', 1500);
+    const title = em.subject || '(no subject)';
+    const from = em.from || '';
+    const date = em.date || '';
+    notify('Loading email preview…', '#007aff', 1200);
+    let body = '';
+    try { body = gmailCleanBodyText(await emailFetchBody(em)); } catch(_) {}
+    const previewBody = body || em.snippet || '(No preview available)';
+    const existingPreview = document.getElementById('related-email-preview-modal');
+    if (existingPreview) existingPreview.remove();
+    const pov = document.createElement('div');
+    pov.id = 'related-email-preview-modal';
+    pov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.38);display:flex;align-items:flex-end;justify-content:center;';
+    const safeTitle = _eh(title), safeFrom = _eh(from), safeDate = _eh(date);
+    const safeBody = _eh(String(previewBody).slice(0, 4000)).replace(/\n/g, '<br>');
+    pov.innerHTML = `<div style="background:var(--bg);width:100%;max-width:620px;max-height:82vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:14px 14px max(18px,env(safe-area-inset-bottom));"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;"><div style="font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📧 ${safeTitle}</div><div id="related-email-preview-close" style="font-size:22px;cursor:pointer;opacity:0.6;">✕</div></div><div style="font-size:12px;color:#666;margin-bottom:10px;"><b>From:</b> ${safeFrom}<br><b>Date:</b> ${safeDate}</div><div style="overflow-y:auto;flex:1;font-size:12px;line-height:1.6;color:var(--text);background:var(--sec-bg);padding:10px;border-radius:10px;">${safeBody || '(No preview available)'}</div></div>`;
+    pov.onclick = (evt) => { if (evt.target === pov) pov.remove(); };
+    document.body.appendChild(pov);
+    const closeBtn = document.getElementById('related-email-preview-close'); if (closeBtn) closeBtn.onclick = () => pov.remove();
+}
+async function _varsRelatedAddToContext(encoded) {
+    const em = _varsDecodeEmail(encoded); if(!em) return notify('Email not found', '#ff3b30', 1500);
+    const lines = await gmailFetchEmailLines(em);
+    if (!lines.length) return notify('No readable email content', '#888', 1600);
+    _addCtxGroup(em.subject || gmailExtractAddr(em.from) || 'Email', lines);
+    _updateFchatContextLabel();
+    notify('Email added to context', '#34c759', 1800);
+}
+async function _varsRelatedExtractVarValue(encoded) {
+    const em = _varsDecodeEmail(encoded); if(!em) return notify('Email not found', '#ff3b30', 1500);
+    const varKey = await promptUserAsync('Extract into which variable key?', 'email');
+    if(!varKey) return;
+    const vars = getActiveVars();
+    let val = '';
+    if(String(varKey).toLowerCase().includes('email')) val = gmailExtractAddr(em.from) || gmailExtractAddr(em.to) || '';
+    if(!val) {
+        const lines = await gmailFetchEmailLines(em);
+        const joined = (lines || []).join('\n');
+        val = joined.slice(0, 1200).trim();
+    }
+    if(!val) return notify('Could not extract a value', '#888', 1600);
+    const htmlVal = String(val).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    vars[varKey] = { value: htmlVal, locked: false };
+    const sData = getSessions(); const cur = sData.list.find(x => String(x.id) === String(sData.current)); const activeVid = _calPreviewVid || (cur && cur.var_id);
+    if(activeVid) _dsTakeSnapshot(activeVid, 'Email extract');
+    await saveAll();
+    renderSessionVariables();
+    notify(`Updated {{${varKey}}} from email`, '#34c759', 1800);
 }
 function _searchByEmail(email) {
     const term = String(email || '').trim();
@@ -4561,14 +4613,6 @@ let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
 let gmailReplyDraftSaveTimer = null;
 let _varsRelatedEmailCache = { email: '', items: [] };
-
-
-function gmailOpenEmailById(emailId) {
-    const idx = (gmailEmails || []).findIndex(em => String(em.id) === String(emailId));
-    if(idx < 0) return notify('Email not found in loaded list', '#888', 1800);
-    openGmailModal();
-    setTimeout(() => { gmailPreview(idx, 'modal'); }, 120);
-}
 
 function gmailReplyDraftKey(em) {
     if(!em) return '';
