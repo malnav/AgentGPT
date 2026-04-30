@@ -6500,7 +6500,7 @@ function openFchatProfilePicker(e) {
 
 function _getFchatCurSession() { if (_fchatActiveId === null) return null; const sess = _fchatSessions.find(s => s.id === _fchatActiveId); if (!sess) return null; const sData = chatHistories[sess.profileLabel]; if (!sData) return null; return sData.list ? sData.list.find(x => String(x.id) === String(sess.chatId)) : null; }
 
-function _updateNoteInputPlaceholder() { const noteIn = document.getElementById('note-input'); if(!noteIn) return; const cur = _getFchatCurSession(); const ds = cur && cur.var_id ? GLOBAL_DATASETS[cur.var_id] : null; noteIn.placeholder = ds ? (ds.title || 'Dataset') : 'Draft text...'; }
+function _updateNoteInputPlaceholder() { const noteIn = document.getElementById('note-input'); if(!noteIn) return; const cur = _getFchatCurSession(); const ds = cur && cur.var_id ? GLOBAL_DATASETS[cur.var_id] : null; noteIn.placeholder = ds ? `Draft for ${ds.title || 'Dataset'}...` : 'Draft text...'; }
 function _updateFchatDsLabel() { const el = document.getElementById('fchat-ds-label'); if (!el) return; const cur = _getFchatCurSession(); const ds = cur && cur.var_id ? GLOBAL_DATASETS[cur.var_id] : null; el.textContent = ds ? (ds.title || 'Dataset') : 'No dataset'; _updateNoteInputPlaceholder(); }
 
 function _openDatasetPickerModal(onSelect, selectedVid) { const existing = document.getElementById('_ds-picker-ov'); if (existing) existing.remove(); const ov = document.createElement('div'); ov.id = '_ds-picker-ov'; ov.style.cssText = 'position:fixed;inset:0;z-index:9300;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);'; ov.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:16px 16px max(28px,env(safe-area-inset-bottom));max-height:75vh;display:flex;flex-direction:column;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;"><span style="font-size:16px;font-weight:800;color:var(--text);">📊 Choose Dataset</span><div id="_ds-picker-close" style="font-size:22px;cursor:pointer;opacity:0.5;">✕</div></div><div id="_ds-picker-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;padding-bottom:4px;"></div></div>'; ov.onclick = function(e) { if (e.target === ov) ov.remove(); }; document.body.appendChild(ov); document.getElementById('_ds-picker-close').onclick = function() { ov.remove(); }; const listEl = document.getElementById('_ds-picker-list'); const noDs = document.createElement('div'); const noneSelected = !selectedVid; noDs.style.cssText = 'padding:13px 16px;border-radius:14px;background:' + (noneSelected ? 'rgba(0,122,255,0.12)' : 'var(--sec-bg)') + ';border:0.5px solid ' + (noneSelected ? 'rgba(0,122,255,0.35)' : 'transparent') + ';cursor:pointer;font-size:13px;font-weight:' + (noneSelected ? '800' : '600') + ';color:' + (noneSelected ? 'var(--accent)' : '#888') + ';display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;'; noDs.innerHTML = '<span>— No dataset</span>' + (noneSelected ? '<span style="font-size:14px;">✓</span>' : ''); noDs.onclick = function() { ov.remove(); onSelect(null); }; listEl.appendChild(noDs); let vids = Object.keys(GLOBAL_DATASETS).filter(vid => !GLOBAL_DATASETS[vid].archived).sort((a,b) => { const ua = GLOBAL_DATASETS[a]._updated||Number(a); const ub = GLOBAL_DATASETS[b]._updated||Number(b); return ub-ua; }); if (selectedVid && vids.includes(String(selectedVid))) { vids = [String(selectedVid)].concat(vids.filter(vid => String(vid) !== String(selectedVid))); } if (!vids.length) { const empty = document.createElement('div'); empty.style.cssText = 'padding:20px;text-align:center;color:#888;font-size:13px;'; empty.textContent = 'No datasets yet.'; listEl.appendChild(empty); } vids.forEach(vid => { const ds = GLOBAL_DATASETS[vid]; const isSelected = String(vid) === String(selectedVid); const d = document.createElement('div'); d.style.cssText = 'padding:13px 16px;border-radius:14px;background:' + (isSelected ? 'rgba(0,122,255,0.12)' : 'var(--sec-bg)') + ';border:0.5px solid ' + (isSelected ? 'rgba(0,122,255,0.35)' : 'transparent') + ';cursor:pointer;font-size:13px;font-weight:' + (isSelected ? '800' : '700') + ';color:' + (isSelected ? 'var(--accent)' : 'var(--text)') + ';display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;'; d.innerHTML = '<span>📊 ' + (ds.title || 'Dataset') + '</span>' + (isSelected ? '<span style="font-size:14px;">✓</span>' : ''); d.onclick = function() { ov.remove(); onSelect(vid); }; listEl.appendChild(d); }); }
@@ -8228,6 +8228,71 @@ function _closeReplyProfilePicker() {
     document.removeEventListener('touchstart', _pickerOutside);
 }
 
+
+function _emailOnly(v) {
+    const str = String(v || '').toLowerCase();
+    const m = str.match(/[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/i);
+    return m ? m[0].toLowerCase() : '';
+}
+
+function _replyMatchDatasetsBySenderEmail() {
+    const senderEmail = _emailOnly(gmailCurrentEmail && gmailCurrentEmail.from);
+    if (!senderEmail) return [];
+    const out = [];
+    Object.keys(GLOBAL_DATASETS || {}).forEach(vid => {
+        const ds = GLOBAL_DATASETS[vid];
+        if (!ds || ds.archived || !ds.data) return;
+        const vals = Object.values(ds.data);
+        const hit = vals.some(v => {
+            const raw = typeof v === 'object' ? (v && (v.value || v.text || v.email || '')) : v;
+            if (!raw) return false;
+            return _emailOnly(raw) === senderEmail;
+        });
+        if (hit) out.push({ vid, title: ds.title || 'Dataset' });
+    });
+    return out;
+}
+
+async function _replyLinkDatasetBySenderMatch() {
+    const matches = _replyMatchDatasetsBySenderEmail();
+    if (!matches.length) return false;
+    const sData = getSessions();
+    const cur = sData && sData.list ? sData.list.find(x => String(x.id) === String(sData.current)) : null;
+    if (!cur) return false;
+    if (matches.length === 1) {
+        cur.var_id = matches[0].vid;
+        await saveAll();
+        renderSessionVariables();
+        _updateNoteInputPlaceholder();
+        notify(`🔗 Linked dataset: ${matches[0].title}`, '#34c759', 2200);
+        return true;
+    }
+    return new Promise(resolve => {
+        const selectedVid = cur.var_id || null;
+        _openDatasetPickerModal(async (vid) => {
+            if (!vid) { resolve(false); return; }
+            const allowed = matches.find(m => String(m.vid) === String(vid));
+            if (!allowed) { notify('Select one of the matched datasets', '#ff9500', 2200); resolve(false); return; }
+            cur.var_id = vid;
+            await saveAll();
+            renderSessionVariables();
+            _updateNoteInputPlaceholder();
+            notify(`🔗 Linked dataset: ${allowed.title}`, '#34c759', 2200);
+            resolve(true);
+        }, selectedVid);
+        const listEl = document.getElementById('_ds-picker-list');
+        if (listEl) {
+            const allowedVids = new Set(matches.map(m => String(m.vid)));
+            Array.from(listEl.children).forEach((node, idx) => {
+                if (idx === 0) { node.remove(); return; }
+                const text = (node.textContent || '').trim();
+                const m = matches.find(x => text.includes(x.title));
+                if (!m || !allowedVids.has(String(m.vid))) node.remove();
+            });
+        }
+    });
+}
+
 function _pickReplyAiProfile(profileLabel) {
     _closeReplyProfilePicker();
     const _atRange = _removeAtSymbolFromReply();
@@ -8235,6 +8300,7 @@ function _pickReplyAiProfile(profileLabel) {
     _replyAiTargetBoxId = boxId;
     _replyInsState = { spanId: '', markerEl: _atRange || null, savedRange: null };
     _updateReplyAiIndicator();
+    _replyLinkDatasetBySenderMatch();
     openFloatingChat(profileLabel);
     setTimeout(async () => {
         const bodyElId = _replyAiSrc === 'panel' ? 'gmail-preview-body' : 'gmail-modal-preview-body';
