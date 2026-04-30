@@ -8253,11 +8253,25 @@ function _replyMatchDatasetsBySenderEmail() {
     return out;
 }
 
+function _getReplyTargetSessionRef() {
+    const fchatCur = _getFchatCurSession();
+    if (fchatCur) {
+        const sess = _fchatSessions.find(s => s.id === _fchatActiveId);
+        const profLabel = sess && sess.profileLabel ? sess.profileLabel : activeProfileLabel;
+        const sData = chatHistories[profLabel];
+        return { cur: fchatCur, sData, profileLabel: profLabel };
+    }
+    const profLabel = activeProfileLabel;
+    const sData = chatHistories[profLabel] || getSessions();
+    const cur = sData && sData.list ? sData.list.find(x => String(x.id) === String(sData.current)) : null;
+    return { cur, sData, profileLabel: profLabel };
+}
+
 async function _replyLinkDatasetBySenderMatch() {
     const matches = _replyMatchDatasetsBySenderEmail();
     if (!matches.length) return false;
-    const sData = getSessions();
-    const cur = sData && sData.list ? sData.list.find(x => String(x.id) === String(sData.current)) : null;
+    const ref = _getReplyTargetSessionRef();
+    const cur = ref.cur;
     if (!cur) return false;
     if (matches.length === 1) {
         cur.var_id = matches[0].vid;
