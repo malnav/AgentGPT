@@ -3015,6 +3015,11 @@ function _getActiveDatasetEmailValue() {
 async function _renderVarsRelatedEmails() {
     const wrap = document.getElementById('vars-related-emails-list');
     if(!wrap) return;
+    const accounts = emailGetAllAccounts();
+    if(accounts.length && (!gmailEmails || !gmailEmails.length)) {
+        wrap.innerHTML = `<div style="font-size:12px; color:#888; text-align:center; padding:12px 0;">Loading emails from connected accounts…</div>`;
+        try { await gmailLoadEmails(); } catch(_) {}
+    }
     const email = _getActiveDatasetEmailValue();
     if(!email) {
         wrap.innerHTML = '<div style="font-size:13px; color:#888; text-align:center; padding:12px 0;">No email variable found in this dataset. Add a variable like <strong>email</strong> or <strong>customer_email</strong>.</div>';
@@ -3034,10 +3039,11 @@ async function _renderVarsRelatedEmails() {
     wrap.innerHTML = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;"><div style="font-size:11px; color:#888;">${list.length} related email${list.length!==1?'s':''} for <strong>${email.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong></div><button class="chip" style="font-size:10px; padding:3px 8px;" onclick="_varsRelatedToggleAll(true)">All</button><button class="chip" style="font-size:10px; padding:3px 8px;" onclick="_varsRelatedToggleAll(false)">None</button><button class="chip" style="font-size:10px; padding:3px 8px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="_varsRelatedExtractVarsSelected()">Extract Vars</button><button class="chip" style="font-size:10px; padding:3px 8px; background:var(--accent); color:#fff;" onclick="_varsRelatedAddSelectedToContext()">+ Context</button></div>` + list.map((em, idx) => {
         const from = (em.from || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const subj = (em.subject || '(No subject)').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const dt = (em.date || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const enc = btoa(unescape(encodeURIComponent(JSON.stringify(em))));
         const key = (em._accountId || '') + ':' + (em.id || em.messageId || idx);
         const checked = _varsRelatedSelected.has(key) ? 'checked' : '';
-        return `<div class="list-item" style="display:block; padding:10px 12px; margin-bottom:6px;"><div style="display:flex; gap:8px; align-items:flex-start;"><input type="checkbox" ${checked} onchange="_varsRelatedToggleSelect('${key.replace(/'/g,"\\'")}', this.checked)" style="margin-top:2px; width:16px; height:16px; accent-color:var(--accent);"><div style="flex:1; min-width:0;"><div style="font-size:12px; font-weight:700; color:var(--text);">${subj}</div><div style="font-size:11px; color:#888; margin-top:2px;">${from}</div><div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;"><button class="chip" style="font-size:10px; padding:4px 8px;" onclick="_varsRelatedPreviewEmail('${enc}')">Preview</button><button class="chip" style="font-size:10px; padding:4px 8px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="_varsRelatedExtractVarValue('${enc}')">Extract Vars</button><button class="chip" style="font-size:10px; padding:4px 8px; background:var(--accent); color:#fff;" onclick="_varsRelatedAddToContext('${enc}')">+ Context</button></div></div></div></div>`;
+        return `<div class="list-item" style="display:block; padding:10px 12px; margin-bottom:6px;"><div style="display:flex; gap:8px; align-items:flex-start;"><input type="checkbox" ${checked} onchange="_varsRelatedToggleSelect('${key.replace(/'/g,"\\'")}', this.checked)" style="margin-top:2px; width:16px; height:16px; accent-color:var(--accent);"><div style="flex:1; min-width:0;"><div style="font-size:12px; font-weight:700; color:var(--text);">${subj}</div><div style="font-size:11px; color:#888; margin-top:2px;">${from}</div><div style="font-size:10px; color:#aaa; margin-top:2px;">🗓️ ${dt || 'Unknown date'}</div><div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;"><button class="chip" style="font-size:10px; padding:4px 8px;" onclick="_varsRelatedPreviewEmail('${enc}')">Preview</button><button class="chip" style="font-size:10px; padding:4px 8px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="_varsRelatedExtractVarValue('${enc}')">Extract Vars</button><button class="chip" style="font-size:10px; padding:4px 8px; background:var(--accent); color:#fff;" onclick="_varsRelatedAddToContext('${enc}')">+ Context</button></div></div></div></div>`;
     }).join('');
 }
 function _varsRelatedCurrentList() { return (_varsRelatedEmailCache && _varsRelatedEmailCache.items) ? _varsRelatedEmailCache.items : []; }
