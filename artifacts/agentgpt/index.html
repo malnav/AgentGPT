@@ -930,7 +930,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <span id="ctx-btn-none" class="chip" style="font-size:11px; padding:5px 9px;" onclick="setContextWithExpand(false)">NONE</span>
             </div>
             <div id="ctx-tab-gmail-actions" style="display:none; gap:6px; align-items:center;">
-                <span class="chip" id="gmail-add-ctx-btn" style="font-size:10px; padding:5px 10px; background:var(--accent); color:#fff; display:none;" onclick="gmailAddToContext()">+ Add to Context</span>
+                <span class="chip" id="gmail-add-ctx-btn" style="font-size:10px; padding:5px 10px; background:var(--accent); color:#fff; display:none;" onclick="startSelectedEmailsFloatChat()">+ Add to Context</span>
                 <span class="chip" style="font-size:10px; padding:5px 9px; color:#ff3b30;" onclick="gmailSignOut()">Sign Out</span>
                 <span class="chip" style="font-size:10px; padding:5px 9px;" onclick="gmailLoadEmails()">↻</span>
             </div>
@@ -1306,7 +1306,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px 8px 16px;">
             <span style="font-size:16px; font-weight:800;">📧 Email</span>
             <div style="display:flex; gap:8px; align-items:center;">
-                <span class="chip" id="gmail-modal-add-btn" style="font-size:11px; padding:5px 12px; background:var(--accent); color:#fff; display:none;" onclick="gmailAddToContext()">+ Add to Context</span>
+                <span class="chip" id="gmail-modal-add-btn" style="font-size:11px; padding:5px 12px; background:var(--accent); color:#fff; display:none;" onclick="startSelectedEmailsFloatChat()">+ Add to Context</span>
                 <span class="chip" style="font-size:11px; padding:5px 10px; color:#888;" onclick="openModal('master-modal'); switchMasterTab('email');">⚙️</span>
                 <div onclick="closeModal('gmail-modal')" style="font-size:22px; cursor:pointer; opacity:0.5; padding:0 4px;">✕</div>
             </div>
@@ -5456,7 +5456,7 @@ function gmailToggleSelectAll(src, checked) {
 
 function gmailUpdateAddBtns() {
     const n = document.querySelectorAll('.gmail-chk:checked').length;
-    const label = n > 0 ? `+ Add ${n} to Context` : '';
+    const label = n > 0 ? `💬 Start Chat with ${n} Email${n > 1 ? 's' : ''}` : '';
     ['gmail-add-ctx-btn', 'gmail-modal-add-btn'].forEach(id => {
         const btn = document.getElementById(id);
         if(btn) { btn.style.display = n > 0 ? 'inline' : 'none'; btn.textContent = label; }
@@ -5466,7 +5466,7 @@ function gmailUpdateAddBtns() {
         if(btn) btn.style.display = n > 0 ? 'inline' : 'none';
     });
     const cats = [['primary','⭐ VIP','#30d158'],['promotions','🏷️ Promo','#ff9f0a'],['updates','🔔 Updates','#007aff'],['spam','🚫 Spam','#ff3b30']];
-    const barHtml = n > 0 ? `<div style="display:flex;flex-direction:column;gap:6px;width:100%;"><div style="font-size:11px;font-weight:700;color:#888;text-align:center;letter-spacing:0.5px;">MARK ${n} SENDER${n>1?'S':''} AS</div><div style="display:flex;gap:6px;">${cats.map(([c,lbl,col])=>`<button onclick="emailBulkSetCategory('${c}')" style="flex:1;font-size:11px;font-weight:700;padding:8px 4px;border:none;border-radius:10px;cursor:pointer;background:${col}22;color:${col};border:1px solid ${col}44;">${lbl}</button>`).join('')}</div><button onclick="gmailAddToContext()" style="width:100%;font-size:12px;font-weight:700;padding:9px;border:none;border-radius:10px;cursor:pointer;background:var(--accent);color:#fff;">📋 Add ${n} to Context</button></div>` : '';
+    const barHtml = n > 0 ? `<div style="display:flex;flex-direction:column;gap:6px;width:100%;"><div style="font-size:11px;font-weight:700;color:#888;text-align:center;letter-spacing:0.5px;">MARK ${n} SENDER${n>1?'S':''} AS</div><div style="display:flex;gap:6px;">${cats.map(([c,lbl,col])=>`<button onclick="emailBulkSetCategory('${c}')" style="flex:1;font-size:11px;font-weight:700;padding:8px 4px;border:none;border-radius:10px;cursor:pointer;background:${col}22;color:${col};border:1px solid ${col}44;">${lbl}</button>`).join('')}</div><button onclick="startSelectedEmailsFloatChat()" style="width:100%;font-size:12px;font-weight:700;padding:9px;border:none;border-radius:10px;cursor:pointer;background:var(--accent);color:#fff;">💬 Start Chat with ${n} Email${n>1?'s':''}</button></div>` : '';
     ['gmail-bulk-bar-panel','gmail-bulk-bar-modal'].forEach(id => {
         const bar = document.getElementById(id);
         if(!bar) return;
@@ -7192,9 +7192,23 @@ async function gmailFetchEmailLines(em) {
     return lines;
 }
 
-function startEmailChatSelected() {
+async function startEmailChatSelected() {
     const defLabel = CONFIG.def_profile || activeProfileLabel;
-    startEmailChat(defLabel, 'selected');
+    await startEmailChat(defLabel, 'selected');
+}
+
+async function startSelectedEmailsFloatChat() {
+    await startEmailChatSelected();
+    const profileLabel = activeProfileLabel;
+    const chatId = getSessions() && getSessions().current;
+    if (!chatId) return;
+    const existing = _fchatSessions.find(s => s.profileLabel === profileLabel && String(s.chatId) === String(chatId));
+    if (existing) { fchatMaximize(existing.id); return; }
+    const session = { id: Date.now().toString(), profileLabel, chatId, bubbleConfig: null };
+    _fchatSessions.push(session);
+    _fchatActiveId = session.id;
+    renderFchatBubbles();
+    _openFchatPanel(session);
 }
 
 async function startEmailChatAll() {
