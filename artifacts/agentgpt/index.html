@@ -3085,6 +3085,7 @@ async function _varsRelatedExtractVarsSelected() {
     return _varsRelatedExtractVarsFromEmails(selected);
 }
 async function _varsRelatedExtractVarsFromEmails(emails) {
+    if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30");
     const vars = getActiveVars();
     const p = AI_PROFILES.find(x => x.label === activeProfileLabel);
     const keys = (p && p.expected_vars && p.expected_vars.length) ? p.expected_vars : Object.keys(vars || {});
@@ -3096,9 +3097,28 @@ async function _varsRelatedExtractVarsFromEmails(emails) {
     }
     const historyText = chunks.join('\n\n---\n\n').slice(0, 10000);
     const sysPrompt = _getAiPrompt('var_extract').replace('[VARS]', JSON.stringify(keys)).replace('[PROFILE]', p ? p.text : 'N/A').replace('[DATA]', '{}');
-    const raw = await _openaiChatRaw(historyText, sysPrompt, _getAiModel('var_extract', getSuggestModel()), 700);
-    if(!raw) return notify('Extraction failed', '#ff3b30', 1600);
-    let obj = null; try { obj = JSON.parse(raw); } catch(_) { return notify('Invalid extraction response', '#ff3b30', 1700); }
+    let obj = null;
+    try {
+        const mdl = _getAiModel('var_extract', getExtractModel());
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` },
+            body: JSON.stringify({
+                model: mdl,
+                messages: [
+                    { role: "system", content: sysPrompt },
+                    { role: "user", content: `Email history:\n${historyText}` }
+                ],
+                response_format: { type: "json_object" }
+            })
+        });
+        if(!res.ok) throw new Error('API error');
+        const d = await res.json();
+        const raw = d.choices && d.choices[0] && d.choices[0].message ? d.choices[0].message.content : '{}';
+        obj = JSON.parse(raw || '{}');
+    } catch(_) {
+        return notify('Extraction failed', '#ff3b30', 1700);
+    }
     let updated = 0;
     keys.forEach(k => {
         if(obj[k] == null || obj[k] === '') return;
