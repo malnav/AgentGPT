@@ -7262,6 +7262,7 @@ function _openRelatedEmailsPicker(relatedEmails, senderAddr) {
                 <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
                 <div style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${meta}</div>
             </div>
+            <button type="button" class="chip related-email-preview-btn" data-idx="${idx}" style="flex-shrink:0;font-size:10px;padding:4px 8px;background:rgba(0,122,255,0.12);color:var(--accent);border:0.5px solid rgba(0,122,255,0.25);">Preview</button>
         </label>`;
     }).join('');
     ov.innerHTML = `<div style="background:var(--bg);width:100%;max-width:560px;max-height:78vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:14px 14px max(18px,env(safe-area-inset-bottom));">
@@ -7276,6 +7277,23 @@ function _openRelatedEmailsPicker(relatedEmails, senderAddr) {
     ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
     document.body.appendChild(ov);
     document.getElementById('related-emails-close').onclick = () => ov.remove();
+    ov.querySelectorAll('.related-email-preview-btn').forEach(btn => {
+        btn.onclick = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.idx);
+            const em = relatedEmails[idx];
+            if (!em) { notify('Email not found', '#ff3b30', 1500); return; }
+            const title = em.subject || '(no subject)';
+            const from = em.from || '';
+            const date = em.date || '';
+            notify('Loading email preview…', '#007aff', 1200);
+            let body = '';
+            try { body = gmailCleanBodyText(await emailFetchBody(em)); } catch(_) {}
+            const previewBody = body || em.snippet || '(No preview available)';
+            openInfo('📧 ' + title, `From: ${from}\nDate: ${date}\n\n${previewBody.slice(0, 4000)}`);
+        };
+    });
     document.getElementById('related-emails-add-btn').onclick = async () => {
         const selectedIdx = Array.from(ov.querySelectorAll('.related-email-chk:checked')).map(cb => parseInt(cb.dataset.idx));
         if (!selectedIdx.length) { notify('No related emails selected', '#ff3b30', 1800); return; }
