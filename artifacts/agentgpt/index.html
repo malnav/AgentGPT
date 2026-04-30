@@ -861,7 +861,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <span id="active-dataset-title" style="flex:1; font-size:13px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; color:var(--accent);" onclick="closeAllPanels(); document.getElementById('workspace-panel').classList.add('open'); switchWorkspaceTab('data'); renderDatasetsList();" title="Open in Data tab">Data Set</span>
             <div style="position:relative; flex-shrink:0;">
                 <button class="chip" onclick="_toggleVarsPanelMenu(event)" title="More actions" style="font-size:13px; padding:3px 8px; flex-shrink:0; letter-spacing:1px; font-weight:700;">⋯</button>
-                <div id="vars-panel-menu" style="display:none; position:absolute; top:calc(100% + 4px); right:0; z-index:620; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; padding:6px; min-width:152px; box-shadow:0 8px 24px rgba(0,0,0,0.18);">
+                <div id="vars-panel-menu" style="display:none; position:absolute; top:calc(100% + 4px); right:0; z-index:12000; pointer-events:auto; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border:0.5px solid var(--glass-border); border-radius:14px; padding:6px; min-width:152px; box-shadow:0 8px 24px rgba(0,0,0,0.18);">
                     <button class="chip" type="button" data-vpm-action="rename" onclick="_closeVarsPanelMenu(); _renameActiveDataset()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; margin-bottom:2px; display:flex; align-items:center; gap:8px; border-radius:9px;">✏️ Rename</button>
                     <button class="chip" type="button" data-vpm-action="ai-title" onclick="_closeVarsPanelMenu(); _aiTitleActiveDataset()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; margin-bottom:2px; display:flex; align-items:center; gap:8px; border-radius:9px;">🪄 AI Title</button>
                     <button class="chip" type="button" data-vpm-action="archive" onclick="_closeVarsPanelMenu(); _archiveCurrentDataset()" style="width:100%; text-align:left; font-size:12px; padding:7px 10px; margin-bottom:2px; display:flex; align-items:center; gap:8px; border-radius:9px; background:rgba(255,149,0,0.1); color:#ff9500;">🗄️ Archive</button>
@@ -2513,6 +2513,16 @@ function _runVarsPanelMenuAction(action) {
     const menu = document.getElementById('vars-panel-menu');
     if(!menu || menu._touchBound) return;
     menu._touchBound = true;
+    const stop = (ev) => { ev.stopPropagation(); };
+    menu.addEventListener('pointerdown', stop);
+    menu.addEventListener('mousedown', stop);
+    menu.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('[data-vpm-action]');
+        if(!btn) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        _runVarsPanelMenuAction(btn.dataset.vpmAction);
+    });
     menu.addEventListener('touchstart', (ev) => {
         const btn = ev.target.closest('[data-vpm-action]');
         if(!btn) return;
