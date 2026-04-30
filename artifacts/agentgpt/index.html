@@ -6045,7 +6045,7 @@ function gmailSanitizeHtml(html) {
     if(!normalized) return '';
     const tmp = document.createElement('div');
     tmp.innerHTML = normalized;
-    tmp.querySelectorAll('script,iframe,object,embed').forEach(el => el.remove());
+    tmp.querySelectorAll('script,iframe,object,embed,style,link,meta,base,title').forEach(el => el.remove());
     tmp.querySelectorAll('*').forEach(el => {
         [...el.attributes].forEach(attr => {
             const name = (attr.name || '').toLowerCase();
@@ -6068,7 +6068,30 @@ function gmailSanitizeHtml(html) {
         });
     });
     tmp.querySelectorAll('a').forEach(a => { a.setAttribute('target','_blank'); a.setAttribute('rel','noopener noreferrer'); });
-    return tmp.innerHTML.trim();
+
+    // Mobile-safe normalization: prevent horizontal overflow while preserving structure.
+    tmp.querySelectorAll('img,video,canvas,svg').forEach(el => {
+        const style = (el.getAttribute('style') || '').trim();
+        const extra = 'max-width:100%;height:auto;';
+        el.setAttribute('style', style ? `${style};${extra}` : extra);
+        el.removeAttribute('width');
+        if(el.tagName !== 'SVG') el.removeAttribute('height');
+    });
+
+    tmp.querySelectorAll('table').forEach(table => {
+        const style = (table.getAttribute('style') || '').trim();
+        const extra = 'max-width:100%;width:100%;table-layout:fixed;';
+        table.setAttribute('style', style ? `${style};${extra}` : extra);
+        table.removeAttribute('width');
+    });
+
+    tmp.querySelectorAll('td,th,pre,code,blockquote').forEach(el => {
+        const style = (el.getAttribute('style') || '').trim();
+        const extra = 'word-break:break-word;overflow-wrap:anywhere;';
+        el.setAttribute('style', style ? `${style};${extra}` : extra);
+    });
+
+    return `<div style="max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;">${tmp.innerHTML.trim()}</div>`;
 }
 
 function _extractEmailAddress(raw) {
