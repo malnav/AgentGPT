@@ -883,6 +883,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div class="sub-tab-btn" id="vsubtab-todos" onclick="switchVarsSubTab('todos')" style="padding:5px 8px; font-size:11px;">✅ Todos</div>
             <div class="sub-tab-btn" id="vsubtab-chats" onclick="switchVarsSubTab('chats')" style="padding:5px 8px; font-size:11px;">💬 Chats</div>
             <div class="sub-tab-btn" id="vsubtab-history" onclick="switchVarsSubTab('history')" style="padding:5px 8px; font-size:11px;">🕐 History</div>
+            <div class="sub-tab-btn" id="vsubtab-emails" onclick="switchVarsSubTab('emails')" style="padding:5px 8px; font-size:11px;">📧 Emails</div>
             <div id="vtab-todo-actions" style="display:none; margin-left:auto; gap:3px; align-items:center; flex-shrink:0;">
                 <button class="chip" style="font-size:11px; padding:3px 7px; color:var(--accent);" onclick="aiGenTodos()" title="AI Gen Todos">🪄</button>
                 <button class="chip" style="font-size:14px; padding:1px 9px; background:var(--accent); color:#fff; font-weight:bold;" onclick="addTodo()" title="New Todo">+</button>
@@ -918,6 +919,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
         <div id="vsubview-history" style="display:none; flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y; padding:12px 14px;">
             <div id="vars-history-list"></div>
+        </div>
+        <div id="vsubview-emails" style="display:none; flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y; padding:12px 14px;">
+            <div id="vars-related-emails-list"></div>
         </div>
     </div>
 </div>
@@ -2499,7 +2503,7 @@ async function linksImportFromPanel() {
     notify(`Imported ${count} link${count!==1?'s':''}!`, '#34c759', 2500);
 }
 function switchVarsTab(t) { switchVarsSubTab(t === 'vars' ? 'vars' : t); }
-function switchVarsSubTab(t) { _closeVarsPanelMenu(); ['vars','todos','chats','history'].forEach(k => { const stab=document.getElementById('vsubtab-'+k); if(stab)stab.classList.toggle('active', t===k); const sview=document.getElementById('vsubview-'+k); if(sview){ sview.style.display = t===k ? (k==='todos'?'flex':'block') : 'none'; if(t===k&&k==='todos')sview.style.flexDirection='column'; } const btns=document.getElementById('vtab-'+k+'-btns'); if(btns)btns.style.display = t===k ? 'flex' : 'none'; }); const ta=document.getElementById('vtab-todo-actions'); if(ta)ta.style.display = t==='todos' ? 'flex' : 'none'; if(t==='todos') renderChatTodos(); if(t==='chats') _renderVarsLinkedChats(); if(t==='history') _renderVarsHistory(); }
+function switchVarsSubTab(t) { _closeVarsPanelMenu(); ['vars','todos','chats','history','emails'].forEach(k => { const stab=document.getElementById('vsubtab-'+k); if(stab)stab.classList.toggle('active', t===k); const sview=document.getElementById('vsubview-'+k); if(sview){ sview.style.display = t===k ? (k==='todos'?'flex':'block') : 'none'; if(t===k&&k==='todos')sview.style.flexDirection='column'; } const btns=document.getElementById('vtab-'+k+'-btns'); if(btns)btns.style.display = t===k ? 'flex' : 'none'; }); const ta=document.getElementById('vtab-todo-actions'); if(ta)ta.style.display = t==='todos' ? 'flex' : 'none'; if(t==='todos') renderChatTodos(); if(t==='chats') _renderVarsLinkedChats(); if(t==='history') _renderVarsHistory(); if(t==='emails') _renderVarsRelatedEmails(); }
 function _toggleVarsPanelMenu(e) {
     if(e) e.stopPropagation();
     const m=document.getElementById('vars-panel-menu');
@@ -2990,6 +2994,45 @@ async function createNewDataset() { let newVid = Date.now().toString() + Math.fl
 let _varDragKey = null;
 
 function _getVarQuickActions(k, rawVal) { if(!rawVal) return ''; const plain = rawVal.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim(); let actions = ''; const isPhone = /^\+?[\d][\d\s\-\(\)]{5,18}[\d]$/.test(plain) && plain.replace(/\D/g,'').length >= 7; if(isPhone) { const digits = plain.replace(/\D/g,''); actions += `<a href="https://wa.me/${digits}" target="_blank" onclick="event.stopPropagation();" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#25d366;font-weight:700;text-decoration:none;background:rgba(37,211,102,0.12);border-radius:6px;padding:3px 8px;">💬 WhatsApp</a>`; } const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(plain); if(isEmail) { const esc = plain.replace(/'/g,"&#39;"); actions += `<span onclick="event.stopPropagation();_searchByEmail('${esc}');" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--accent);font-weight:700;background:rgba(0,122,255,0.1);border-radius:6px;padding:3px 8px;cursor:pointer;">🔍 Search chats</span>`; } return actions ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">${actions}</div>` : ''; }
+function _getActiveDatasetEmailValue() {
+    const vars = getActiveVars() || {};
+    const preferredKeys = ['email','customer_email','client_email','user_email'];
+    for(const k of preferredKeys) {
+        const raw = vars[k];
+        const val = raw && typeof raw === 'object' ? raw.value : raw;
+        if(val && String(val).trim()) return String(val).trim();
+    }
+    const emailRe = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
+    for(const key of Object.keys(vars)) {
+        const raw = vars[key];
+        const val = raw && typeof raw === 'object' ? raw.value : raw;
+        const m = String(val || '').match(emailRe);
+        if(m) return m[0];
+    }
+    return '';
+}
+function _renderVarsRelatedEmails() {
+    const wrap = document.getElementById('vars-related-emails-list');
+    if(!wrap) return;
+    const email = _getActiveDatasetEmailValue();
+    if(!email) {
+        wrap.innerHTML = '<div style="font-size:13px; color:#888; text-align:center; padding:12px 0;">No email variable found in this dataset. Add a variable like <strong>email</strong> or <strong>customer_email</strong>.</div>';
+        return;
+    }
+    const list = (gmailEmails || []).filter(em => {
+        const hay = `${em.from || ''} ${em.to || ''} ${em.subject || ''}`.toLowerCase();
+        return hay.includes(email.toLowerCase());
+    });
+    if(!list.length) {
+        wrap.innerHTML = `<div style="font-size:13px; color:#888; text-align:center; padding:12px 0;">No loaded emails matched <strong>${email.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong>.<br><small style="font-size:11px;">Tip: open Email and refresh inbox to load more messages.</small></div>`;
+        return;
+    }
+    wrap.innerHTML = `<div style="font-size:11px; color:#888; margin-bottom:8px;">${list.length} related email${list.length!==1?'s':''} for <strong>${email.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong></div>` + list.map(em => {
+        const from = (em.from || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const subj = (em.subject || '(No subject)').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return `<div class="list-item" style="display:block; padding:10px 12px; margin-bottom:6px;" onclick="gmailOpenEmailById('${String(em.id || '').replace(/'/g,"\'")}')"><div style="font-size:12px; font-weight:700; color:var(--text);">${subj}</div><div style="font-size:11px; color:#888; margin-top:2px;">${from}</div></div>`;
+    }).join('');
+}
 function _searchByEmail(email) {
     const term = String(email || '').trim();
     if(!term) { notify('Enter an email first', '#888', 1800); return; }
@@ -4514,6 +4557,14 @@ let emailCurrentMailbox = 'INBOX';
 let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
 let gmailReplyDraftSaveTimer = null;
+
+
+function gmailOpenEmailById(emailId) {
+    const idx = (gmailEmails || []).findIndex(em => String(em.id) === String(emailId));
+    if(idx < 0) return notify('Email not found in loaded list', '#888', 1800);
+    openGmailModal();
+    setTimeout(() => { gmailPreview(idx, 'modal'); }, 120);
+}
 
 function gmailReplyDraftKey(em) {
     if(!em) return '';
