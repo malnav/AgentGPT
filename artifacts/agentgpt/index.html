@@ -7251,6 +7251,7 @@ function _openRelatedEmailsPicker(relatedEmails, senderAddr) {
                 <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
                 <div style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${meta}</div>
             </div>
+            <button type="button" class="chip related-email-preview-btn" data-idx="${idx}" style="flex-shrink:0;font-size:10px;padding:4px 8px;background:rgba(0,122,255,0.12);color:var(--accent);border:0.5px solid rgba(0,122,255,0.25);">Preview</button>
         </label>`;
     }).join('');
     ov.innerHTML = `<div style="background:var(--bg);width:100%;max-width:560px;max-height:78vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:14px 14px max(18px,env(safe-area-inset-bottom));">
@@ -7265,6 +7266,43 @@ function _openRelatedEmailsPicker(relatedEmails, senderAddr) {
     ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
     document.body.appendChild(ov);
     document.getElementById('related-emails-close').onclick = () => ov.remove();
+    ov.querySelectorAll('.related-email-preview-btn').forEach(btn => {
+        btn.onclick = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.idx);
+            const em = relatedEmails[idx];
+            if (!em) { notify('Email not found', '#ff3b30', 1500); return; }
+            const title = em.subject || '(no subject)';
+            const from = em.from || '';
+            const date = em.date || '';
+            notify('Loading email preview…', '#007aff', 1200);
+            let body = '';
+            try { body = gmailCleanBodyText(await emailFetchBody(em)); } catch(_) {}
+            const previewBody = body || em.snippet || '(No preview available)';
+            const existingPreview = document.getElementById('related-email-preview-modal');
+            if (existingPreview) existingPreview.remove();
+            const pov = document.createElement('div');
+            pov.id = 'related-email-preview-modal';
+            pov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.38);display:flex;align-items:flex-end;justify-content:center;';
+            const safeTitle = _eh(title);
+            const safeFrom = _eh(from);
+            const safeDate = _eh(date);
+            const safeBody = _eh(previewBody.slice(0, 4000)).replace(/\n/g, '<br>');
+            pov.innerHTML = `<div style="background:var(--bg);width:100%;max-width:620px;max-height:82vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:14px 14px max(18px,env(safe-area-inset-bottom));">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+                    <div style="font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📧 ${safeTitle}</div>
+                    <div id="related-email-preview-close" style="font-size:22px;cursor:pointer;opacity:0.6;">✕</div>
+                </div>
+                <div style="font-size:12px;color:#666;margin-bottom:10px;"><b>From:</b> ${safeFrom}<br><b>Date:</b> ${safeDate}</div>
+                <div style="overflow-y:auto;flex:1;font-size:12px;line-height:1.6;color:var(--text);background:var(--sec-bg);padding:10px;border-radius:10px;">${safeBody || '(No preview available)'}</div>
+            </div>`;
+            pov.onclick = (evt) => { if (evt.target === pov) pov.remove(); };
+            document.body.appendChild(pov);
+            const closeBtn = document.getElementById('related-email-preview-close');
+            if (closeBtn) closeBtn.onclick = () => pov.remove();
+        };
+    });
     document.getElementById('related-emails-add-btn').onclick = async () => {
         const selectedIdx = Array.from(ov.querySelectorAll('.related-email-chk:checked')).map(cb => parseInt(cb.dataset.idx));
         if (!selectedIdx.length) { notify('No related emails selected', '#ff3b30', 1800); return; }
