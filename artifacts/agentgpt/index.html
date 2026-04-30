@@ -2988,8 +2988,160 @@ async function _unarchiveDataset(vid) { const ds=GLOBAL_DATASETS[vid]; if(!ds)re
 async function createNewDataset() { let newVid = Date.now().toString() + Math.floor(Math.random()*1000); GLOBAL_DATASETS[newVid] = { title: "New Data Set", data: {} }; await saveAll(); renderDatasetsList(); }
 
 let _varDragKey = null;
+let _varsRelatedSelected = new Set();
 
 function _getVarQuickActions(k, rawVal) { if(!rawVal) return ''; const plain = rawVal.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim(); let actions = ''; const isPhone = /^\+?[\d][\d\s\-\(\)]{5,18}[\d]$/.test(plain) && plain.replace(/\D/g,'').length >= 7; if(isPhone) { const digits = plain.replace(/\D/g,''); actions += `<a href="https://wa.me/${digits}" target="_blank" onclick="event.stopPropagation();" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#25d366;font-weight:700;text-decoration:none;background:rgba(37,211,102,0.12);border-radius:6px;padding:3px 8px;">💬 WhatsApp</a>`; } const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(plain); if(isEmail) { const esc = plain.replace(/'/g,"&#39;"); actions += `<span onclick="event.stopPropagation();_searchByEmail('${esc}');" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--accent);font-weight:700;background:rgba(0,122,255,0.1);border-radius:6px;padding:3px 8px;cursor:pointer;">🔍 Search chats</span>`; } return actions ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">${actions}</div>` : ''; }
+function _getActiveDatasetEmailValue() {
+    const vars = getActiveVars() || {};
+    const preferredKeys = ['email','customer_email','client_email','user_email'];
+    for(const k of preferredKeys) {
+        const raw = vars[k];
+        const val = raw && typeof raw === 'object' ? raw.value : raw;
+        if(val && String(val).trim()) return String(val).trim();
+    }
+    const emailRe = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
+    for(const key of Object.keys(vars)) {
+        const raw = vars[key];
+        const val = raw && typeof raw === 'object' ? raw.value : raw;
+        const m = String(val || '').match(emailRe);
+        if(m) return m[0];
+    }
+    return '';
+}
+async function _renderVarsRelatedEmails() {
+    const wrap = document.getElementById('vars-related-emails-list');
+    if(!wrap) return;
+    const email = _getActiveDatasetEmailValue();
+    if(!email) {
+        wrap.innerHTML = '<div style="font-size:13px; color:#888; text-align:center; padding:12px 0;">No email variable found in this dataset. Add a variable like <strong>email</strong> or <strong>customer_email</strong>.</div>';
+        return;
+    }
+    wrap.innerHTML = `<div style="font-size:12px; color:#888; text-align:center; padding:12px 0;">Finding related emails for <strong>${email.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong>…</div>`;
+    let list = [];
+    if(_varsRelatedEmailCache.email === email && (_varsRelatedEmailCache.items || []).length) list = _varsRelatedEmailCache.items;
+    else {
+        list = await _findRelatedEmailsForAddress(email);
+        _varsRelatedEmailCache = { email, items: list || [] };
+    }
+    if(!list.length) {
+        wrap.innerHTML = `<div style="font-size:13px; color:#888; text-align:center; padding:12px 0;">No related emails found for <strong>${email.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong>.</div>`;
+        return;
+    }
+    wrap.innerHTML = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;"><div style="font-size:11px; color:#888;">${list.length} related email${list.length!==1?'s':''} for <strong>${email.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong></div><button class="chip" style="font-size:10px; padding:3px 8px;" onclick="_varsRelatedToggleAll(true)">All</button><button class="chip" style="font-size:10px; padding:3px 8px;" onclick="_varsRelatedToggleAll(false)">None</button><button class="chip" style="font-size:10px; padding:3px 8px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="_varsRelatedExtractVarsSelected()">Extract Vars</button><button class="chip" style="font-size:10px; padding:3px 8px; background:var(--accent); color:#fff;" onclick="_varsRelatedAddSelectedToContext()">+ Context</button></div>` + list.map((em, idx) => {
+        const from = (em.from || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const subj = (em.subject || '(No subject)').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const enc = btoa(unescape(encodeURIComponent(JSON.stringify(em))));
+        const key = (em._accountId || '') + ':' + (em.id || em.messageId || idx);
+        const checked = _varsRelatedSelected.has(key) ? 'checked' : '';
+        return `<div class="list-item" style="display:block; padding:10px 12px; margin-bottom:6px;"><div style="display:flex; gap:8px; align-items:flex-start;"><input type="checkbox" ${checked} onchange="_varsRelatedToggleSelect('${key.replace(/'/g,"\\'")}', this.checked)" style="margin-top:2px; width:16px; height:16px; accent-color:var(--accent);"><div style="flex:1; min-width:0;"><div style="font-size:12px; font-weight:700; color:var(--text);">${subj}</div><div style="font-size:11px; color:#888; margin-top:2px;">${from}</div><div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;"><button class="chip" style="font-size:10px; padding:4px 8px;" onclick="_varsRelatedPreviewEmail('${enc}')">Preview</button><button class="chip" style="font-size:10px; padding:4px 8px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="_varsRelatedExtractVarValue('${enc}')">Extract Vars</button><button class="chip" style="font-size:10px; padding:4px 8px; background:var(--accent); color:#fff;" onclick="_varsRelatedAddToContext('${enc}')">+ Context</button></div></div></div></div>`;
+    }).join('');
+}
+function _varsRelatedCurrentList() { return (_varsRelatedEmailCache && _varsRelatedEmailCache.items) ? _varsRelatedEmailCache.items : []; }
+function _varsRelatedEmailKey(em, idx) { return (em._accountId || '') + ':' + (em.id || em.messageId || idx); }
+function _varsRelatedToggleSelect(key, checked) { if(checked) _varsRelatedSelected.add(key); else _varsRelatedSelected.delete(key); }
+function _varsRelatedToggleAll(sel) { const list = _varsRelatedCurrentList(); if(sel) list.forEach((em, idx) => _varsRelatedSelected.add(_varsRelatedEmailKey(em, idx))); else _varsRelatedSelected.clear(); _renderVarsRelatedEmails(); }
+function _varsRelatedSelectedEmails() { const list = _varsRelatedCurrentList(); return list.filter((em, idx) => _varsRelatedSelected.has(_varsRelatedEmailKey(em, idx))); }
+function _varsDecodeEmail(encoded) { try { return JSON.parse(decodeURIComponent(escape(atob(encoded)))); } catch(_) { return null; } }
+async function _varsRelatedPreviewEmail(encoded) {
+    const em = _varsDecodeEmail(encoded); if(!em) return notify('Email not found', '#ff3b30', 1500);
+    const title = em.subject || '(no subject)';
+    const from = em.from || '';
+    const date = em.date || '';
+    notify('Loading email preview…', '#007aff', 1200);
+    let body = '';
+    try { body = gmailCleanBodyText(await emailFetchBody(em)); } catch(_) {}
+    const previewBody = body || em.snippet || '(No preview available)';
+    const existingPreview = document.getElementById('related-email-preview-modal');
+    if (existingPreview) existingPreview.remove();
+    const pov = document.createElement('div');
+    pov.id = 'related-email-preview-modal';
+    pov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.38);display:flex;align-items:flex-end;justify-content:center;';
+    const safeTitle = _eh(title), safeFrom = _eh(from), safeDate = _eh(date);
+    const safeBody = _eh(String(previewBody).slice(0, 4000)).replace(/\n/g, '<br>');
+    pov.innerHTML = `<div style="background:var(--bg);width:100%;max-width:620px;max-height:82vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:14px 14px max(18px,env(safe-area-inset-bottom));"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;"><div style="font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📧 ${safeTitle}</div><div id="related-email-preview-close" style="font-size:22px;cursor:pointer;opacity:0.6;">✕</div></div><div style="font-size:12px;color:#666;margin-bottom:10px;"><b>From:</b> ${safeFrom}<br><b>Date:</b> ${safeDate}</div><div style="overflow-y:auto;flex:1;font-size:12px;line-height:1.6;color:var(--text);background:var(--sec-bg);padding:10px;border-radius:10px;">${safeBody || '(No preview available)'}</div></div>`;
+    pov.onclick = (evt) => { if (evt.target === pov) pov.remove(); };
+    document.body.appendChild(pov);
+    const closeBtn = document.getElementById('related-email-preview-close'); if (closeBtn) closeBtn.onclick = () => pov.remove();
+}
+async function _varsRelatedAddToContext(encoded) {
+    const em = _varsDecodeEmail(encoded); if(!em) return notify('Email not found', '#ff3b30', 1500);
+    const lines = await gmailFetchEmailLines(em);
+    if (!lines.length) return notify('No readable email content', '#888', 1600);
+    _addCtxGroup(em.subject || gmailExtractAddr(em.from) || 'Email', lines);
+    _updateFchatContextLabel();
+    notify('Email added to context', '#34c759', 1800);
+}
+async function _varsRelatedExtractVarValue(encoded) {
+    const em = _varsDecodeEmail(encoded); if(!em) return notify('Email not found', '#ff3b30', 1500);
+    return _varsRelatedExtractVarsFromEmails([em]);
+}
+async function _varsRelatedExtractVarsSelected() {
+    const selected = _varsRelatedSelectedEmails();
+    if(!selected.length) return notify('Select email(s) first', '#888', 1600);
+    return _varsRelatedExtractVarsFromEmails(selected);
+}
+async function _varsRelatedExtractVarsFromEmails(emails) {
+    if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30");
+    const vars = getActiveVars();
+    const p = AI_PROFILES.find(x => x.label === activeProfileLabel);
+    const keys = (p && p.expected_vars && p.expected_vars.length) ? p.expected_vars : Object.keys(vars || {});
+    if(!keys.length) return notify('No variable keys available to extract', '#888', 1800);
+    const chunks = [];
+    for(const em of emails) {
+        const lines = await gmailFetchEmailLines(em);
+        chunks.push(`Subject: ${em.subject || ''}\nFrom: ${em.from || ''}\nTo: ${em.to || ''}\n` + (lines || []).join('\n').slice(0, 3000));
+    }
+    const historyText = chunks.join('\n\n---\n\n').slice(0, 10000);
+    const sysPrompt = _getAiPrompt('var_extract').replace('[VARS]', JSON.stringify(keys)).replace('[PROFILE]', p ? p.text : 'N/A').replace('[DATA]', '{}');
+    let obj = null;
+    try {
+        const mdl = _getAiModel('var_extract', getExtractModel());
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` },
+            body: JSON.stringify({
+                model: mdl,
+                messages: [
+                    { role: "system", content: sysPrompt },
+                    { role: "user", content: `Email history:\n${historyText}` }
+                ],
+                response_format: { type: "json_object" }
+            })
+        });
+        if(!res.ok) throw new Error('API error');
+        const d = await res.json();
+        const raw = d.choices && d.choices[0] && d.choices[0].message ? d.choices[0].message.content : '{}';
+        obj = JSON.parse(raw || '{}');
+    } catch(_) {
+        return notify('Extraction failed', '#ff3b30', 1700);
+    }
+    let updated = 0;
+    keys.forEach(k => {
+        if(obj[k] == null || obj[k] === '') return;
+        const htmlVal = String(obj[k]).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+        vars[k] = { value: htmlVal, locked: false };
+        updated++;
+    });
+    if(!updated) return notify('No variable values extracted', '#888', 1700);
+    const sData = getSessions(); const cur = sData.list.find(x => String(x.id) === String(sData.current)); const activeVid = _calPreviewVid || (cur && cur.var_id);
+    if(activeVid) _dsTakeSnapshot(activeVid, 'Email extract');
+    await saveAll();
+    renderSessionVariables();
+    notify(`Updated ${updated} var(s) from ${emails.length} email(s)`, '#34c759', 2000);
+}
+async function _varsRelatedAddSelectedToContext() {
+    const selected = _varsRelatedSelectedEmails();
+    if(!selected.length) return notify('Select email(s) first', '#888', 1600);
+    let added = 0;
+    for(const em of selected) {
+        const lines = await gmailFetchEmailLines(em);
+        if (!lines.length) continue;
+        _addCtxGroup(em.subject || gmailExtractAddr(em.from) || 'Email', lines);
+        added++;
+    }
+    _updateFchatContextLabel();
+    notify(`${added} email(s) added to context`, '#34c759', 1800);
+}
 function _searchByEmail(email) {
     const term = String(email || '').trim();
     if(!term) { notify('Enter an email first', '#888', 1800); return; }
@@ -4514,6 +4666,7 @@ let emailCurrentMailbox = 'INBOX';
 let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
 let gmailReplyDraftSaveTimer = null;
+let _varsRelatedEmailCache = { email: '', items: [] };
 
 function gmailReplyDraftKey(em) {
     if(!em) return '';
@@ -7103,83 +7256,88 @@ function _updateFchatContextLabel() {
     lbl.textContent = parts.join(' · ');
 }
 
+async function _findRelatedEmailsForAddress(senderAddr) {
+    const allAccts = emailGetAllAccounts();
+    if (!allAccts.length) { notify('No email accounts configured', '#888', 1800); return []; }
+    const senderLc = String(senderAddr || '').toLowerCase();
+    const query = `from:${senderAddr} OR to:${senderAddr} OR "${senderAddr}"`;
+    const found = [];
+    const seen = new Set();
+    notify(`Finding related emails… (0/${allAccts.length} accounts)`, '#007aff', 2500);
+    for (let ai = 0; ai < allAccts.length; ai++) {
+        const acct = allAccts[ai];
+        notify(`Finding related emails… (${ai + 1}/${allAccts.length})`, '#007aff', 2000);
+        if (acct.type === 'gmail') {
+            if (!gmailAccessToken) continue;
+            let pageToken = '';
+            let page = 0;
+            const pageLimit = 50;
+            while (page < 8) {
+                const pageQs = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+                const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${pageLimit}&q=${encodeURIComponent(query)}${pageQs}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+                if (!listRes.ok) break;
+                const listData = await listRes.json();
+                const msgs = listData.messages || [];
+                if (!msgs.length) break;
+                const details = await Promise.all(msgs.map(async m => {
+                    const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+                    if (!r.ok) return null;
+                    const d = await r.json();
+                    const hdr = d.payload && d.payload.headers ? d.payload.headers : [];
+                    const get = n => ((hdr.find(h => h.name === n) || {}).value) || '';
+                    const labels = d.labelIds || [];
+                    return { id: m.id, threadId: m.threadId, subject: get('Subject') || '(no subject)', from: get('From'), to: get('To'), date: get('Date'), messageId: get('Message-ID'), snippet: d.snippet || '', unread: labels.includes('UNREAD'), _starred: labels.includes('STARRED'), _accountId: 'gmail', _listUnsubscribe: get('List-Unsubscribe'), _precedence: get('Precedence'), _autoSubmitted: get('Auto-Submitted') };
+                }));
+                details.filter(Boolean).forEach(e => {
+                    const key = (e._accountId || '') + ':' + (e.id || e.messageId || '');
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    found.push(e);
+                });
+                pageToken = listData.nextPageToken || '';
+                if (!pageToken) break;
+                page++;
+            }
+        } else {
+            let offset = 0;
+            const batch = 50;
+            for (let page = 0; page < 8; page++) {
+                const res = await emailFetchFromAccount(acct, query, batch, offset);
+                const emails = res && res.emails ? res.emails : [];
+                emails.forEach(e => {
+                    const key = (e._accountId || acct.id || '') + ':' + (e.id || e.messageId || '');
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    found.push(e);
+                });
+                if (emails.length < batch) break;
+                offset += batch;
+            }
+        }
+    }
+    notify('Verifying body/snippet matches…', '#007aff', 1800);
+    const related = [];
+    for (const e of found) {
+        const fromMatch = gmailExtractAddr(e.from) === senderAddr;
+        if (fromMatch) { related.push(e); continue; }
+        let bodyMatch = false;
+        if ((e.snippet || '').toLowerCase().includes(senderLc)) bodyMatch = true;
+        if (!bodyMatch) {
+            const lines = await gmailFetchEmailLines(e);
+            const bodyText = (lines || []).join('\n').toLowerCase();
+            bodyMatch = bodyText.includes(senderLc);
+        }
+        if (bodyMatch) related.push(e);
+    }
+    return related;
+}
+
 async function addFloatingChatContext(type) {
     if (type === 'clear') { CONTEXT_LINES.splice(0); cutIdx = -1; _ctxGroups = []; _updateFchatContextLabel(); refreshUI(); notify('Context cleared', '#888', 1500); return; }
     if (type === 'related') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
         const senderAddr = gmailExtractAddr(em.from); if (!senderAddr) { notify('Cannot extract sender address', '#ff3b30', 1800); return; }
-        const allAccts = emailGetAllAccounts();
-        if (!allAccts.length) { notify('No email accounts configured', '#888', 1800); return; }
-        const senderLc = senderAddr.toLowerCase();
-        const query = `from:${senderAddr} OR to:${senderAddr} OR "${senderAddr}"`;
-        const found = [];
-        const seen = new Set();
-        notify(`Finding related emails… (0/${allAccts.length} accounts)`, '#007aff', 2500);
-        for (let ai = 0; ai < allAccts.length; ai++) {
-            const acct = allAccts[ai];
-            notify(`Finding related emails… (${ai + 1}/${allAccts.length})`, '#007aff', 2000);
-            if (acct.type === 'gmail') {
-                if (!gmailAccessToken) continue;
-                let pageToken = '';
-                let page = 0;
-                const pageLimit = 50;
-                while (page < 8) {
-                    const pageQs = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
-                    const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${pageLimit}&q=${encodeURIComponent(query)}${pageQs}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
-                    if (!listRes.ok) break;
-                    const listData = await listRes.json();
-                    const msgs = listData.messages || [];
-                    if (!msgs.length) break;
-                    const details = await Promise.all(msgs.map(async m => {
-                        const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
-                        if (!r.ok) return null;
-                        const d = await r.json();
-                        const hdr = d.payload && d.payload.headers ? d.payload.headers : [];
-                        const get = n => ((hdr.find(h => h.name === n) || {}).value) || '';
-                        const labels = d.labelIds || [];
-                        return { id: m.id, threadId: m.threadId, subject: get('Subject') || '(no subject)', from: get('From'), to: get('To'), date: get('Date'), messageId: get('Message-ID'), snippet: d.snippet || '', unread: labels.includes('UNREAD'), _starred: labels.includes('STARRED'), _accountId: 'gmail', _listUnsubscribe: get('List-Unsubscribe'), _precedence: get('Precedence'), _autoSubmitted: get('Auto-Submitted') };
-                    }));
-                    details.filter(Boolean).forEach(e => {
-                        const key = (e._accountId || '') + ':' + (e.id || e.messageId || '');
-                        if (seen.has(key)) return;
-                        seen.add(key);
-                        found.push(e);
-                    });
-                    pageToken = listData.nextPageToken || '';
-                    if (!pageToken) break;
-                    page++;
-                }
-            } else {
-                let offset = 0;
-                const batch = 50;
-                for (let page = 0; page < 8; page++) {
-                    const res = await emailFetchFromAccount(acct, query, batch, offset);
-                    const emails = res && res.emails ? res.emails : [];
-                    emails.forEach(e => {
-                        const key = (e._accountId || acct.id || '') + ':' + (e.id || e.messageId || '');
-                        if (seen.has(key)) return;
-                        seen.add(key);
-                        found.push(e);
-                    });
-                    if (emails.length < batch) break;
-                    offset += batch;
-                }
-            }
-        }
-        notify('Verifying body/snippet matches…', '#007aff', 1800);
-        const related = [];
-        for (const e of found) {
-            const fromMatch = gmailExtractAddr(e.from) === senderAddr;
-            if (fromMatch) { related.push(e); continue; }
-            let bodyMatch = false;
-            if ((e.snippet || '').toLowerCase().includes(senderLc)) bodyMatch = true;
-            if (!bodyMatch) {
-                const lines = await gmailFetchEmailLines(e);
-                const bodyText = (lines || []).join('\n').toLowerCase();
-                bodyMatch = bodyText.includes(senderLc);
-            }
-            if (bodyMatch) related.push(e);
-        }
+        const related = await _findRelatedEmailsForAddress(senderAddr);
         if (!related.length) { notify('No related emails found across all accounts', '#888', 2200); return; }
         notify(`Found ${related.length} related email(s)`, '#34c759', 2200);
         _openRelatedEmailsPicker(related, senderAddr);
