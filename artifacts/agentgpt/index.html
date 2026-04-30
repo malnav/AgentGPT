@@ -883,6 +883,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div class="sub-tab-btn" id="vsubtab-todos" onclick="switchVarsSubTab('todos')" style="padding:5px 8px; font-size:11px;">✅ Todos</div>
             <div class="sub-tab-btn" id="vsubtab-chats" onclick="switchVarsSubTab('chats')" style="padding:5px 8px; font-size:11px;">💬 Chats</div>
             <div class="sub-tab-btn" id="vsubtab-history" onclick="switchVarsSubTab('history')" style="padding:5px 8px; font-size:11px;">🕐 History</div>
+            <div class="sub-tab-btn" id="vsubtab-emails" onclick="switchVarsSubTab('emails')" style="padding:5px 8px; font-size:11px;">📧 Emails</div>
             <div id="vtab-todo-actions" style="display:none; margin-left:auto; gap:3px; align-items:center; flex-shrink:0;">
                 <button class="chip" style="font-size:11px; padding:3px 7px; color:var(--accent);" onclick="aiGenTodos()" title="AI Gen Todos">🪄</button>
                 <button class="chip" style="font-size:14px; padding:1px 9px; background:var(--accent); color:#fff; font-weight:bold;" onclick="addTodo()" title="New Todo">+</button>
@@ -918,6 +919,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         </div>
         <div id="vsubview-history" style="display:none; flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y; padding:12px 14px;">
             <div id="vars-history-list"></div>
+        </div>
+        <div id="vsubview-emails" style="display:none; flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y; padding:12px 14px;">
+            <div id="vars-related-emails-list"></div>
         </div>
     </div>
 </div>
@@ -2499,7 +2503,7 @@ async function linksImportFromPanel() {
     notify(`Imported ${count} link${count!==1?'s':''}!`, '#34c759', 2500);
 }
 function switchVarsTab(t) { switchVarsSubTab(t === 'vars' ? 'vars' : t); }
-function switchVarsSubTab(t) { _closeVarsPanelMenu(); ['vars','todos','chats','history'].forEach(k => { const stab=document.getElementById('vsubtab-'+k); if(stab)stab.classList.toggle('active', t===k); const sview=document.getElementById('vsubview-'+k); if(sview){ sview.style.display = t===k ? (k==='todos'?'flex':'block') : 'none'; if(t===k&&k==='todos')sview.style.flexDirection='column'; } const btns=document.getElementById('vtab-'+k+'-btns'); if(btns)btns.style.display = t===k ? 'flex' : 'none'; }); const ta=document.getElementById('vtab-todo-actions'); if(ta)ta.style.display = t==='todos' ? 'flex' : 'none'; if(t==='todos') renderChatTodos(); if(t==='chats') _renderVarsLinkedChats(); if(t==='history') _renderVarsHistory(); }
+function switchVarsSubTab(t) { _closeVarsPanelMenu(); ['vars','todos','chats','history','emails'].forEach(k => { const stab=document.getElementById('vsubtab-'+k); if(stab)stab.classList.toggle('active', t===k); const sview=document.getElementById('vsubview-'+k); if(sview){ sview.style.display = t===k ? (k==='todos'?'flex':'block') : 'none'; if(t===k&&k==='todos')sview.style.flexDirection='column'; } const btns=document.getElementById('vtab-'+k+'-btns'); if(btns)btns.style.display = t===k ? 'flex' : 'none'; }); const ta=document.getElementById('vtab-todo-actions'); if(ta)ta.style.display = t==='todos' ? 'flex' : 'none'; if(t==='todos') renderChatTodos(); if(t==='chats') _renderVarsLinkedChats(); if(t==='history') _renderVarsHistory(); if(t==='emails') _renderVarsRelatedEmails(); }
 function _toggleVarsPanelMenu(e) {
     if(e) e.stopPropagation();
     const m=document.getElementById('vars-panel-menu');
@@ -6067,7 +6071,7 @@ function gmailSanitizeHtml(html) {
     if(!normalized) return '';
     const tmp = document.createElement('div');
     tmp.innerHTML = normalized;
-    tmp.querySelectorAll('script,iframe,object,embed').forEach(el => el.remove());
+    tmp.querySelectorAll('script,iframe,object,embed,style,link,meta,base,title').forEach(el => el.remove());
     tmp.querySelectorAll('*').forEach(el => {
         [...el.attributes].forEach(attr => {
             const name = (attr.name || '').toLowerCase();
@@ -6090,7 +6094,30 @@ function gmailSanitizeHtml(html) {
         });
     });
     tmp.querySelectorAll('a').forEach(a => { a.setAttribute('target','_blank'); a.setAttribute('rel','noopener noreferrer'); });
-    return tmp.innerHTML.trim();
+
+    // Mobile-safe normalization: prevent horizontal overflow while preserving structure.
+    tmp.querySelectorAll('img,video,canvas,svg').forEach(el => {
+        const style = (el.getAttribute('style') || '').trim();
+        const extra = 'max-width:100%;height:auto;';
+        el.setAttribute('style', style ? `${style};${extra}` : extra);
+        el.removeAttribute('width');
+        if(el.tagName !== 'SVG') el.removeAttribute('height');
+    });
+
+    tmp.querySelectorAll('table').forEach(table => {
+        const style = (table.getAttribute('style') || '').trim();
+        const extra = 'max-width:100%;width:100%;table-layout:fixed;';
+        table.setAttribute('style', style ? `${style};${extra}` : extra);
+        table.removeAttribute('width');
+    });
+
+    tmp.querySelectorAll('td,th,pre,code,blockquote').forEach(el => {
+        const style = (el.getAttribute('style') || '').trim();
+        const extra = 'word-break:break-word;overflow-wrap:anywhere;';
+        el.setAttribute('style', style ? `${style};${extra}` : extra);
+    });
+
+    return `<div style="max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;">${tmp.innerHTML.trim()}</div>`;
 }
 
 function _extractEmailAddress(raw) {
