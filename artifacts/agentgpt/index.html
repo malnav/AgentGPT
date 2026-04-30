@@ -985,6 +985,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div class="email-action-icon" onclick="gmailArchiveEmail(gmailCurrentIdx,'panel')" title="Archive">📥</div>
                 <div class="email-action-icon" onclick="gmailTrashEmail(gmailCurrentIdx,'panel')" title="Delete" style="color:#ff3b30;">🗑️</div>
                 <span id="gmail-view-toggle-panel" class="chip" style="font-size:10px; padding:4px 9px; white-space:nowrap; flex-shrink:0;" onclick="gmailTogglePlainTextView('panel')">TXT</span>
+                <span class="chip" style="font-size:10px; padding:4px 9px; white-space:nowrap; flex-shrink:0;" onclick="addFloatingChatContext('related')" title="Find related emails by sender or body mention">Related</span>
                 <span class="chip" style="font-size:10px; padding:4px 9px; background:var(--accent); color:#fff; font-weight:700; white-space:nowrap; flex-shrink:0;" onclick="gmailAddEmailToContext(false,'panel')">+ Context</span>
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
@@ -1340,6 +1341,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div class="email-action-icon" onclick="gmailArchiveEmail(gmailCurrentIdx,'modal')" title="Archive">📥</div>
                 <div class="email-action-icon" onclick="gmailTrashEmail(gmailCurrentIdx,'modal')" title="Delete" style="color:#ff3b30;">🗑️</div>
                 <span id="gmail-view-toggle-modal" class="chip" style="font-size:11px; padding:5px 11px; white-space:nowrap; flex-shrink:0;" onclick="gmailTogglePlainTextView('modal')">TXT</span>
+                <span class="chip" style="font-size:11px; padding:5px 11px; white-space:nowrap; flex-shrink:0;" onclick="addFloatingChatContext('related')" title="Find related emails by sender or body mention">Related</span>
                 <span class="chip" style="font-size:11px; padding:5px 11px; background:var(--accent); color:#fff; font-weight:700; white-space:nowrap; flex-shrink:0;" onclick="gmailAddEmailToContext(false,'modal')">+ Context</span>
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
@@ -5989,7 +5991,33 @@ async function gmailSendReply(src) {
     } catch(e) { notify("Failed to send: " + e.message, "#ff3b30", 5000); }
 }
 
-function gmailExpandReply(src) { const id = src === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box'; const el = document.getElementById(id); if (!el) return; const isExp = el.dataset.expanded === '1'; const replySection = el.closest('div[style*="border-top"]'); const overlayId = src === 'panel' ? 'gmail-preview-overlay' : 'gmail-modal-preview'; const overlay = document.getElementById(overlayId) || el.parentElement.parentElement.parentElement.parentElement; const emailBody = overlay ? Array.from(overlay.children).find(c => c.style && (c.style.flex === '1' || c.style.flex.startsWith('1 '))) : null; if (isExp) { el.style.minHeight = src === 'panel' ? '120px' : '140px'; el.style.maxHeight = src === 'panel' ? '200px' : '220px'; el.dataset.expanded = '0'; if (replySection) replySection.style.flex = ''; if (emailBody) emailBody.style.flex = '1'; } else { el.style.minHeight = '38vh'; el.style.maxHeight = '60vh'; el.dataset.expanded = '1'; if (replySection) replySection.style.flex = '1'; if (emailBody) emailBody.style.flex = '0 0 auto'; } el.focus(); }
+function gmailExpandReply(src) {
+    const id = src === 'panel' ? 'gmail-reply-box' : 'gmail-modal-reply-box';
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isExp = el.dataset.expanded === '1';
+    const replySection = el.closest('div[style*="border-top"]');
+    const overlayId = src === 'panel' ? 'gmail-preview-overlay' : 'gmail-modal-preview';
+    const overlay = document.getElementById(overlayId) || el.parentElement.parentElement.parentElement.parentElement;
+    const emailBody = overlay ? Array.from(overlay.children).find(c => c.style && (c.style.flex === '1' || c.style.flex.startsWith('1 '))) : null;
+    if (isExp) {
+        el.style.minHeight = src === 'panel' ? '120px' : '140px';
+        el.style.maxHeight = src === 'panel' ? '200px' : '220px';
+        el.style.height = '';
+        el.dataset.expanded = '0';
+        if (replySection) replySection.style.flex = '';
+        if (emailBody) emailBody.style.flex = '1';
+    } else {
+        el.style.minHeight = '38vh';
+        el.style.maxHeight = 'none';
+        el.style.height = src === 'panel' ? '52vh' : '56vh';
+        el.dataset.expanded = '1';
+        if (replySection) replySection.style.flex = '1';
+        if (emailBody) emailBody.style.flex = '0 0 auto';
+    }
+    el.focus();
+    requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' }));
+}
 function gmailClearReply(src) {
     src = src || 'panel';
     const el = document.getElementById(gmailIds(src).reply);
@@ -7067,23 +7095,80 @@ async function addFloatingChatContext(type) {
     if (type === 'related') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
         const senderAddr = gmailExtractAddr(em.from); if (!senderAddr) { notify('Cannot extract sender address', '#ff3b30', 1800); return; }
-        const sourceEmails = Array.isArray(gmailEmails) ? gmailEmails : [];
-        if (!sourceEmails.length) { notify('No emails loaded yet', '#888', 1800); return; }
-        notify('Finding related emails…', '#007aff', 1800);
+        const allAccts = emailGetAllAccounts();
+        if (!allAccts.length) { notify('No email accounts configured', '#888', 1800); return; }
+        const senderLc = senderAddr.toLowerCase();
+        const query = `from:${senderAddr} OR to:${senderAddr} OR "${senderAddr}"`;
+        const found = [];
+        const seen = new Set();
+        notify(`Finding related emails… (0/${allAccts.length} accounts)`, '#007aff', 2500);
+        for (let ai = 0; ai < allAccts.length; ai++) {
+            const acct = allAccts[ai];
+            notify(`Finding related emails… (${ai + 1}/${allAccts.length})`, '#007aff', 2000);
+            if (acct.type === 'gmail') {
+                if (!gmailAccessToken) continue;
+                let pageToken = '';
+                let page = 0;
+                const pageLimit = 50;
+                while (page < 8) {
+                    const pageQs = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+                    const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${pageLimit}&q=${encodeURIComponent(query)}${pageQs}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+                    if (!listRes.ok) break;
+                    const listData = await listRes.json();
+                    const msgs = listData.messages || [];
+                    if (!msgs.length) break;
+                    const details = await Promise.all(msgs.map(async m => {
+                        const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+                        if (!r.ok) return null;
+                        const d = await r.json();
+                        const hdr = d.payload && d.payload.headers ? d.payload.headers : [];
+                        const get = n => ((hdr.find(h => h.name === n) || {}).value) || '';
+                        const labels = d.labelIds || [];
+                        return { id: m.id, threadId: m.threadId, subject: get('Subject') || '(no subject)', from: get('From'), to: get('To'), date: get('Date'), messageId: get('Message-ID'), snippet: d.snippet || '', unread: labels.includes('UNREAD'), _starred: labels.includes('STARRED'), _accountId: 'gmail', _listUnsubscribe: get('List-Unsubscribe'), _precedence: get('Precedence'), _autoSubmitted: get('Auto-Submitted') };
+                    }));
+                    details.filter(Boolean).forEach(e => {
+                        const key = (e._accountId || '') + ':' + (e.id || e.messageId || '');
+                        if (seen.has(key)) return;
+                        seen.add(key);
+                        found.push(e);
+                    });
+                    pageToken = listData.nextPageToken || '';
+                    if (!pageToken) break;
+                    page++;
+                }
+            } else {
+                let offset = 0;
+                const batch = 50;
+                for (let page = 0; page < 8; page++) {
+                    const res = await emailFetchFromAccount(acct, query, batch, offset);
+                    const emails = res && res.emails ? res.emails : [];
+                    emails.forEach(e => {
+                        const key = (e._accountId || acct.id || '') + ':' + (e.id || e.messageId || '');
+                        if (seen.has(key)) return;
+                        seen.add(key);
+                        found.push(e);
+                    });
+                    if (emails.length < batch) break;
+                    offset += batch;
+                }
+            }
+        }
+        notify('Verifying body/snippet matches…', '#007aff', 1800);
         const related = [];
-        for (const e of sourceEmails) {
+        for (const e of found) {
             const fromMatch = gmailExtractAddr(e.from) === senderAddr;
             if (fromMatch) { related.push(e); continue; }
             let bodyMatch = false;
-            if ((e.snippet || '').toLowerCase().includes(senderAddr.toLowerCase())) bodyMatch = true;
+            if ((e.snippet || '').toLowerCase().includes(senderLc)) bodyMatch = true;
             if (!bodyMatch) {
                 const lines = await gmailFetchEmailLines(e);
                 const bodyText = (lines || []).join('\n').toLowerCase();
-                bodyMatch = bodyText.includes(senderAddr.toLowerCase());
+                bodyMatch = bodyText.includes(senderLc);
             }
             if (bodyMatch) related.push(e);
         }
-        if (!related.length) { notify('No related emails found', '#888', 1800); return; }
+        if (!related.length) { notify('No related emails found across all accounts', '#888', 2200); return; }
+        notify(`Found ${related.length} related email(s)`, '#34c759', 2200);
         _openRelatedEmailsPicker(related, senderAddr);
     } else if (type === 'address_scan') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
