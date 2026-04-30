@@ -8228,6 +8228,69 @@ function _closeReplyProfilePicker() {
     document.removeEventListener('touchstart', _pickerOutside);
 }
 
+
+function _emailOnly(v) {
+    const str = String(v || '').toLowerCase();
+    const m = str.match(/[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/i);
+    return m ? m[0].toLowerCase() : '';
+}
+
+function _replyMatchDatasetsBySenderEmail() {
+    const senderEmail = _emailOnly(gmailCurrentEmail && gmailCurrentEmail.from);
+    if (!senderEmail) return [];
+    const out = [];
+    Object.keys(GLOBAL_DATASETS || {}).forEach(vid => {
+        const ds = GLOBAL_DATASETS[vid];
+        if (!ds || ds.archived || !ds.data) return;
+        const vals = Object.values(ds.data);
+        const hit = vals.some(v => {
+            const raw = typeof v === 'object' ? (v && (v.value || v.text || v.email || '')) : v;
+            if (!raw) return false;
+            return _emailOnly(raw) === senderEmail;
+        });
+        if (hit) out.push({ vid, title: ds.title || 'Dataset' });
+    });
+    return out;
+}
+
+async function _replyLinkDatasetBySenderMatch() {
+    const matches = _replyMatchDatasetsBySenderEmail();
+    if (!matches.length) return false;
+    const sData = getSessions();
+    const cur = sData && sData.list ? sData.list.find(x => String(x.id) === String(sData.current)) : null;
+    if (!cur) return false;
+    if (matches.length === 1) {
+        cur.var_id = matches[0].vid;
+        await saveAll();
+        renderSessionVariables();
+        notify(`🔗 Linked dataset: ${matches[0].title}`, '#34c759', 2200);
+        return true;
+    }
+    return new Promise(resolve => {
+        const selectedVid = cur.var_id || null;
+        _openDatasetPickerModal(async (vid) => {
+            if (!vid) { resolve(false); return; }
+            const allowed = matches.find(m => String(m.vid) === String(vid));
+            if (!allowed) { notify('Select one of the matched datasets', '#ff9500', 2200); resolve(false); return; }
+            cur.var_id = vid;
+            await saveAll();
+            renderSessionVariables();
+            notify(`🔗 Linked dataset: ${allowed.title}`, '#34c759', 2200);
+            resolve(true);
+        }, selectedVid);
+        const listEl = document.getElementById('_ds-picker-list');
+        if (listEl) {
+            const allowedVids = new Set(matches.map(m => String(m.vid)));
+            Array.from(listEl.children).forEach((node, idx) => {
+                if (idx === 0) { node.remove(); return; }
+                const text = (node.textContent || '').trim();
+                const m = matches.find(x => text.includes(x.title));
+                if (!m || !allowedVids.has(String(m.vid))) node.remove();
+            });
+        }
+    });
+}
+
 function _pickReplyAiProfile(profileLabel) {
     _closeReplyProfilePicker();
     const _atRange = _removeAtSymbolFromReply();
@@ -8235,6 +8298,7 @@ function _pickReplyAiProfile(profileLabel) {
     _replyAiTargetBoxId = boxId;
     _replyInsState = { spanId: '', markerEl: _atRange || null, savedRange: null };
     _updateReplyAiIndicator();
+    _replyLinkDatasetBySenderMatch();
     openFloatingChat(profileLabel);
     setTimeout(async () => {
         const bodyElId = _replyAiSrc === 'panel' ? 'gmail-preview-body' : 'gmail-modal-preview-body';
