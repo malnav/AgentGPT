@@ -1580,7 +1580,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 
 <div id="datasets-picker-modal" class="modal" style="z-index: 505;"><div class="modal-header"><h3>Select Data Set</h3><div onclick="closeModal('datasets-picker-modal')" style="font-size:24px; cursor:pointer;">✕</div></div><div class="modal-content"><ul id="datasets-picker-list" style="list-style:none; padding:0; margin:0;"></ul></div></div>
 
-<div id="var-edit-modal" class="modal" style="z-index: 510;">
+<div id="var-edit-modal" class="modal" style="z-index: 9301;">
     <div class="modal-header"><h3 style="color:var(--accent);">Edit Variable</h3><div onclick="closeModal('var-edit-modal')" style="font-size:24px; cursor:pointer;">✕</div></div>
     <div style="padding:8px 14px; border-bottom:0.5px solid var(--border);">
         <input type="text" id="var-edit-name" class="pp-input" placeholder="Variable name..." style="font-weight:700; font-size:14px; font-family:monospace; margin:0;">
@@ -4054,7 +4054,7 @@ function setContextWithExpand(on) { cutIdx = on ? CONTEXT_LINES.length - 1 : -1;
 function popState() { const noteIn = document.getElementById('note-input'); if(historyState.length > 0) { redoState.push(noteIn.value); noteIn.value = historyState.pop(); sync(); } }
 function redoStateAction() { const noteIn = document.getElementById('note-input'); if(redoState.length > 0) { historyState.push(noteIn.value); noteIn.value = redoState.pop(); sync(); } }
 async function openModal(id) { 
-    closeAllPanels(); 
+    if (id !== 'var-edit-modal') closeAllPanels(); 
     if(id === 'workspace-modal') await autoCleanupEmptyChats();
     document.getElementById(id).style.display = 'flex'; 
     if(id === 'master-modal') { document.getElementById('storage-usage-disp').innerText = (await getStorageSize()) + " MB (DB)"; renderModelList(); renderProfileList(); renderBgSwatches(); } 
