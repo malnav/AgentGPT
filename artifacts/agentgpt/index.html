@@ -893,6 +893,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <button class="chip" style="font-size:11px; padding:4px 9px;" onclick="bulkVarSelectAll()">All</button>
                 <button class="chip" style="font-size:11px; padding:4px 9px; background:rgba(0,122,255,0.1); color:var(--accent);" onclick="bulkVarLock(true)">🔒 Lock</button>
                 <button class="chip" style="font-size:11px; padding:4px 9px;" onclick="bulkVarLock(false)">🔓 Unlock</button>
+                <button class="chip" style="font-size:11px; padding:4px 9px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="bulkVarAddToContext()">➕ Ctx</button>
                 <button class="chip" style="font-size:11px; padding:4px 9px; background:rgba(255,59,48,0.1); color:#ff3b30;" onclick="bulkVarDelete()">🗑️ Del</button>
                 <button class="chip" style="font-size:11px; padding:4px 9px;" onclick="toggleVarSelectMode()">Done</button>
                 <span id="var-bulk-count" style="font-size:11px; color:#888; font-weight:600;"></span>
@@ -2499,7 +2500,18 @@ async function linksImportFromPanel() {
 }
 function switchVarsTab(t) { switchVarsSubTab(t === 'vars' ? 'vars' : t); }
 function switchVarsSubTab(t) { _closeVarsPanelMenu(); ['vars','todos','chats','history'].forEach(k => { const stab=document.getElementById('vsubtab-'+k); if(stab)stab.classList.toggle('active', t===k); const sview=document.getElementById('vsubview-'+k); if(sview){ sview.style.display = t===k ? (k==='todos'?'flex':'block') : 'none'; if(t===k&&k==='todos')sview.style.flexDirection='column'; } const btns=document.getElementById('vtab-'+k+'-btns'); if(btns)btns.style.display = t===k ? 'flex' : 'none'; }); const ta=document.getElementById('vtab-todo-actions'); if(ta)ta.style.display = t==='todos' ? 'flex' : 'none'; if(t==='todos') renderChatTodos(); if(t==='chats') _renderVarsLinkedChats(); if(t==='history') _renderVarsHistory(); }
-function _toggleVarsPanelMenu(e) { if(e)e.stopPropagation(); const m=document.getElementById('vars-panel-menu'); if(!m)return; const isOpen=m.style.display!=='none'; m.style.display=isOpen?'none':'block'; if(!isOpen){ const close=ev=>{if(!m.contains(ev.target)){m.style.display='none'; document.removeEventListener('click',close,true);}}; setTimeout(()=>document.addEventListener('click',close,true),10); } }
+function _toggleVarsPanelMenu(e) {
+    if(e) e.stopPropagation();
+    const m=document.getElementById('vars-panel-menu');
+    if(m) m.style.display='none';
+    _showItemMenu(e || { stopPropagation(){}, currentTarget: document.getElementById('vars-slide-panel') }, [
+        { label:'✏️ Rename', fn:()=>_renameActiveDataset() },
+        { label:'🪄 AI Title', fn:()=>_aiTitleActiveDataset() },
+        { label:'🗄️ Archive', fn:()=>_archiveCurrentDataset() },
+        { label:'⚙️ Rules', fn:()=>editExtractionRules() },
+        { label:'☑ Bulk Select', fn:()=>toggleVarSelectMode() }
+    ]);
+}
 function _closeVarsPanelMenu() { const m=document.getElementById('vars-panel-menu'); if(m)m.style.display='none'; }
 function _runVarsPanelMenuAction(action) {
     _closeVarsPanelMenu();
@@ -3040,6 +3052,7 @@ function toggleVarSelectMode() { _varSelectMode=!_varSelectMode; _varSelected=ne
 function _varToggleSel(k) { if(_varSelected.has(k))_varSelected.delete(k);else _varSelected.add(k); const c=document.getElementById('var-bulk-count'); if(c)c.textContent=_varSelected.size?`${_varSelected.size} selected`:''; renderSessionVariables(); }
 function bulkVarSelectAll() { let p=AI_PROFILES.find(x=>x.label===activeProfileLabel); const all=p?p.expected_vars||[]:[];  if(_varSelected.size===all.length)_varSelected=new Set();else all.forEach(k=>_varSelected.add(k)); const c=document.getElementById('var-bulk-count'); if(c)c.textContent=_varSelected.size?`${_varSelected.size} selected`:''; renderSessionVariables(); }
 async function bulkVarLock(lock) { if(!_varSelected.size)return notify('Select variables first','#888'); const vars=getActiveVars(); _varSelected.forEach(k=>{ if(typeof vars[k]==='string')vars[k]={value:vars[k],locked:false}; if(vars[k])vars[k].locked=lock;else vars[k]={value:'',locked:lock}; }); await saveAll(); notify((lock?'Locked':'Unlocked')+' '+_varSelected.size+' variable(s)','#34c759'); renderSessionVariables(); }
+async function bulkVarAddToContext() { if(!_varSelected.size) return notify('Select variables first','#888'); const vars=getActiveVars(); let added=0; [..._varSelected].forEach(k=>{ let vObj=vars[k]; let v=(typeof vObj==='object'&&vObj!==null)?(vObj.value||''):(vObj||''); let line=`${k}: ${v}`; if(!CONTEXT_LINES.includes(line)) { CONTEXT_LINES.push(line); added++; } }); cutIdx=CONTEXT_LINES.length?CONTEXT_LINES.length-1:cutIdx; await saveAll(true); refreshUI(); notify(`${added} variable${added!==1?'s':''} added to context`,'#34c759'); }
 async function bulkVarDelete() { if(!_varSelected.size)return notify('Select variables first','#888'); openConfirm(`Delete ${_varSelected.size} selected variable(s)?`,async()=>{ let p=AI_PROFILES.find(x=>x.label===activeProfileLabel); const vars=getActiveVars(); _varSelected.forEach(k=>{ if(p&&p.expected_vars)p.expected_vars=p.expected_vars.filter(v=>v!==k); delete vars[k]; }); _varSelected=new Set(); const c=document.getElementById('var-bulk-count'); if(c)c.textContent=''; await saveAll(); renderSessionVariables(); notify('Variables deleted','#ff3b30'); }); }
 function showVarMenu(k, e, isLocked, isDateVar) {
   closeVarMenu();
