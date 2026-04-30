@@ -985,6 +985,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div class="email-action-icon" onclick="gmailArchiveEmail(gmailCurrentIdx,'panel')" title="Archive">📥</div>
                 <div class="email-action-icon" onclick="gmailTrashEmail(gmailCurrentIdx,'panel')" title="Delete" style="color:#ff3b30;">🗑️</div>
                 <span id="gmail-view-toggle-panel" class="chip" style="font-size:10px; padding:4px 9px; white-space:nowrap; flex-shrink:0;" onclick="gmailTogglePlainTextView('panel')">TXT</span>
+                <span class="chip" style="font-size:10px; padding:4px 9px; white-space:nowrap; flex-shrink:0;" onclick="addFloatingChatContext('related')" title="Find related emails by sender or body mention">Related</span>
                 <span class="chip" style="font-size:10px; padding:4px 9px; background:var(--accent); color:#fff; font-weight:700; white-space:nowrap; flex-shrink:0;" onclick="gmailAddEmailToContext(false,'panel')">+ Context</span>
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
@@ -1340,6 +1341,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                 <div class="email-action-icon" onclick="gmailArchiveEmail(gmailCurrentIdx,'modal')" title="Archive">📥</div>
                 <div class="email-action-icon" onclick="gmailTrashEmail(gmailCurrentIdx,'modal')" title="Delete" style="color:#ff3b30;">🗑️</div>
                 <span id="gmail-view-toggle-modal" class="chip" style="font-size:11px; padding:5px 11px; white-space:nowrap; flex-shrink:0;" onclick="gmailTogglePlainTextView('modal')">TXT</span>
+                <span class="chip" style="font-size:11px; padding:5px 11px; white-space:nowrap; flex-shrink:0;" onclick="addFloatingChatContext('related')" title="Find related emails by sender or body mention">Related</span>
                 <span class="chip" style="font-size:11px; padding:5px 11px; background:var(--accent); color:#fff; font-weight:700; white-space:nowrap; flex-shrink:0;" onclick="gmailAddEmailToContext(false,'modal')">+ Context</span>
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
