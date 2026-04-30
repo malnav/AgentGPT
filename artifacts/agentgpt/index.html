@@ -945,9 +945,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
         <div style="display:flex; gap:5px; padding:8px 10px 6px; overflow-x:auto; scrollbar-width:none; flex-shrink:0; border-bottom:0.5px solid var(--glass-border);">
             <div class="fchat-ctx-btn" onclick="_addClipboardToContext()" style="flex-shrink:0;">📋 Clipboard</div>
             <div class="fchat-ctx-btn" onclick="ctxSwitchTab('whatsapp')" style="flex-shrink:0;">📱 WA</div>
-            <div class="fchat-ctx-btn" onclick="addFloatingChatContext('current')" style="flex-shrink:0;">📧 Email</div>
-            <div class="fchat-ctx-btn" onclick="addFloatingChatContext('sender')" style="flex-shrink:0;">📬 Thread</div>
-            <div class="fchat-ctx-btn" onclick="addFloatingChatContext('selected')" style="flex-shrink:0;">✅ Sel</div>
+            <div class="fchat-ctx-btn" onclick="addFloatingChatContext('related')" style="flex-shrink:0;">📬 Related Emails</div>
             <div class="fchat-ctx-btn danger" onclick="addFloatingChatContext('clear')" style="flex-shrink:0;">🗑</div>
         </div>
         <ul id="context-list" style="list-style:none; padding:0; margin:0; flex:1; padding-bottom:60px;"></ul>
@@ -1679,11 +1677,9 @@ let BUBBLE_CONFIGS = [];
 let _fchatBubblePositions = {};
 let _bubblePickerConfigs = [];
 const _CTX_OPTS = [
-    { id: 'email', icon: '📧', label: 'Email', ctxType: 'current' },
-    { id: 'thread', icon: '📬', label: 'Thread', ctxType: 'sender' },
+    { id: 'related', icon: '📬', label: 'Related Emails', ctxType: 'related' },
     { id: 'address', icon: '🔍', label: 'Address', ctxType: 'address_scan' },
     { id: 'clipboard', icon: '📋', label: 'Clipboard', ctxType: 'clipboard' },
-    { id: 'selected', icon: '✅', label: 'Sel', ctxType: 'selected' },
     { id: 'clear', icon: '🗑', label: '', cls: 'danger', ctxType: 'clear' },
 ];
 let activeProfileLabel = "Agent";
@@ -6432,7 +6428,7 @@ async function saveBubbleConfig(i) {
     const p = AI_PROFILES[i]; if (!p) return;
     p.emoji = document.getElementById('be-emoji-'+i)?.value || '🤖';
     const ctxEl = document.getElementById('be-ctx-'+i);
-    p.contexts = ctxEl ? Array.from(ctxEl.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value) : ['email','thread','selected','clear'];
+    p.contexts = ctxEl ? Array.from(ctxEl.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value) : ['related','clipboard','address','clear'];
     _syncBubbleConfigs(); await saveAll(); notify('Bubble saved!', '#34c759', 1500); renderBubbleSettings();
 }
 
@@ -7038,21 +7034,27 @@ function _updateFchatContextLabel() {
 
 async function addFloatingChatContext(type) {
     if (type === 'clear') { CONTEXT_LINES.splice(0); cutIdx = -1; _ctxGroups = []; _updateFchatContextLabel(); refreshUI(); notify('Context cleared', '#888', 1500); return; }
-    if (type === 'current') {
-        const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
-        notify('Adding current email to context…', '#007aff', 1800);
-        const lines = await gmailFetchEmailLines(em);
-        if (lines.length) { _addCtxGroup(em.subject || gmailExtractAddr(em.from) || 'Email', lines); notify('Email added to context', '#34c759', 1800); }
-        else { notify('No content found in this email', '#888', 1800); }
-    } else if (type === 'sender') {
+    if (type === 'related') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
         const senderAddr = gmailExtractAddr(em.from); if (!senderAddr) { notify('Cannot extract sender address', '#ff3b30', 1800); return; }
-        const related = (gmailEmails || []).filter(e => gmailExtractAddr(e.from) === senderAddr || (e.to && e.to.includes(senderAddr)));
-        if (!related.length) { notify('No other emails from this sender found', '#888', 1800); return; }
-        notify('Loading ' + related.length + ' email(s) from sender…', '#007aff', 2500);
-        let added = 0;
-        for (const r of related) { const ls = await gmailFetchEmailLines(r); if (ls.length) { _addCtxGroup(r.subject || senderAddr, ls); added++; } }
-        notify(added + ' email(s) added to context', '#34c759', 1800);
+        const sourceEmails = Array.isArray(gmailEmails) ? gmailEmails : [];
+        if (!sourceEmails.length) { notify('No emails loaded yet', '#888', 1800); return; }
+        notify('Finding related emails…', '#007aff', 1800);
+        const related = [];
+        for (const e of sourceEmails) {
+            const fromMatch = gmailExtractAddr(e.from) === senderAddr;
+            if (fromMatch) { related.push(e); continue; }
+            let bodyMatch = false;
+            if ((e.snippet || '').toLowerCase().includes(senderAddr.toLowerCase())) bodyMatch = true;
+            if (!bodyMatch) {
+                const lines = await gmailFetchEmailLines(e);
+                const bodyText = (lines || []).join('\n').toLowerCase();
+                bodyMatch = bodyText.includes(senderAddr.toLowerCase());
+            }
+            if (bodyMatch) related.push(e);
+        }
+        if (!related.length) { notify('No related emails found', '#888', 1800); return; }
+        _openRelatedEmailsPicker(related, senderAddr);
     } else if (type === 'address_scan') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
         const senderAddr = gmailExtractAddr(em.from); if (!senderAddr) { notify('Cannot extract address', '#ff3b30', 1800); return; }
@@ -7117,6 +7119,50 @@ async function addFloatingChatContext(type) {
         } catch (err) { notify('Clipboard access denied — allow clipboard permission', '#ff3b30', 2500); }
     }
     _updateFchatContextLabel();
+}
+
+function _openRelatedEmailsPicker(relatedEmails, senderAddr) {
+    const existing = document.getElementById('related-emails-picker');
+    if (existing) existing.remove();
+    const ov = document.createElement('div');
+    ov.id = 'related-emails-picker';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9400;background:rgba(0,0,0,0.35);display:flex;align-items:flex-end;justify-content:center;';
+    const rows = relatedEmails.map((em, idx) => {
+        const title = em.subject || '(no subject)';
+        const meta = `${gmailExtractAddr(em.from) || ''} • ${(em.date || '').slice(0, 25)}`;
+        return `<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 4px;border-bottom:0.5px solid var(--border);cursor:pointer;">
+            <input type="checkbox" class="related-email-chk" data-idx="${idx}" checked style="margin-top:2px;width:16px;height:16px;accent-color:var(--accent);">
+            <div style="min-width:0;flex:1;">
+                <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
+                <div style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${meta}</div>
+            </div>
+        </label>`;
+    }).join('');
+    ov.innerHTML = `<div style="background:var(--bg);width:100%;max-width:560px;max-height:78vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:14px 14px max(18px,env(safe-area-inset-bottom));">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+            <div style="font-size:16px;font-weight:800;">Related emails</div>
+            <div id="related-emails-close" style="font-size:22px;cursor:pointer;opacity:0.6;">✕</div>
+        </div>
+        <div style="font-size:12px;color:#666;margin-bottom:8px;">Matched sender/body with: <b>${senderAddr}</b></div>
+        <div style="overflow-y:auto;flex:1;">${rows}</div>
+        <button id="related-emails-add-btn" class="chip" style="margin-top:10px;width:100%;background:var(--accent);color:#fff;font-size:14px;padding:11px;">Add selected to context</button>
+    </div>`;
+    ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+    document.body.appendChild(ov);
+    document.getElementById('related-emails-close').onclick = () => ov.remove();
+    document.getElementById('related-emails-add-btn').onclick = async () => {
+        const selectedIdx = Array.from(ov.querySelectorAll('.related-email-chk:checked')).map(cb => parseInt(cb.dataset.idx));
+        if (!selectedIdx.length) { notify('No related emails selected', '#ff3b30', 1800); return; }
+        let added = 0;
+        for (const idx of selectedIdx) {
+            const em = relatedEmails[idx];
+            if (!em) continue;
+            const lines = await gmailFetchEmailLines(em);
+            if (lines.length) { _addCtxGroup(em.subject || gmailExtractAddr(em.from) || 'Email', lines); added++; }
+        }
+        ov.remove();
+        notify(added + ' related email(s) added to context', '#34c759', 2000);
+    };
 }
 
 
