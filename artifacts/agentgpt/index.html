@@ -6624,14 +6624,28 @@ let _fchatActiveId = null;
 let _ctxGroups = [];
 let _freshSessionActive = false;
 
+
+function _bubbleSafeTopInset() {
+    const vv = window.visualViewport;
+    const viewportOffsetTop = vv ? (vv.offsetTop || 0) : 0;
+    if (window.innerWidth < 768) return Math.max(56, viewportOffsetTop + 12);
+    return Math.max(8, viewportOffsetTop + 8);
+}
+
 function initProfileBubble() {
     const b = document.getElementById('profile-bubble');
     if (!b) return;
     const saved = JSON.parse(localStorage.getItem('bubble_pos') || 'null');
-    if (saved && saved.x !== undefined && saved.y !== undefined) {
+    const topInset = _bubbleSafeTopInset();
+    if (saved && saved.v === 2 && saved.x !== undefined && saved.y !== undefined) {
         b.style.right = 'auto'; b.style.bottom = 'auto';
-        b.style.left = Math.max(0, Math.min(saved.x, window.innerWidth - 60)) + 'px';
-        b.style.top = Math.max(0, Math.min(saved.y, window.innerHeight - 60)) + 'px';
+        b.style.left = Math.max(8, Math.min(saved.x, window.innerWidth - 60)) + 'px';
+        b.style.top = Math.max(topInset, Math.min(saved.y, window.innerHeight - 60)) + 'px';
+    } else {
+        b.style.right = 'auto';
+        b.style.left = '18px';
+        b.style.bottom = '110px';
+        b.style.top = 'auto';
     }
     b.addEventListener('touchstart', _bTouchStart, { passive: false });
     b.addEventListener('touchmove', _bTouchMove, { passive: false });
@@ -6643,13 +6657,13 @@ function initProfileBubble() {
 function _bSavePos() {
     const b = document.getElementById('profile-bubble');
     const rect = b.getBoundingClientRect();
-    localStorage.setItem('bubble_pos', JSON.stringify({ x: rect.left, y: rect.top }));
+    localStorage.setItem('bubble_pos', JSON.stringify({ v: 2, x: rect.left, y: rect.top }));
 }
 
 function _bMoveTo(x, y) {
     const b = document.getElementById('profile-bubble');
     const clamped_x = Math.max(0, Math.min(x, window.innerWidth - 60));
-    const clamped_y = Math.max(0, Math.min(y, window.innerHeight - 60));
+    const clamped_y = Math.max(_bubbleSafeTopInset(), Math.min(y, window.innerHeight - 60));
     b.style.right = 'auto'; b.style.bottom = 'auto';
     b.style.left = clamped_x + 'px'; b.style.top = clamped_y + 'px';
 }
@@ -6762,7 +6776,8 @@ function openBubblePicker() {
     let top = bRect.top + bRect.height / 2 - mh / 2;
     if (left < 8) left = bRect.right + 10;
     if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
-    if (top < 8) top = 8;
+    const minTop = _bubbleSafeTopInset();
+    if (top < minTop) top = minTop;
     if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
     menu.style.left = left + 'px'; menu.style.top = top + 'px';
     backdrop.style.display = 'block';
@@ -7153,7 +7168,8 @@ function openBubbleQuickChat() {
     let top = bRect.top + bRect.height / 2 - ph / 2;
     if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
     if (left < 8) left = 8;
-    if (top < 8) top = 8;
+    const minTop = _bubbleSafeTopInset();
+    if (top < minTop) top = minTop;
     if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
     panel.style.left = left + 'px';
     panel.style.top = top + 'px';
@@ -7671,7 +7687,8 @@ function openProfileBubbleMenu() {
     let top = bRect.top + bRect.height / 2 - mh / 2;
     if (left < 8) left = bRect.right + 10;
     if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
-    if (top < 8) top = 8;
+    const minTop = _bubbleSafeTopInset();
+    if (top < minTop) top = minTop;
     if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
     menu.style.left = left + 'px'; menu.style.top = top + 'px';
     backdrop.style.display = 'block';
