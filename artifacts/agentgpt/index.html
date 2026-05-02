@@ -7149,6 +7149,33 @@ function _bqcCycleProfile() {
     const inp = document.getElementById('bqc-input');
     if (inp) inp.focus();
 }
+
+let _bqcAnchorEl = null;
+let _bqcViewportHandler = null;
+function _bqcViewportBottom() {
+    const vv = window.visualViewport;
+    return (vv ? (vv.offsetTop + vv.height) : window.innerHeight) - 8;
+}
+function _bqcReposition() {
+    const panel = document.getElementById('bubble-quick-chat');
+    const anchor = _bqcAnchorEl || document.getElementById('profile-bubble');
+    if (!panel || !anchor || panel.style.display === 'none') return;
+    const bRect = anchor.getBoundingClientRect();
+    const pw = Math.min(320, window.innerWidth - 32);
+    const ph = panel.offsetHeight || 110;
+    let left = bRect.right + 10;
+    let top = bRect.top + bRect.height / 2 - ph / 2;
+    const viewportBottom = _bqcViewportBottom();
+    if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+    if (left < 8) left = 8;
+    const minTop = _bubbleSafeTopInset();
+    if (top < minTop) top = minTop;
+    if (top + ph > viewportBottom) top = viewportBottom - ph;
+    if (top < minTop) top = minTop;
+    panel.style.left = left + 'px';
+    panel.style.top = top + 'px';
+}
+
 function openBubbleQuickChat(anchorEl) {
     const panel = document.getElementById('bubble-quick-chat');
     const backdrop = document.getElementById('profile-bubble-backdrop');
@@ -7162,25 +7189,38 @@ function openBubbleQuickChat(anchorEl) {
     panel.classList.remove('bqc-open');
     void panel.offsetWidth;
     panel.classList.add('bqc-open');
-    const bRect = anchor.getBoundingClientRect();
-    const pw = Math.min(320, window.innerWidth - 32);
-    const ph = panel.offsetHeight || 110;
-    let left = bRect.right + 10;
-    let top = bRect.top + bRect.height / 2 - ph / 2;
-    if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
-    if (left < 8) left = 8;
-    const minTop = _bubbleSafeTopInset();
-    if (top < minTop) top = minTop;
-    if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
-    panel.style.left = left + 'px';
-    panel.style.top = top + 'px';
+    _bqcAnchorEl = anchor;
+    _bqcReposition();
+    if (_bqcViewportHandler) {
+        window.removeEventListener('resize', _bqcViewportHandler);
+        if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', _bqcViewportHandler);
+            window.visualViewport.removeEventListener('scroll', _bqcViewportHandler);
+        }
+    }
+    _bqcViewportHandler = () => _bqcReposition();
+    window.addEventListener('resize', _bqcViewportHandler);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', _bqcViewportHandler);
+        window.visualViewport.addEventListener('scroll', _bqcViewportHandler);
+    }
     if (backdrop) backdrop.style.display = 'block';
-    setTimeout(() => { if (inp) inp.focus(); }, 80);
+    if (inp) inp.focus({ preventScroll: true });
+    setTimeout(() => { if (inp) inp.focus({ preventScroll: true }); _bqcReposition(); }, 80);
 }
 function closeBubbleQuickChat() {
     const panel = document.getElementById('bubble-quick-chat');
     const backdrop = document.getElementById('profile-bubble-backdrop');
     if (panel) { panel.style.display = 'none'; panel.classList.remove('bqc-open'); }
+    if (_bqcViewportHandler) {
+        window.removeEventListener('resize', _bqcViewportHandler);
+        if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', _bqcViewportHandler);
+            window.visualViewport.removeEventListener('scroll', _bqcViewportHandler);
+        }
+        _bqcViewportHandler = null;
+    }
+    _bqcAnchorEl = null;
     if (backdrop) backdrop.style.display = 'none';
 }
 async function _bqcSend() {
