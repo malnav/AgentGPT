@@ -482,8 +482,8 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #profile-bubble:active { transform:scale(0.93); }
 #profile-bubble-menu { position:fixed; z-index:3350; min-width:230px; max-width:88vw; background:var(--glass); border:0.5px solid var(--glass-border); border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,0.28); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; }
 #bubble-quick-chat { position:fixed; z-index:3350; width:min(320px, calc(100vw - 32px)); background:var(--glass); border:0.5px solid var(--glass-border); border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,0.28); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; }
-@keyframes bqc-in { from{opacity:0;transform:scaleX(0.08)} to{opacity:1;transform:scaleX(1)} }
-#bubble-quick-chat.bqc-open { animation:bqc-in 0.22s cubic-bezier(0.22,1,0.36,1) both; transform-origin:left center; }
+@keyframes bqc-in { from{opacity:0;transform:scale(0.88) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+#bubble-quick-chat.bqc-open { animation:bqc-in 0.22s cubic-bezier(0.34,1.2,0.64,1) both; }
 #main-chat-wrapper { display:flex; flex-direction:column; flex:1; position:relative; min-height:0; overflow:hidden; }
 #floating-chat { position:fixed; z-index:9100; inset:0; background:var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); display:flex; flex-direction:column; overflow:hidden; }
 @media (prefers-color-scheme: dark) { #floating-chat { background:var(--bg-gradient, linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)); } }
@@ -7142,25 +7142,23 @@ function openBubbleQuickChat() {
     _bqcRenderProfile();
     const inp = document.getElementById('bqc-input');
     if (inp) inp.value = '';
-    const bRect = bubble.getBoundingClientRect();
-    // Panel to the right of bubble; width fills remaining space up to 320px
-    const pw = Math.min(320, window.innerWidth - bRect.right - 26);
-    panel.style.width = pw + 'px';
     panel.style.display = 'block';
     panel.classList.remove('bqc-open');
     void panel.offsetWidth;
     panel.classList.add('bqc-open');
+    const bRect = bubble.getBoundingClientRect();
+    const pw = Math.min(320, window.innerWidth - 32);
     const ph = panel.offsetHeight || 110;
-    // Align left edge of panel to right edge of bubble with a small gap
-    const left = bRect.right + 8;
-    // Vertically center panel with bubble
+    let left = bRect.left - pw - 10;
     let top = bRect.top + bRect.height / 2 - ph / 2;
+    if (left < 8) left = bRect.right + 10;
+    if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
     if (top < 8) top = 8;
     if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
     panel.style.left = left + 'px';
     panel.style.top = top + 'px';
     if (backdrop) backdrop.style.display = 'block';
-    if (inp) inp.focus();
+    setTimeout(() => { if (inp) inp.focus(); }, 80);
 }
 function closeBubbleQuickChat() {
     const panel = document.getElementById('bubble-quick-chat');
@@ -7172,7 +7170,7 @@ async function _bqcSend() {
     const inp = document.getElementById('bqc-input');
     if (!inp) return;
     const text = (inp.value || '').trim();
-    if (!text && pendingAttachments.length === 0) { inp.focus(); return; }
+    if (!text) { inp.focus(); return; }
     const p = _bqcGetProfile();
     const profileLabel = p.label || activeProfileLabel;
     closeBubbleQuickChat();
@@ -8418,7 +8416,7 @@ function _linkifyHtml(html) {
     </div>
 </div>
 
-<div id="profile-bubble" style="bottom:110px; left:18px;" title="Profile Chat Bubble" onclick="profileBubbleTap(event)">
+<div id="profile-bubble" style="bottom:110px; right:18px;" title="Profile Chat Bubble" onclick="profileBubbleTap(event)">
     <span id="profile-bubble-icon">?</span>
 </div>
 
@@ -8583,7 +8581,6 @@ function _linkifyHtml(html) {
         <div style="display:flex; gap:8px; align-items:center; border:0.5px solid var(--border); border-radius:16px; padding:6px 8px; background:var(--sec-bg);">
             <button id="bqc-profile-btn" type="button" onclick="_bqcCycleProfile()" title="Switch profile" style="border:none; width:34px; height:34px; border-radius:17px; background:var(--accent); color:#fff; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 4px 12px rgba(0,122,255,0.25);">🤖</button>
             <input id="bqc-input" type="text" placeholder="Message Agent…" autocomplete="off" maxlength="2000" onkeydown="if(event.key==='Enter'){event.preventDefault();_bqcSend();}" style="flex:1; border:none; padding:8px 4px; font-size:14px; background:transparent; color:var(--text); outline:none; font-family:inherit;">
-            <button type="button" onclick="_openAttachMenu(event)" title="Add attachment" style="border:none; width:28px; height:28px; border-radius:14px; background:transparent; color:var(--accent); font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; opacity:0.8;">➕</button>
             <button type="button" onclick="_bqcSend()" title="Send" style="border:none; width:34px; height:34px; border-radius:17px; background:var(--accent); color:#fff; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">↑</button>
         </div>
     </div>
