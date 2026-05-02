@@ -8526,7 +8526,7 @@ function _linkifyHtml(html) {
                 </div>
             </div>
             <div style="padding:10px 12px 12px;">
-                <div style="display:flex; gap:8px; align-items:center; border:0.5px solid var(--border); border-radius:16px; padding:6px 8px; background:var(--sec-bg);">
+                <div style="display:flex; gap:6px; align-items:center; border:0.5px solid var(--border); border-radius:14px; padding:5px 6px; background:var(--sec-bg);">
                     <button
                         id="hs-chat-profile-btn"
                         type="button"
@@ -8629,16 +8629,15 @@ function _linkifyHtml(html) {
 <div id="profile-bubble-backdrop" style="display:none; position:fixed; inset:0; z-index:3299;" onclick="closeProfileBubbleMenu(); closeBubbleQuickChat();"></div>
 
 <div id="bubble-quick-chat" style="display:none;">
-    <div style="padding:12px 16px 10px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+    <div style="padding:9px 12px 8px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
         <div style="font-size:12px; font-weight:800; color:var(--accent);">💬 NEW CHAT</div>
         <div onclick="closeBubbleQuickChat()" style="font-size:18px; color:#888; cursor:pointer; padding:0 2px; line-height:1;">✕</div>
     </div>
-    <div style="padding:12px 14px 14px;">
-        <div style="display:flex; gap:8px; align-items:center; border:0.5px solid var(--border); border-radius:16px; padding:6px 8px; background:var(--sec-bg);">
+    <div style="padding:8px 10px 10px;">
+        <div style="display:flex; gap:6px; align-items:center; border:0.5px solid var(--border); border-radius:14px; padding:5px 6px; background:var(--sec-bg);">
             <button id="bqc-profile-btn" type="button" onclick="_bqcCycleProfile()" title="Switch profile" style="border:none; width:34px; height:34px; border-radius:17px; background:var(--accent); color:#fff; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 4px 12px rgba(0,122,255,0.25);">🤖</button>
-            <input id="bqc-input" type="text" placeholder="Message Agent…" autocomplete="off" maxlength="2000" onkeydown="if(event.key==='Enter'){event.preventDefault();_bqcSend();}" style="flex:1; border:none; padding:8px 4px; font-size:14px; background:transparent; color:var(--text); outline:none; font-family:inherit;">
+            <input id="bqc-input" type="text" placeholder="Message Agent… (Enter to send)" autocomplete="off" maxlength="2000" onkeydown="if(event.key==='Enter'){event.preventDefault();_bqcSend();}" style="flex:1; border:none; padding:8px 4px; font-size:14px; background:transparent; color:var(--text); outline:none; font-family:inherit;">
             <button type="button" onclick="_openAttachMenu(event)" title="Add attachment" style="border:none; width:34px; height:34px; border-radius:17px; background:var(--sec-bg); color:var(--accent); font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">➕</button>
-            <button type="button" onclick="_bqcSend()" title="Send" style="border:none; width:34px; height:34px; border-radius:17px; background:var(--accent); color:#fff; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">↑</button>
         </div>
     </div>
 </div>
