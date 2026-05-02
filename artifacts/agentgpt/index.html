@@ -3042,10 +3042,11 @@ async function _renderVarsRelatedEmails() {
         const from = (em.from || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const subj = (em.subject || '(No subject)').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const dt = (em.date || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const snip = (em.snippet || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const enc = btoa(unescape(encodeURIComponent(JSON.stringify(em))));
         const key = (em._accountId || '') + ':' + (em.id || em.messageId || idx);
         const checked = _varsRelatedSelected.has(key) ? 'checked' : '';
-        return `<div class="list-item" style="display:block; padding:10px 12px; margin-bottom:6px;"><div style="display:flex; gap:8px; align-items:flex-start;"><input type="checkbox" ${checked} onchange="_varsRelatedToggleSelect('${key.replace(/'/g,"\\'")}', this.checked)" style="margin-top:2px; width:16px; height:16px; accent-color:var(--accent);"><div style="flex:1; min-width:0;"><div style="font-size:12px; font-weight:700; color:var(--text);">${subj}</div><div style="font-size:11px; color:#888; margin-top:2px;">${from}</div><div style="font-size:10px; color:#aaa; margin-top:2px;">🗓️ ${dt || 'Unknown date'}</div><div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;"><button class="chip" style="font-size:10px; padding:4px 8px;" onclick="_varsRelatedPreviewEmail('${enc}')">Preview</button><button class="chip" style="font-size:10px; padding:4px 8px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="_varsRelatedExtractVarValue('${enc}')">Extract Vars</button><button class="chip" style="font-size:10px; padding:4px 8px; background:var(--accent); color:#fff;" onclick="_varsRelatedAddToContext('${enc}')">+ Context</button></div></div></div></div>`;
+        return `<div class="list-item" style="display:block; padding:10px 12px; margin-bottom:6px;"><div style="display:flex; gap:8px; align-items:flex-start;"><input type="checkbox" ${checked} onchange="_varsRelatedToggleSelect('${key.replace(/'/g,"\\'")}', this.checked)" style="margin-top:2px; width:16px; height:16px; accent-color:var(--accent);"><div style="flex:1; min-width:0;"><div style="font-size:12px; font-weight:700; color:var(--text);">${subj}</div><div style="font-size:11px; color:#888; margin-top:2px;">${from}</div><div style="font-size:10px; color:#aaa; margin-top:2px;">🗓️ ${dt || 'Unknown date'}</div>${snip ? `<div style="font-size:12px; color:var(--text); margin-top:6px; line-height:1.5; opacity:0.85;">${snip}</div>` : ''}<div id="vrem-body-${idx}" style="display:none; font-size:12px; color:var(--text); margin-top:6px; line-height:1.5; white-space:pre-wrap; word-break:break-word; background:var(--sec-bg); padding:8px 10px; border-radius:8px;"></div><div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;"><button class="chip" style="font-size:10px; padding:4px 8px;" onclick="_varsRelatedExpandBody('${enc}',${idx},this)">Full Content ↓</button><button class="chip" style="font-size:10px; padding:4px 8px; background:rgba(52,199,89,0.12); color:#34c759;" onclick="_varsRelatedExtractVarValue('${enc}')">Extract Vars</button><button class="chip" style="font-size:10px; padding:4px 8px; background:var(--accent); color:#fff;" onclick="_varsRelatedAddToContext('${enc}')">+ Context</button></div></div></div></div>`;
     }).join('');
 }
 function _varsRelatedCurrentList() { return (_varsRelatedEmailCache && _varsRelatedEmailCache.items) ? _varsRelatedEmailCache.items : []; }
@@ -3074,6 +3075,32 @@ async function _varsRelatedPreviewEmail(encoded) {
     pov.onclick = (evt) => { if (evt.target === pov) pov.remove(); };
     document.body.appendChild(pov);
     const closeBtn = document.getElementById('related-email-preview-close'); if (closeBtn) closeBtn.onclick = () => pov.remove();
+}
+async function _varsRelatedExpandBody(encoded, idx, btn) {
+    const bodyDiv = document.getElementById('vrem-body-' + idx);
+    if (!bodyDiv) return;
+    if (bodyDiv.style.display !== 'none') {
+        bodyDiv.style.display = 'none';
+        btn.textContent = 'Full Content ↓';
+        return;
+    }
+    if (!bodyDiv.dataset.loaded) {
+        const em = _varsDecodeEmail(encoded);
+        if (!em) return;
+        btn.textContent = 'Loading…';
+        btn.disabled = true;
+        try {
+            const body = gmailCleanBodyText(await emailFetchBody(em));
+            bodyDiv.textContent = body || em.snippet || '(No content available)';
+            bodyDiv.dataset.loaded = 'true';
+        } catch(_) {
+            bodyDiv.textContent = em.snippet || '(Failed to load)';
+            bodyDiv.dataset.loaded = 'true';
+        }
+        btn.disabled = false;
+    }
+    bodyDiv.style.display = 'block';
+    btn.textContent = 'Collapse ↑';
 }
 async function _varsRelatedAddToContext(encoded) {
     const em = _varsDecodeEmail(encoded); if(!em) return notify('Email not found', '#ff3b30', 1500);
