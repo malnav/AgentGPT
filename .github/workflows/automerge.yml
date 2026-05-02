@@ -8,8 +8,8 @@ jobs:
   automerge:
     runs-on: ubuntu-latest
     # Optional: Only run if the PR is created by a specific bot or has a label
-    # if: github.event.pull_request.user.login == 'codex-bot' 
-    
+    # if: github.event.pull_request.user.login == 'codex-bot'
+
     permissions:
       pull-requests: write
       contents: write
