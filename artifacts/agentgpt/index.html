@@ -6768,7 +6768,7 @@ function openBubblePicker() {
     const menu = document.getElementById('profile-bubble-menu');
     const backdrop = document.getElementById('profile-bubble-backdrop');
     const bubble = document.getElementById('profile-bubble');
-    const bRect = bubble.getBoundingClientRect();
+    const bRect = anchor.getBoundingClientRect();
     menu.style.display = 'block';
     const mw = menu.offsetWidth || 260;
     const mh = menu.offsetHeight || 200;
@@ -7149,11 +7149,12 @@ function _bqcCycleProfile() {
     const inp = document.getElementById('bqc-input');
     if (inp) inp.focus();
 }
-function openBubbleQuickChat() {
+function openBubbleQuickChat(anchorEl) {
     const panel = document.getElementById('bubble-quick-chat');
     const backdrop = document.getElementById('profile-bubble-backdrop');
     const bubble = document.getElementById('profile-bubble');
-    if (!panel || !bubble) return;
+    const anchor = anchorEl || bubble;
+    if (!panel || !anchor) return;
     _bqcRenderProfile();
     const inp = document.getElementById('bqc-input');
     if (inp) inp.value = '';
@@ -7161,7 +7162,7 @@ function openBubbleQuickChat() {
     panel.classList.remove('bqc-open');
     void panel.offsetWidth;
     panel.classList.add('bqc-open');
-    const bRect = bubble.getBoundingClientRect();
+    const bRect = anchor.getBoundingClientRect();
     const pw = Math.min(320, window.innerWidth - 32);
     const ph = panel.offsetHeight || 110;
     let left = bRect.right + 10;
@@ -7215,7 +7216,7 @@ async function _bqcSend() {
 
 function profileBubbleTap(e) {
     if (e && e.stopPropagation) e.stopPropagation();
-    openBubbleQuickChat();
+    openBubbleQuickChat(document.getElementById('profile-bubble'));
 }
 
 function renderFchatBubbles() {
@@ -7679,7 +7680,7 @@ function openProfileBubbleMenu() {
     const menu = document.getElementById('profile-bubble-menu');
     const backdrop = document.getElementById('profile-bubble-backdrop');
     const bubble = document.getElementById('profile-bubble');
-    const bRect = bubble.getBoundingClientRect();
+    const bRect = anchor.getBoundingClientRect();
     menu.style.display = 'block';
     const mw = menu.offsetWidth || 260;
     const mh = menu.offsetHeight || 180;
@@ -8570,7 +8571,7 @@ function _linkifyHtml(html) {
         </div>
         </div>
     </div>
-    <button class="hs-chats-btn" onclick="openBubbleQuickChat()" title="Start new chat">💬</button>
+    <button class="hs-chats-btn" onclick="openBubbleQuickChat(this)" title="Start new chat">💬</button>
 </div>
 
 <div id="profile-bubble-menu" style="display:none;">
