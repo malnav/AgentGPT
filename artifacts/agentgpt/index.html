@@ -1002,6 +1002,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                             <div style="display:flex; align-items:center; gap:6px; min-width:0;">
                                 <div id="gmail-preview-sender-email" style="font-size:11px; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:0px; min-width:0;"></div>
                                 <button id="gmail-preview-search-chat-btn" class="chip" style="display:none; font-size:9px; padding:1px 6px; white-space:nowrap; flex-shrink:0; background:var(--accent); color:#fff; border:1px solid rgba(255,255,255,0.32); font-weight:800; letter-spacing:0.02em; box-shadow:0 1px 4px rgba(0,122,255,0.35);" onclick="gmailSearchSenderInWorkspace('panel')" title="Search chats in workspace for this email">🔎 Chats</button>
+                                <button id="gmail-preview-open-dataset-btn" class="chip" style="display:none; font-size:9px; padding:1px 6px; white-space:nowrap; flex-shrink:0; background:var(--accent); color:#fff; border:1px solid rgba(255,255,255,0.32); font-weight:800; letter-spacing:0.02em; box-shadow:0 1px 4px rgba(0,122,255,0.35);" onclick="gmailOpenEmailDataset('panel')" title="Open dataset for this email sender">📊 Dataset</button>
                             </div>
                             <div id="gmail-preview-to" style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px;"></div>
                             <div id="gmail-preview-date" style="font-size:11px; color:#aaa; margin-top:2px;"></div>
@@ -1358,6 +1359,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
                             <div style="display:flex; align-items:center; gap:6px; min-width:0;">
                                 <div id="gmail-modal-preview-sender-email" style="font-size:11px; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:0px; min-width:0;"></div>
                                 <button id="gmail-modal-preview-search-chat-btn" class="chip" style="display:none; font-size:9px; padding:1px 6px; white-space:nowrap; flex-shrink:0; background:var(--accent); color:#fff; border:1px solid rgba(255,255,255,0.32); font-weight:800; letter-spacing:0.02em; box-shadow:0 1px 4px rgba(0,122,255,0.35);" onclick="gmailSearchSenderInWorkspace('modal')" title="Search chats in workspace for this email">🔎 Chats</button>
+                                <button id="gmail-modal-preview-open-dataset-btn" class="chip" style="display:none; font-size:9px; padding:1px 6px; white-space:nowrap; flex-shrink:0; background:var(--accent); color:#fff; border:1px solid rgba(255,255,255,0.32); font-weight:800; letter-spacing:0.02em; box-shadow:0 1px 4px rgba(0,122,255,0.35);" onclick="gmailOpenEmailDataset('modal')" title="Open dataset for this email sender">📊 Dataset</button>
                             </div>
                             <div id="gmail-modal-preview-to" style="font-size:12px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px;"></div>
                             <div id="gmail-modal-preview-date" style="font-size:11px; color:#aaa; margin-top:2px;"></div>
@@ -5038,7 +5040,8 @@ function gmailIds(src) {
         body:        m ? 'gmail-modal-preview-body'       : 'gmail-preview-body',
         reply:       m ? 'gmail-modal-reply-box'          : 'gmail-reply-box',
         senderEmail: m ? 'gmail-modal-preview-sender-email' : 'gmail-preview-sender-email',
-        senderSearchBtn: m ? 'gmail-modal-preview-search-chat-btn' : 'gmail-preview-search-chat-btn'
+        senderSearchBtn: m ? 'gmail-modal-preview-search-chat-btn' : 'gmail-preview-search-chat-btn',
+        datasetBtn: m ? 'gmail-modal-preview-open-dataset-btn' : 'gmail-preview-open-dataset-btn'
     };
 }
 
@@ -5047,6 +5050,16 @@ function gmailSearchSenderInWorkspace(src) {
     const email = (document.getElementById(ids.senderEmail)?.textContent || '').trim();
     if(!email) { notify('No sender email found', '#888', 1800); return; }
     _searchByEmail(email);
+}
+
+function gmailOpenEmailDataset(src) {
+    const matches = _replyMatchDatasetsBySenderEmail();
+    if(!matches.length) { notify('No dataset found for this sender', '#888', 2000); return; }
+    if(matches.length === 1) {
+        openVarsPanelForDataset(matches[0].vid);
+        return;
+    }
+    _openDatasetPickerModal((vid) => { if(vid) openVarsPanelForDataset(vid); }, null);
 }
 
 function gmailHtmlToPlainText(html) {
@@ -5982,6 +5995,8 @@ async function gmailPreview(i, src) {
         senderEmailEl.title='Compose new email to this address';
         senderEmailEl.onclick=()=>gmailComposeToAddress(dispEmail);
         if(senderSearchBtn) senderSearchBtn.style.display = senderText ? 'inline-flex' : 'none';
+        const datasetBtn = document.getElementById(ids.datasetBtn);
+        if(datasetBtn) datasetBtn.style.display = senderText ? 'inline-flex' : 'none';
     }
     const fromEl = document.getElementById(ids.from);
     if(fromEl) { fromEl.style.cursor='pointer'; fromEl.title='Compose new email to this address'; fromEl.onclick=()=>gmailComposeToAddress(dispEmail); }
