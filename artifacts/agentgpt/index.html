@@ -481,11 +481,9 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #profile-bubble.email-mode { background:linear-gradient(135deg,#007aff,#5c5cff); animation:bubble-email-pulse 1.6s ease-in-out infinite; font-size:24px; }
 #profile-bubble:active { transform:scale(0.93); }
 #profile-bubble-menu { position:fixed; z-index:3350; min-width:230px; max-width:88vw; background:var(--glass); border:0.5px solid var(--glass-border); border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,0.28); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; }
-#bubble-quick-chat { position:fixed; z-index:3350; width:min(320px, calc(100vw - 32px)); background:var(--glass); border:0.5px solid var(--glass-border); border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,0.28); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); overflow:hidden; }
-@keyframes bqc-in { from{opacity:0;transform:scale(0.88) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
-#bubble-quick-chat.bqc-open { animation:bqc-in 0.22s cubic-bezier(0.34,1.2,0.64,1) both; }
 #main-chat-wrapper { display:flex; flex-direction:column; flex:1; position:relative; min-height:0; overflow:hidden; }
 #floating-chat { position:fixed; z-index:9100; inset:0; background:var(--bg-gradient, linear-gradient(145deg, #ddeaff 0%, #ead9ff 38%, #ffd9ec 68%, #d9f5f0 100%)); display:flex; flex-direction:column; overflow:hidden; }
+#floating-chat:not(.fc-windowed) { padding-top: env(safe-area-inset-top, 0px); box-sizing: border-box; }
 @media (prefers-color-scheme: dark) { #floating-chat { background:var(--bg-gradient, linear-gradient(145deg, #06061a 0%, #10061c 38%, #1a060d 68%, #06100d 100%)); } }
 #floating-chat.fc-windowed { top:auto; left:auto; right:auto; bottom:auto; transform:none !important; width:auto; border-radius:18px !important; box-shadow:0 24px 80px rgba(0,0,0,0.38) !important; border:0.5px solid var(--glass-border) !important; overflow:hidden !important; }
 #floating-chat.fc-windowed { cursor:grab; }
@@ -6624,14 +6622,28 @@ let _fchatActiveId = null;
 let _ctxGroups = [];
 let _freshSessionActive = false;
 
+
+function _bubbleSafeTopInset() {
+    const vv = window.visualViewport;
+    const viewportOffsetTop = vv ? (vv.offsetTop || 0) : 0;
+    if (window.innerWidth < 768) return Math.max(56, viewportOffsetTop + 12);
+    return Math.max(8, viewportOffsetTop + 8);
+}
+
 function initProfileBubble() {
     const b = document.getElementById('profile-bubble');
     if (!b) return;
     const saved = JSON.parse(localStorage.getItem('bubble_pos') || 'null');
-    if (saved && saved.x !== undefined && saved.y !== undefined) {
+    const topInset = _bubbleSafeTopInset();
+    if (saved && saved.v === 2 && saved.x !== undefined && saved.y !== undefined) {
         b.style.right = 'auto'; b.style.bottom = 'auto';
-        b.style.left = Math.max(0, Math.min(saved.x, window.innerWidth - 60)) + 'px';
-        b.style.top = Math.max(0, Math.min(saved.y, window.innerHeight - 60)) + 'px';
+        b.style.left = Math.max(8, Math.min(saved.x, window.innerWidth - 60)) + 'px';
+        b.style.top = Math.max(topInset, Math.min(saved.y, window.innerHeight - 60)) + 'px';
+    } else {
+        b.style.right = 'auto';
+        b.style.left = '18px';
+        b.style.bottom = '110px';
+        b.style.top = 'auto';
     }
     b.addEventListener('touchstart', _bTouchStart, { passive: false });
     b.addEventListener('touchmove', _bTouchMove, { passive: false });
@@ -6643,13 +6655,13 @@ function initProfileBubble() {
 function _bSavePos() {
     const b = document.getElementById('profile-bubble');
     const rect = b.getBoundingClientRect();
-    localStorage.setItem('bubble_pos', JSON.stringify({ x: rect.left, y: rect.top }));
+    localStorage.setItem('bubble_pos', JSON.stringify({ v: 2, x: rect.left, y: rect.top }));
 }
 
 function _bMoveTo(x, y) {
     const b = document.getElementById('profile-bubble');
     const clamped_x = Math.max(0, Math.min(x, window.innerWidth - 60));
-    const clamped_y = Math.max(0, Math.min(y, window.innerHeight - 60));
+    const clamped_y = Math.max(_bubbleSafeTopInset(), Math.min(y, window.innerHeight - 60));
     b.style.right = 'auto'; b.style.bottom = 'auto';
     b.style.left = clamped_x + 'px'; b.style.top = clamped_y + 'px';
 }
@@ -6754,7 +6766,7 @@ function openBubblePicker() {
     const menu = document.getElementById('profile-bubble-menu');
     const backdrop = document.getElementById('profile-bubble-backdrop');
     const bubble = document.getElementById('profile-bubble');
-    const bRect = bubble.getBoundingClientRect();
+    const bRect = anchor.getBoundingClientRect();
     menu.style.display = 'block';
     const mw = menu.offsetWidth || 260;
     const mh = menu.offsetHeight || 200;
@@ -6762,7 +6774,8 @@ function openBubblePicker() {
     let top = bRect.top + bRect.height / 2 - mh / 2;
     if (left < 8) left = bRect.right + 10;
     if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
-    if (top < 8) top = 8;
+    const minTop = _bubbleSafeTopInset();
+    if (top < minTop) top = minTop;
     if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
     menu.style.left = left + 'px'; menu.style.top = top + 'px';
     backdrop.style.display = 'block';
@@ -7114,66 +7127,21 @@ function _hsMoveFromHomeScreen() {
     _hsMoved = { calProf: null, calGrid: null, calList: null, todos: null, email: null };
 }
 
-let _bqcProfileIdx = 0;
-function _bqcGetProfile() {
+function _getQuickChatDefaultProfile() {
     const profiles = (AI_PROFILES && AI_PROFILES.length) ? AI_PROFILES : [{ label: 'Agent', emoji: '🤖' }];
-    if (_bqcProfileIdx >= profiles.length) _bqcProfileIdx = 0;
-    return profiles[_bqcProfileIdx];
+    let savedLabel = '';
+    try { savedLabel = localStorage.getItem('quick_chat_default_profile') || ''; } catch(e) {}
+    const matched = profiles.find(p => p.label === savedLabel);
+    if (matched) return matched;
+    if (activeProfileLabel) {
+        const activeMatched = profiles.find(p => p.label === activeProfileLabel);
+        if (activeMatched) return activeMatched;
+    }
+    return profiles[0];
 }
-function _bqcRenderProfile() {
-    const p = _bqcGetProfile();
-    const btn = document.getElementById('bqc-profile-btn');
-    const inp = document.getElementById('bqc-input');
-    if (btn) btn.textContent = p.emoji || '🤖';
-    if (inp) inp.placeholder = `Message ${p.label}…`;
-}
-function _bqcCycleProfile() {
-    const profiles = (AI_PROFILES && AI_PROFILES.length) ? AI_PROFILES : [{ label: 'Agent', emoji: '🤖' }];
-    _bqcProfileIdx = (_bqcProfileIdx + 1) % profiles.length;
-    _bqcRenderProfile();
-    const inp = document.getElementById('bqc-input');
-    if (inp) inp.focus();
-}
-function openBubbleQuickChat() {
-    const panel = document.getElementById('bubble-quick-chat');
-    const backdrop = document.getElementById('profile-bubble-backdrop');
-    const bubble = document.getElementById('profile-bubble');
-    if (!panel || !bubble) return;
-    _bqcRenderProfile();
-    const inp = document.getElementById('bqc-input');
-    if (inp) inp.value = '';
-    panel.style.display = 'block';
-    panel.classList.remove('bqc-open');
-    void panel.offsetWidth;
-    panel.classList.add('bqc-open');
-    const bRect = bubble.getBoundingClientRect();
-    const pw = Math.min(320, window.innerWidth - 32);
-    const ph = panel.offsetHeight || 110;
-    let left = bRect.left - pw - 10;
-    let top = bRect.top + bRect.height / 2 - ph / 2;
-    if (left < 8) left = bRect.right + 10;
-    if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
-    if (top < 8) top = 8;
-    if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
-    panel.style.left = left + 'px';
-    panel.style.top = top + 'px';
-    if (backdrop) backdrop.style.display = 'block';
-    setTimeout(() => { if (inp) inp.focus(); }, 80);
-}
-function closeBubbleQuickChat() {
-    const panel = document.getElementById('bubble-quick-chat');
-    const backdrop = document.getElementById('profile-bubble-backdrop');
-    if (panel) { panel.style.display = 'none'; panel.classList.remove('bqc-open'); }
-    if (backdrop) backdrop.style.display = 'none';
-}
-async function _bqcSend() {
-    const inp = document.getElementById('bqc-input');
-    if (!inp) return;
-    const text = (inp.value || '').trim();
-    if (!text) { inp.focus(); return; }
-    const p = _bqcGetProfile();
+async function openBubbleQuickChat() {
+    const p = _getQuickChatDefaultProfile();
     const profileLabel = p.label || activeProfileLabel;
-    closeBubbleQuickChat();
     try {
         if (_fchatActiveId === null) {
             createFchatSession(profileLabel);
@@ -7184,23 +7152,19 @@ async function _bqcSend() {
         for (let i = 0; i < 30; i++) {
             const noteIn = document.getElementById('note-input');
             if (noteIn && !currentAborter) {
-                noteIn.value = text;
-                sync();
-                await sendToAI();
+                noteIn.focus({ preventScroll: true });
                 return;
             }
             await new Promise(resolve => setTimeout(resolve, 40));
         }
-        notify('Chat opened, but send is not ready yet.', '#ff9500', 2200);
     } catch (e) {
         notify('Quick chat failed: ' + (e.message || 'unknown error'), '#ff3b30', 2400);
     }
 }
+function closeBubbleQuickChat() {}
 
 function profileBubbleTap(e) {
     if (e && e.stopPropagation) e.stopPropagation();
-    const n = document.querySelectorAll('.gmail-chk:checked').length;
-    if (n > 0) { openProfileBubbleMenu(); return; }
     openBubbleQuickChat();
 }
 
@@ -7665,7 +7629,7 @@ function openProfileBubbleMenu() {
     const menu = document.getElementById('profile-bubble-menu');
     const backdrop = document.getElementById('profile-bubble-backdrop');
     const bubble = document.getElementById('profile-bubble');
-    const bRect = bubble.getBoundingClientRect();
+    const bRect = anchor.getBoundingClientRect();
     menu.style.display = 'block';
     const mw = menu.offsetWidth || 260;
     const mh = menu.offsetHeight || 180;
@@ -7673,7 +7637,8 @@ function openProfileBubbleMenu() {
     let top = bRect.top + bRect.height / 2 - mh / 2;
     if (left < 8) left = bRect.right + 10;
     if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
-    if (top < 8) top = 8;
+    const minTop = _bubbleSafeTopInset();
+    if (top < minTop) top = minTop;
     if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
     menu.style.left = left + 'px'; menu.style.top = top + 'px';
     backdrop.style.display = 'block';
@@ -8416,7 +8381,7 @@ function _linkifyHtml(html) {
     </div>
 </div>
 
-<div id="profile-bubble" style="bottom:110px; right:18px;" title="Profile Chat Bubble" onclick="profileBubbleTap(event)">
+<div id="profile-bubble" style="bottom:110px; left:18px;" title="Profile Chat Bubble" onclick="profileBubbleTap(event)">
     <span id="profile-bubble-icon">?</span>
 </div>
 
@@ -8470,7 +8435,7 @@ function _linkifyHtml(html) {
                 </div>
             </div>
             <div style="padding:10px 12px 12px;">
-                <div style="display:flex; gap:8px; align-items:center; border:0.5px solid var(--border); border-radius:16px; padding:6px 8px; background:var(--sec-bg);">
+                <div style="display:flex; gap:6px; align-items:center; border:0.5px solid var(--border); border-radius:14px; padding:5px 6px; background:var(--sec-bg);">
                     <button
                         id="hs-chat-profile-btn"
                         type="button"
@@ -8571,20 +8536,6 @@ function _linkifyHtml(html) {
 </div>
 
 <div id="profile-bubble-backdrop" style="display:none; position:fixed; inset:0; z-index:3299;" onclick="closeProfileBubbleMenu(); closeBubbleQuickChat();"></div>
-
-<div id="bubble-quick-chat" style="display:none;">
-    <div style="padding:12px 16px 10px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
-        <div style="font-size:12px; font-weight:800; color:var(--accent);">💬 NEW CHAT</div>
-        <div onclick="closeBubbleQuickChat()" style="font-size:18px; color:#888; cursor:pointer; padding:0 2px; line-height:1;">✕</div>
-    </div>
-    <div style="padding:12px 14px 14px;">
-        <div style="display:flex; gap:8px; align-items:center; border:0.5px solid var(--border); border-radius:16px; padding:6px 8px; background:var(--sec-bg);">
-            <button id="bqc-profile-btn" type="button" onclick="_bqcCycleProfile()" title="Switch profile" style="border:none; width:34px; height:34px; border-radius:17px; background:var(--accent); color:#fff; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 4px 12px rgba(0,122,255,0.25);">🤖</button>
-            <input id="bqc-input" type="text" placeholder="Message Agent…" autocomplete="off" maxlength="2000" onkeydown="if(event.key==='Enter'){event.preventDefault();_bqcSend();}" style="flex:1; border:none; padding:8px 4px; font-size:14px; background:transparent; color:var(--text); outline:none; font-family:inherit;">
-            <button type="button" onclick="_bqcSend()" title="Send" style="border:none; width:34px; height:34px; border-radius:17px; background:var(--accent); color:#fff; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">↑</button>
-        </div>
-    </div>
-</div>
 
 <div id="fchat-bubble-bar"></div>
 <div id="floating-chat" style="display:none;">
