@@ -6065,9 +6065,9 @@ async function gmailPreview(i, src) {
             if(!r.ok) throw new Error("IMAP fetch failed");
             const d = await r.json();
             if(d.body && typeof d.body === 'object') {
-                if(d.body.html) gmailPreviewBodies[src] = { html: gmailSanitizeHtml(gmailStripQuotedHtml(d.body.html)), text: gmailStripQuotedReply(gmailHtmlToPlainText(d.body.html)) };
-                else if(d.body.text) gmailPreviewBodies[src] = { html: "", text: gmailStripQuotedReply(d.body.text) };
-            } else if(d.body) gmailPreviewBodies[src] = { html: "", text: gmailStripQuotedReply(d.body) };
+                if(d.body.html) gmailPreviewBodies[src] = { html: gmailSanitizeHtml(d.body.html), text: gmailHtmlToPlainText(d.body.html) };
+                else if(d.body.text) gmailPreviewBodies[src] = { html: "", text: d.body.text };
+            } else if(d.body) gmailPreviewBodies[src] = { html: "", text: d.body };
             else gmailPreviewBodies[src] = { html: "", text: em.snippet || "" };
             gmailRenderPreviewBody(src);
         } else {
