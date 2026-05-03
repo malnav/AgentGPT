@@ -89,7 +89,7 @@ body::before {
 #toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); padding: 10px 22px; border-radius: 28px; background: rgba(20,20,30,0.88); backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm); color: #fff; font-size: 13px; font-weight: 700; z-index: 10000; display: none; text-align: center; box-shadow: var(--glass-shadow-md); border: 0.5px solid rgba(255,255,255,0.15); }
 
 /* ── TOP NAV ── */
-.top-nav { position: absolute; top: var(--sat, env(safe-area-inset-top, 0px)); left: 0; right: 0; padding: 10px 14px 10px 14px; display: flex; align-items: center; justify-content: space-between; z-index: 100; pointer-events: none; }
+.top-nav { position: absolute; top: 0; left: 0; right: 0; padding: max(6px, calc(var(--sat, env(safe-area-inset-top, 0px)) - 8px)) 14px 10px 14px; display: flex; align-items: center; justify-content: space-between; z-index: 100; pointer-events: none; }
 
 .main-profile-dropdown {
   border-radius: 22px;
@@ -595,7 +595,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 #fchat-header { display:flex; flex-direction:column; align-items:stretch; padding:calc(var(--sat, env(safe-area-inset-top, 0px)) + 8px) 12px 6px 12px; gap:5px; flex-shrink:0; background:var(--glass); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); border-bottom:0.5px solid var(--glass-border); position:relative; }
 #fchat-header-row1 { display:flex; align-items:center; gap:6px; }
 #floating-chat .sys-icons { display:none !important; }
-#floating-chat .top-nav { top: env(safe-area-inset-top, 0px) !important; }
+#floating-chat .top-nav { top: 0 !important; }
 #floating-chat .scroll-area { padding-top: max(12px, env(safe-area-inset-top, 12px)) !important; }
 #floating-chat.fc-windowed .input-zone { position:absolute; bottom:0; left:0; right:0; }
 #floating-chat.fc-windowed .scroll-area { padding-bottom:calc(var(--input-h, 130px) + 8px) !important; }
