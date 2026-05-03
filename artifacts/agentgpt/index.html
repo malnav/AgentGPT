@@ -3912,13 +3912,31 @@ function editItem(i) {
 }
 
 async function saveEntry() { 
-    const l = document.getElementById('entry-l').value; if(!l) return; let d = getActiveData(); let profSet = document.getElementById('item-profile-set').value || activeProfileLabel;
+    const l = (document.getElementById('entry-l').value || '').trim();
+    if(!l) { notify('Title is required', '#ff3b30'); return; }
+    const d = getActiveData();
+    const profSelEl = document.getElementById('item-profile-set');
+    const profSet = profSelEl ? (profSelEl.value || activeProfileLabel) : activeProfileLabel;
+    if(activeCrud === 'profiles') {
+        const duplicateIdx = d.findIndex((p, idx) => idx !== editIdx && String(p.label || '').trim().toLowerCase() === l.toLowerCase());
+        if(duplicateIdx > -1) { notify('Profile name already exists', '#ff3b30'); return; }
+    }
     if (activeCrud === 'profiles' && editIdx > -1) { const oldLabel = d[editIdx].label; if (oldLabel !== l) { if (chatHistories[oldLabel]) { chatHistories[l] = chatHistories[oldLabel]; delete chatHistories[oldLabel]; } PROMPTS.forEach(x => { if(x.profile === oldLabel) x.profile = l; }); TEMPLATES.forEach(x => { if(x.profile === oldLabel) x.profile = l; }); API_SERVICES.forEach(x => { if(x.profile === oldLabel) x.profile = l; }); if (activeProfileLabel === oldLabel) activeProfileLabel = l; addLog("CRUD", "Profile Renamed", `${oldLabel} -> ${l}`); } }
     let item; 
     if(activeCrud==='links'){ const url = document.getElementById('links-f-url').value.trim(); if(!url) { notify('URL is required','#ff3b30'); return; } const tags = document.getElementById('links-f-tags').value.split(',').map(t=>t.trim()).filter(Boolean); item = { id: editIdx>-1?d[editIdx].id:'lk_'+Date.now(), title: l, url: url, tags: tags, category: document.getElementById('links-f-cat').value.trim() }; } else { item = { label: l, profile: profSet }; if(activeCrud === 'tools') { item.method = document.getElementById('api-method').value; item.text = document.getElementById('entry-url').value; item.headers = document.getElementById('api-headers').value; item.body = document.getElementById('api-body').value; item.extract = document.getElementById('api-extract').value; item.use_oauth = document.getElementById('api-oauth-toggle').checked; item.oauth_url = document.getElementById('api-oauth-url').value; item.oauth_client = document.getElementById('api-oauth-client').value; item.oauth_secret = document.getElementById('api-oauth-secret').value; } else if(activeCrud === 'models') { item = { label: l, text: document.getElementById('entry-t').value }; } else if(activeCrud === 'profiles') { item.text = document.getElementById('entry-t').value; item.expected_vars = editIdx > -1 ? [...(d[editIdx].expected_vars||[])] : []; item.extraction_rules = editIdx > -1 ? d[editIdx].extraction_rules : ""; if(window._aiGenProfileVars) { window._aiGenProfileVars.forEach(v => { if(!item.expected_vars.includes(v)) item.expected_vars.push(v); }); window._aiGenProfileVars = null; } } else { item.text = document.getElementById('entry-t').value; if(activeCrud === 'prompts') { item.model = document.getElementById('p-model-set').value; item.command = sanitizePromptCommand(document.getElementById('p-command-set').value || l); } if(activeCrud === 'templates') { item.tags = document.getElementById('temp-tags').value; item.fav = (editIdx > -1 && d[editIdx]) ? d[editIdx].fav : false; item.lastUsed = (editIdx > -1 && d[editIdx]) ? (d[editIdx].lastUsed || 0) : 0; } } }
-    if (editIdx > -1) d[editIdx] = item; else d.push(item); 
-    addLog("CRUD", "Save Details", `${activeCrud}: ${item.label||item.title}`); await saveAll(); refreshUI(); renderEntryList(); 
-    if(activeCrud === 'models') renderModelList(); if(activeCrud === 'profiles') { renderProfileList(); _syncBubbleConfigs(); } notify("Saved!", "#34c759"); 
+    if (editIdx > -1) d[editIdx] = item; else d.push(item);
+    addLog("CRUD", "Save Details", `${activeCrud}: ${item.label||item.title}`);
+    try {
+        await saveAll();
+        refreshUI();
+        renderEntryList();
+        if(activeCrud === 'models') renderModelList();
+        if(activeCrud === 'profiles') { renderProfileList(); _syncBubbleConfigs(); }
+        notify("Saved!", "#34c759");
+    } catch (e) {
+        notify("Failed to save: " + (e && e.message ? e.message : 'Unknown error'), "#ff3b30", 3000);
+        throw e;
+    }
 }
 
 function exportSection() { document.getElementById('section-exchange').value = JSON.stringify(getActiveData(), null, 2); notify("Exported to text box!", "#34c759"); }
