@@ -225,28 +225,39 @@ router.post("/imap/message", async (req: Request, res: Response) => {
 });
 
 router.post("/imap/send", async (req: Request, res: Response) => {
-    const { host, port, user, pass, tls, to, subject, text, html } = req.body;
+    const { host, user, pass, to, subject, text, html } = req.body;
     if (!host || !user || !pass || !to || !subject) return res.status(400).json({ error: "Missing required fields: host, user, pass, to, subject" });
     try {
         const smtpHost = typeof host === "string" && host.startsWith("imap.") ? "smtp." + host.slice(5) : host;
-        const smtpPort = 587;
-        const transporter = nodemailer.createTransport({
-            host: smtpHost,
-            port: smtpPort,
-            secure: false,
-            requireTLS: true,
-            auth: { user: user, pass: pass },
-            connectionTimeout: 15000,
-        });
-        await transporter.sendMail({
-            from: user,
-            to: to,
-            subject: subject,
-            text: text || undefined,
-            html: html || undefined,
-        });
-        return res.json({ success: true, message: "Email sent" });
+        const mailOptions = { from: user, to, subject, text: text || undefined, html: html || undefined };
+
+        // Try STARTTLS on 587, then implicit TLS on 465
+        const attempts: Array<{ port: number; secure: boolean }> = [
+            { port: 587, secure: false },
+            { port: 465, secure: true },
+        ];
+        let lastErr: any;
+        for (const { port: smtpPort, secure } of attempts) {
+            try {
+                const transporter = nodemailer.createTransport({
+                    host: smtpHost,
+                    port: smtpPort,
+                    secure,
+                    ...(!secure ? { requireTLS: true } : {}),
+                    auth: { user, pass },
+                    connectionTimeout: 8000,
+                });
+                await transporter.sendMail(mailOptions);
+                return res.json({ success: true, message: "Email sent" });
+            } catch (e: any) {
+                lastErr = e;
+                const isConnErr = ["ECONNREFUSED", "ETIMEDOUT", "ECONNRESET", "ENOTFOUND", "EHOSTUNREACH"].includes(e.code);
+                if (!isConnErr) break;
+            }
+        }
+        throw lastErr;
     } catch (e: any) {
+        console.error("[SMTP] send error:", e.code, e.message);
         return res.status(500).json({ error: e.message || "Failed to send email" });
     }
 });
