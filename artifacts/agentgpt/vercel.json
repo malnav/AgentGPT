@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://malnav-api.vercel.app/api/:path*"
+      "destination": "https://workspaceapi-server-production-fad0.up.railway.app/api/:path*"
     }
   ],
   "git": {
