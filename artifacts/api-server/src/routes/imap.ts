@@ -22,6 +22,67 @@ async function withImap(cfg: { host: string; port: number; user: string; pass: s
     }
 }
 
+
+function cleanHost(host: unknown): string {
+    return String(host || "").trim().toLowerCase();
+}
+
+function resolveSmtpHost(imapHost: string, requestedSmtpHost?: string): string {
+    const explicit = cleanHost(requestedSmtpHost);
+    if (explicit) return explicit;
+
+    const host = cleanHost(imapHost);
+    const knownHosts: Record<string, string> = {
+        "imap.mail.me.com": "smtp.mail.me.com",
+        "imap.icloud.com": "smtp.mail.me.com",
+        "outlook.office365.com": "smtp.office365.com",
+        "imap-mail.outlook.com": "smtp-mail.outlook.com",
+        "imap.outlook.com": "smtp-mail.outlook.com",
+        "imap.gmx.com": "mail.gmx.com",
+        "imap.gmx.net": "mail.gmx.net",
+        "imap.ionos.com": "smtp.ionos.com",
+        "imap.mail.com": "smtp.mail.com",
+        "imap.yandex.com": "smtp.yandex.com",
+    };
+    if (knownHosts[host]) return knownHosts[host];
+
+    if (host.startsWith("imap.")) return `smtp.${host.slice(5)}`;
+    if (host.startsWith("imap-")) return `smtp-${host.slice(5)}`;
+    if (host.startsWith("imapmail.")) return `smtpmail.${host.slice(9)}`;
+    return host;
+}
+
+function parseOptionalPort(value: unknown): number | undefined {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number.parseInt(String(value), 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function parseOptionalBoolean(value: unknown): boolean | undefined {
+    if (value === undefined || value === null || value === "") return undefined;
+    if (typeof value === "boolean") return value;
+    const lowered = String(value).trim().toLowerCase();
+    if (["true", "1", "yes", "on"].includes(lowered)) return true;
+    if (["false", "0", "no", "off"].includes(lowered)) return false;
+    return undefined;
+}
+
+function buildSmtpAttempts(smtpPort?: number, smtpSecure?: boolean): Array<{ port: number; secure: boolean }> {
+    if (smtpPort) return [{ port: smtpPort, secure: smtpSecure ?? smtpPort === 465 }];
+    if (smtpSecure !== undefined) return [{ port: smtpSecure ? 465 : 587, secure: smtpSecure }];
+    return [
+        { port: 587, secure: false },
+        { port: 465, secure: true },
+    ];
+}
+
+function smtpErrorMessage(err: any, smtpHost: string, attempts: Array<{ port: number; secure: boolean }>): string {
+    const attemptedPorts = attempts.map((a) => `${a.port}${a.secure ? "/SSL" : "/STARTTLS"}`).join(", ");
+    const original = err?.message || "SMTP send failed";
+    const code = err?.code ? ` (${err.code})` : "";
+    return `${original}${code}. Tried SMTP host ${smtpHost} on ${attemptedPorts}. If this is not your provider's SMTP server, edit the account and set SMTP Host/Port.`;
+}
+
 function addr(a: any) {
     if (!a) return "";
     const name = a.name || "";
@@ -225,40 +286,52 @@ router.post("/imap/message", async (req: Request, res: Response) => {
 });
 
 router.post("/imap/send", async (req: Request, res: Response) => {
-    const { host, user, pass, to, subject, text, html } = req.body;
+    const { host, user, pass, to, cc, bcc, subject, text, html, smtpHost: requestedSmtpHost } = req.body;
     if (!host || !user || !pass || !to || !subject) return res.status(400).json({ error: "Missing required fields: host, user, pass, to, subject" });
-    try {
-        const smtpHost = typeof host === "string" && host.startsWith("imap.") ? "smtp." + host.slice(5) : host;
-        const mailOptions = { from: user, to, subject, text: text || undefined, html: html || undefined };
+    if (!text && !html) return res.status(400).json({ error: "Missing email body" });
 
-        // Try STARTTLS on 587, then implicit TLS on 465
-        const attempts: Array<{ port: number; secure: boolean }> = [
-            { port: 587, secure: false },
-            { port: 465, secure: true },
-        ];
+    const smtpHost = resolveSmtpHost(host, requestedSmtpHost);
+    const smtpPort = parseOptionalPort(req.body.smtpPort);
+    const smtpSecure = parseOptionalBoolean(req.body.smtpSecure);
+    const attempts = buildSmtpAttempts(smtpPort, smtpSecure);
+
+    try {
+        const mailOptions = {
+            from: user,
+            to,
+            cc: cc || undefined,
+            bcc: bcc || undefined,
+            subject,
+            text: text || undefined,
+            html: html || undefined,
+        };
+
         let lastErr: any;
-        for (const { port: smtpPort, secure } of attempts) {
+        for (const { port: portAttempt, secure } of attempts) {
             try {
                 const transporter = nodemailer.createTransport({
                     host: smtpHost,
-                    port: smtpPort,
+                    port: portAttempt,
                     secure,
                     ...(!secure ? { requireTLS: true } : {}),
                     auth: { user, pass },
-                    connectionTimeout: 8000,
+                    connectionTimeout: 7000,
+                    greetingTimeout: 7000,
+                    socketTimeout: 12000,
                 });
                 await transporter.sendMail(mailOptions);
                 return res.json({ success: true, message: "Email sent" });
             } catch (e: any) {
                 lastErr = e;
-                const isConnErr = ["ECONNREFUSED", "ETIMEDOUT", "ECONNRESET", "ENOTFOUND", "EHOSTUNREACH"].includes(e.code);
-                if (!isConnErr) break;
+                const isConnErr = ["ECONNREFUSED", "ETIMEDOUT", "ECONNRESET", "ENOTFOUND", "EHOSTUNREACH", "ESOCKET"].includes(e?.code);
+                if (!isConnErr || smtpPort) break;
             }
         }
         throw lastErr;
     } catch (e: any) {
-        console.error("[SMTP] send error:", e.code, e.message);
-        return res.status(500).json({ error: e.message || "Failed to send email" });
+        const error = smtpErrorMessage(e, smtpHost, attempts);
+        console.error("[SMTP] send error:", { code: e?.code, command: e?.command, responseCode: e?.responseCode, smtpHost, attempts, message: e?.message });
+        return res.status(500).json({ error });
     }
 });
 
