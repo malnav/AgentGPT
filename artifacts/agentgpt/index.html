@@ -4124,7 +4124,7 @@ function _hsApplyColumns() {
     [1,2,3].forEach(n=>{ const btn=document.getElementById('hs-col-btn-'+n); if(!btn)return; btn.style.background=n===c?'var(--accent)':'transparent'; btn.style.color=n===c?'#fff':'var(--text)'; });
     _hsDragInited=false; setTimeout(_hsInitCardDrag,50);
 }
-async function saveHsColumns(v) { CONFIG.hs_columns=parseInt(v)||1; await saveAll(true); _hsApplyColumns(); notify('Widget columns updated','#34c759',1200); }
+async function saveHsColumns(v) { CONFIG.hs_columns=parseInt(v)||1; await saveAll(); _hsApplyColumns(); notify('Widget columns updated','#34c759',1200); }
 function _hsGetHiddenCardsSet() { return new Set(Array.isArray(CONFIG.hs_hidden_cards) ? CONFIG.hs_hidden_cards : []); }
 function _hsIsCardVisible(cardId) { return !_hsGetHiddenCardsSet().has(cardId); }
 function _hsApplyCardVisibility() {
@@ -4183,14 +4183,14 @@ async function _hsSetCardVisibility(cardId, visible) {
     _hsApplyCardVisibility();
     _hsApplyColumns();
     _hsRenderWidgetToggleMenu();
-    await saveAll(true);
+    await saveAll();
 }
 async function _hsResetHiddenCards() {
     CONFIG.hs_hidden_cards = [];
     _hsApplyCardVisibility();
     _hsApplyColumns();
     _hsRenderWidgetToggleMenu();
-    await saveAll(true);
+    await saveAll();
 }
 function _hsToggleWidgetMenu(event) {
     if (event) event.stopPropagation();
