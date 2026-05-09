@@ -5737,7 +5737,7 @@ function gmailUpdateAddBtns() {
         if(btn) btn.style.display = n > 0 ? 'inline' : 'none';
     });
     const cats = [['primary','⭐ VIP','#30d158'],['promotions','🏷️ Promo','#ff9f0a'],['updates','🔔 Updates','#007aff'],['spam','🚫 Spam','#ff3b30']];
-    const barHtml = n > 0 ? `<div style="display:flex;flex-direction:column;gap:6px;width:100%;"><div style="font-size:11px;font-weight:700;color:#888;text-align:center;letter-spacing:0.5px;">MARK ${n} SENDER${n>1?'S':''} AS</div><div style="display:flex;gap:6px;">${cats.map(([c,lbl,col])=>`<button onclick="emailBulkSetCategory('${c}')" style="flex:1;font-size:11px;font-weight:700;padding:8px 4px;border:none;border-radius:10px;cursor:pointer;background:${col}22;color:${col};border:1px solid ${col}44;">${lbl}</button>`).join('')}</div><button onclick="startSelectedEmailsFloatChat()" style="width:100%;font-size:12px;font-weight:700;padding:9px;border:none;border-radius:10px;cursor:pointer;background:var(--accent);color:#fff;">💬 Start Chat with ${n} Email${n>1?'s':''}</button></div>` : '';
+    const barHtml = n > 0 ? `<div style="display:flex;flex-direction:column;gap:6px;width:100%;"><div style="font-size:11px;font-weight:700;color:#888;text-align:center;letter-spacing:0.5px;">MARK ${n} SENDER${n>1?'S':''} AS</div><div style="display:flex;gap:6px;">${cats.map(([c,lbl,col])=>`<button onclick="emailBulkSetCategory('${c}')" style="flex:1;font-size:11px;font-weight:700;padding:8px 4px;border:none;border-radius:10px;cursor:pointer;background:${col}22;color:${col};border:1px solid ${col}44;">${lbl}</button>`).join('')}</div><div style="display:flex;gap:8px;width:100%;"><button onclick="startSelectedEmailsFloatChat()" style="flex:1;font-size:12px;font-weight:700;padding:9px;border:none;border-radius:10px;cursor:pointer;background:var(--accent);color:#fff;">💬 Start Chat with ${n} Email${n>1?'s':''}</button><button onclick="addFloatingChatContext('selected')" style="flex:1;font-size:12px;font-weight:700;padding:9px;border:none;border-radius:10px;cursor:pointer;background:rgba(52,199,89,0.14);color:#30d158;border:1px solid rgba(52,199,89,0.35);">➕ Add to Context</button></div></div>` : '';
     ['gmail-bulk-bar-panel','gmail-bulk-bar-modal'].forEach(id => {
         const bar = document.getElementById(id);
         if(!bar) return;
@@ -7518,6 +7518,7 @@ async function addFloatingChatContext(type) {
         notify('Adding ' + checked.length + ' selected email(s)…', '#007aff', 2000);
         let added = 0;
         for (const cb of checked) { const em = gmailEmails[parseInt(cb.dataset.idx)]; if (!em) continue; const ls = await gmailFetchEmailLines(em); if (ls.length) { _addCtxGroup(em.subject || gmailExtractAddr(em.from) || 'Email', ls); added++; } }
+        refreshUI();
         notify(added + ' email(s) added to context', '#34c759', 1800);
     } else if (type === 'clipboard') {
         try {
