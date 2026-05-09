@@ -7006,7 +7006,7 @@ function showHomeScreen() {
 function _hsRenderGmailConnectIfNeeded() {
     const allAccts = emailGetAllAccounts();
     const hasGmail = allAccts.some(a => a.type === 'gmail');
-    if (!hasGmail || gmailAccessToken) return;
+    if (!hasGmail || gmailAccessToken || (gmailEmails && gmailEmails.length)) return;
     const list = document.getElementById('gmail-list');
     if (!list) return;
     const hasSecret = !!(CONFIG.google_client_secret || "").trim();
