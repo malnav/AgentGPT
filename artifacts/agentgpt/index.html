@@ -4125,24 +4125,41 @@ function _hsApplyColumns() {
 }
 async function saveHsColumns(v) { CONFIG.hs_columns=parseInt(v)||1; await saveAll(); _hsApplyColumns(); notify('Widget columns updated','#34c759',1200); }
 function _hsGetHiddenCardsSet() { return new Set(Array.isArray(CONFIG.hs_hidden_cards) ? CONFIG.hs_hidden_cards : []); }
-function _hsIsCardVisible(cardId) { return !_hsGetHiddenCardsSet().has(cardId); }
-function _hsApplyCardVisibility() {
-    const wrap = document.getElementById('hs-cards-wrap');
-    if (!wrap) return;
-    const hidden = _hsGetHiddenCardsSet();
-    wrap.querySelectorAll('.hs-card[data-card-id]').forEach(card => {
-        const id = card.dataset.cardId || '';
-        card.style.display = hidden.has(id) ? 'none' : '';
-    });
-}
 function _hsGetCardsMeta() {
     const wrap = document.getElementById('hs-cards-wrap');
     if (!wrap) return [];
     return [...wrap.querySelectorAll('.hs-card[data-card-id]')].map(card => {
         const id = card.dataset.cardId || '';
         const title = card.querySelector('.hs-card-title')?.textContent?.trim() || id;
-        return { id, title };
+        return { id, title, card };
     }).filter(x => x.id);
+}
+function _hsCardLooksHidden(card) {
+    if (!card) return false;
+    const computedDisplay = window.getComputedStyle ? window.getComputedStyle(card).display : '';
+    return card.hidden || card.style.display === 'none' || computedDisplay === 'none' || card.classList.contains('hidden');
+}
+function _hsGetNormalizedHiddenCardsSet(syncDomState = false) {
+    const items = _hsGetCardsMeta();
+    const validIds = new Set(items.map(x => x.id));
+    const hidden = new Set([..._hsGetHiddenCardsSet()].filter(id => validIds.has(id)));
+    if (syncDomState) {
+        items.forEach(({ id, card }) => {
+            if (_hsCardLooksHidden(card)) hidden.add(id);
+        });
+    }
+    CONFIG.hs_hidden_cards = [...hidden];
+    return hidden;
+}
+function _hsIsCardVisible(cardId) { return !_hsGetNormalizedHiddenCardsSet(true).has(cardId); }
+function _hsApplyCardVisibility() {
+    const wrap = document.getElementById('hs-cards-wrap');
+    if (!wrap) return;
+    const hidden = _hsGetNormalizedHiddenCardsSet(false);
+    wrap.querySelectorAll('.hs-card[data-card-id]').forEach(card => {
+        const id = card.dataset.cardId || '';
+        card.style.display = hidden.has(id) ? 'none' : '';
+    });
 }
 function _hsSyncColumnButtons() {
     const c = parseInt(CONFIG.hs_columns) || 1;
