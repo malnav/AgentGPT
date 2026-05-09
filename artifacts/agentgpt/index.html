@@ -4838,6 +4838,7 @@ async function emailFetchEmails(query, options = {}) {
     const allAccts = emailGetAllAccounts();
     const selIds = selectedEmailAccountIds.length ? selectedEmailAccountIds : allAccts.map(a => a.id);
     let selAccts = allAccts.filter(a => selIds.includes(a.id));
+    gmailRestoreCachedToken();
     if(!selAccts.length) { gmailEmails = emailGetGuestEmails(); gmailRenderEmails(); return; }
     const hasGmail = selAccts.some(a => a.type === 'gmail');
     if(hasGmail && !gmailAccessToken) {
@@ -4875,7 +4876,7 @@ async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
         const q = gmailQ;
         try {
             const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${limit}&q=${q}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
-            if(!listRes.ok) { if(listRes.status === 401) { gmailAccessToken = null; } return { emails: [] }; }
+            if(!listRes.ok) { if(listRes.status === 401) { gmailSetAccessToken(null); } return { emails: [] }; }
             const listData = await listRes.json();
             gmailNextPageToken = listData.nextPageToken || null;
             const msgs = listData.messages || [];
@@ -5192,6 +5193,35 @@ function gmailEnsureScript(onReady) {
 let gmailRefreshEndpointAvailable = true;
 let gmailSilentAuthPromise = null;
 
+function gmailSetAccessToken(token, expiresIn) {
+    gmailAccessToken = token || null;
+    if (!token) {
+        try { localStorage.removeItem('gmail_access_token'); localStorage.removeItem('gmail_access_token_exp'); } catch(e) {}
+        return;
+    }
+    const seconds = parseInt(expiresIn, 10) || 3300;
+    try {
+        localStorage.setItem('gmail_access_token', token);
+        localStorage.setItem('gmail_access_token_exp', String(Date.now() + Math.max(60, seconds - 60) * 1000));
+    } catch(e) {}
+}
+
+function gmailRestoreCachedToken() {
+    if (gmailAccessToken) return true;
+    try {
+        const token = localStorage.getItem('gmail_access_token') || '';
+        const exp = parseInt(localStorage.getItem('gmail_access_token_exp') || '0', 10);
+        if (token && exp && exp > Date.now() + 30000) {
+            gmailAccessToken = token;
+            updateProfileBubble();
+            return true;
+        }
+        localStorage.removeItem('gmail_access_token');
+        localStorage.removeItem('gmail_access_token_exp');
+    } catch(e) {}
+    return false;
+}
+
 async function gmailBackendRefresh() {
     const clientId = CONFIG.google_client_id || "";
     const clientSecret = CONFIG.google_client_secret || "";
@@ -5210,7 +5240,7 @@ async function gmailBackendRefresh() {
             return false;
         }
         const data = await resp.json();
-        if (data.access_token) { gmailAccessToken = data.access_token; updateProfileBubble(); return true; }
+        if (data.access_token) { gmailSetAccessToken(data.access_token, data.expires_in); updateProfileBubble(); return true; }
         return false;
     } catch { return false; }
 }
@@ -5233,7 +5263,7 @@ function gmailConnectWithCode() {
                     const r = await fetch('/api/gmail/exchange-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: resp.code, client_id: clientId, client_secret: clientSecret }) });
                     const data = await r.json();
                     if (!r.ok || data.error) { notify("Gmail connection failed: " + (data.error || "Unknown error"), "#ff3b30", 5000); return; }
-                    gmailAccessToken = data.access_token;
+                    gmailSetAccessToken(data.access_token, data.expires_in);
                     gmailStoreHint();
                     updateProfileBubble();
                     emailFetchEmails(null);
@@ -5249,6 +5279,7 @@ async function gmailSilentAuth(options = {}) {
     const { fetchEmails = true, query = null } = options;
     const clientId = CONFIG.google_client_id || "";
     if (!clientId) return false;
+    gmailRestoreCachedToken();
     if (gmailAccessToken) {
         if (fetchEmails) await emailFetchEmails(query);
         return true;
@@ -5274,7 +5305,7 @@ async function gmailSilentAuth(options = {}) {
                     callback: async (resp) => {
                         clearTimeout(timer);
                         if (resp.error) { finish(false); return; }
-                        gmailAccessToken = resp.access_token;
+                        gmailSetAccessToken(resp.access_token, resp.expires_in);
                         gmailStoreHint();
                         updateProfileBubble();
                         if (fetchEmails) await emailFetchEmails(query);
@@ -5301,7 +5332,7 @@ function gmailEnsureAuth(onAuthed) {
             hint,
             callback: async (resp) => {
                 if (resp.error) { notify("Gmail sign-in failed — try again", "#ff3b30", 4000); return; }
-                gmailAccessToken = resp.access_token;
+                gmailSetAccessToken(resp.access_token, resp.expires_in);
                 gmailStoreHint();
                 updateProfileBubble();
                 onAuthed();
@@ -5332,7 +5363,7 @@ function gmailInitTokenClient(query, silent) {
                 if(silent && (resp.error === 'interaction_required' || resp.error === 'access_denied' || resp.error === 'user_logged_out')) { gmailInitTokenClient(query, false); return; }
                 notify("Gmail sign-in required — tap 📧 again", "#ff9500", 4000); return;
             }
-            gmailAccessToken = resp.access_token;
+            gmailSetAccessToken(resp.access_token, resp.expires_in);
             await emailFetchEmails(query);
             gmailStoreHint();
         }
@@ -5356,7 +5387,7 @@ async function gmailFetchEmails(query) {
     try {
         const q = query ? encodeURIComponent(query) : 'in%3Ainbox';
         const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25&q=${q}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
-        if(!listRes.ok) { if(listRes.status === 401) { gmailAccessToken = null; await gmailLoadEmails(query); return; } throw new Error("HTTP " + listRes.status); }
+        if(!listRes.ok) { if(listRes.status === 401) { gmailSetAccessToken(null); await gmailLoadEmails(query); return; } throw new Error("HTTP " + listRes.status); }
         const listData = await listRes.json();
         gmailNextPageToken = listData.nextPageToken || null;
         const msgs = listData.messages || [];
@@ -6512,7 +6543,8 @@ function gmailFindSameAddress(src) {
 
 function gmailSignOut() {
     if(gmailAccessToken && typeof google !== 'undefined') { try { google.accounts.oauth2.revoke(gmailAccessToken); } catch(e) {} }
-    gmailAccessToken = null; gmailEmails = []; gmailCurrentEmail = null;
+    try { fetch('/api/gmail/token', { method: 'DELETE' }); } catch(e) {}
+    gmailSetAccessToken(null); gmailEmails = []; gmailCurrentEmail = null;
     gmailNextPageToken = null; gmailCurrentQuery = null; gmailLoadingMore = false; gmailHasMoreEmails = false; gmailEmailOffset = 0; imapOffsets = {};
     if(_gmailScrollObs) { _gmailScrollObs.forEach(l => l.list.removeEventListener('scroll', l.handler)); _gmailScrollObs = []; }
     localStorage.removeItem('gmail_hint');
@@ -6987,6 +7019,7 @@ async function emailPreloadEmails(options = {}) {
     const allAccts = emailGetAllAccounts();
     const selIds = selectedEmailAccountIds.length ? selectedEmailAccountIds : allAccts.map(a => a.id);
     const selAccts = allAccts.filter(a => selIds.includes(a.id));
+    gmailRestoreCachedToken();
     const hasGmail = selAccts.some(a => a.type === 'gmail');
     const list = document.getElementById('gmail-list');
     if (list && selAccts.length) {
