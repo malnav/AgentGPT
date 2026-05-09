@@ -2317,7 +2317,11 @@ function ctxSwitchTab(tab) {
     });
     document.getElementById('ctx-tab-context-actions').style.display = tab==='context' ? 'flex' : 'none';
     document.getElementById('ctx-tab-gmail-actions').style.display = tab==='gmail' ? 'flex' : 'none';
-    if(tab==='gmail') { if(gmailAccessToken) { gmailFetchEmails(document.getElementById('gmail-search-box').value.trim() || null); } else { gmailLoadEmails(); } }
+    if(tab==='gmail') {
+        const query = document.getElementById('gmail-search-box').value.trim() || null;
+        if(gmailAccessToken) { gmailFetchEmails(query); }
+        else { emailPreloadEmails({ allowPrompt: true, query }); }
+    }
 }
 function toggleTplPanel() { closeAllPanels('tpl-slide-panel'); document.getElementById('tpl-slide-panel').classList.toggle('open'); }
 function toggleSrvPanel() { notify('Automation Builder has been removed.', '#888'); }
@@ -4825,13 +4829,18 @@ function emailApplyMultiPicker() {
     emailFetchEmails(null);
 }
 
-async function emailFetchEmails(query) {
+async function emailFetchEmails(query, options = {}) {
+    const { allowGmailAuthPrompt = true } = options;
     const allAccts = emailGetAllAccounts();
     const selIds = selectedEmailAccountIds.length ? selectedEmailAccountIds : allAccts.map(a => a.id);
-    const selAccts = allAccts.filter(a => selIds.includes(a.id));
+    let selAccts = allAccts.filter(a => selIds.includes(a.id));
     if(!selAccts.length) { gmailEmails = emailGetGuestEmails(); gmailRenderEmails(); return; }
     const hasGmail = selAccts.some(a => a.type === 'gmail');
-    if(hasGmail && !gmailAccessToken) { gmailLoadEmails(query); return; }
+    if(hasGmail && !gmailAccessToken) {
+        if(allowGmailAuthPrompt) { gmailLoadEmails(query); return; }
+        selAccts = selAccts.filter(a => a.type !== 'gmail');
+        if(!selAccts.length) { gmailEmails = emailGetGuestEmails(); gmailRenderEmails(); return; }
+    }
     notify("Loading emails...", "#007aff", 1500);
     gmailCurrentQuery = query || null; gmailNextPageToken = null; gmailLoadingMore = false; gmailEmailOffset = 0; imapOffsets = {};
     const results = await Promise.allSettled(selAccts.map(a => emailFetchFromAccount(a, query, 25, 0)));
@@ -5177,6 +5186,7 @@ function gmailEnsureScript(onReady) {
 }
 
 let gmailRefreshEndpointAvailable = true;
+let gmailSilentAuthPromise = null;
 
 async function gmailBackendRefresh() {
     const clientId = CONFIG.google_client_id || "";
@@ -5231,28 +5241,47 @@ function gmailConnectWithCode() {
     });
 }
 
-async function gmailSilentAuth() {
+async function gmailSilentAuth(options = {}) {
+    const { fetchEmails = true, query = null } = options;
     const clientId = CONFIG.google_client_id || "";
-    if (!clientId || gmailAccessToken) return;
-    const refreshed = await gmailBackendRefresh();
-    if (refreshed) { emailFetchEmails(null); return; }
-    const hint = localStorage.getItem('gmail_hint') || "";
-    gmailEnsureScript(() => {
-        if (typeof google === 'undefined' || !google.accounts) return;
-        const tc = google.accounts.oauth2.initTokenClient({
-            client_id: clientId,
-            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
-            hint,
-            callback: async (resp) => {
-                if (resp.error) return;
-                gmailAccessToken = resp.access_token;
-                gmailStoreHint();
-                updateProfileBubble();
-                emailFetchEmails(null);
-            }
+    if (!clientId) return false;
+    if (gmailAccessToken) {
+        if (fetchEmails) await emailFetchEmails(query);
+        return true;
+    }
+    if (gmailSilentAuthPromise) return gmailSilentAuthPromise;
+    gmailSilentAuthPromise = (async () => {
+        const refreshed = await gmailBackendRefresh();
+        if (refreshed) {
+            if (fetchEmails) await emailFetchEmails(query);
+            return true;
+        }
+        const hint = localStorage.getItem('gmail_hint') || "";
+        return await new Promise(resolve => {
+            let settled = false;
+            const finish = (ok) => { if (settled) return; settled = true; resolve(ok); };
+            const timer = setTimeout(() => finish(false), 5000);
+            gmailEnsureScript(() => {
+                if (typeof google === 'undefined' || !google.accounts) { clearTimeout(timer); finish(false); return; }
+                const tc = google.accounts.oauth2.initTokenClient({
+                    client_id: clientId,
+                    scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
+                    hint,
+                    callback: async (resp) => {
+                        clearTimeout(timer);
+                        if (resp.error) { finish(false); return; }
+                        gmailAccessToken = resp.access_token;
+                        gmailStoreHint();
+                        updateProfileBubble();
+                        if (fetchEmails) await emailFetchEmails(query);
+                        finish(true);
+                    }
+                });
+                tc.requestAccessToken({ prompt: 'none' });
+            });
         });
-        tc.requestAccessToken({ prompt: 'none' });
-    });
+    })().finally(() => { gmailSilentAuthPromise = null; });
+    return gmailSilentAuthPromise;
 }
 
 function gmailEnsureAuth(onAuthed) {
@@ -6935,8 +6964,7 @@ function showHomeScreen() {
     _hsRenderDataset();
     _hsRenderNotes();
     _hsQuickChatRenderProfile();
-    emailFetchEmails(null);
-    setTimeout(_hsRenderGmailConnectIfNeeded, 800);
+    emailPreloadEmails({ allowPrompt: false });
 }
 
 function _hsRenderGmailConnectIfNeeded() {
@@ -6948,6 +6976,24 @@ function _hsRenderGmailConnectIfNeeded() {
     const hasSecret = !!(CONFIG.google_client_secret || "").trim();
     const btnFn = hasSecret ? 'gmailConnectWithCode()' : 'gmailEnsureAuth(() => emailFetchEmails(null))';
     list.innerHTML = '<li style="padding:24px 16px; text-align:center; list-style:none;"><div style="font-size:13px; color:#888; margin-bottom:14px;">Sign in to load your Gmail</div><button onclick="' + btnFn + '" style="background:var(--accent); color:#fff; border:none; border-radius:14px; padding:13px 28px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:var(--glass-shadow);">Connect Gmail</button></li>';
+}
+
+async function emailPreloadEmails(options = {}) {
+    const { allowPrompt = false, query = null } = options;
+    const allAccts = emailGetAllAccounts();
+    const selIds = selectedEmailAccountIds.length ? selectedEmailAccountIds : allAccts.map(a => a.id);
+    const selAccts = allAccts.filter(a => selIds.includes(a.id));
+    const hasGmail = selAccts.some(a => a.type === 'gmail');
+    const list = document.getElementById('gmail-list');
+    if (list && selAccts.length) {
+        list.innerHTML = '<li style="padding:24px; color:#888; font-size:13px; text-align:center; list-style:none;"><span style="font-size:24px; display:block; margin-bottom:8px; animation:spin 1.2s linear infinite;">↻</span>Loading emails…</li>';
+    }
+    if (hasGmail && !gmailAccessToken) {
+        const authed = await gmailSilentAuth({ fetchEmails: false, query });
+        if (!authed && allowPrompt) { await gmailLoadEmails(query); return; }
+    }
+    await emailFetchEmails(query, { allowGmailAuthPrompt: allowPrompt });
+    if (hasGmail && !gmailAccessToken) _hsRenderGmailConnectIfNeeded();
 }
 
 function hideHomeScreen() {
