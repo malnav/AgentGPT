@@ -227,6 +227,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 @media (prefers-color-scheme: dark) { .ai .bubble-tools { color: rgba(255,255,255,0.45); } }
 .bubble-tools div { cursor: pointer; padding: 6px; transition: transform 0.15s var(--spring); min-width: 32px; min-height: 32px; display: flex; align-items: center; justify-content: center; }
 .bubble-tools div:active { transform: scale(0.88); }
+.bubble.bm-menu-open, .bubble:has(.bm-menu:not(.closed)) { position: relative; z-index: 10020; }
 
 /* ── INPUT ZONE — fixed overlay at bottom ── */
 .input-zone {
@@ -470,7 +471,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
 .tool-menu-item { padding: 13px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 0.5px solid var(--border); color: var(--text); text-align: left; transition: background 0.15s; }
 .tool-menu-item:last-child { border-bottom: none; }
 .tool-menu-item:active { background: rgba(0,122,255,0.08); }
-.bm-menu { min-width: 180px; background: rgba(255,255,255,0.97) !important; backdrop-filter: blur(28px) saturate(1.8) !important; -webkit-backdrop-filter: blur(28px) saturate(1.8) !important; border: 0.5px solid rgba(0,0,0,0.12) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.14) !important; }
+.bm-menu { min-width: 180px; z-index: 10030; background: rgba(255,255,255,0.97) !important; backdrop-filter: blur(28px) saturate(1.8) !important; -webkit-backdrop-filter: blur(28px) saturate(1.8) !important; border: 0.5px solid rgba(0,0,0,0.12) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.14) !important; }
 @media (prefers-color-scheme: dark) { .bm-menu { background: rgba(30,30,44,0.97) !important; border-color: rgba(255,255,255,0.14) !important; } }
 .bm-menu .tool-menu-item { padding: 11px 15px; font-size: 14px; font-weight: 500; white-space: nowrap; display: flex; align-items: center; gap: 9px; color: var(--text) !important; }
 .bm-menu .tool-menu-item .bmi { font-size: 16px; line-height: 1; display: inline-block; width: 20px; text-align: center; flex-shrink: 0; }
@@ -1768,7 +1769,7 @@ function promptUserAsync(message, defaultValue = "") { return new Promise((resol
 
 async function getStorageSize() { const str = JSON.stringify(chatHistories); return (str.length / (1024 * 1024)).toFixed(3); }
 
-document.addEventListener('click', (e) => { document.querySelectorAll('.bm-menu:not(.closed)').forEach(m => m.classList.add('closed')); if(!e.target.closest('.tool-menu') && !e.target.closest('.inline-btn') && !e.target.closest('.chip')) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => m.classList.add('closed')); const inputZone = document.getElementById('main-input-zone'); if(inputZone) inputZone.classList.remove('menu-open'); } });
+document.addEventListener('click', (e) => { document.querySelectorAll('.bm-menu:not(.closed)').forEach(m => m.classList.add('closed')); document.querySelectorAll('.bubble.bm-menu-open').forEach(b => b.classList.remove('bm-menu-open')); if(!e.target.closest('.tool-menu') && !e.target.closest('.inline-btn') && !e.target.closest('.chip')) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => m.classList.add('closed')); const inputZone = document.getElementById('main-input-zone'); if(inputZone) inputZone.classList.remove('menu-open'); } });
 function toggleMenu(menuEl) { document.querySelectorAll('.tool-menu:not(.closed)').forEach(m => { if(m !== menuEl) m.classList.add('closed'); }); menuEl.classList.toggle('closed'); const inputZone = document.getElementById('main-input-zone'); if(inputZone) inputZone.classList.toggle('menu-open', menuEl.id === 'attach-menu' && !menuEl.classList.contains('closed')); }
 function _sanitizeMoneyAmount(v) {
     const n = Number(String(v || '').replace(/[^0-9.\-]/g, ''));
@@ -3711,7 +3712,7 @@ async function switchProfileSession(newLabel) {
     setTimeout(() => null, 80);
 }
 
-function _bmToggle(e, menu) { e.stopPropagation(); const wasOpen = !menu.classList.contains('closed'); document.querySelectorAll('.bm-menu:not(.closed)').forEach(m => m.classList.add('closed')); if (!wasOpen) { const trigger = e.target.closest('[onclick]') || e.target; const r = trigger.getBoundingClientRect(); menu.style.position = 'fixed'; menu.style.bottom = 'auto'; menu.style.top = 'auto'; menu.style.right = 'auto'; menu.style.left = 'auto'; menu.classList.remove('closed'); const mh = menu.offsetHeight; const mw = menu.offsetWidth; const topPos = r.top - mh - 6; menu.style.top = (topPos < 8 ? r.bottom + 6 : topPos) + 'px'; menu.style.left = Math.max(8, Math.min(r.right - mw, window.innerWidth - mw - 8)) + 'px'; } }
+function _bmToggle(e, menu) { e.stopPropagation(); const bubble = menu.closest('.bubble'); const wasOpen = !menu.classList.contains('closed'); document.querySelectorAll('.bm-menu:not(.closed)').forEach(m => m.classList.add('closed')); document.querySelectorAll('.bubble.bm-menu-open').forEach(b => b.classList.remove('bm-menu-open')); if (!wasOpen) { if (bubble) bubble.classList.add('bm-menu-open'); const trigger = e.target.closest('[onclick]') || e.target; const r = trigger.getBoundingClientRect(); menu.style.position = 'fixed'; menu.style.bottom = 'auto'; menu.style.top = 'auto'; menu.style.right = 'auto'; menu.style.left = 'auto'; menu.classList.remove('closed'); const mh = menu.offsetHeight; const mw = menu.offsetWidth; const topPos = r.top - mh - 6; menu.style.top = (topPos < 8 ? r.bottom + 6 : topPos) + 'px'; menu.style.left = Math.max(8, Math.min(r.right - mw, window.innerWidth - mw - 8)) + 'px'; } }
 async function _copyFormattedFromBubble(bubble) { try { if(!bubble) { notify("No response to copy", "#ff3b30"); return; } const content = bubble.querySelector('.bubble-content'); if(!content) { notify("No response to copy", "#ff3b30"); return; } if (navigator.clipboard && window.ClipboardItem) { const html = new Blob([content.innerHTML], {type: 'text/html'}); const text = new Blob([content.innerText], {type: 'text/plain'}); const data = new ClipboardItem({'text/html': html, 'text/plain': text}); await navigator.clipboard.write([data]); } else { const selection = window.getSelection(); const range = document.createRange(); range.selectNodeContents(content); selection.removeAllRanges(); selection.addRange(range); document.execCommand('copy'); selection.removeAllRanges(); } notify("Copied Formatted!", "#34c759"); } catch(e) { notify("Copy Failed", "#ff3b30"); } }
 async function copyFormattedText(btn) { const bubble = btn && btn.closest ? btn.closest('.bubble') : null; await _copyFormattedFromBubble(bubble); }
 function applyRuleForLastResponse(idx) { if(idx < 0) return; editAIResponse(idx); setTimeout(() => { const ruleIn = document.getElementById('edit-ai-rule-input'); if(ruleIn) ruleIn.focus(); }, 80); }
