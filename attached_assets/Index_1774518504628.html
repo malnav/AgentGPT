@@ -115,6 +115,15 @@ code { font-family: monospace; }
 .cal-date-num { font-size: 11px; font-weight: bold; margin-bottom: 2px; color:var(--text); }
 .cal-event { font-size: 9px; background: var(--accent); color: #fff; border-radius: 4px; padding: 2px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; font-weight:600;}
 
+.var-date-editor { display: flex; flex-direction: column; gap: 16px; align-items: stretch; width: 100%; padding: 12px 4px 4px; }
+.var-date-row { display: grid; grid-template-columns: minmax(0, 1fr) 48px; align-items: center; gap: 18px; }
+.var-date-pill { width: 100%; border: none; border-radius: 26px; background: #3f474a; color: #f8fbff; min-height: 64px; padding: 0 22px; font-size: 34px; line-height: 1; font-weight: 800; letter-spacing: 1px; font-family: inherit; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 8px 18px rgba(0,0,0,0.14); }
+.var-date-delete { border: none; background: transparent; color: rgba(60, 74, 74, 0.48); font-size: 30px; line-height: 1; min-width: 44px; height: 54px; cursor: pointer; display: flex; align-items: center; justify-content: center; filter: grayscale(1); opacity: 0.58; }
+.var-date-add { width: 100%; min-height: 64px; border-radius: 28px; border: 1.5px solid rgba(0, 122, 255, 0.8); background: #3c4a47; color: var(--accent); font-size: 28px; font-weight: 900; letter-spacing: 0.2px; font-family: inherit; cursor: pointer; box-shadow: 0 0 0 1px rgba(0,122,255,0.18), 0 8px 18px rgba(0,0,0,0.16); }
+.var-date-pill:active, .var-date-add:active, .var-date-delete:active { transform: scale(0.98); }
+.var-date-empty { font-size: 13px; color: #888; text-align: center; padding: 4px 0 0; }
+@media (max-width: 390px) { .var-date-pill { font-size: 28px; min-height: 58px; } .var-date-add { font-size: 24px; min-height: 58px; } }
+
 /* MODALS */
 .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 200; display: none; flex-direction: column; overflow: hidden;}
 .modal-header { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg); }
@@ -820,8 +829,11 @@ function renderSessionVariables() {
     let vars = getActiveVars(); let keys = p.expected_vars || [];
     keys.sort((a, b) => { let vA = vars[a]; let vB = vars[b]; let hasA = vA && (typeof vA==='object' ? vA.value : vA) !== ""; let hasB = vB && (typeof vB==='object' ? vB.value : vB) !== ""; return (hasA === hasB) ? 0 : hasA ? -1 : 1; });
     let html = keys.map(k => {
-        let vObj = vars[k]; if(typeof vObj === 'string') vObj = { value: vObj, locked: false }; let valDisp = (vObj && vObj.value !== undefined && vObj.value !== "") ? vObj.value : `<span style="opacity:0.4; font-style:italic;">Empty</span>`; let isLocked = vObj && vObj.locked;
-        return `<li style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:10px 0; border-bottom:0.5px solid var(--border);"><div style="cursor:pointer; font-size:18px; padding:0 8px; color:${isLocked ? '#888' : 'var(--accent)'};" onclick="toggleVarLock('${k}')" title="Toggle Auto-Update">${isLocked ? '🔒' : '🔓'}</div><div style="flex:1; word-break:break-all; cursor:pointer;" onclick="editVariableValue('${k}')"><strong>{{${k}}}</strong> = ${valDisp} <span style="font-size:10px; opacity:0.5; margin-left:4px;">✏️</span></div><div style="cursor:pointer; opacity:0.4; padding:0 10px;" onclick="deleteVariable('${k}')">🗑️</div></li>`;
+        let vObj = vars[k]; if(typeof vObj === 'string') vObj = { value: vObj, locked: false }; let rawVal = (vObj && vObj.value !== undefined) ? vObj.value : ""; let valDisp = rawVal !== "" ? escapeHtml(rawVal).replace(/\n/g, '<br>') : `<span style="opacity:0.4; font-style:italic;">Empty</span>`; let isLocked = vObj && vObj.locked;
+        if(isDateVariableKey(k)) {
+            return `<li style="display:flex; flex-direction:column; font-size:13px; padding:12px 0 16px; border-bottom:0.5px solid var(--border);"><div style="display:flex; justify-content:space-between; align-items:center; gap:8px;"><div style="cursor:pointer; font-size:18px; padding:0 8px; color:${isLocked ? '#888' : 'var(--accent)'};" onclick="toggleVarLock('${escapeJsString(k)}')" title="Toggle Auto-Update">${isLocked ? '🔒' : '🔓'}</div><div style="flex:1; word-break:break-all;"><strong>{{${escapeHtml(k)}}}</strong></div><div style="cursor:pointer; opacity:0.4; padding:0 10px;" onclick="deleteVariable('${escapeJsString(k)}')">🗑️</div></div>${renderDateVariableEditor(k, rawVal)}</li>`;
+        }
+        return `<li style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:10px 0; border-bottom:0.5px solid var(--border);"><div style="cursor:pointer; font-size:18px; padding:0 8px; color:${isLocked ? '#888' : 'var(--accent)'};" onclick="toggleVarLock('${escapeJsString(k)}')" title="Toggle Auto-Update">${isLocked ? '🔒' : '🔓'}</div><div style="flex:1; word-break:break-all; cursor:pointer;" onclick="editVariableValue('${escapeJsString(k)}')"><strong>{{${escapeHtml(k)}}}</strong> = ${valDisp} <span style="font-size:10px; opacity:0.5; margin-left:4px;">✏️</span></div><div style="cursor:pointer; opacity:0.4; padding:0 10px;" onclick="deleteVariable('${escapeJsString(k)}')">🗑️</div></li>`;
     }).join('');
     if(html === "") html = `<div style="font-size:12px; color:#888; text-align:center; padding:10px;">No variables defined.</div>`; document.getElementById('session-vars-list').innerHTML = `<div style="padding:0 12px;">${html}</div>`;
 }
@@ -1381,6 +1393,41 @@ function triggerAutoSync() { if(!CONFIG.fb_auto || !CONFIG.fb_api || !CONFIG.fb_
 function openCalendar() { renderCalFilters(); renderCalendar(); openModal('calendar-modal'); }
 function changeMonth(offset) { currentCalDate.setMonth(currentCalDate.getMonth() + offset); renderCalendar(); }
 function parseCustomDate(s) { let str = (s||'').trim(); if(!str) return new Date("invalid"); let m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/); if(m) return new Date(parseInt(m[3], 10), parseInt(m[2], 10)-1, parseInt(m[1], 10)); let d = new Date(str); return d; }
+
+function escapeHtml(str) { return String(str ?? '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch])); }
+function escapeJsString(str) { return String(str ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r'); }
+function isDateVariableKey(key) { return /(^|_)(date|day|time|start|end)(_|$)/i.test(key || ''); }
+function formatDateForDisplay(value) {
+    let d = parseCustomDate(value);
+    if(isNaN(d.getTime())) return String(value || '');
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+function normalizeDateEntries(value) {
+    if(Array.isArray(value)) return value.map(v => formatDateForDisplay(v)).filter(Boolean);
+    let raw = String(value || '').trim();
+    if(!raw) return [];
+    let rangeParts = raw.split(/\s+to\s+|\s+-\s+/i).map(x => x.trim()).filter(Boolean);
+    if(rangeParts.length === 2) {
+        let d1 = parseCustomDate(rangeParts[0]), d2 = parseCustomDate(rangeParts[1]);
+        if(!isNaN(d1.getTime()) && !isNaN(d2.getTime()) && d1 <= d2) {
+            let out = [], curr = new Date(d1);
+            while(curr <= d2) { out.push(formatDateForDisplay(curr)); curr.setDate(curr.getDate() + 1); }
+            return out;
+        }
+    }
+    return raw.split(/[\n,;]+/).map(x => formatDateForDisplay(x.trim())).filter(Boolean);
+}
+function serializeDateEntries(entries) { return entries.map(formatDateForDisplay).filter(Boolean).join('\n'); }
+function renderDateVariableEditor(key, value) {
+    let dates = normalizeDateEntries(value);
+    let rows = dates.map((date, idx) => `<div class="var-date-row"><button class="var-date-pill" onclick="event.stopPropagation(); editDateEntry('${escapeJsString(key)}', ${idx})">${escapeHtml(date)}</button><button class="var-date-delete" aria-label="Delete ${escapeHtml(date)}" onclick="event.stopPropagation(); deleteDateEntry('${escapeJsString(key)}', ${idx})">🗑️</button></div>`).join('');
+    if(!rows) rows = `<div class="var-date-empty">No dates added yet.</div>`;
+    return `<div class="var-date-editor">${rows}<button class="var-date-add" onclick="event.stopPropagation(); addDateEntry('${escapeJsString(key)}')">+ Add date</button></div>`;
+}
+async function saveDateEntries(key, entries, locked) { let vars = getActiveVars(); vars[key] = { value: serializeDateEntries(entries), locked: !!locked }; await saveAll(); renderSessionVariables(); }
+async function addDateEntry(key) { let vars = getActiveVars(); let valObj = vars[key]; let currentVal = (valObj && valObj.value !== undefined) ? valObj.value : (valObj || ""); let dates = normalizeDateEntries(currentVal); let newVal = await promptUserAsync(`Add date for {{${key}}} (DD/MM/YYYY):`); if(newVal === null) return; let d = formatDateForDisplay(newVal); if(!d) return notify("Enter a valid date.", "#ff3b30"); dates.push(d); await saveDateEntries(key, dates, valObj ? valObj.locked : false); }
+async function editDateEntry(key, idx) { let vars = getActiveVars(); let valObj = vars[key]; let currentVal = (valObj && valObj.value !== undefined) ? valObj.value : (valObj || ""); let dates = normalizeDateEntries(currentVal); let newVal = await promptUserAsync(`Edit date for {{${key}}}:`, dates[idx] || ""); if(newVal === null) return; let d = formatDateForDisplay(newVal); if(!d) return notify("Enter a valid date.", "#ff3b30"); dates[idx] = d; await saveDateEntries(key, dates, valObj ? valObj.locked : false); }
+async function deleteDateEntry(key, idx) { let vars = getActiveVars(); let valObj = vars[key]; let currentVal = (valObj && valObj.value !== undefined) ? valObj.value : (valObj || ""); let dates = normalizeDateEntries(currentVal); dates.splice(idx, 1); await saveDateEntries(key, dates, valObj ? valObj.locked : false); }
 function renderCalFilters() { if(!CONFIG.cal_profiles) CONFIG.cal_profiles = AI_PROFILES.map(p => p.label); document.getElementById('cal-prof-filters').innerHTML = AI_PROFILES.map(p => { let active = CONFIG.cal_profiles.includes(p.label) ? 'active' : ''; return `<div class="tag-chip ${active}" onclick="toggleCalProf('${p.label}')">${p.label}</div>`; }).join(''); }
 async function toggleCalProf(lbl) { if(!CONFIG.cal_profiles) CONFIG.cal_profiles = AI_PROFILES.map(p => p.label); if(CONFIG.cal_profiles.includes(lbl)) { CONFIG.cal_profiles = CONFIG.cal_profiles.filter(x => x !== lbl); } else { CONFIG.cal_profiles.push(lbl); } await saveMasterConfig(); renderCalFilters(); renderCalendar(); }
 
@@ -1400,8 +1447,7 @@ function getDatasetsWithDates() {
                         if(kl.includes('date') || kl.includes('time') || kl.includes('start') || kl.includes('end') || kl.includes('day')) {
                             let v = typeof ds.data[k] === 'object' ? ds.data[k].value : ds.data[k];
                             if(v && typeof v === 'string') {
-                                let parts = v.split(/\s+to\s+|\s*-\s*/);
-                                if(parts.length === 2) { let d1 = parseCustomDate(parts[0]), d2 = parseCustomDate(parts[1]); if(!isNaN(d1.getTime()) && !isNaN(d2.getTime()) && d1 <= d2) { let curr = new Date(d1); while(curr <= d2) { dates.push({ d: new Date(curr), label: k }); curr.setDate(curr.getDate() + 1); } } else { parts.forEach(pt => { let d = parseCustomDate(pt); if(!isNaN(d.getTime())) dates.push({ d: d, label: k }); }); } } else { let d = parseCustomDate(v); if(!isNaN(d.getTime())) dates.push({ d: d, label: k }); }
+                                if(/\s+to\s+|\s+-\s+/i.test(v)) { let parts = v.split(/\s+to\s+|\s+-\s+/i); if(parts.length === 2) { let d1 = parseCustomDate(parts[0]), d2 = parseCustomDate(parts[1]); if(!isNaN(d1.getTime()) && !isNaN(d2.getTime()) && d1 <= d2) { let curr = new Date(d1); while(curr <= d2) { dates.push({ d: new Date(curr), label: k }); curr.setDate(curr.getDate() + 1); } } else { parts.forEach(pt => { let d = parseCustomDate(pt); if(!isNaN(d.getTime())) dates.push({ d: d, label: k }); }); } } } else { v.split(/[\n,;]+/).forEach(pt => { let d = parseCustomDate(pt); if(!isNaN(d.getTime())) dates.push({ d: d, label: k }); }); }
                             }
                         }
                     });
