@@ -3719,7 +3719,48 @@ async function switchProfileSession(newLabel) {
 let _bmLastTouchActionAt = 0;
 function _bmToggle(e, menu) { if(e) { e.preventDefault(); e.stopPropagation(); } const bubble = menu.closest('.bubble'); const wasOpen = !menu.classList.contains('closed'); _closeBubbleMoreMenus(); if (!wasOpen) { if (bubble) bubble.classList.add('bm-menu-open'); const trigger = e.target.closest('[onclick]') || e.target; const r = trigger.getBoundingClientRect(); menu.style.position = 'fixed'; menu.style.bottom = 'auto'; menu.style.top = 'auto'; menu.style.right = 'auto'; menu.style.left = 'auto'; menu.classList.remove('closed'); const mh = menu.offsetHeight; const mw = menu.offsetWidth; const topPos = r.top - mh - 6; menu.style.top = (topPos < 8 ? r.bottom + 6 : topPos) + 'px'; menu.style.left = Math.max(8, Math.min(r.right - mw, window.innerWidth - mw - 8)) + 'px'; } }
 function _bmMenuAction(e, action, idx, mode) { if(e) { e.preventDefault(); e.stopPropagation(); if(e.type === 'touchend') _bmLastTouchActionAt = Date.now(); else if(e.type === 'click' && Date.now() - _bmLastTouchActionAt < 700) return false; } _closeBubbleMoreMenus(); if(action === 'openChat') openChatWithResponse(idx); else if(action === 'copyRaw') copyRawText(idx); else if(action === 'draftEmail') draftEmailFromBubble(idx, mode); return false; }
-async function _copyFormattedFromBubble(bubble) { try { if(!bubble) { notify("No response to copy", "#ff3b30"); return; } const content = bubble.querySelector('.bubble-content'); if(!content) { notify("No response to copy", "#ff3b30"); return; } if (navigator.clipboard && window.ClipboardItem) { const html = new Blob([content.innerHTML], {type: 'text/html'}); const text = new Blob([content.innerText], {type: 'text/plain'}); const data = new ClipboardItem({'text/html': html, 'text/plain': text}); await navigator.clipboard.write([data]); } else { const selection = window.getSelection(); const range = document.createRange(); range.selectNodeContents(content); selection.removeAllRanges(); selection.addRange(range); document.execCommand('copy'); selection.removeAllRanges(); } notify("Copied Formatted!", "#34c759"); } catch(e) { notify("Copy Failed", "#ff3b30"); } }
+function _clipboardTextFromNode(node) {
+    if(!node) return "";
+    if(node.nodeType === Node.TEXT_NODE) return node.textContent || "";
+    if(node.nodeType !== Node.ELEMENT_NODE) return "";
+    const tag = node.tagName.toLowerCase();
+    if(tag === 'br') return "\n";
+    const blockTags = new Set(['address','article','aside','blockquote','div','dl','fieldset','figcaption','figure','footer','form','h1','h2','h3','h4','h5','h6','header','hr','li','main','nav','ol','p','pre','section','table','ul']);
+    let text = Array.from(node.childNodes).map(_clipboardTextFromNode).join('');
+    if(tag === 'li') text = text.trim() ? '• ' + text.trim() : '';
+    if(blockTags.has(tag)) return text.trim() ? text.trim() + "\n\n" : "";
+    return text;
+}
+
+function _getClipboardPlainText(content) {
+    return Array.from(content.childNodes).map(_clipboardTextFromNode).join('').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function _getClipboardFormattedHtmlFromContent(content) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = content.innerHTML;
+    wrapper.querySelectorAll('p').forEach(p => {
+        p.style.margin = '0 0 1em 0';
+        p.style.minHeight = '1em';
+    });
+    wrapper.querySelectorAll('ul,ol').forEach(list => { list.style.margin = '0 0 1em 1.5em'; });
+    wrapper.querySelectorAll('li').forEach(li => { li.style.margin = '0.25em 0'; });
+    wrapper.querySelectorAll('pre').forEach(pre => { pre.style.margin = '0 0 1em 0'; pre.style.whiteSpace = 'pre-wrap'; });
+    return `<div style="white-space: normal; line-height: 1.45;">${wrapper.innerHTML}</div>`;
+}
+
+async function _writeFormattedClipboard(htmlText, plainText) {
+    if (navigator.clipboard && window.ClipboardItem) {
+        const html = new Blob([htmlText], {type: 'text/html'});
+        const text = new Blob([plainText], {type: 'text/plain'});
+        const data = new ClipboardItem({'text/html': html, 'text/plain': text});
+        await navigator.clipboard.write([data]);
+        return true;
+    }
+    return false;
+}
+
+async function _copyFormattedFromBubble(bubble) { try { if(!bubble) { notify("No response to copy", "#ff3b30"); return; } const content = bubble.querySelector('.bubble-content'); if(!content) { notify("No response to copy", "#ff3b30"); return; } const htmlText = _getClipboardFormattedHtmlFromContent(content); const plainText = _getClipboardPlainText(content); if (!(await _writeFormattedClipboard(htmlText, plainText))) { const selection = window.getSelection(); const range = document.createRange(); range.selectNodeContents(content); selection.removeAllRanges(); selection.addRange(range); document.execCommand('copy'); selection.removeAllRanges(); } notify("Copied Formatted!", "#34c759"); } catch(e) { notify("Copy Failed", "#ff3b30"); } }
 async function copyFormattedText(btn) { const bubble = btn && btn.closest ? btn.closest('.bubble') : null; await _copyFormattedFromBubble(bubble); }
 function applyRuleForLastResponse(idx) { if(idx < 0) return; editAIResponse(idx); setTimeout(() => { const ruleIn = document.getElementById('edit-ai-rule-input'); if(ruleIn) ruleIn.focus(); }, 80); }
 async function copyFormattedLastResponse(idx) { if(idx < 0) return; const bubble = document.getElementById('msg-' + idx); await _copyFormattedFromBubble(bubble); }
@@ -4455,7 +4496,7 @@ async function sendToAI() {
         chatHistory.push({ role: "assistant", content: [{ type: "output_text", text: fullR }] }); await saveAll(); await autoExtractVariables(false); renderChatHistory(); 
         if(!userScrolledDuringGen) scrollToLastRequest();
         
-        try { const htmlBlob = new Blob([marked.parse(fullR)], {type: 'text/html'}); const textBlob = new Blob([fullR], {type: 'text/plain'}); const data = new ClipboardItem({'text/html': htmlBlob, 'text/plain': textBlob}); await navigator.clipboard.write([data]); notify("Response Auto-Copied!", "#34c759"); } catch(e) {}
+        try { const tmp = document.createElement('div'); tmp.innerHTML = marked.parse(fullR); if(await _writeFormattedClipboard(_getClipboardFormattedHtmlFromContent(tmp), fullR)) notify("Response Auto-Copied!", "#34c759"); } catch(e) {}
     } catch(e) { if(e.name === 'AbortError') { aiB.innerHTML = `<div class="bubble-content" style="color:var(--danger);"><em>Aborted.</em></div>`; addLog("AI_CHAT", "Aborted", ""); } else { aiB.innerHTML = `<div class="bubble-content" style="color:var(--danger); font-size:12px;"><strong>Connection Error:</strong><br>${e.message}</div>`; } }
     finally { sendBtn.innerHTML = '↑'; sendBtn.classList.remove('sending'); currentAborter = null; }
 }
