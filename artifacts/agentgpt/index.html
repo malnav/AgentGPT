@@ -5534,19 +5534,10 @@ async function gmailLoadMoreEmails() {
         const truly_new = newEmails.filter(e => !existingIds.has(e._accountId + ':' + e.id));
         truly_new.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
         if(truly_new.length === 0) { gmailHasMoreEmails = false; gmailAttachScrollObs(); gmailLoadingMore = false; return; }
-        const startIdx = gmailEmails.length;
         gmailEmails = [...gmailEmails, ...truly_new];
         gmailHasMoreEmails = hasMore;
-        const newGroups = gmailGroupByThread(truly_new, startIdx);
-        const isInbox = emailCurrentMailbox === 'INBOX';
-        const filteredNewGroups = isInbox ? (gmailSmartTab === 'all' ? newGroups.filter(g => emailGetCategory(g[0].em) !== 'spam') : newGroups.filter(g => emailGetCategory(g[0].em) === gmailSmartTab)) : newGroups;
-        const newHtml = filteredNewGroups.map(g => gmailThreadHtml(g, 'panel')).join('');
-        const newHtmlM = filteredNewGroups.map(g => gmailThreadHtml(g, 'modal')).join('');
-        ['gmail-list', 'gmail-modal-list'].forEach((listId, li) => {
-            const list = document.getElementById(listId);
-            if(list && (li === 0 ? newHtml : newHtmlM)) list.insertAdjacentHTML('beforeend', li === 0 ? newHtml : newHtmlM);
-        });
-        emailRenderSmartTabs();
+        // Re-render all groups so date sections stay correct across pagination boundaries.
+        gmailRenderEmails();
         gmailAttachScrollObs();
     } catch(e) { notify("Load more failed: " + e.message, "#ff3b30", 3000); }
     gmailLoadingMore = false;
@@ -5663,26 +5654,30 @@ function gmailRelTime(dateStr) {
     return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'2-digit'});
 }
 
-function gmailDateSectionLabel(dateStr) {
+function gmailDateSectionMeta(dateStr) {
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return 'Unknown Date';
+    if (isNaN(d.getTime())) return { key: 'unknown', label: 'Unknown Date' };
     const now = new Date();
-    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const startEmail = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-    const dayDiff = Math.floor((startToday - startEmail) / 86400000);
-    if (dayDiff === 0) return 'Today';
-    if (dayDiff === 1) return 'Yesterday';
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const nowUtcDay = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000;
+    const emailUtcDay = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
+    const dayDiff = nowUtcDay - emailUtcDay;
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (dayDiff === 0) return { key: dateKey, label: 'Today' };
+    if (dayDiff === 1) return { key: dateKey, label: 'Yesterday' };
+    return {
+        key: dateKey,
+        label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    };
 }
 
 function gmailRenderSectionedGroups(groups, src) {
     const byDay = new Map();
     groups.forEach((group) => {
-        const label = gmailDateSectionLabel(group[0]?.em?.date);
-        if (!byDay.has(label)) byDay.set(label, []);
-        byDay.get(label).push(group);
+        const meta = gmailDateSectionMeta(group[0]?.em?.date);
+        if (!byDay.has(meta.key)) byDay.set(meta.key, { label: meta.label, groups: [] });
+        byDay.get(meta.key).groups.push(group);
     });
-    return Array.from(byDay.entries()).map(([label, dayGroups]) => {
+    return Array.from(byDay.values()).map(({ label, groups: dayGroups }) => {
         const rows = dayGroups.map((g) => gmailThreadHtml(g, src)).join('');
         return `<li style="list-style:none;">
             <div style="padding:10px 14px 6px;font-size:11px;font-weight:800;letter-spacing:0.5px;color:#888;text-transform:uppercase;">${label}</div>
