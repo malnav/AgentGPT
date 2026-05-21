@@ -200,7 +200,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
             }
             const mergedResults = results;
 
-            if (resolvedMailbox.toUpperCase() === "INBOX") {
+            if (["INBOX", "[GMAIL]/ALL MAIL", "ALL MAIL"].includes(resolvedMailbox.toUpperCase()) || mailbox?.toString().trim().toUpperCase() === "ALL") {
                 const { resolved: sentMailbox } = resolveMailbox("Sent", mbNames);
                 if (sentMailbox && sentMailbox.toUpperCase() !== "INBOX") {
                     try {
@@ -240,7 +240,15 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                 }
             }
 
-            mergedResults.sort((a: any, b: any) => {
+            const seen = new Set<string>();
+            const dedupedResults = mergedResults.filter((item: any) => {
+                const key = [item.messageId || "", item.date || "", item.subject || "", item.from || "", item.to || ""].join("\x00");
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+
+            dedupedResults.sort((a: any, b: any) => {
                 const ta = new Date(a.date || 0).getTime();
                 const tb = new Date(b.date || 0).getTime();
                 if (!isNaN(tb) && !isNaN(ta) && tb !== ta) return tb - ta;
@@ -252,15 +260,15 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                 return 0;
             });
 
-            const page = mergedResults.slice(skip, skip + take);
+            const page = dedupedResults.slice(skip, skip + take);
             if (!page.length) return page;
 
             const endIndex = skip + page.length;
             const lastDate = new Date(page[page.length - 1]?.date || 0).toDateString();
             if (lastDate === "Invalid Date") return page;
 
-            for (let i = endIndex; i < mergedResults.length; i++) {
-                const current = mergedResults[i];
+            for (let i = endIndex; i < dedupedResults.length; i++) {
+                const current = dedupedResults[i];
                 const currentDate = new Date(current?.date || 0).toDateString();
                 if (currentDate !== lastDate) break;
                 page.push(current);
