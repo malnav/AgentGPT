@@ -5555,7 +5555,7 @@ function gmailIsRecentDate(dateStr) {
     return dayDiff >= 0 && dayDiff <= 1;
 }
 
-async function gmailPrefetchRecentEmails(maxPages = 3) {
+async function gmailPrefetchRecentEmails(maxPages = 12) {
     if (gmailPrefetchingRecent || gmailLoadingMore || !gmailHasMoreEmails) return;
     if (!gmailEmails.length) return;
     const oldestLoaded = gmailEmails[gmailEmails.length - 1];
