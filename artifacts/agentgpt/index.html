@@ -7117,7 +7117,11 @@ function showHomeScreen() {
     _hsRenderDataset();
     _hsRenderNotes();
     _hsQuickChatRenderProfile();
-    emailPreloadEmails({ allowPrompt: false });
+    const hasOnlyGmail = (() => {
+        const accounts = emailGetAllAccounts();
+        return accounts.length > 0 && accounts.every(a => a.type === 'gmail');
+    })();
+    emailPreloadEmails({ allowPrompt: hasOnlyGmail });
 }
 
 function _hsRenderGmailConnectIfNeeded() {
