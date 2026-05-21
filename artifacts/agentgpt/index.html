@@ -5806,26 +5806,14 @@ function emailGetCategory(em) {
 function emailSwitchSmartTab(tab) { gmailSmartTab = tab; gmailRenderEmails(); }
 
 function emailRenderSmartTabs() {
-    const isInbox = emailCurrentMailbox === 'INBOX';
-    const mainTabs = [['primary','📩 Primary'],['promotions','🏷️ Promo'],['updates','🔔 Updates'],['all','📂 All']];
-    const counts = { primary: 0, promotions: 0, updates: 0, all: 0, spam: 0 };
-    if (isInbox) gmailEmails.forEach(em => { const c = emailGetCategory(em); if (counts[c] !== undefined) counts[c]++; if (c !== 'spam') counts.all++; });
     ['gmail-smart-tabs-panel','gmail-smart-tabs-modal'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
-        el.style.cssText = (el.style.cssText || '') + '; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch;';
-        el.style.display = isInbox ? 'flex' : 'none';
-        if (!isInbox) return;
-        const makBtn = (t, label, isMain) => {
-            const active = t === gmailSmartTab;
-            const cnt = counts[t];
-            const badge = cnt ? ` <span style="font-size:10px;background:${active?'rgba(255,255,255,0.25)':'var(--border)'};color:${active?'#fff':'#888'};border-radius:8px;padding:1px 5px;margin-left:2px;font-weight:800;">${cnt}</span>` : '';
-            const sizeStyle = isMain ? 'flex:0 0 calc(100%/4);' : 'flex:0 0 auto;min-width:80px;padding:7px 10px;';
-            return `<button onclick="emailSwitchSmartTab('${t}')" style="${sizeStyle}font-size:11px;font-weight:700;padding:7px 4px;border:none;border-bottom:2px solid ${active?'var(--accent)':'transparent'};cursor:pointer;background:transparent;color:${active?'var(--accent)':'#888'};transition:all 0.15s;white-space:nowrap;">${label}${badge}</button>`;
-        };
-        el.innerHTML = mainTabs.map(([t, label]) => makBtn(t, label, true)).join('') + makBtn('spam', '🚫 Spam', false);
+        el.style.display = 'none';
+        el.innerHTML = '';
     });
 }
+
 
 function emailBulkSetCategory(cat) {
     const checked = Array.from(document.querySelectorAll('.gmail-chk:checked'));
@@ -5848,7 +5836,7 @@ function gmailRenderEmails() {
     const panelList = document.getElementById('gmail-list');
     const modalList = document.getElementById('gmail-modal-list');
     const allGroups = gmailGroupByThread(gmailEmails);
-    const groups = isInbox ? (gmailSmartTab === 'all' ? allGroups.filter(g => emailGetCategory(g[0].em) !== 'spam') : allGroups.filter(g => emailGetCategory(g[0].em) === gmailSmartTab)) : allGroups;
+    const groups = allGroups;
     if(!groups.length) {
         if(panelList) panelList.innerHTML = empty;
         if(modalList) modalList.innerHTML = empty;
@@ -5880,8 +5868,7 @@ function gmailUpdateAddBtns() {
         const btn = document.getElementById(id);
         if(btn) btn.style.display = n > 0 ? 'inline' : 'none';
     });
-    const cats = [['primary','⭐ VIP','#30d158'],['promotions','🏷️ Promo','#ff9f0a'],['updates','🔔 Updates','#007aff'],['spam','🚫 Spam','#ff3b30']];
-    const barHtml = n > 0 ? `<div style="display:flex;flex-direction:column;gap:6px;width:100%;"><div style="font-size:11px;font-weight:700;color:#888;text-align:center;letter-spacing:0.5px;">MARK ${n} SENDER${n>1?'S':''} AS</div><div style="display:flex;gap:6px;">${cats.map(([c,lbl,col])=>`<button onclick="emailBulkSetCategory('${c}')" style="flex:1;font-size:11px;font-weight:700;padding:8px 4px;border:none;border-radius:10px;cursor:pointer;background:${col}22;color:${col};border:1px solid ${col}44;">${lbl}</button>`).join('')}</div><div style="display:flex;gap:8px;width:100%;"><button onclick="startSelectedEmailsFloatChat()" style="flex:1;font-size:12px;font-weight:700;padding:9px;border:none;border-radius:10px;cursor:pointer;background:var(--accent);color:#fff;">💬 Start Chat with ${n} Email${n>1?'s':''}</button><button onclick="addFloatingChatContext('selected')" style="flex:1;font-size:12px;font-weight:700;padding:9px;border:none;border-radius:10px;cursor:pointer;background:rgba(52,199,89,0.14);color:#30d158;border:1px solid rgba(52,199,89,0.35);">➕ Add to Context</button></div></div>` : '';
+    const barHtml = n > 0 ? `<div style="display:flex;gap:8px;width:100%;"><button onclick="startSelectedEmailsFloatChat()" style="flex:1;font-size:12px;font-weight:700;padding:9px;border:none;border-radius:10px;cursor:pointer;background:var(--accent);color:#fff;">💬 Start Chat with ${n} Email${n>1?'s':''}</button><button onclick="addFloatingChatContext('selected')" style="flex:1;font-size:12px;font-weight:700;padding:9px;border:none;border-radius:10px;cursor:pointer;background:rgba(52,199,89,0.14);color:#30d158;border:1px solid rgba(52,199,89,0.35);">➕ Add to Context</button></div>` : '';
     ['gmail-bulk-bar-panel','gmail-bulk-bar-modal'].forEach(id => {
         const bar = document.getElementById(id);
         if(!bar) return;
@@ -5900,7 +5887,7 @@ function emailUpdateResetBtn() {
 }
 function emailResetSearch() {
     gmailCurrentQuery = null;
-    gmailSmartTab = 'primary';
+    gmailSmartTab = 'all';
     ['gmail-search-box', 'gmail-modal-search'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     ['gmail-search-row', 'gmail-modal-search-row'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
     emailUpdateResetBtn();
