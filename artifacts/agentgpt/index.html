@@ -4806,6 +4806,7 @@ let gmailNextPageToken = null;
 let gmailCurrentQuery = null;
 let gmailLoadingMore = false;
 let gmailHasMoreEmails = false;
+let gmailPrefetchingRecent = false;
 let _gmailScrollObs = null;
 let gmailEmailOffset = 0;
 let imapOffsets = {};
@@ -4945,6 +4946,7 @@ async function emailFetchEmails(query, options = {}) {
     gmailRenderEmails();
     emailUpdateResetBtn();
     gmailAttachScrollObs();
+    gmailPrefetchRecentEmails();
 }
 
 async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
@@ -5541,6 +5543,34 @@ async function gmailLoadMoreEmails() {
         gmailAttachScrollObs();
     } catch(e) { notify("Load more failed: " + e.message, "#ff3b30", 3000); }
     gmailLoadingMore = false;
+}
+
+function gmailIsRecentDate(dateStr) {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return false;
+    const now = new Date();
+    const nowUtcDay = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000;
+    const emailUtcDay = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
+    const dayDiff = nowUtcDay - emailUtcDay;
+    return dayDiff >= 0 && dayDiff <= 1;
+}
+
+async function gmailPrefetchRecentEmails(maxPages = 12) {
+    if (gmailPrefetchingRecent || gmailLoadingMore || !gmailHasMoreEmails) return;
+    if (!gmailEmails.length) return;
+    const oldestLoaded = gmailEmails[gmailEmails.length - 1];
+    if (!oldestLoaded || !gmailIsRecentDate(oldestLoaded.date)) return;
+    gmailPrefetchingRecent = true;
+    try {
+        for (let i = 0; i < maxPages; i++) {
+            if (!gmailHasMoreEmails || gmailLoadingMore) break;
+            const oldest = gmailEmails[gmailEmails.length - 1];
+            if (!oldest || !gmailIsRecentDate(oldest.date)) break;
+            await gmailLoadMoreEmails();
+        }
+    } finally {
+        gmailPrefetchingRecent = false;
+    }
 }
 
 function gmailAttachScrollObs() {
