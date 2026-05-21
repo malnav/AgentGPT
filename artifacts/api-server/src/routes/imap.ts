@@ -180,8 +180,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
             const uids: number[] = await client.search(searchCriteria, { uid: true }) as number[];
             const skip = Math.max(0, parseInt(String(offset)) || 0);
             const take = Math.max(1, parseInt(String(maxResults)) || 25);
-            const mailboxFetchCount = Math.max(take + skip, take * 3, 100);
-            const slice = [...uids].slice(-mailboxFetchCount).reverse();
+            const slice = [...uids].reverse();
             const results: any[] = [];
             for await (const msg of client.fetch(slice.length ? slice : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
                 const threadKey = buildThreadKey(user, msg.envelope);
@@ -205,19 +204,10 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                 const { resolved: sentMailbox } = resolveMailbox("Sent", mbNames);
                 if (sentMailbox && sentMailbox.toUpperCase() !== "INBOX") {
                     try {
-                        const inboxParticipants = new Set<string>();
-                        mergedResults.forEach((em: any) => {
-                            const fromAddr = (em.from.match(/<([^>]+)>/)?.[1] || em.from || "").toLowerCase();
-                            const toAddr = (em.to.match(/<([^>]+)>/)?.[1] || em.to || "").toLowerCase();
-                            if (fromAddr && fromAddr !== user.toLowerCase()) inboxParticipants.add(fromAddr);
-                            if (toAddr && toAddr !== user.toLowerCase()) inboxParticipants.add(toAddr);
-                        });
-
                         await client.mailboxOpen(sentMailbox);
                         const sentCriteria = fromAddrs.length > 0 ? buildAddressCriteria(fromAddrs) : { all: true };
                         const sentUids: number[] = await client.search(sentCriteria, { uid: true }) as number[];
-                        const sentFetchCount = Math.max(take + skip, take * 3, 100);
-                        const sentSlice = [...sentUids].slice(-sentFetchCount).reverse();
+                        const sentSlice = [...sentUids].reverse();
                         for await (const msg of client.fetch(sentSlice.length ? sentSlice : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
                             const allTargets = [
                                 ...flattenAddresses(msg.envelope?.to),
@@ -226,7 +216,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                             ];
                             const isRelated = fromAddrs.length > 0
                                 ? allTargets.some((a) => fromAddrs.includes(a))
-                                : allTargets.some((a) => inboxParticipants.has(a));
+                                : true;
                             if (!isRelated) continue;
                             const threadKey = buildThreadKey(user, msg.envelope);
                             mergedResults.push({
@@ -255,7 +245,22 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                 const tb = new Date(b.date || 0).getTime();
                 return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
             });
-            return mergedResults.slice(skip, skip + take);
+
+            const page = mergedResults.slice(skip, skip + take);
+            if (!page.length) return page;
+
+            const endIndex = skip + page.length;
+            const lastDate = new Date(page[page.length - 1]?.date || 0).toDateString();
+            if (lastDate === "Invalid Date") return page;
+
+            for (let i = endIndex; i < mergedResults.length; i++) {
+                const current = mergedResults[i];
+                const currentDate = new Date(current?.date || 0).toDateString();
+                if (currentDate !== lastDate) break;
+                page.push(current);
+            }
+
+            return page;
         });
         return res.json({ emails });
     } catch (e: any) {
