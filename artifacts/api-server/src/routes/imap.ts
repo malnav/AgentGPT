@@ -179,8 +179,9 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
             }
             const uids: number[] = await client.search(searchCriteria, { uid: true }) as number[];
             const skip = Math.max(0, parseInt(String(offset)) || 0);
-            const take = Math.max(1, maxResults);
-            const slice = skip > 0 ? [...uids].slice(-(take + skip), -skip).reverse() : [...uids].slice(-take).reverse();
+            const take = Math.max(1, parseInt(String(maxResults)) || 25);
+            const mailboxFetchCount = Math.max(take + skip, take * 3, 100);
+            const slice = [...uids].slice(-mailboxFetchCount).reverse();
             const results: any[] = [];
             for await (const msg of client.fetch(slice.length ? slice : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
                 const threadKey = buildThreadKey(user, msg.envelope);
@@ -215,7 +216,8 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                         await client.mailboxOpen(sentMailbox);
                         const sentCriteria = fromAddrs.length > 0 ? buildAddressCriteria(fromAddrs) : { all: true };
                         const sentUids: number[] = await client.search(sentCriteria, { uid: true }) as number[];
-                        const sentSlice = [...sentUids].slice(-Math.max(75, take * 3)).reverse();
+                        const sentFetchCount = Math.max(take + skip, take * 3, 100);
+                        const sentSlice = [...sentUids].slice(-sentFetchCount).reverse();
                         for await (const msg of client.fetch(sentSlice.length ? sentSlice : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
                             const allTargets = [
                                 ...flattenAddresses(msg.envelope?.to),
@@ -253,7 +255,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                 const tb = new Date(b.date || 0).getTime();
                 return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
             });
-            return mergedResults.slice(0, Math.max(take * 2, take + 20));
+            return mergedResults.slice(skip, skip + take);
         });
         return res.json({ emails });
     } catch (e: any) {
