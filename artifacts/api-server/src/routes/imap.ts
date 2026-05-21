@@ -198,7 +198,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                     _mailbox: resolvedMailbox,
                 });
             }
-            const mergedResults = results.reverse();
+            const mergedResults = results;
 
             if (resolvedMailbox.toUpperCase() === "INBOX") {
                 const { resolved: sentMailbox } = resolveMailbox("Sent", mbNames);
@@ -243,7 +243,13 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
             mergedResults.sort((a: any, b: any) => {
                 const ta = new Date(a.date || 0).getTime();
                 const tb = new Date(b.date || 0).getTime();
-                return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
+                if (!isNaN(tb) && !isNaN(ta) && tb !== ta) return tb - ta;
+                if (!isNaN(tb) && isNaN(ta)) return -1;
+                if (isNaN(tb) && !isNaN(ta)) return 1;
+                const ua = parseInt(String(a.id || "").split("-")[0], 10);
+                const ub = parseInt(String(b.id || "").split("-")[0], 10);
+                if (!isNaN(ub) && !isNaN(ua) && ub !== ua) return ub - ua;
+                return 0;
             });
 
             const page = mergedResults.slice(skip, skip + take);
