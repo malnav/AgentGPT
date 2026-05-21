@@ -205,14 +205,6 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                 const { resolved: sentMailbox } = resolveMailbox("Sent", mbNames);
                 if (sentMailbox && sentMailbox.toUpperCase() !== "INBOX") {
                     try {
-                        const inboxParticipants = new Set<string>();
-                        mergedResults.forEach((em: any) => {
-                            const fromAddr = (em.from.match(/<([^>]+)>/)?.[1] || em.from || "").toLowerCase();
-                            const toAddr = (em.to.match(/<([^>]+)>/)?.[1] || em.to || "").toLowerCase();
-                            if (fromAddr && fromAddr !== user.toLowerCase()) inboxParticipants.add(fromAddr);
-                            if (toAddr && toAddr !== user.toLowerCase()) inboxParticipants.add(toAddr);
-                        });
-
                         await client.mailboxOpen(sentMailbox);
                         const sentCriteria = fromAddrs.length > 0 ? buildAddressCriteria(fromAddrs) : { all: true };
                         const sentUids: number[] = await client.search(sentCriteria, { uid: true }) as number[];
@@ -226,7 +218,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                             ];
                             const isRelated = fromAddrs.length > 0
                                 ? allTargets.some((a) => fromAddrs.includes(a))
-                                : allTargets.some((a) => inboxParticipants.has(a));
+                                : true;
                             if (!isRelated) continue;
                             const threadKey = buildThreadKey(user, msg.envelope);
                             mergedResults.push({
