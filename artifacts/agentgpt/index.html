@@ -5538,7 +5538,16 @@ async function gmailLoadMoreEmails() {
         const truly_new = newEmails.filter(e => !existingIds.has(e._accountId + ':' + e.id));
         truly_new.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
         if(truly_new.length === 0) { gmailHasMoreEmails = false; gmailAttachScrollObs(); gmailLoadingMore = false; return; }
-        gmailEmails = [...gmailEmails, ...truly_new];
+        // Re-sort the full list after merge because some providers can return overlapping pages
+        // where a later fetch still contains newer emails than the current tail.
+        gmailEmails = [...gmailEmails, ...truly_new].sort((a, b) => {
+            const ta = new Date(a.date || 0).getTime();
+            const tb = new Date(b.date || 0).getTime();
+            if (!isNaN(tb) && !isNaN(ta) && tb !== ta) return tb - ta;
+            if (!isNaN(tb) && isNaN(ta)) return -1;
+            if (isNaN(tb) && !isNaN(ta)) return 1;
+            return String(b.id || '').localeCompare(String(a.id || ''));
+        });
         gmailHasMoreEmails = hasMore;
         // Re-render all groups so date sections stay correct across pagination boundaries.
         gmailRenderEmails();
