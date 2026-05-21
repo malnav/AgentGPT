@@ -4808,6 +4808,7 @@ let gmailLoadingMore = false;
 let gmailHasMoreEmails = false;
 let gmailPrefetchingRecent = false;
 let _gmailScrollObs = null;
+let _gmailPullRefreshCooldownUntil = 0;
 let gmailEmailOffset = 0;
 let imapOffsets = {};
 let selectedEmailAccountIds = [];
@@ -5575,16 +5576,55 @@ async function gmailPrefetchRecentEmails(maxPages = 12) {
 }
 
 function gmailAttachScrollObs() {
-    if(_gmailScrollObs) { _gmailScrollObs.forEach(l => l.list.removeEventListener('scroll', l.handler)); _gmailScrollObs = []; }
-    if(!gmailHasMoreEmails) return;
+    if(_gmailScrollObs) {
+        _gmailScrollObs.forEach(l => {
+            l.list.removeEventListener('scroll', l.scrollHandler);
+            if (l.wheelHandler) l.list.removeEventListener('wheel', l.wheelHandler);
+            if (l.touchStartHandler) l.list.removeEventListener('touchstart', l.touchStartHandler);
+            if (l.touchMoveHandler) l.list.removeEventListener('touchmove', l.touchMoveHandler);
+            if (l.touchEndHandler) l.list.removeEventListener('touchend', l.touchEndHandler);
+        });
+        _gmailScrollObs = [];
+    }
     const lists = [document.getElementById('gmail-list'), document.getElementById('gmail-modal-list')].filter(Boolean);
     _gmailScrollObs = lists.map(list => {
-        const handler = (e) => {
-            const el = e.target;
-            if(el.scrollHeight - el.scrollTop - el.clientHeight < 200) gmailLoadMoreEmails();
+        let pullStartY = null;
+        let pullTriggered = false;
+        const triggerPullRefresh = async () => {
+            if (gmailLoadingMore) return;
+            const now = Date.now();
+            if (now < _gmailPullRefreshCooldownUntil) return;
+            _gmailPullRefreshCooldownUntil = now + 1200;
+            notify('Refreshing emails…', '#007aff', 1200);
+            await emailFetchEmails(gmailCurrentQuery || null);
         };
-        list.addEventListener('scroll', handler, { passive: true });
-        return { list, handler };
+        const scrollHandler = (e) => {
+            const el = e.target;
+            if(gmailHasMoreEmails && el.scrollHeight - el.scrollTop - el.clientHeight < 200) gmailLoadMoreEmails();
+        };
+        const wheelHandler = (e) => {
+            if (list.scrollTop <= 0 && e.deltaY < -25) triggerPullRefresh();
+        };
+        const touchStartHandler = (e) => {
+            pullStartY = (e.touches && e.touches[0]) ? e.touches[0].clientY : null;
+            pullTriggered = false;
+        };
+        const touchMoveHandler = (e) => {
+            if (pullStartY === null || pullTriggered || list.scrollTop > 0) return;
+            const currentY = (e.touches && e.touches[0]) ? e.touches[0].clientY : null;
+            if (currentY === null) return;
+            if (currentY - pullStartY > 65) {
+                pullTriggered = true;
+                triggerPullRefresh();
+            }
+        };
+        const touchEndHandler = () => { pullStartY = null; pullTriggered = false; };
+        list.addEventListener('scroll', scrollHandler, { passive: true });
+        list.addEventListener('wheel', wheelHandler, { passive: true });
+        list.addEventListener('touchstart', touchStartHandler, { passive: true });
+        list.addEventListener('touchmove', touchMoveHandler, { passive: true });
+        list.addEventListener('touchend', touchEndHandler, { passive: true });
+        return { list, scrollHandler, wheelHandler, touchStartHandler, touchMoveHandler, touchEndHandler };
     });
 }
 
