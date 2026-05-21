@@ -247,7 +247,22 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                 const tb = new Date(b.date || 0).getTime();
                 return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
             });
-            return mergedResults.slice(skip, skip + take);
+
+            const page = mergedResults.slice(skip, skip + take);
+            if (!page.length) return page;
+
+            const endIndex = skip + page.length;
+            const lastDate = new Date(page[page.length - 1]?.date || 0).toDateString();
+            if (lastDate === "Invalid Date") return page;
+
+            for (let i = endIndex; i < mergedResults.length; i++) {
+                const current = mergedResults[i];
+                const currentDate = new Date(current?.date || 0).toDateString();
+                if (currentDate !== lastDate) break;
+                page.push(current);
+            }
+
+            return page;
         });
         return res.json({ emails });
     } catch (e: any) {
