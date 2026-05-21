@@ -4859,6 +4859,7 @@ function emailMergeLocalSent(emails) {
         const key = `${em._accountId||''}:${em.id}`;
         if(!existing.has(key)) merged.push(em);
     });
+    merged.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
     return merged;
 }
 
