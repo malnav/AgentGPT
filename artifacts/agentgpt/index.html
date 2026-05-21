@@ -5534,19 +5534,10 @@ async function gmailLoadMoreEmails() {
         const truly_new = newEmails.filter(e => !existingIds.has(e._accountId + ':' + e.id));
         truly_new.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
         if(truly_new.length === 0) { gmailHasMoreEmails = false; gmailAttachScrollObs(); gmailLoadingMore = false; return; }
-        const startIdx = gmailEmails.length;
         gmailEmails = [...gmailEmails, ...truly_new];
         gmailHasMoreEmails = hasMore;
-        const newGroups = gmailGroupByThread(truly_new, startIdx);
-        const isInbox = emailCurrentMailbox === 'INBOX';
-        const filteredNewGroups = isInbox ? (gmailSmartTab === 'all' ? newGroups.filter(g => emailGetCategory(g[0].em) !== 'spam') : newGroups.filter(g => emailGetCategory(g[0].em) === gmailSmartTab)) : newGroups;
-        const newHtml = filteredNewGroups.map(g => gmailThreadHtml(g, 'panel')).join('');
-        const newHtmlM = filteredNewGroups.map(g => gmailThreadHtml(g, 'modal')).join('');
-        ['gmail-list', 'gmail-modal-list'].forEach((listId, li) => {
-            const list = document.getElementById(listId);
-            if(list && (li === 0 ? newHtml : newHtmlM)) list.insertAdjacentHTML('beforeend', li === 0 ? newHtml : newHtmlM);
-        });
-        emailRenderSmartTabs();
+        // Re-render all groups so date sections stay correct across pagination boundaries.
+        gmailRenderEmails();
         gmailAttachScrollObs();
     } catch(e) { notify("Load more failed: " + e.message, "#ff3b30", 3000); }
     gmailLoadingMore = false;
