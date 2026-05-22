@@ -5910,8 +5910,14 @@ function gmailRenderEmails() {
     const empty = '<li style="padding:16px 14px; color:#888; font-size:13px;">No emails found.</li>';
     const panelList = document.getElementById('gmail-list');
     const modalList = document.getElementById('gmail-modal-list');
-    const allGroups = gmailGroupByThread(gmailEmails);
-    const groups = allGroups;
+    const groups = gmailEmails
+        .map((em, idx) => ({ em, idx }))
+        .sort((a, b) => {
+            const ta = new Date(a.em?.date || 0).getTime();
+            const tb = new Date(b.em?.date || 0).getTime();
+            return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
+        })
+        .map((item) => [item]);
     if(!groups.length) {
         if(panelList) panelList.innerHTML = empty;
         if(modalList) modalList.innerHTML = empty;
