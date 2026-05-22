@@ -144,6 +144,33 @@ function extractFromAddresses(query: string): string[] {
     return [...new Set(addrs.filter(Boolean))];
 }
 
+
+
+type ImapFetchCursor = {
+    accountKey: string;
+    mailbox: string;
+    lastDateMs: number;
+    lastUid: number;
+};
+
+function buildCursorToken(cursor: ImapFetchCursor): string {
+    return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
+}
+
+function parseCursorToken(token: unknown): ImapFetchCursor | null {
+    if (!token || typeof token !== "string") return null;
+    try {
+        const parsed = JSON.parse(Buffer.from(token, "base64url").toString("utf8"));
+        const accountKey = String(parsed?.accountKey || "");
+        const mailbox = String(parsed?.mailbox || "");
+        const lastDateMs = Number(parsed?.lastDateMs);
+        const lastUid = Number(parsed?.lastUid);
+        if (!accountKey || !mailbox || !Number.isFinite(lastDateMs) || !Number.isFinite(lastUid)) return null;
+        return { accountKey, mailbox, lastDateMs, lastUid };
+    } catch (_) {
+        return null;
+    }
+}
 function buildAddressCriteria(addrs: string[]): any {
     if (!addrs.length) return { all: true };
     const build = (a: string): any => ({ or: [{ from: a }, { to: a }, { body: a }] });
@@ -153,10 +180,10 @@ function buildAddressCriteria(addrs: string[]): any {
 }
 
 router.post("/imap/fetch", async (req: Request, res: Response) => {
-    const { host, port, user, pass, tls, query, maxResults = 25, offset = 0, mailbox = "INBOX" } = req.body;
+    const { host, port, user, pass, tls, query, maxResults = 25, cursor, mailbox = "INBOX" } = req.body;
     if (!host || !user || !pass) return res.status(400).json({ error: "Missing required fields: host, user, pass" });
     try {
-        const emails = await withImap({ host, port: parseInt(port as string) || (tls !== false ? 993 : 143), user, pass, tls: tls !== false }, async (client) => {
+        const result = await withImap({ host, port: parseInt(port as string) || (tls !== false ? 993 : 143), user, pass, tls: tls !== false }, async (client) => {
             const mailboxes = await client.list();
             const mbNames = mailboxes.map((m: any) => m.path);
             console.log(`[IMAP] Available mailboxes:`, mbNames, `Requested: ${mailbox}`);
@@ -178,8 +205,10 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                 searchCriteria = { flagged: true, or: [{ subject: q }, { body: q }] };
             }
             const uids: number[] = await client.search(searchCriteria, { uid: true }) as number[];
-            const skip = Math.max(0, parseInt(String(offset)) || 0);
             const take = Math.max(1, parseInt(String(maxResults)) || 25);
+            const accountKey = `${cleanHost(host)}|${String(user || "").trim().toLowerCase()}`;
+            const decodedCursor = parseCursorToken(cursor);
+            const cursorForAccount = decodedCursor && decodedCursor.accountKey === accountKey ? decodedCursor : null;
             const slice = [...uids].reverse();
             const results: any[] = [];
             for await (const msg of client.fetch(slice.length ? slice : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
@@ -252,23 +281,47 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                 return 0;
             });
 
-            const page = mergedResults.slice(skip, skip + take);
-            if (!page.length) return page;
+            const cursorWindow = mergedResults.filter((item: any) => {
+                if (!cursorForAccount) return true;
+                if (String(item._mailbox || "") !== cursorForAccount.mailbox) return false;
+                const itemDateMs = new Date(item.date || 0).getTime();
+                if (!Number.isFinite(itemDateMs)) return false;
+                const itemUid = parseInt(String(item.id || "").split("-")[0], 10);
+                if (!Number.isFinite(itemUid)) return false;
+                if (itemDateMs < cursorForAccount.lastDateMs) return true;
+                if (itemDateMs > cursorForAccount.lastDateMs) return false;
+                return itemUid < cursorForAccount.lastUid;
+            });
 
-            const endIndex = skip + page.length;
-            const lastDate = new Date(page[page.length - 1]?.date || 0).toDateString();
-            if (lastDate === "Invalid Date") return page;
+            const page = cursorWindow.slice(0, take);
+            if (!page.length) return { emails: page, nextCursor: null };
 
-            for (let i = endIndex; i < mergedResults.length; i++) {
-                const current = mergedResults[i];
-                const currentDate = new Date(current?.date || 0).toDateString();
-                if (currentDate !== lastDate) break;
-                page.push(current);
+            const lastPageItem = page[page.length - 1];
+            const lastDate = new Date(lastPageItem?.date || 0).toDateString();
+            if (lastDate !== "Invalid Date") {
+                for (let i = take; i < cursorWindow.length; i++) {
+                    const current = cursorWindow[i];
+                    const currentDate = new Date(current?.date || 0).toDateString();
+                    if (currentDate !== lastDate) break;
+                    page.push(current);
+                }
             }
 
-            return page;
+            const pageLast = page[page.length - 1];
+            const pageLastDateMs = new Date(pageLast?.date || 0).getTime();
+            const pageLastUid = parseInt(String(pageLast?.id || "").split("-")[0], 10);
+            const nextCursor = Number.isFinite(pageLastDateMs) && Number.isFinite(pageLastUid)
+                ? buildCursorToken({
+                    accountKey,
+                    mailbox: String(pageLast?._mailbox || resolvedMailbox),
+                    lastDateMs: pageLastDateMs,
+                    lastUid: pageLastUid,
+                })
+                : null;
+
+            return { emails: page, nextCursor };
         });
-        return res.json({ emails });
+        return res.json(result);
     } catch (e: any) {
         return res.status(500).json({ error: e.message || "IMAP connection failed" });
     }
