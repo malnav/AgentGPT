@@ -4810,7 +4810,7 @@ let gmailPrefetchingRecent = false;
 let _gmailScrollObs = null;
 let _gmailPullRefreshCooldownUntil = 0;
 let gmailEmailOffset = 0;
-let imapOffsets = {};
+let imapCursors = {};
 let selectedEmailAccountIds = [];
 let emailCurrentMailbox = 'INBOX';
 let gmailPreviewBodies = { panel: null, modal: null };
@@ -5049,9 +5049,8 @@ async function emailFetchEmails(query, options = {}) {
         if(!selAccts.length) { gmailEmails = emailGetGuestEmails(); gmailRenderEmails(); return; }
     }
     notify("Loading emails...", "#007aff", 1500);
-    gmailCurrentQuery = query || null; gmailNextPageToken = null; gmailLoadingMore = false; gmailEmailOffset = 0; imapOffsets = {};
-    emailAccountLoadState = { total: selAccts.length, loaded: 0, inFlight: true, failed: {}, retrying: emailAccountLoadState.retrying || {} };
-    emailUpdateAccountLoadUi();
+    gmailCurrentQuery = query || null; gmailNextPageToken = null; gmailLoadingMore = false; gmailEmailOffset = 0; imapCursors = {};
+    const results = await Promise.allSettled(selAccts.map(a => emailFetchFromAccount(a, query, 25, null)));
     let merged = []; let hasMore = false;
     const wrapped = selAccts.map((acct, idx) => emailFetchFromAccount(acct, query, 25, 0)
         .then(value => ({ idx, acct, ok: true, value }))
@@ -5081,8 +5080,9 @@ async function emailFetchEmails(query, options = {}) {
     outcomes.forEach((r) => {
         if(r && r.ok) {
             const emails = r.value.emails || [];
-            finalMerged = finalMerged.concat(emails);
-            if(r.value.hasMore) finalHasMore = true;
+            merged = merged.concat(emails);
+            if(acct.type !== 'gmail') imapCursors[acct.id] = r.value.nextCursor || null;
+            if(r.value.hasMore) hasMore = true;
         }
     });
     merged.sort((a, b) => (b.receivedAtMs || 0) - (a.receivedAtMs || 0));
@@ -5094,8 +5094,7 @@ async function emailFetchEmails(query, options = {}) {
     gmailPrefetchRecentEmails();
 }
 
-
-async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
+async function emailFetchFromAccount(acct, query, limit = 25, cursor = null) {
     if(acct.type === 'gmail') {
         if(!gmailAccessToken) return { emails: [] };
         let baseQ = emailCurrentMailbox === 'Sent' ? 'in%3Asent' : emailCurrentMailbox === 'STARRED' ? 'is%3Astarred' : emailCurrentMailbox === 'Trash' ? 'in%3Atrash' : emailCurrentMailbox === 'All' ? 'in%3Aall' : 'in%3Ainbox';
@@ -5108,17 +5107,25 @@ async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
             const listData = await listRes.json();
             gmailNextPageToken = listData.nextPageToken || null;
             const msgs = listData.messages || [];
-            const details = await gmailFetchMessageDetailsChunked(msgs, { accountId: acct.id || 'gmail' });
-            return { emails: details, hasMore: !!gmailNextPageToken };
-        } catch(_) { return { emails: [] }; }
+            const details = await Promise.all(msgs.map(async m => {
+                const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+                if(!r.ok) return null;
+                const d = await r.json();
+                const hdr = d.payload.headers || [];
+                const get = n => (hdr.find(h => h.name === n) || {}).value || "";
+                const labels = d.labelIds || [];
+                return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
+            }));
+            return { emails: details.filter(Boolean), hasMore: !!gmailNextPageToken };
+        } catch(_) { return { emails: [], nextCursor: null }; }
     } else {
         try {
-            const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: query || null, maxResults: limit, offset: offset, mailbox: emailCurrentMailbox }) });
-            if(!res.ok) throw new Error(`IMAP fetch failed (${res.status})`);
+            const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: query || null, maxResults: limit, cursor: cursor || null, mailbox: emailCurrentMailbox }) });
+            if(!res.ok) return { emails: [] };
             const data = await res.json();
             const emails = (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name, _mailbox: e._mailbox || emailCurrentMailbox }));
-            return { emails, hasMore: emails.length >= limit };
-        } catch(err) { throw err; }
+            return { emails, hasMore: !!data.nextCursor, nextCursor: data.nextCursor || null };
+        } catch(_) { return { emails: [], nextCursor: null }; }
     }
 }
 
@@ -5661,14 +5668,14 @@ async function gmailLoadMoreEmails() {
         }
         const imapAccts = selAccts.filter(a => a.type !== 'gmail');
         for(const acct of imapAccts) {
-            const currentOffset = imapOffsets[acct.id] || 0;
+            const currentCursor = imapCursors[acct.id] || null;
             try {
-                const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: gmailCurrentQuery || null, maxResults: 25, offset: currentOffset, mailbox: emailCurrentMailbox }) });
+                const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: gmailCurrentQuery || null, maxResults: 25, cursor: currentCursor, mailbox: emailCurrentMailbox }) });
                 if(res.ok) {
                     const data = await res.json();
                     const emails = (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name, _mailbox: e._mailbox || emailCurrentMailbox }));
-                    if(emails.length > 0) { imapOffsets[acct.id] = currentOffset + emails.length; newEmails = newEmails.concat(emails); }
-                    if(emails.length >= 25) hasMore = true;
+                    if(emails.length > 0) { imapCursors[acct.id] = data.nextCursor || null; newEmails = newEmails.concat(emails); }
+                    if(data.nextCursor) hasMore = true;
                 }
             } catch(_) {}
         }
@@ -6841,7 +6848,7 @@ function gmailSignOut() {
     if(gmailAccessToken && typeof google !== 'undefined') { try { google.accounts.oauth2.revoke(gmailAccessToken); } catch(e) {} }
     try { fetch('/api/gmail/token', { method: 'DELETE' }); } catch(e) {}
     gmailSetAccessToken(null); gmailEmails = []; gmailCurrentEmail = null;
-    gmailNextPageToken = null; gmailCurrentQuery = null; gmailLoadingMore = false; gmailHasMoreEmails = false; gmailEmailOffset = 0; imapOffsets = {};
+    gmailNextPageToken = null; gmailCurrentQuery = null; gmailLoadingMore = false; gmailHasMoreEmails = false; gmailEmailOffset = 0; imapCursors = {};
     if(_gmailScrollObs) { _gmailScrollObs.forEach(l => l.list.removeEventListener('scroll', l.handler)); _gmailScrollObs = []; }
     localStorage.removeItem('gmail_hint');
     ['gmail-list', 'gmail-modal-list'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = ''; });
@@ -7890,10 +7897,10 @@ async function _findRelatedEmailsForAddress(senderAddr) {
                 page++;
             }
         } else {
-            let offset = 0;
+            let cursor = null;
             const batch = 50;
             for (let page = 0; page < 8; page++) {
-                const res = await emailFetchFromAccount(acct, query, batch, offset);
+                const res = await emailFetchFromAccount(acct, query, batch, cursor);
                 const emails = res && res.emails ? res.emails : [];
                 emails.forEach(e => {
                     const key = (e._accountId || acct.id || '') + ':' + (e.id || e.messageId || '');
@@ -7901,8 +7908,8 @@ async function _findRelatedEmailsForAddress(senderAddr) {
                     seen.add(key);
                     found.push(e);
                 });
-                if (emails.length < batch) break;
-                offset += batch;
+                cursor = res.nextCursor || null;
+                if (!cursor) break;
             }
         }
     }
@@ -7938,7 +7945,7 @@ async function addFloatingChatContext(type) {
         const allAccts = emailGetAllAccounts();
         if (!allAccts.length) { notify('No email accounts configured', '#888', 1800); return; }
         notify('Searching all accounts for ' + senderAddr + '…', '#007aff', 3000);
-        const results = await Promise.allSettled(allAccts.map(a => emailFetchFromAccount(a, 'from:' + senderAddr, 50, 0)));
+        const results = await Promise.allSettled(allAccts.map(a => emailFetchFromAccount(a, 'from:' + senderAddr, 50, null)));
         const matched = [];
         results.forEach(r => { if (r.status === 'fulfilled') matched.push(...(r.value.emails || [])); });
         if (!matched.length) { notify('No emails found for ' + senderAddr + ' across all accounts', '#888', 2200); return; }
