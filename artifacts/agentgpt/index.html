@@ -4817,7 +4817,71 @@ let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
 let gmailReplyDraftSaveTimer = null;
 let _varsRelatedEmailCache = { email: '', items: [] };
-let emailAccountLoadState = { total: 0, loaded: 0, inFlight: false, failed: {}, retrying: {} };
+const gmailMessageMetadataCache = new Map();
+const GMAIL_DETAIL_CONCURRENCY = 6;
+const GMAIL_DETAIL_RENDER_CHUNK = 5;
+const GMAIL_DETAIL_TIMEOUT_MS = 8000;
+
+function gmailEmailSortDesc(a, b) {
+    const ta = new Date(a?.date || 0).getTime();
+    const tb = new Date(b?.date || 0).getTime();
+    if (!isNaN(tb) && !isNaN(ta) && tb !== ta) return tb - ta;
+    if (!isNaN(tb) && isNaN(ta)) return -1;
+    if (isNaN(tb) && !isNaN(ta)) return 1;
+    return String(b?.id || '').localeCompare(String(a?.id || ''));
+}
+
+async function gmailFetchMessageDetailWithTimeout(msg, accountId = 'gmail', timeoutMs = GMAIL_DETAIL_TIMEOUT_MS) {
+    const cacheKey = msg.id;
+    const cached = gmailMessageMetadataCache.get(cacheKey);
+    if(cached) return { ...cached };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, {
+            headers: { Authorization: `Bearer ${gmailAccessToken}` },
+            signal: controller.signal
+        });
+        if(!r.ok) return null;
+        const d = await r.json();
+        const hdr = d?.payload?.headers || [];
+        const get = n => (hdr.find(h => h.name === n) || {}).value || "";
+        const labels = d.labelIds || [];
+        const email = { id: msg.id, threadId: msg.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: accountId, _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
+        gmailMessageMetadataCache.set(cacheKey, email);
+        return { ...email };
+    } catch(_) { return null; }
+    finally {
+        clearTimeout(timeout);
+    }
+}
+
+async function gmailFetchMessageDetailsChunked(msgs, options = {}) {
+    const { accountId = 'gmail', concurrency = GMAIL_DETAIL_CONCURRENCY, chunkSize = GMAIL_DETAIL_RENDER_CHUNK, onChunk = null } = options;
+    const pending = [...msgs];
+    const results = [];
+    let completedSinceChunk = 0;
+    const flushChunk = () => {
+        if(completedSinceChunk > 0 && typeof onChunk === 'function') {
+            onChunk(results.filter(Boolean).slice());
+            completedSinceChunk = 0;
+        }
+    };
+    const worker = async () => {
+        while(pending.length) {
+            const msg = pending.shift();
+            if(!msg) break;
+            const detail = await gmailFetchMessageDetailWithTimeout(msg, accountId);
+            if(detail) results.push(detail);
+            completedSinceChunk += 1;
+            if(completedSinceChunk >= chunkSize) flushChunk();
+        }
+    };
+    const workers = Array.from({ length: Math.max(1, Math.min(concurrency, pending.length || 1)) }, worker);
+    await Promise.all(workers);
+    flushChunk();
+    return results.filter(Boolean);
+}
 
 function gmailReplyDraftKey(em) {
     if(!em) return '';
@@ -5044,17 +5108,9 @@ async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
             const listData = await listRes.json();
             gmailNextPageToken = listData.nextPageToken || null;
             const msgs = listData.messages || [];
-            const details = await Promise.all(msgs.map(async m => {
-                const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
-                if(!r.ok) return null;
-                const d = await r.json();
-                const hdr = d.payload.headers || [];
-                const get = n => (hdr.find(h => h.name === n) || {}).value || "";
-                const labels = d.labelIds || [];
-                const dateHeader = get("Date"); const receivedAtMs = emailParseReceivedAtMs(dateHeader); return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: dateHeader, receivedAtMs, messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
-            }));
-            return { emails: details.filter(Boolean), hasMore: !!gmailNextPageToken };
-        } catch(err) { throw err; }
+            const details = await gmailFetchMessageDetailsChunked(msgs, { accountId: acct.id || 'gmail' });
+            return { emails: details, hasMore: !!gmailNextPageToken };
+        } catch(_) { return { emails: [] }; }
     } else {
         try {
             const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: query || null, maxResults: limit, offset: offset, mailbox: emailCurrentMailbox }) });
@@ -5555,15 +5611,18 @@ async function gmailFetchEmails(query) {
         const listData = await listRes.json();
         gmailNextPageToken = listData.nextPageToken || null;
         const msgs = listData.messages || [];
-        const details = await Promise.all(msgs.map(async m => {
-            const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
-            if(!r.ok) return null;
-            const d = await r.json();
-            const hdr = d.payload.headers || [];
-            const get = n => (hdr.find(h => h.name === n) || {}).value || "";
-            const dateHeader = get("Date"); const receivedAtMs = emailParseReceivedAtMs(dateHeader); return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: dateHeader, receivedAtMs, messageId: get("Message-ID"), snippet: d.snippet || "", unread: (d.labelIds||[]).includes("UNREAD"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
-        }));
-        gmailEmails = details.filter(Boolean);
+        const chunkUpsert = (partialDetails) => {
+            const mergedMap = new Map();
+            partialDetails.forEach(em => { if(em?.id) mergedMap.set('gmail:' + em.id, em); });
+            gmailEmails.forEach(em => { if(em?.id) mergedMap.set((em._accountId || 'gmail') + ':' + em.id, em); });
+            gmailEmails = emailMergeLocalSent([...mergedMap.values()]).sort(gmailEmailSortDesc);
+            gmailRenderEmails();
+        };
+        const details = await gmailFetchMessageDetailsChunked(msgs, { accountId: 'gmail', onChunk: chunkUpsert });
+        const mergedMap = new Map();
+        details.forEach(em => { if(em?.id) mergedMap.set('gmail:' + em.id, em); });
+        gmailEmails.forEach(em => { if(em?.id) mergedMap.set((em._accountId || 'gmail') + ':' + em.id, em); });
+        gmailEmails = emailMergeLocalSent([...mergedMap.values()]).sort(gmailEmailSortDesc);
         gmailRenderEmails();
         gmailAttachScrollObs();
     } catch(e) { notify("Gmail error: " + e.message, "#ff3b30", 5000); }
