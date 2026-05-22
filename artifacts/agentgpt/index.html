@@ -5783,7 +5783,8 @@ function gmailGroupByThread(emails, startIdx) {
     const map = new Map();
     emails.forEach((em, i) => {
         let key = em.threadId;
-        if (em._accountId && em._accountId !== 'gmail' && String(em.threadId) === String(em.id)) {
+        if (!key) key = em.messageId || em.id;
+        if (em._accountId && em._accountId !== 'gmail' && (!em.threadId || String(em.threadId) === String(em.id))) {
             const normSubj = (em.subject || '').replace(/^(re|fwd|fw|aw|sv|vs|ref|回复|转发)[\s:：]+/gi, '').trim().toLowerCase();
             const senderAddr = gmailExtractAddr(em.from || '').toLowerCase();
             key = em._accountId + '\x00' + senderAddr + '\x00' + normSubj;
