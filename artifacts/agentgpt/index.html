@@ -4861,7 +4861,7 @@ function emailMergeLocalSent(emails) {
         const key = `${em._accountId||''}:${em.id}`;
         if(!existing.has(key)) merged.push(em);
     });
-    merged.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
+    merged.sort((a, b) => (b.receivedAtMs || 0) - (a.receivedAtMs || 0));
     return merged;
 }
 
@@ -5021,11 +5021,9 @@ async function emailFetchEmails(query, options = {}) {
             if(r.value.hasMore) finalHasMore = true;
         }
     });
-    finalMerged = emailSortByDateDesc(finalMerged);
-    gmailEmails = emailMergeLocalSent(finalMerged);
-    gmailHasMoreEmails = finalHasMore || !!gmailNextPageToken;
-    emailAccountLoadState.inFlight = false;
-    emailUpdateAccountLoadUi();
+    merged.sort((a, b) => (b.receivedAtMs || 0) - (a.receivedAtMs || 0));
+    gmailEmails = emailMergeLocalSent(merged);
+    gmailHasMoreEmails = hasMore || !!gmailNextPageToken;
     gmailRenderEmails();
     emailUpdateResetBtn();
     gmailAttachScrollObs();
@@ -5053,7 +5051,7 @@ async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
                 const hdr = d.payload.headers || [];
                 const get = n => (hdr.find(h => h.name === n) || {}).value || "";
                 const labels = d.labelIds || [];
-                return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
+                const dateHeader = get("Date"); const receivedAtMs = emailParseReceivedAtMs(dateHeader); return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: dateHeader, receivedAtMs, messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
             }));
             return { emails: details.filter(Boolean), hasMore: !!gmailNextPageToken };
         } catch(err) { throw err; }
@@ -5563,7 +5561,7 @@ async function gmailFetchEmails(query) {
             const d = await r.json();
             const hdr = d.payload.headers || [];
             const get = n => (hdr.find(h => h.name === n) || {}).value || "";
-            return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: (d.labelIds||[]).includes("UNREAD"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
+            const dateHeader = get("Date"); const receivedAtMs = emailParseReceivedAtMs(dateHeader); return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: dateHeader, receivedAtMs, messageId: get("Message-ID"), snippet: d.snippet || "", unread: (d.labelIds||[]).includes("UNREAD"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
         }));
         gmailEmails = details.filter(Boolean);
         gmailRenderEmails();
@@ -5596,7 +5594,7 @@ async function gmailLoadMoreEmails() {
                         if(!r.ok) return null;
                         const d = await r.json(); const hdr = d.payload.headers || []; const get = n => (hdr.find(h => h.name === n) || {}).value || "";
                         const labels = d.labelIds || [];
-                        return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
+                        const dateHeader = get("Date"); const receivedAtMs = emailParseReceivedAtMs(dateHeader); return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: dateHeader, receivedAtMs, messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
                     }));
                     newEmails = newEmails.concat(details.filter(Boolean));
                 }
@@ -5618,13 +5616,13 @@ async function gmailLoadMoreEmails() {
         if(newEmails.length === 0) { gmailHasMoreEmails = false; gmailAttachScrollObs(); gmailLoadingMore = false; return; }
         const existingIds = new Set(gmailEmails.map(e => e._accountId + ':' + e.id));
         const truly_new = newEmails.filter(e => !existingIds.has(e._accountId + ':' + e.id));
-        truly_new.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
+        truly_new.sort((a, b) => (b.receivedAtMs || 0) - (a.receivedAtMs || 0));
         if(truly_new.length === 0) { gmailHasMoreEmails = false; gmailAttachScrollObs(); gmailLoadingMore = false; return; }
         // Re-sort the full list after merge because some providers can return overlapping pages
         // where a later fetch still contains newer emails than the current tail.
         gmailEmails = [...gmailEmails, ...truly_new].sort((a, b) => {
-            const ta = new Date(a.date || 0).getTime();
-            const tb = new Date(b.date || 0).getTime();
+            const ta = Number(a.receivedAtMs || 0);
+            const tb = Number(b.receivedAtMs || 0);
             if (!isNaN(tb) && !isNaN(ta) && tb !== ta) return tb - ta;
             if (!isNaN(tb) && isNaN(ta)) return -1;
             if (isNaN(tb) && !isNaN(ta)) return 1;
@@ -5636,6 +5634,26 @@ async function gmailLoadMoreEmails() {
         gmailAttachScrollObs();
     } catch(e) { notify("Load more failed: " + e.message, "#ff3b30", 3000); }
     gmailLoadingMore = false;
+}
+
+
+function emailParseReceivedAtMs(dateHeader) {
+    const ts = Date.parse(dateHeader || '');
+    return Number.isFinite(ts) ? ts : 0;
+}
+
+function emailLocalDateMetaFromMs(receivedAtMs) {
+    if (!Number.isFinite(receivedAtMs) || receivedAtMs <= 0) return { key: 'unknown', label: 'Unknown Date' };
+    const d = new Date(receivedAtMs);
+    if (isNaN(d.getTime())) return { key: 'unknown', label: 'Unknown Date' };
+    const now = new Date();
+    const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 86400000;
+    const emailDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 86400000;
+    const dayDiff = nowDay - emailDay;
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (dayDiff === 0) return { key: dateKey, label: 'Today' };
+    if (dayDiff === 1) return { key: dateKey, label: 'Yesterday' };
+    return { key: dateKey, label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) };
 }
 
 function gmailIsRecentDate(dateStr) {
@@ -5792,10 +5810,10 @@ function gmailGroupByThread(emails, startIdx) {
         if (!map.has(key)) map.set(key, []);
         map.get(key).push({ em, idx: base + i });
     });
-    const toMs = d => { try { const t = new Date(d).getTime(); return isNaN(t) ? 0 : t; } catch(_) { return 0; } };
+    const toMs = em => Number(em?.receivedAtMs || 0);
     const groups = Array.from(map.values());
-    groups.forEach(g => g.sort((a, b) => toMs(b.em.date) - toMs(a.em.date)));
-    groups.sort((a, b) => toMs(b[0].em.date) - toMs(a[0].em.date));
+    groups.forEach(g => g.sort((a, b) => toMs(b.em) - toMs(a.em)));
+    groups.sort((a, b) => toMs(b[0].em) - toMs(a[0].em));
     return groups;
 }
 
@@ -5817,26 +5835,14 @@ function gmailRelTime(dateStr) {
     return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'2-digit'});
 }
 
-function gmailDateSectionMeta(dateStr) {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return { key: 'unknown', label: 'Unknown Date' };
-    const now = new Date();
-    const nowUtcDay = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000;
-    const emailUtcDay = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
-    const dayDiff = nowUtcDay - emailUtcDay;
-    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    if (dayDiff === 0) return { key: dateKey, label: 'Today' };
-    if (dayDiff === 1) return { key: dateKey, label: 'Yesterday' };
-    return {
-        key: dateKey,
-        label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-    };
+function gmailDateSectionMeta(receivedAtMs) {
+    return emailLocalDateMetaFromMs(receivedAtMs);
 }
 
 function gmailRenderSectionedGroups(groups, src) {
     const byDay = new Map();
     groups.forEach((group) => {
-        const meta = gmailDateSectionMeta(group[0]?.em?.date);
+        const meta = gmailDateSectionMeta(group[0]?.em?.receivedAtMs || 0);
         if (!byDay.has(meta.key)) byDay.set(meta.key, { label: meta.label, groups: [] });
         byDay.get(meta.key).groups.push(group);
     });
@@ -5996,8 +6002,8 @@ function gmailRenderEmails() {
     const groups = gmailEmails
         .map((em, idx) => ({ em, idx }))
         .sort((a, b) => {
-            const ta = new Date(a.em?.date || 0).getTime();
-            const tb = new Date(b.em?.date || 0).getTime();
+            const ta = Number(a.em?.receivedAtMs || 0);
+            const tb = Number(b.em?.receivedAtMs || 0);
             return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
         })
         .map((item) => [item]);

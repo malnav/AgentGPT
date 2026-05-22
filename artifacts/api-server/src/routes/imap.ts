@@ -220,6 +220,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                     from: addr(msg.envelope?.from?.[0]),
                     to: addr(msg.envelope?.to?.[0]),
                     date: msg.envelope?.date ? msg.envelope.date.toUTCString() : "",
+                    receivedAtMs: msg.envelope?.date ? msg.envelope.date.getTime() : 0,
                     messageId: msg.envelope?.messageId || "",
                     snippet: "",
                     unread: !msg.flags?.has("\\Seen"),
@@ -258,6 +259,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                                 from: addr(msg.envelope?.from?.[0]) || user,
                                 to: addr(msg.envelope?.to?.[0]),
                                 date: msg.envelope?.date ? msg.envelope.date.toUTCString() : "",
+                                receivedAtMs: msg.envelope?.date ? msg.envelope.date.getTime() : 0,
                                 messageId: msg.envelope?.messageId || "",
                                 snippet: "",
                                 unread: false,
@@ -273,8 +275,8 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
             }
 
             mergedResults.sort((a: any, b: any) => {
-                const ta = new Date(a.date || 0).getTime();
-                const tb = new Date(b.date || 0).getTime();
+                const ta = Number(a.receivedAtMs || 0);
+                const tb = Number(b.receivedAtMs || 0);
                 if (!isNaN(tb) && !isNaN(ta) && tb !== ta) return tb - ta;
                 if (!isNaN(tb) && isNaN(ta)) return -1;
                 if (isNaN(tb) && !isNaN(ta)) return 1;
@@ -288,12 +290,14 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
             if (!page.length) return page;
 
             const endIndex = skip + page.length;
-            const lastDate = new Date(page[page.length - 1]?.date || 0).toDateString();
-            if (lastDate === "Invalid Date") return page;
+            const lastDateMs = Number(page[page.length - 1]?.receivedAtMs || 0);
+            if (lastDateMs <= 0) return page;
+            const lastDate = new Date(lastDateMs).toDateString();
 
             for (let i = endIndex; i < mergedResults.length; i++) {
                 const current = mergedResults[i];
-                const currentDate = new Date(current?.date || 0).toDateString();
+                const currentMs = Number(current?.receivedAtMs || 0);
+                const currentDate = currentMs > 0 ? new Date(currentMs).toDateString() : "Invalid Date";
                 if (currentDate !== lastDate) break;
                 page.push(current);
             }
