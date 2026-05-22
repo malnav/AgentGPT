@@ -4817,6 +4817,7 @@ let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
 let gmailReplyDraftSaveTimer = null;
 let _varsRelatedEmailCache = { email: '', items: [] };
+let emailAccountLoadState = { total: 0, loaded: 0, inFlight: false, failed: {}, retrying: {} };
 
 function gmailReplyDraftKey(em) {
     if(!em) return '';
@@ -4916,6 +4917,60 @@ function emailApplyMultiPicker() {
     emailFetchEmails(null);
 }
 
+
+function emailSortByDateDesc(items) {
+    return [...(items || [])].sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
+}
+
+function emailUpdateAccountLoadUi() {
+    const st = emailAccountLoadState || { total: 0, loaded: 0, inFlight: false, failed: {} };
+    const failedIds = Object.keys(st.failed || {});
+    ['panel','modal'].forEach(src => {
+        const chip = document.getElementById(`email-acct-chip-${src}`);
+        if(!chip || !chip.parentElement) return;
+        let banner = document.getElementById(`email-acct-load-banner-${src}`);
+        if(!banner) {
+            banner = document.createElement('span');
+            banner.id = `email-acct-load-banner-${src}`;
+            banner.className = 'chip';
+            banner.style.cssText = 'font-size:10px; padding:3px 7px; font-weight:700; flex-shrink:0; background:rgba(0,122,255,0.12); color:var(--accent); border-color:rgba(0,122,255,0.25); cursor:default;';
+            chip.parentElement.insertBefore(banner, chip.nextSibling);
+        }
+        if(st.inFlight || failedIds.length) {
+            banner.style.display = '';
+            let txt = `Loaded ${Math.min(st.loaded, st.total)}/${st.total || 0} accounts`;
+            if(failedIds.length) txt += ` • ${failedIds.length} failed`;
+            banner.textContent = txt;
+        } else banner.style.display = 'none';
+        chip.parentElement.querySelectorAll(`[id^="email-acct-retry-${src}-"]`).forEach(el => el.remove());
+        failedIds.forEach(id => {
+            const bid = `email-acct-retry-${src}-${id}`;
+            const old = document.getElementById(bid);
+            if(old) old.remove();
+            const btn = document.createElement('span');
+            btn.id = bid;
+            btn.className = 'chip';
+            const acct = (st.failed[id] && st.failed[id].accountName) || id;
+            const busy = !!(st.retrying && st.retrying[id]);
+            btn.style.cssText = 'font-size:10px; padding:3px 7px; font-weight:700; flex-shrink:0; background:#ff3b3020; color:#ff3b30; border-color:#ff3b3050;';
+            btn.textContent = busy ? `Retrying ${acct}…` : `Retry ${acct}`;
+            if(!busy) btn.onclick = () => emailRetryAccount(id);
+            else btn.style.opacity = '0.6';
+            chip.parentElement.insertBefore(btn, banner.nextSibling);
+        });
+    });
+}
+
+async function emailRetryAccount(accountId) {
+    if(!accountId) return;
+    emailAccountLoadState.retrying = emailAccountLoadState.retrying || {};
+    if(emailAccountLoadState.retrying[accountId]) return;
+    emailAccountLoadState.retrying[accountId] = true;
+    emailUpdateAccountLoadUi();
+    try { await emailFetchEmails(gmailCurrentQuery || null); }
+    finally { emailAccountLoadState.retrying[accountId] = false; emailUpdateAccountLoadUi(); }
+}
+
 async function emailFetchEmails(query, options = {}) {
     const { allowGmailAuthPrompt = true } = options;
     const allAccts = emailGetAllAccounts();
@@ -4931,15 +4986,39 @@ async function emailFetchEmails(query, options = {}) {
     }
     notify("Loading emails...", "#007aff", 1500);
     gmailCurrentQuery = query || null; gmailNextPageToken = null; gmailLoadingMore = false; gmailEmailOffset = 0; imapOffsets = {};
-    const results = await Promise.allSettled(selAccts.map(a => emailFetchFromAccount(a, query, 25, 0)));
+    emailAccountLoadState = { total: selAccts.length, loaded: 0, inFlight: true, failed: {}, retrying: emailAccountLoadState.retrying || {} };
+    emailUpdateAccountLoadUi();
     let merged = []; let hasMore = false;
-    results.forEach((r, i) => {
-        if(r.status === 'fulfilled') {
-            const acct = selAccts[i];
+    const wrapped = selAccts.map((acct, idx) => emailFetchFromAccount(acct, query, 25, 0)
+        .then(value => ({ idx, acct, ok: true, value }))
+        .catch(error => ({ idx, acct, ok: false, error })));
+    const pending = [...wrapped];
+    const outcomes = new Array(selAccts.length);
+    while(pending.length) {
+        const next = await Promise.race(pending);
+        const pidx = pending.findIndex(p => p === wrapped[next.idx]);
+        if(pidx >= 0) pending.splice(pidx, 1);
+        outcomes[next.idx] = next;
+        if(next.ok) {
+            const emails = next.value.emails || [];
+            merged = emailSortByDateDesc(merged.concat(emails));
+            if(next.acct.type !== 'gmail') imapOffsets[next.acct.id] = emails.length;
+            if(next.value.hasMore) hasMore = true;
+        } else {
+            emailAccountLoadState.failed[next.acct.id] = { accountName: next.acct.name, error: String(next.error || 'Fetch failed') };
+        }
+        emailAccountLoadState.loaded += 1;
+        gmailEmails = emailMergeLocalSent(merged);
+        gmailHasMoreEmails = hasMore || !!gmailNextPageToken;
+        gmailRenderEmails();
+        emailUpdateAccountLoadUi();
+    }
+    let finalMerged = []; let finalHasMore = false;
+    outcomes.forEach((r) => {
+        if(r && r.ok) {
             const emails = r.value.emails || [];
-            merged = merged.concat(emails);
-            if(acct.type !== 'gmail') imapOffsets[acct.id] = emails.length;
-            if(r.value.hasMore) hasMore = true;
+            finalMerged = finalMerged.concat(emails);
+            if(r.value.hasMore) finalHasMore = true;
         }
     });
     merged.sort((a, b) => (b.receivedAtMs || 0) - (a.receivedAtMs || 0));
@@ -4951,6 +5030,7 @@ async function emailFetchEmails(query, options = {}) {
     gmailPrefetchRecentEmails();
 }
 
+
 async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
     if(acct.type === 'gmail') {
         if(!gmailAccessToken) return { emails: [] };
@@ -4960,7 +5040,7 @@ async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
         const q = gmailQ;
         try {
             const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${limit}&q=${q}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
-            if(!listRes.ok) { if(listRes.status === 401) { gmailSetAccessToken(null); } return { emails: [] }; }
+            if(!listRes.ok) { if(listRes.status === 401) { gmailSetAccessToken(null); } throw new Error(`Gmail fetch failed (${listRes.status})`); }
             const listData = await listRes.json();
             gmailNextPageToken = listData.nextPageToken || null;
             const msgs = listData.messages || [];
@@ -4974,15 +5054,15 @@ async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
                 const dateHeader = get("Date"); const receivedAtMs = emailParseReceivedAtMs(dateHeader); return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: dateHeader, receivedAtMs, messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
             }));
             return { emails: details.filter(Boolean), hasMore: !!gmailNextPageToken };
-        } catch(_) { return { emails: [] }; }
+        } catch(err) { throw err; }
     } else {
         try {
             const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: query || null, maxResults: limit, offset: offset, mailbox: emailCurrentMailbox }) });
-            if(!res.ok) return { emails: [] };
+            if(!res.ok) throw new Error(`IMAP fetch failed (${res.status})`);
             const data = await res.json();
             const emails = (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name, _mailbox: e._mailbox || emailCurrentMailbox }));
             return { emails, hasMore: emails.length >= limit };
-        } catch(_) { return { emails: [] }; }
+        } catch(err) { throw err; }
     }
 }
 
@@ -5721,7 +5801,8 @@ function gmailGroupByThread(emails, startIdx) {
     const map = new Map();
     emails.forEach((em, i) => {
         let key = em.threadId;
-        if (em._accountId && em._accountId !== 'gmail' && String(em.threadId) === String(em.id)) {
+        if (!key) key = em.messageId || em.id;
+        if (em._accountId && em._accountId !== 'gmail' && (!em.threadId || String(em.threadId) === String(em.id))) {
             const normSubj = (em.subject || '').replace(/^(re|fwd|fw|aw|sv|vs|ref|回复|转发)[\s:：]+/gi, '').trim().toLowerCase();
             const senderAddr = gmailExtractAddr(em.from || '').toLowerCase();
             key = em._accountId + '\x00' + senderAddr + '\x00' + normSubj;
