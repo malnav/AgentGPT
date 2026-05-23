@@ -4859,7 +4859,7 @@ function emailMergeLocalSent(emails) {
         const key = `${em._accountId||''}:${em.id}`;
         if(!existing.has(key)) merged.push(em);
     });
-    merged.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
+    merged.sort((a, b) => gmailResolveInternalDateMs(b) - gmailResolveInternalDateMs(a));
     return merged;
 }
 
@@ -4941,7 +4941,7 @@ async function emailFetchEmails(query, options = {}) {
             if(r.value.hasMore) hasMore = true;
         }
     });
-    merged.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
+    merged.sort((a, b) => gmailResolveInternalDateMs(b) - gmailResolveInternalDateMs(a));
     gmailEmails = emailMergeLocalSent(merged);
     gmailHasMoreEmails = hasMore || !!gmailNextPageToken;
     gmailRenderEmails();
@@ -4970,7 +4970,7 @@ async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
                 const hdr = d.payload.headers || [];
                 const get = n => (hdr.find(h => h.name === n) || {}).value || "";
                 const labels = d.labelIds || [];
-                return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
+                return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), internalDateMs: Number(d.internalDate) || 0, messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
             }));
             return { emails: details.filter(Boolean), hasMore: !!gmailNextPageToken };
         } catch(_) { return { emails: [] }; }
@@ -5513,7 +5513,7 @@ async function gmailLoadMoreEmails() {
                         if(!r.ok) return null;
                         const d = await r.json(); const hdr = d.payload.headers || []; const get = n => (hdr.find(h => h.name === n) || {}).value || "";
                         const labels = d.labelIds || [];
-                        return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
+                        return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), internalDateMs: Number(d.internalDate) || 0, messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
                     }));
                     newEmails = newEmails.concat(details.filter(Boolean));
                 }
@@ -5660,10 +5660,10 @@ function gmailGroupByThread(emails, startIdx) {
         if (!map.has(key)) map.set(key, []);
         map.get(key).push({ em, idx: base + i });
     });
-    const toMs = d => { try { const t = new Date(d).getTime(); return isNaN(t) ? 0 : t; } catch(_) { return 0; } };
+    const toMs = em => gmailResolveInternalDateMs(em);
     const groups = Array.from(map.values());
-    groups.forEach(g => g.sort((a, b) => toMs(b.em.date) - toMs(a.em.date)));
-    groups.sort((a, b) => toMs(b[0].em.date) - toMs(a[0].em.date));
+    groups.forEach(g => g.sort((a, b) => toMs(b.em) - toMs(a.em)));
+    groups.sort((a, b) => toMs(b[0].em) - toMs(a[0].em));
     return groups;
 }
 
@@ -5685,26 +5685,41 @@ function gmailRelTime(dateStr) {
     return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'2-digit'});
 }
 
-function gmailDateSectionMeta(dateStr) {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return { key: 'unknown', label: 'Unknown Date' };
+function gmailResolveInternalDateMs(email) {
+    const ms = Number(email && email.internalDateMs);
+    if (Number.isFinite(ms) && ms > 0) return ms;
+    const parsed = new Date(email && email.date || 0).getTime();
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function gmailDayKeyFromMs(ms) {
+    if (!Number.isFinite(ms) || ms <= 0) return 'unknown';
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function gmailDateSectionMeta(dayKey) {
+    if (!dayKey || dayKey === 'unknown') return { key: 'unknown', label: 'Unknown Date' };
+    const parts = dayKey.split('-').map(Number);
+    if (parts.length !== 3 || parts.some(n => !Number.isFinite(n))) return { key: 'unknown', label: 'Unknown Date' };
+    const [y, m, d] = parts;
+    const localDayMs = new Date(y, m - 1, d).getTime();
     const now = new Date();
-    const nowUtcDay = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000;
-    const emailUtcDay = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
-    const dayDiff = nowUtcDay - emailUtcDay;
-    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    if (dayDiff === 0) return { key: dateKey, label: 'Today' };
-    if (dayDiff === 1) return { key: dateKey, label: 'Yesterday' };
+    const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const dayDiff = Math.round((todayMs - localDayMs) / 86400000);
+    if (dayDiff === 0) return { key: dayKey, label: 'Today' };
+    if (dayDiff === 1) return { key: dayKey, label: 'Yesterday' };
     return {
-        key: dateKey,
-        label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+        key: dayKey,
+        label: new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
     };
 }
 
 function gmailRenderSectionedGroups(groups, src) {
     const byDay = new Map();
     groups.forEach((group) => {
-        const meta = gmailDateSectionMeta(group[0]?.em?.date);
+        const dayKey = gmailDayKeyFromMs(gmailResolveInternalDateMs(group[0]?.em));
+        const meta = gmailDateSectionMeta(dayKey);
         if (!byDay.has(meta.key)) byDay.set(meta.key, { label: meta.label, groups: [] });
         byDay.get(meta.key).groups.push(group);
     });
@@ -7674,7 +7689,7 @@ async function _findRelatedEmailsForAddress(senderAddr) {
                     const hdr = d.payload && d.payload.headers ? d.payload.headers : [];
                     const get = n => ((hdr.find(h => h.name === n) || {}).value) || '';
                     const labels = d.labelIds || [];
-                    return { id: m.id, threadId: m.threadId, subject: get('Subject') || '(no subject)', from: get('From'), to: get('To'), date: get('Date'), messageId: get('Message-ID'), snippet: d.snippet || '', unread: labels.includes('UNREAD'), _starred: labels.includes('STARRED'), _accountId: 'gmail', _listUnsubscribe: get('List-Unsubscribe'), _precedence: get('Precedence'), _autoSubmitted: get('Auto-Submitted') };
+                    return { id: m.id, threadId: m.threadId, subject: get('Subject') || '(no subject)', from: get('From'), to: get('To'), date: get('Date'), internalDateMs: Number(d.internalDate) || 0, messageId: get('Message-ID'), snippet: d.snippet || '', unread: labels.includes('UNREAD'), _starred: labels.includes('STARRED'), _accountId: 'gmail', _listUnsubscribe: get('List-Unsubscribe'), _precedence: get('Precedence'), _autoSubmitted: get('Auto-Submitted') };
                 }));
                 details.filter(Boolean).forEach(e => {
                     const key = (e._accountId || '') + ':' + (e.id || e.messageId || '');
@@ -8292,7 +8307,7 @@ async function sendComposedEmail() {
             if (!r.ok) throw new Error('Send failed: ' + r.status);
         }
         notify(_emailComposeMode === 'reply' ? 'Reply sent!' : 'Email sent!', '#34c759', 3000);
-        const _sentAccts = emailGetAllAccounts(); const _sentFromId = fromSel && fromSel.style.display !== 'none' ? fromSel.value : (_sentAccts[0] && _sentAccts[0].id) || 'gmail'; const _sentAcct = _sentAccts.find(a => a.id === _sentFromId); const _sentFromStr = _sentAcct ? `${_sentAcct.name||_sentAcct.user||_sentAcct.id} <${_sentAcct.user||_sentAcct.id}>` : 'Me'; const _sentEmail = { id: 'sent_' + Date.now(), threadId: (_emailComposeReplyTarget && _emailComposeReplyTarget.threadId) || ('sent_' + Date.now()), subject: subject || '(no subject)', from: _sentFromStr, to, cc: cc || undefined, date: new Date().toUTCString(), snippet: bodyText.slice(0, 120), body: bodyText, unread: false, _accountId: replyAcctId, _sent: true }; if (_emailComposeReplyTarget) { _emailComposeReplyTarget._replied = true; _sentEmail.threadId = _emailComposeReplyTarget.threadId; } if(!Array.isArray(CONFIG.local_sent_emails)) CONFIG.local_sent_emails = []; CONFIG.local_sent_emails = [_sentEmail, ...CONFIG.local_sent_emails].slice(0, 400); saveAll(); gmailEmails = emailMergeLocalSent(gmailEmails); gmailRenderEmails();
+        const _sentAccts = emailGetAllAccounts(); const _sentFromId = fromSel && fromSel.style.display !== 'none' ? fromSel.value : (_sentAccts[0] && _sentAccts[0].id) || 'gmail'; const _sentAcct = _sentAccts.find(a => a.id === _sentFromId); const _sentFromStr = _sentAcct ? `${_sentAcct.name||_sentAcct.user||_sentAcct.id} <${_sentAcct.user||_sentAcct.id}>` : 'Me'; const _sentNowMs = Date.now(); const _sentEmail = { id: 'sent_' + _sentNowMs, threadId: (_emailComposeReplyTarget && _emailComposeReplyTarget.threadId) || ('sent_' + _sentNowMs), subject: subject || '(no subject)', from: _sentFromStr, to, cc: cc || undefined, date: new Date(_sentNowMs).toUTCString(), internalDateMs: _sentNowMs, snippet: bodyText.slice(0, 120), body: bodyText, unread: false, _accountId: replyAcctId, _sent: true }; if (_emailComposeReplyTarget) { _emailComposeReplyTarget._replied = true; _sentEmail.threadId = _emailComposeReplyTarget.threadId; } if(!Array.isArray(CONFIG.local_sent_emails)) CONFIG.local_sent_emails = []; CONFIG.local_sent_emails = [_sentEmail, ...CONFIG.local_sent_emails].slice(0, 400); saveAll(); gmailEmails = emailMergeLocalSent(gmailEmails); gmailRenderEmails();
         closeModal('email-compose-modal');
         _emailComposeReplyTarget = null;
     } catch (e) { notify('Failed to send: ' + e.message, '#ff3b30', 5000); }
