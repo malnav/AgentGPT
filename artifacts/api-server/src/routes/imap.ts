@@ -244,16 +244,6 @@ function mergedMessageSort(a: any, b: any): number {
     return String(a.id || "").localeCompare(String(b.id || ""));
 }
 
-function buildListHash(emails: any[]): string {
-    const payload = (emails || []).map((e) => `${e?._mailbox || ""}|${e?.id || ""}|${e?.threadId || ""}|${!!e?.unread}|${!!e?._starred}|${e?.internalDateMs || 0}`).join("~");
-    let hash = 2166136261;
-    for (let i = 0; i < payload.length; i++) {
-        hash ^= payload.charCodeAt(i);
-        hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-    }
-    return `h${(hash >>> 0).toString(16)}`;
-}
-
 router.post("/imap/fetch", async (req: Request, res: Response) => {
     const { host, port, user, pass, tls, query, maxResults = 25, offset = 0, mailbox = "INBOX" } = req.body;
     if (!host || !user || !pass) return res.status(400).json({ error: "Missing required fields: host, user, pass" });
@@ -368,8 +358,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
 
             return page;
         });
-        const listHash = buildListHash(emails);
-        return res.json({ emails, listMeta: { hash: listHash, unchanged: req.headers["if-none-match"] === listHash } });
+        return res.json({ emails });
     } catch (e: any) {
         return res.status(500).json({ error: e.message || "IMAP connection failed" });
     }

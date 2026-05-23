@@ -4816,42 +4816,6 @@ let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
 let gmailReplyDraftSaveTimer = null;
 let _varsRelatedEmailCache = { email: '', items: [] };
-const EMAIL_LIST_CACHE_VERSION = 1;
-
-function emailListCacheKey({ provider = "multi", account = "all", mailbox = "INBOX", query = null, page = 0 } = {}) {
-    const q = String(query || "").trim().toLowerCase();
-    return `email:list:v${EMAIL_LIST_CACHE_VERSION}:${provider}:${account}:${mailbox}:${q}:${page}`;
-}
-
-function emailBuildStableItemKey(email) {
-    return `${email?._accountId || "unknown"}:${email?.id || email?.threadId || ""}`;
-}
-
-function emailHashListMetadata(emails = []) {
-    const payload = (emails || []).map((e) => `${emailBuildStableItemKey(e)}|${e?.threadId || ""}|${!!e?.unread}|${!!e?._starred}|${gmailResolveInternalDateMs(e)}`).join("~");
-    let hash = 2166136261;
-    for (let i = 0; i < payload.length; i++) {
-        hash ^= payload.charCodeAt(i);
-        hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-    }
-    return `h${(hash >>> 0).toString(16)}`;
-}
-
-function emailReadCachedList(cacheKey) {
-    try {
-        const raw = localStorage.getItem(cacheKey);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed || !Array.isArray(parsed.emails)) return null;
-        return parsed;
-    } catch (_) { return null; }
-}
-
-function emailWriteCachedList(cacheKey, emails = [], metadata = {}) {
-    try {
-        localStorage.setItem(cacheKey, JSON.stringify({ emails, updatedAt: Date.now(), ...metadata }));
-    } catch (_) {}
-}
 
 function gmailReplyDraftKey(em) {
     if(!em) return '';
@@ -4966,12 +4930,6 @@ async function emailFetchEmails(query, options = {}) {
     }
     notify("Loading emails...", "#007aff", 1500);
     gmailCurrentQuery = query || null; gmailNextPageToken = null; gmailLoadingMore = false; gmailEmailOffset = 0; imapOffsets = {};
-    const cacheKey = emailListCacheKey({ provider: selAccts.length === 1 ? selAccts[0].type : "multi", account: selAccts.length === 1 ? selAccts[0].id : "multi", mailbox: emailCurrentMailbox, query: gmailCurrentQuery, page: 0 });
-    const cached = emailReadCachedList(cacheKey);
-    if (cached?.emails?.length) {
-        gmailEmails = emailMergeLocalSent(cached.emails);
-        gmailRenderEmails();
-    }
     const results = await Promise.allSettled(selAccts.map(a => emailFetchFromAccount(a, query, 25, 0)));
     let merged = []; let hasMore = false;
     results.forEach((r, i) => {
@@ -4984,16 +4942,12 @@ async function emailFetchEmails(query, options = {}) {
         }
     });
     merged.sort((a, b) => gmailResolveInternalDateMs(b) - gmailResolveInternalDateMs(a));
-    const nextEmails = emailMergeLocalSent(merged);
-    const nextHash = emailHashListMetadata(nextEmails);
-    const previousHash = cached?.hash || null;
-    gmailEmails = nextEmails;
+    gmailEmails = emailMergeLocalSent(merged);
     gmailHasMoreEmails = hasMore || !!gmailNextPageToken;
-    if (nextHash !== previousHash) gmailRenderEmails();
+    gmailRenderEmails();
     emailUpdateResetBtn();
     gmailAttachScrollObs();
     gmailPrefetchRecentEmails();
-    emailWriteCachedList(cacheKey, gmailEmails, { hash: nextHash, source: "open" });
 }
 
 async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
