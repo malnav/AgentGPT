@@ -191,6 +191,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                     from: addr(msg.envelope?.from?.[0]),
                     to: addr(msg.envelope?.to?.[0]),
                     date: msg.envelope?.date ? msg.envelope.date.toUTCString() : "",
+                    internalDateMs: msg.envelope?.date?.getTime?.() ?? 0,
                     messageId: msg.envelope?.messageId || "",
                     snippet: "",
                     unread: !msg.flags?.has("\\Seen"),
@@ -226,6 +227,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                                 from: addr(msg.envelope?.from?.[0]) || user,
                                 to: addr(msg.envelope?.to?.[0]),
                                 date: msg.envelope?.date ? msg.envelope.date.toUTCString() : "",
+                                internalDateMs: msg.envelope?.date?.getTime?.() ?? 0,
                                 messageId: msg.envelope?.messageId || "",
                                 snippet: "",
                                 unread: false,
@@ -241,8 +243,8 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
             }
 
             mergedResults.sort((a: any, b: any) => {
-                const ta = new Date(a.date || 0).getTime();
-                const tb = new Date(b.date || 0).getTime();
+                const ta = Number.isFinite(Number(a.internalDateMs)) ? Number(a.internalDateMs) : new Date(a.date || 0).getTime();
+                const tb = Number.isFinite(Number(b.internalDateMs)) ? Number(b.internalDateMs) : new Date(b.date || 0).getTime();
                 if (!isNaN(tb) && !isNaN(ta) && tb !== ta) return tb - ta;
                 if (!isNaN(tb) && isNaN(ta)) return -1;
                 if (isNaN(tb) && !isNaN(ta)) return 1;
@@ -256,12 +258,12 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
             if (!page.length) return page;
 
             const endIndex = skip + page.length;
-            const lastDate = new Date(page[page.length - 1]?.date || 0).toDateString();
+            const lastDate = new Date(page[page.length - 1]?.internalDateMs || page[page.length - 1]?.date || 0).toDateString();
             if (lastDate === "Invalid Date") return page;
 
             for (let i = endIndex; i < mergedResults.length; i++) {
                 const current = mergedResults[i];
-                const currentDate = new Date(current?.date || 0).toDateString();
+                const currentDate = new Date(current?.internalDateMs || current?.date || 0).toDateString();
                 if (currentDate !== lastDate) break;
                 page.push(current);
             }
