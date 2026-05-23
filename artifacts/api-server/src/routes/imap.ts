@@ -152,10 +152,38 @@ function buildAddressCriteria(addrs: string[]): any {
     return crit;
 }
 
-function newestFirstWindowedUids(uids: number[], skip: number, take: number): number[] {
-    if (!uids.length || take <= 0) return [];
-    const newestFirst = [...uids].sort((a, b) => b - a);
-    return newestFirst.slice(skip, skip + take);
+function newestFirstUids(uids: number[]): number[] {
+    if (!uids.length) return [];
+    return [...uids].sort((a, b) => b - a);
+}
+
+function mergedMailboxPriority(mailbox: unknown): number {
+    const normalized = String(mailbox || "").trim().toUpperCase();
+    if (normalized === "INBOX") return 0;
+    if (normalized.includes("SENT")) return 1;
+    return 2;
+}
+
+function mergedMessageSort(a: any, b: any): number {
+    const ta = Number.isFinite(Number(a.internalDateMs)) ? Number(a.internalDateMs) : new Date(a.date || 0).getTime();
+    const tb = Number.isFinite(Number(b.internalDateMs)) ? Number(b.internalDateMs) : new Date(b.date || 0).getTime();
+    if (!isNaN(tb) && !isNaN(ta) && tb !== ta) return tb - ta;
+    if (!isNaN(tb) && isNaN(ta)) return -1;
+    if (isNaN(tb) && !isNaN(ta)) return 1;
+
+    const mailboxPriority = mergedMailboxPriority(a._mailbox) - mergedMailboxPriority(b._mailbox);
+    if (mailboxPriority !== 0) return mailboxPriority;
+
+    const ua = parseInt(String(a.id || "").split("-")[0], 10);
+    const ub = parseInt(String(b.id || "").split("-")[0], 10);
+    if (!isNaN(ub) && !isNaN(ua) && ub !== ua) return ub - ua;
+    if (!isNaN(ub) && isNaN(ua)) return 1;
+    if (isNaN(ub) && !isNaN(ua)) return -1;
+
+    const messageIdCompare = String(a.messageId || "").localeCompare(String(b.messageId || ""));
+    if (messageIdCompare !== 0) return messageIdCompare;
+
+    return String(a.id || "").localeCompare(String(b.id || ""));
 }
 
 router.post("/imap/fetch", async (req: Request, res: Response) => {
@@ -186,9 +214,9 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
             const skip = Math.max(0, parseInt(String(offset)) || 0);
             const take = Math.max(1, parseInt(String(maxResults)) || 25);
             const uids: number[] = await client.search(searchCriteria, { uid: true }) as number[];
-            const slice = newestFirstWindowedUids(uids, skip, take);
+            const orderedUids = newestFirstUids(uids);
             const results: any[] = [];
-            for await (const msg of client.fetch(slice.length ? slice : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
+            for await (const msg of client.fetch(orderedUids.length ? orderedUids : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
                 const threadKey = buildThreadKey(user, msg.envelope);
                 results.push({
                     id: String(msg.uid),
@@ -214,8 +242,8 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                         await client.mailboxOpen(sentMailbox);
                         const sentCriteria = fromAddrs.length > 0 ? buildAddressCriteria(fromAddrs) : { all: true };
                         const sentUids: number[] = await client.search(sentCriteria, { uid: true }) as number[];
-                        const sentSlice = newestFirstWindowedUids(sentUids, skip, take);
-                        for await (const msg of client.fetch(sentSlice.length ? sentSlice : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
+                        const sentOrderedUids = newestFirstUids(sentUids);
+                        for await (const msg of client.fetch(sentOrderedUids.length ? sentOrderedUids : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
                             const allTargets = [
                                 ...flattenAddresses(msg.envelope?.to),
                                 ...flattenAddresses(msg.envelope?.cc),
@@ -248,17 +276,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                 }
             }
 
-            mergedResults.sort((a: any, b: any) => {
-                const ta = Number.isFinite(Number(a.internalDateMs)) ? Number(a.internalDateMs) : new Date(a.date || 0).getTime();
-                const tb = Number.isFinite(Number(b.internalDateMs)) ? Number(b.internalDateMs) : new Date(b.date || 0).getTime();
-                if (!isNaN(tb) && !isNaN(ta) && tb !== ta) return tb - ta;
-                if (!isNaN(tb) && isNaN(ta)) return -1;
-                if (isNaN(tb) && !isNaN(ta)) return 1;
-                const ua = parseInt(String(a.id || "").split("-")[0], 10);
-                const ub = parseInt(String(b.id || "").split("-")[0], 10);
-                if (!isNaN(ub) && !isNaN(ua) && ub !== ua) return ub - ua;
-                return 0;
-            });
+            mergedResults.sort(mergedMessageSort);
 
             const page = mergedResults.slice(skip, skip + take);
             if (!page.length) return page;
