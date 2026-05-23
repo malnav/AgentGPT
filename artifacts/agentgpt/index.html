@@ -4808,80 +4808,14 @@ let gmailLoadingMore = false;
 let gmailHasMoreEmails = false;
 let gmailPrefetchingRecent = false;
 let _gmailScrollObs = null;
-let _gmailPullRefreshCooldownUntil = 0;
 let gmailEmailOffset = 0;
-let imapCursors = {};
+let imapOffsets = {};
 let selectedEmailAccountIds = [];
 let emailCurrentMailbox = 'INBOX';
 let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
 let gmailReplyDraftSaveTimer = null;
 let _varsRelatedEmailCache = { email: '', items: [] };
-const gmailMessageMetadataCache = new Map();
-const GMAIL_DETAIL_CONCURRENCY = 6;
-const GMAIL_DETAIL_RENDER_CHUNK = 5;
-const GMAIL_DETAIL_TIMEOUT_MS = 8000;
-
-function gmailEmailSortDesc(a, b) {
-    const ta = new Date(a?.date || 0).getTime();
-    const tb = new Date(b?.date || 0).getTime();
-    if (!isNaN(tb) && !isNaN(ta) && tb !== ta) return tb - ta;
-    if (!isNaN(tb) && isNaN(ta)) return -1;
-    if (isNaN(tb) && !isNaN(ta)) return 1;
-    return String(b?.id || '').localeCompare(String(a?.id || ''));
-}
-
-async function gmailFetchMessageDetailWithTimeout(msg, accountId = 'gmail', timeoutMs = GMAIL_DETAIL_TIMEOUT_MS) {
-    const cacheKey = msg.id;
-    const cached = gmailMessageMetadataCache.get(cacheKey);
-    if(cached) return { ...cached };
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, {
-            headers: { Authorization: `Bearer ${gmailAccessToken}` },
-            signal: controller.signal
-        });
-        if(!r.ok) return null;
-        const d = await r.json();
-        const hdr = d?.payload?.headers || [];
-        const get = n => (hdr.find(h => h.name === n) || {}).value || "";
-        const labels = d.labelIds || [];
-        const email = { id: msg.id, threadId: msg.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: accountId, _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
-        gmailMessageMetadataCache.set(cacheKey, email);
-        return { ...email };
-    } catch(_) { return null; }
-    finally {
-        clearTimeout(timeout);
-    }
-}
-
-async function gmailFetchMessageDetailsChunked(msgs, options = {}) {
-    const { accountId = 'gmail', concurrency = GMAIL_DETAIL_CONCURRENCY, chunkSize = GMAIL_DETAIL_RENDER_CHUNK, onChunk = null } = options;
-    const pending = [...msgs];
-    const results = [];
-    let completedSinceChunk = 0;
-    const flushChunk = () => {
-        if(completedSinceChunk > 0 && typeof onChunk === 'function') {
-            onChunk(results.filter(Boolean).slice());
-            completedSinceChunk = 0;
-        }
-    };
-    const worker = async () => {
-        while(pending.length) {
-            const msg = pending.shift();
-            if(!msg) break;
-            const detail = await gmailFetchMessageDetailWithTimeout(msg, accountId);
-            if(detail) results.push(detail);
-            completedSinceChunk += 1;
-            if(completedSinceChunk >= chunkSize) flushChunk();
-        }
-    };
-    const workers = Array.from({ length: Math.max(1, Math.min(concurrency, pending.length || 1)) }, worker);
-    await Promise.all(workers);
-    flushChunk();
-    return results.filter(Boolean);
-}
 
 function gmailReplyDraftKey(em) {
     if(!em) return '';
@@ -4925,7 +4859,7 @@ function emailMergeLocalSent(emails) {
         const key = `${em._accountId||''}:${em.id}`;
         if(!existing.has(key)) merged.push(em);
     });
-    merged.sort((a, b) => (b.receivedAtMs || 0) - (a.receivedAtMs || 0));
+    merged.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
     return merged;
 }
 
@@ -4981,60 +4915,6 @@ function emailApplyMultiPicker() {
     emailFetchEmails(null);
 }
 
-
-function emailSortByDateDesc(items) {
-    return [...(items || [])].sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
-}
-
-function emailUpdateAccountLoadUi() {
-    const st = emailAccountLoadState || { total: 0, loaded: 0, inFlight: false, failed: {} };
-    const failedIds = Object.keys(st.failed || {});
-    ['panel','modal'].forEach(src => {
-        const chip = document.getElementById(`email-acct-chip-${src}`);
-        if(!chip || !chip.parentElement) return;
-        let banner = document.getElementById(`email-acct-load-banner-${src}`);
-        if(!banner) {
-            banner = document.createElement('span');
-            banner.id = `email-acct-load-banner-${src}`;
-            banner.className = 'chip';
-            banner.style.cssText = 'font-size:10px; padding:3px 7px; font-weight:700; flex-shrink:0; background:rgba(0,122,255,0.12); color:var(--accent); border-color:rgba(0,122,255,0.25); cursor:default;';
-            chip.parentElement.insertBefore(banner, chip.nextSibling);
-        }
-        if(st.inFlight || failedIds.length) {
-            banner.style.display = '';
-            let txt = `Loaded ${Math.min(st.loaded, st.total)}/${st.total || 0} accounts`;
-            if(failedIds.length) txt += ` • ${failedIds.length} failed`;
-            banner.textContent = txt;
-        } else banner.style.display = 'none';
-        chip.parentElement.querySelectorAll(`[id^="email-acct-retry-${src}-"]`).forEach(el => el.remove());
-        failedIds.forEach(id => {
-            const bid = `email-acct-retry-${src}-${id}`;
-            const old = document.getElementById(bid);
-            if(old) old.remove();
-            const btn = document.createElement('span');
-            btn.id = bid;
-            btn.className = 'chip';
-            const acct = (st.failed[id] && st.failed[id].accountName) || id;
-            const busy = !!(st.retrying && st.retrying[id]);
-            btn.style.cssText = 'font-size:10px; padding:3px 7px; font-weight:700; flex-shrink:0; background:#ff3b3020; color:#ff3b30; border-color:#ff3b3050;';
-            btn.textContent = busy ? `Retrying ${acct}…` : `Retry ${acct}`;
-            if(!busy) btn.onclick = () => emailRetryAccount(id);
-            else btn.style.opacity = '0.6';
-            chip.parentElement.insertBefore(btn, banner.nextSibling);
-        });
-    });
-}
-
-async function emailRetryAccount(accountId) {
-    if(!accountId) return;
-    emailAccountLoadState.retrying = emailAccountLoadState.retrying || {};
-    if(emailAccountLoadState.retrying[accountId]) return;
-    emailAccountLoadState.retrying[accountId] = true;
-    emailUpdateAccountLoadUi();
-    try { await emailFetchEmails(gmailCurrentQuery || null); }
-    finally { emailAccountLoadState.retrying[accountId] = false; emailUpdateAccountLoadUi(); }
-}
-
 async function emailFetchEmails(query, options = {}) {
     const { allowGmailAuthPrompt = true } = options;
     const allAccts = emailGetAllAccounts();
@@ -5049,43 +4929,19 @@ async function emailFetchEmails(query, options = {}) {
         if(!selAccts.length) { gmailEmails = emailGetGuestEmails(); gmailRenderEmails(); return; }
     }
     notify("Loading emails...", "#007aff", 1500);
-    gmailCurrentQuery = query || null; gmailNextPageToken = null; gmailLoadingMore = false; gmailEmailOffset = 0; imapCursors = {};
-    const results = await Promise.allSettled(selAccts.map(a => emailFetchFromAccount(a, query, 25, null)));
+    gmailCurrentQuery = query || null; gmailNextPageToken = null; gmailLoadingMore = false; gmailEmailOffset = 0; imapOffsets = {};
+    const results = await Promise.allSettled(selAccts.map(a => emailFetchFromAccount(a, query, 25, 0)));
     let merged = []; let hasMore = false;
-    const wrapped = selAccts.map((acct, idx) => emailFetchFromAccount(acct, query, 25, 0)
-        .then(value => ({ idx, acct, ok: true, value }))
-        .catch(error => ({ idx, acct, ok: false, error })));
-    const pending = [...wrapped];
-    const outcomes = new Array(selAccts.length);
-    while(pending.length) {
-        const next = await Promise.race(pending);
-        const pidx = pending.findIndex(p => p === wrapped[next.idx]);
-        if(pidx >= 0) pending.splice(pidx, 1);
-        outcomes[next.idx] = next;
-        if(next.ok) {
-            const emails = next.value.emails || [];
-            merged = emailSortByDateDesc(merged.concat(emails));
-            if(next.acct.type !== 'gmail') imapOffsets[next.acct.id] = emails.length;
-            if(next.value.hasMore) hasMore = true;
-        } else {
-            emailAccountLoadState.failed[next.acct.id] = { accountName: next.acct.name, error: String(next.error || 'Fetch failed') };
-        }
-        emailAccountLoadState.loaded += 1;
-        gmailEmails = emailMergeLocalSent(merged);
-        gmailHasMoreEmails = hasMore || !!gmailNextPageToken;
-        gmailRenderEmails();
-        emailUpdateAccountLoadUi();
-    }
-    let finalMerged = []; let finalHasMore = false;
-    outcomes.forEach((r) => {
-        if(r && r.ok) {
+    results.forEach((r, i) => {
+        if(r.status === 'fulfilled') {
+            const acct = selAccts[i];
             const emails = r.value.emails || [];
             merged = merged.concat(emails);
-            if(acct.type !== 'gmail') imapCursors[acct.id] = r.value.nextCursor || null;
+            if(acct.type !== 'gmail') imapOffsets[acct.id] = emails.length;
             if(r.value.hasMore) hasMore = true;
         }
     });
-    merged.sort((a, b) => (b.receivedAtMs || 0) - (a.receivedAtMs || 0));
+    merged.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
     gmailEmails = emailMergeLocalSent(merged);
     gmailHasMoreEmails = hasMore || !!gmailNextPageToken;
     gmailRenderEmails();
@@ -5094,7 +4950,7 @@ async function emailFetchEmails(query, options = {}) {
     gmailPrefetchRecentEmails();
 }
 
-async function emailFetchFromAccount(acct, query, limit = 25, cursor = null) {
+async function emailFetchFromAccount(acct, query, limit = 25, offset = 0) {
     if(acct.type === 'gmail') {
         if(!gmailAccessToken) return { emails: [] };
         let baseQ = emailCurrentMailbox === 'Sent' ? 'in%3Asent' : emailCurrentMailbox === 'STARRED' ? 'is%3Astarred' : emailCurrentMailbox === 'Trash' ? 'in%3Atrash' : emailCurrentMailbox === 'All' ? 'in%3Aall' : 'in%3Ainbox';
@@ -5103,7 +4959,7 @@ async function emailFetchFromAccount(acct, query, limit = 25, cursor = null) {
         const q = gmailQ;
         try {
             const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${limit}&q=${q}`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
-            if(!listRes.ok) { if(listRes.status === 401) { gmailSetAccessToken(null); } throw new Error(`Gmail fetch failed (${listRes.status})`); }
+            if(!listRes.ok) { if(listRes.status === 401) { gmailSetAccessToken(null); } return { emails: [] }; }
             const listData = await listRes.json();
             gmailNextPageToken = listData.nextPageToken || null;
             const msgs = listData.messages || [];
@@ -5117,15 +4973,15 @@ async function emailFetchFromAccount(acct, query, limit = 25, cursor = null) {
                 return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
             }));
             return { emails: details.filter(Boolean), hasMore: !!gmailNextPageToken };
-        } catch(_) { return { emails: [], nextCursor: null }; }
+        } catch(_) { return { emails: [] }; }
     } else {
         try {
-            const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: query || null, maxResults: limit, cursor: cursor || null, mailbox: emailCurrentMailbox }) });
+            const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: query || null, maxResults: limit, offset: offset, mailbox: emailCurrentMailbox }) });
             if(!res.ok) return { emails: [] };
             const data = await res.json();
             const emails = (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name, _mailbox: e._mailbox || emailCurrentMailbox }));
-            return { emails, hasMore: !!data.nextCursor, nextCursor: data.nextCursor || null };
-        } catch(_) { return { emails: [], nextCursor: null }; }
+            return { emails, hasMore: emails.length >= limit };
+        } catch(_) { return { emails: [] }; }
     }
 }
 
@@ -5618,18 +5474,15 @@ async function gmailFetchEmails(query) {
         const listData = await listRes.json();
         gmailNextPageToken = listData.nextPageToken || null;
         const msgs = listData.messages || [];
-        const chunkUpsert = (partialDetails) => {
-            const mergedMap = new Map();
-            partialDetails.forEach(em => { if(em?.id) mergedMap.set('gmail:' + em.id, em); });
-            gmailEmails.forEach(em => { if(em?.id) mergedMap.set((em._accountId || 'gmail') + ':' + em.id, em); });
-            gmailEmails = emailMergeLocalSent([...mergedMap.values()]).sort(gmailEmailSortDesc);
-            gmailRenderEmails();
-        };
-        const details = await gmailFetchMessageDetailsChunked(msgs, { accountId: 'gmail', onChunk: chunkUpsert });
-        const mergedMap = new Map();
-        details.forEach(em => { if(em?.id) mergedMap.set('gmail:' + em.id, em); });
-        gmailEmails.forEach(em => { if(em?.id) mergedMap.set((em._accountId || 'gmail') + ':' + em.id, em); });
-        gmailEmails = emailMergeLocalSent([...mergedMap.values()]).sort(gmailEmailSortDesc);
+        const details = await Promise.all(msgs.map(async m => {
+            const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted`, { headers: { Authorization: `Bearer ${gmailAccessToken}` } });
+            if(!r.ok) return null;
+            const d = await r.json();
+            const hdr = d.payload.headers || [];
+            const get = n => (hdr.find(h => h.name === n) || {}).value || "";
+            return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: (d.labelIds||[]).includes("UNREAD"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
+        }));
+        gmailEmails = details.filter(Boolean);
         gmailRenderEmails();
         gmailAttachScrollObs();
     } catch(e) { notify("Gmail error: " + e.message, "#ff3b30", 5000); }
@@ -5660,7 +5513,7 @@ async function gmailLoadMoreEmails() {
                         if(!r.ok) return null;
                         const d = await r.json(); const hdr = d.payload.headers || []; const get = n => (hdr.find(h => h.name === n) || {}).value || "";
                         const labels = d.labelIds || [];
-                        const dateHeader = get("Date"); const receivedAtMs = emailParseReceivedAtMs(dateHeader); return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: dateHeader, receivedAtMs, messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
+                        return { id: m.id, threadId: m.threadId, subject: get("Subject") || "(no subject)", from: get("From"), to: get("To"), date: get("Date"), messageId: get("Message-ID"), snippet: d.snippet || "", unread: labels.includes("UNREAD"), _starred: labels.includes("STARRED"), _accountId: 'gmail', _listUnsubscribe: get("List-Unsubscribe"), _precedence: get("Precedence"), _autoSubmitted: get("Auto-Submitted") };
                     }));
                     newEmails = newEmails.concat(details.filter(Boolean));
                 }
@@ -5668,58 +5521,29 @@ async function gmailLoadMoreEmails() {
         }
         const imapAccts = selAccts.filter(a => a.type !== 'gmail');
         for(const acct of imapAccts) {
-            const currentCursor = imapCursors[acct.id] || null;
+            const currentOffset = imapOffsets[acct.id] || 0;
             try {
-                const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: gmailCurrentQuery || null, maxResults: 25, cursor: currentCursor, mailbox: emailCurrentMailbox }) });
+                const res = await fetch('/api/imap/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: acct.host, port: acct.port, user: acct.user, pass: acct.pass, tls: acct.tls, query: gmailCurrentQuery || null, maxResults: 25, offset: currentOffset, mailbox: emailCurrentMailbox }) });
                 if(res.ok) {
                     const data = await res.json();
                     const emails = (data.emails || []).map(e => ({ ...e, _accountId: acct.id, _accountName: acct.name, _mailbox: e._mailbox || emailCurrentMailbox }));
-                    if(emails.length > 0) { imapCursors[acct.id] = data.nextCursor || null; newEmails = newEmails.concat(emails); }
-                    if(data.nextCursor) hasMore = true;
+                    if(emails.length > 0) { imapOffsets[acct.id] = currentOffset + emails.length; newEmails = newEmails.concat(emails); }
+                    if(emails.length >= 25) hasMore = true;
                 }
             } catch(_) {}
         }
         if(newEmails.length === 0) { gmailHasMoreEmails = false; gmailAttachScrollObs(); gmailLoadingMore = false; return; }
         const existingIds = new Set(gmailEmails.map(e => e._accountId + ':' + e.id));
         const truly_new = newEmails.filter(e => !existingIds.has(e._accountId + ':' + e.id));
-        truly_new.sort((a, b) => (b.receivedAtMs || 0) - (a.receivedAtMs || 0));
+        truly_new.sort((a, b) => { try { return new Date(b.date) - new Date(a.date); } catch(_) { return 0; } });
         if(truly_new.length === 0) { gmailHasMoreEmails = false; gmailAttachScrollObs(); gmailLoadingMore = false; return; }
-        // Re-sort the full list after merge because some providers can return overlapping pages
-        // where a later fetch still contains newer emails than the current tail.
-        gmailEmails = [...gmailEmails, ...truly_new].sort((a, b) => {
-            const ta = Number(a.receivedAtMs || 0);
-            const tb = Number(b.receivedAtMs || 0);
-            if (!isNaN(tb) && !isNaN(ta) && tb !== ta) return tb - ta;
-            if (!isNaN(tb) && isNaN(ta)) return -1;
-            if (isNaN(tb) && !isNaN(ta)) return 1;
-            return String(b.id || '').localeCompare(String(a.id || ''));
-        });
+        gmailEmails = [...gmailEmails, ...truly_new];
         gmailHasMoreEmails = hasMore;
         // Re-render all groups so date sections stay correct across pagination boundaries.
         gmailRenderEmails();
         gmailAttachScrollObs();
     } catch(e) { notify("Load more failed: " + e.message, "#ff3b30", 3000); }
     gmailLoadingMore = false;
-}
-
-
-function emailParseReceivedAtMs(dateHeader) {
-    const ts = Date.parse(dateHeader || '');
-    return Number.isFinite(ts) ? ts : 0;
-}
-
-function emailLocalDateMetaFromMs(receivedAtMs) {
-    if (!Number.isFinite(receivedAtMs) || receivedAtMs <= 0) return { key: 'unknown', label: 'Unknown Date' };
-    const d = new Date(receivedAtMs);
-    if (isNaN(d.getTime())) return { key: 'unknown', label: 'Unknown Date' };
-    const now = new Date();
-    const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 86400000;
-    const emailDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 86400000;
-    const dayDiff = nowDay - emailDay;
-    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    if (dayDiff === 0) return { key: dateKey, label: 'Today' };
-    if (dayDiff === 1) return { key: dateKey, label: 'Yesterday' };
-    return { key: dateKey, label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) };
 }
 
 function gmailIsRecentDate(dateStr) {
@@ -5751,55 +5575,16 @@ async function gmailPrefetchRecentEmails(maxPages = 12) {
 }
 
 function gmailAttachScrollObs() {
-    if(_gmailScrollObs) {
-        _gmailScrollObs.forEach(l => {
-            l.list.removeEventListener('scroll', l.scrollHandler);
-            if (l.wheelHandler) l.list.removeEventListener('wheel', l.wheelHandler);
-            if (l.touchStartHandler) l.list.removeEventListener('touchstart', l.touchStartHandler);
-            if (l.touchMoveHandler) l.list.removeEventListener('touchmove', l.touchMoveHandler);
-            if (l.touchEndHandler) l.list.removeEventListener('touchend', l.touchEndHandler);
-        });
-        _gmailScrollObs = [];
-    }
+    if(_gmailScrollObs) { _gmailScrollObs.forEach(l => l.list.removeEventListener('scroll', l.handler)); _gmailScrollObs = []; }
+    if(!gmailHasMoreEmails) return;
     const lists = [document.getElementById('gmail-list'), document.getElementById('gmail-modal-list')].filter(Boolean);
     _gmailScrollObs = lists.map(list => {
-        let pullStartY = null;
-        let pullTriggered = false;
-        const triggerPullRefresh = async () => {
-            if (gmailLoadingMore) return;
-            const now = Date.now();
-            if (now < _gmailPullRefreshCooldownUntil) return;
-            _gmailPullRefreshCooldownUntil = now + 1200;
-            notify('Refreshing emails…', '#007aff', 1200);
-            await emailFetchEmails(gmailCurrentQuery || null);
-        };
-        const scrollHandler = (e) => {
+        const handler = (e) => {
             const el = e.target;
-            if(gmailHasMoreEmails && el.scrollHeight - el.scrollTop - el.clientHeight < 200) gmailLoadMoreEmails();
+            if(el.scrollHeight - el.scrollTop - el.clientHeight < 200) gmailLoadMoreEmails();
         };
-        const wheelHandler = (e) => {
-            if (list.scrollTop <= 0 && e.deltaY < -25) triggerPullRefresh();
-        };
-        const touchStartHandler = (e) => {
-            pullStartY = (e.touches && e.touches[0]) ? e.touches[0].clientY : null;
-            pullTriggered = false;
-        };
-        const touchMoveHandler = (e) => {
-            if (pullStartY === null || pullTriggered || list.scrollTop > 0) return;
-            const currentY = (e.touches && e.touches[0]) ? e.touches[0].clientY : null;
-            if (currentY === null) return;
-            if (currentY - pullStartY > 65) {
-                pullTriggered = true;
-                triggerPullRefresh();
-            }
-        };
-        const touchEndHandler = () => { pullStartY = null; pullTriggered = false; };
-        list.addEventListener('scroll', scrollHandler, { passive: true });
-        list.addEventListener('wheel', wheelHandler, { passive: true });
-        list.addEventListener('touchstart', touchStartHandler, { passive: true });
-        list.addEventListener('touchmove', touchMoveHandler, { passive: true });
-        list.addEventListener('touchend', touchEndHandler, { passive: true });
-        return { list, scrollHandler, wheelHandler, touchStartHandler, touchMoveHandler, touchEndHandler };
+        list.addEventListener('scroll', handler, { passive: true });
+        return { list, handler };
     });
 }
 
@@ -5867,8 +5652,7 @@ function gmailGroupByThread(emails, startIdx) {
     const map = new Map();
     emails.forEach((em, i) => {
         let key = em.threadId;
-        if (!key) key = em.messageId || em.id;
-        if (em._accountId && em._accountId !== 'gmail' && (!em.threadId || String(em.threadId) === String(em.id))) {
+        if (em._accountId && em._accountId !== 'gmail' && String(em.threadId) === String(em.id)) {
             const normSubj = (em.subject || '').replace(/^(re|fwd|fw|aw|sv|vs|ref|回复|转发)[\s:：]+/gi, '').trim().toLowerCase();
             const senderAddr = gmailExtractAddr(em.from || '').toLowerCase();
             key = em._accountId + '\x00' + senderAddr + '\x00' + normSubj;
@@ -5876,10 +5660,10 @@ function gmailGroupByThread(emails, startIdx) {
         if (!map.has(key)) map.set(key, []);
         map.get(key).push({ em, idx: base + i });
     });
-    const toMs = em => Number(em?.receivedAtMs || 0);
+    const toMs = d => { try { const t = new Date(d).getTime(); return isNaN(t) ? 0 : t; } catch(_) { return 0; } };
     const groups = Array.from(map.values());
-    groups.forEach(g => g.sort((a, b) => toMs(b.em) - toMs(a.em)));
-    groups.sort((a, b) => toMs(b[0].em) - toMs(a[0].em));
+    groups.forEach(g => g.sort((a, b) => toMs(b.em.date) - toMs(a.em.date)));
+    groups.sort((a, b) => toMs(b[0].em.date) - toMs(a[0].em.date));
     return groups;
 }
 
@@ -5901,14 +5685,26 @@ function gmailRelTime(dateStr) {
     return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'2-digit'});
 }
 
-function gmailDateSectionMeta(receivedAtMs) {
-    return emailLocalDateMetaFromMs(receivedAtMs);
+function gmailDateSectionMeta(dateStr) {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return { key: 'unknown', label: 'Unknown Date' };
+    const now = new Date();
+    const nowUtcDay = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000;
+    const emailUtcDay = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
+    const dayDiff = nowUtcDay - emailUtcDay;
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (dayDiff === 0) return { key: dateKey, label: 'Today' };
+    if (dayDiff === 1) return { key: dateKey, label: 'Yesterday' };
+    return {
+        key: dateKey,
+        label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    };
 }
 
 function gmailRenderSectionedGroups(groups, src) {
     const byDay = new Map();
     groups.forEach((group) => {
-        const meta = gmailDateSectionMeta(group[0]?.em?.receivedAtMs || 0);
+        const meta = gmailDateSectionMeta(group[0]?.em?.date);
         if (!byDay.has(meta.key)) byDay.set(meta.key, { label: meta.label, groups: [] });
         byDay.get(meta.key).groups.push(group);
     });
@@ -6065,14 +5861,8 @@ function gmailRenderEmails() {
     const empty = '<li style="padding:16px 14px; color:#888; font-size:13px;">No emails found.</li>';
     const panelList = document.getElementById('gmail-list');
     const modalList = document.getElementById('gmail-modal-list');
-    const groups = gmailEmails
-        .map((em, idx) => ({ em, idx }))
-        .sort((a, b) => {
-            const ta = Number(a.em?.receivedAtMs || 0);
-            const tb = Number(b.em?.receivedAtMs || 0);
-            return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
-        })
-        .map((item) => [item]);
+    const allGroups = gmailGroupByThread(gmailEmails);
+    const groups = allGroups;
     if(!groups.length) {
         if(panelList) panelList.innerHTML = empty;
         if(modalList) modalList.innerHTML = empty;
@@ -6848,7 +6638,7 @@ function gmailSignOut() {
     if(gmailAccessToken && typeof google !== 'undefined') { try { google.accounts.oauth2.revoke(gmailAccessToken); } catch(e) {} }
     try { fetch('/api/gmail/token', { method: 'DELETE' }); } catch(e) {}
     gmailSetAccessToken(null); gmailEmails = []; gmailCurrentEmail = null;
-    gmailNextPageToken = null; gmailCurrentQuery = null; gmailLoadingMore = false; gmailHasMoreEmails = false; gmailEmailOffset = 0; imapCursors = {};
+    gmailNextPageToken = null; gmailCurrentQuery = null; gmailLoadingMore = false; gmailHasMoreEmails = false; gmailEmailOffset = 0; imapOffsets = {};
     if(_gmailScrollObs) { _gmailScrollObs.forEach(l => l.list.removeEventListener('scroll', l.handler)); _gmailScrollObs = []; }
     localStorage.removeItem('gmail_hint');
     ['gmail-list', 'gmail-modal-list'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = ''; });
@@ -7897,10 +7687,10 @@ async function _findRelatedEmailsForAddress(senderAddr) {
                 page++;
             }
         } else {
-            let cursor = null;
+            let offset = 0;
             const batch = 50;
             for (let page = 0; page < 8; page++) {
-                const res = await emailFetchFromAccount(acct, query, batch, cursor);
+                const res = await emailFetchFromAccount(acct, query, batch, offset);
                 const emails = res && res.emails ? res.emails : [];
                 emails.forEach(e => {
                     const key = (e._accountId || acct.id || '') + ':' + (e.id || e.messageId || '');
@@ -7908,8 +7698,8 @@ async function _findRelatedEmailsForAddress(senderAddr) {
                     seen.add(key);
                     found.push(e);
                 });
-                cursor = res.nextCursor || null;
-                if (!cursor) break;
+                if (emails.length < batch) break;
+                offset += batch;
             }
         }
     }
@@ -7945,7 +7735,7 @@ async function addFloatingChatContext(type) {
         const allAccts = emailGetAllAccounts();
         if (!allAccts.length) { notify('No email accounts configured', '#888', 1800); return; }
         notify('Searching all accounts for ' + senderAddr + '…', '#007aff', 3000);
-        const results = await Promise.allSettled(allAccts.map(a => emailFetchFromAccount(a, 'from:' + senderAddr, 50, null)));
+        const results = await Promise.allSettled(allAccts.map(a => emailFetchFromAccount(a, 'from:' + senderAddr, 50, 0)));
         const matched = [];
         results.forEach(r => { if (r.status === 'fulfilled') matched.push(...(r.value.emails || [])); });
         if (!matched.length) { notify('No emails found for ' + senderAddr + ' across all accounts', '#888', 2200); return; }
