@@ -5,6 +5,7 @@ import fetchRouter from "./fetch.js";
 import gmailRouter from "./gmail.js";
 import weatherRouter from "./weather.js";
 import syncRouter from "./sync.js";
+import messagesRouter from "./messages.js";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(fetchRouter);
 router.use(gmailRouter);
 router.use(weatherRouter);
 router.use(syncRouter);
+router.use(messagesRouter);
 
 export default router;
