@@ -105,18 +105,76 @@ function normalizeSubject(subject: string): string {
         .toLowerCase();
 }
 
-function buildThreadKey(
+function normalizeMessageId(value: unknown): string {
+    const raw = String(value || "").trim().toLowerCase();
+    if (!raw) return "";
+    const match = raw.match(/<[^>]+>/);
+    return (match?.[0] || raw).trim();
+}
+
+function extractMessageIdsFromHeader(value: unknown): string[] {
+    const raw = String(value || "");
+    if (!raw) return [];
+    const matches = raw.match(/<[^>]+>/g) || [];
+    if (!matches.length) {
+        const normalized = normalizeMessageId(raw);
+        return normalized ? [normalized] : [];
+    }
+    return [...new Set(matches.map((v) => normalizeMessageId(v)).filter(Boolean))];
+}
+
+function readHeaderValue(headers: unknown, key: string): string {
+    if (!headers) return "";
+    if (headers instanceof Map) {
+        const value = headers.get(key);
+        return value === undefined || value === null ? "" : String(value);
+    }
+    if (Buffer.isBuffer(headers)) {
+        const raw = headers.toString("utf8");
+        const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const headerRe = new RegExp(`^${escaped}:\\s*([\\s\\S]*?)(?:\\r?\\n[^\\s]|$)`, "im");
+        const match = raw.match(headerRe);
+        if (!match?.[1]) return "";
+        return match[1].replace(/\r?\n[\t ]+/g, " ").trim();
+    }
+    return "";
+}
+
+function resolveThreadIdentity(
     mailboxOwner: string,
     envelope: any,
-): string {
+    headers?: unknown,
+): { threadId: string; threadRootId: string } {
     const owner = mailboxOwner.toLowerCase();
+    const normalizedSubject = normalizeSubject(envelope?.subject || "(no subject)");
+    const messageId = normalizeMessageId(envelope?.messageId || readHeaderValue(headers, "message-id"));
+    const references = extractMessageIdsFromHeader(readHeaderValue(headers, "references"));
+    const inReplyTo = extractMessageIdsFromHeader(envelope?.inReplyTo || readHeaderValue(headers, "in-reply-to"));
+    const parentChain = [...references, ...inReplyTo].filter(Boolean);
+    const threadRootId = parentChain[0] || "";
+    if (threadRootId) {
+        return {
+            threadId: `${owner}\x00msgid\x00${threadRootId}`,
+            threadRootId,
+        };
+    }
+
+    if (normalizedSubject) {
+        return {
+            threadId: `${owner}\x00subject\x00${normalizedSubject}`,
+            threadRootId: messageId || "",
+        };
+    }
+
     const from = flattenAddresses(envelope?.from);
     const to = flattenAddresses(envelope?.to);
     const cc = flattenAddresses(envelope?.cc);
     const participants = [...new Set([...from, ...to, ...cc].filter((a) => a !== owner))].sort();
-    const normalizedSubject = normalizeSubject(envelope?.subject || "(no subject)");
     const participantBlock = participants.join("|") || "unknown";
-    return `${owner}\x00${participantBlock}\x00${normalizedSubject}`;
+    return {
+        threadId: `${owner}\x00participants\x00${participantBlock}`,
+        threadRootId: messageId || "",
+    };
 }
 
 function resolveMailbox(mailbox: string, mbNames: string[]): { resolved: string; flaggedSearch: boolean } {
@@ -216,17 +274,20 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
             const uids: number[] = await client.search(searchCriteria, { uid: true }) as number[];
             const orderedUids = newestFirstUids(uids);
             const results: any[] = [];
-            for await (const msg of client.fetch(orderedUids.length ? orderedUids : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
-                const threadKey = buildThreadKey(user, msg.envelope);
+            for await (const msg of client.fetch(orderedUids.length ? orderedUids : "1:0", { uid: true, flags: true, envelope: true, headers: true }, { uid: true })) {
+                const threadInfo = resolveThreadIdentity(user, msg.envelope, msg.headers);
                 results.push({
                     id: String(msg.uid),
-                    threadId: threadKey,
+                    threadId: threadInfo.threadId,
+                    threadRootId: threadInfo.threadRootId,
                     subject: msg.envelope?.subject || "(no subject)",
                     from: addr(msg.envelope?.from?.[0]),
                     to: addr(msg.envelope?.to?.[0]),
                     date: msg.envelope?.date ? msg.envelope.date.toUTCString() : "",
                     internalDateMs: msg.envelope?.date?.getTime?.() ?? 0,
                     messageId: msg.envelope?.messageId || "",
+                    references: readHeaderValue(msg.headers, "references"),
+                    inReplyTo: String(msg.envelope?.inReplyTo || readHeaderValue(msg.headers, "in-reply-to") || ""),
                     snippet: "",
                     unread: !msg.flags?.has("\\Seen"),
                     _starred: msg.flags?.has("\\Flagged") || false,
@@ -243,7 +304,7 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                         const sentCriteria = fromAddrs.length > 0 ? buildAddressCriteria(fromAddrs) : { all: true };
                         const sentUids: number[] = await client.search(sentCriteria, { uid: true }) as number[];
                         const sentOrderedUids = newestFirstUids(sentUids);
-                        for await (const msg of client.fetch(sentOrderedUids.length ? sentOrderedUids : "1:0", { uid: true, flags: true, envelope: true }, { uid: true })) {
+                        for await (const msg of client.fetch(sentOrderedUids.length ? sentOrderedUids : "1:0", { uid: true, flags: true, envelope: true, headers: true }, { uid: true })) {
                             const allTargets = [
                                 ...flattenAddresses(msg.envelope?.to),
                                 ...flattenAddresses(msg.envelope?.cc),
@@ -253,16 +314,19 @@ router.post("/imap/fetch", async (req: Request, res: Response) => {
                                 ? allTargets.some((a) => fromAddrs.includes(a))
                                 : true;
                             if (!isRelated) continue;
-                            const threadKey = buildThreadKey(user, msg.envelope);
+                            const threadInfo = resolveThreadIdentity(user, msg.envelope, msg.headers);
                             mergedResults.push({
                                 id: `${msg.uid}-sent`,
-                                threadId: threadKey,
+                                threadId: threadInfo.threadId,
+                                threadRootId: threadInfo.threadRootId,
                                 subject: msg.envelope?.subject || "(no subject)",
                                 from: addr(msg.envelope?.from?.[0]) || user,
                                 to: addr(msg.envelope?.to?.[0]),
                                 date: msg.envelope?.date ? msg.envelope.date.toUTCString() : "",
                                 internalDateMs: msg.envelope?.date?.getTime?.() ?? 0,
                                 messageId: msg.envelope?.messageId || "",
+                                references: readHeaderValue(msg.headers, "references"),
+                                inReplyTo: String(msg.envelope?.inReplyTo || readHeaderValue(msg.headers, "in-reply-to") || ""),
                                 snippet: "",
                                 unread: false,
                                 _starred: msg.flags?.has("\\Flagged") || false,
