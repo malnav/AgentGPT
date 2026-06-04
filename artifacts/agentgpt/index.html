@@ -1700,10 +1700,46 @@ const _CTX_OPTS = [
 let activeProfileLabel = "Agent";
 let chatHistory = [], historyState = [], redoState = [], APP_LOGS = [], activeSearch = "", editIdx = -1, activeCrud = "";
 let cutIdx = -1;
+let _ctxGroups = [];
 let tplTab = 'all'; let activeTagFilter = ""; let isInputExpanded = false; let activeTargetInput = null; let activePromptIdx = -1;
 let pendingAttachments = [];
 let currentAborter = null; let currentCalDate = new Date(); let lastCursorPos = null; let userScrolledDuringGen = false; let todoFilter = 'chat'; let calFilterMode = 'month';
 const CONTEXT_LINES = DEFAULT_DATA.context;
+
+function _cloneCtxGroups(groups) {
+    return (groups || []).map(g => ({ id: g.id || ('cg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)), title: g.title || 'Context', lines: Array.isArray(g.lines) ? [...g.lines] : [], expanded: !!g.expanded }));
+}
+
+function _ensureSessionContext(session) {
+    if (!session) return null;
+    if (!Array.isArray(session.context_lines)) session.context_lines = [];
+    if (typeof session.context_cut_idx !== 'number') session.context_cut_idx = session.context_lines.length ? session.context_lines.length - 1 : -1;
+    if (!Array.isArray(session.context_groups)) session.context_groups = [];
+    return session;
+}
+
+function _getActiveSessionForContext() {
+    const sData = chatHistories[activeProfileLabel];
+    if (!sData || !sData.list) return null;
+    return sData.list.find(x => String(x.id) === String(sData.current)) || null;
+}
+
+function persistActiveChatContext() {
+    const cur = _getActiveSessionForContext();
+    if (!cur) return;
+    _ensureSessionContext(cur);
+    cur.context_lines = [...CONTEXT_LINES];
+    cur.context_cut_idx = cutIdx;
+    cur.context_groups = _cloneCtxGroups(_ctxGroups);
+}
+
+function loadChatContext(session) {
+    _ensureSessionContext(session);
+    CONTEXT_LINES.splice(0, CONTEXT_LINES.length, ...((session && session.context_lines) || []));
+    cutIdx = session ? session.context_cut_idx : -1;
+    _ctxGroups = _cloneCtxGroups(session ? session.context_groups : []);
+    _updateFchatContextLabel();
+}
 
 function sanitizePromptCommand(raw) {
     return String(raw || "").trim().toLowerCase().replace(/^\/+/, "").replace(/[^a-z0-9_\s-]/g, "").replace(/\s+/g, "-").slice(0, 32);
@@ -1725,7 +1761,7 @@ function getSessions() {
     let sData = chatHistories[activeProfileLabel];
     if(!sData || Array.isArray(sData)) { const defId = Date.now().toString(); sData = { current: defId, list: [{ id: defId, title: "Initial Session", msgs: Array.isArray(sData)?sData:[], var_id: defId }] }; chatHistories[activeProfileLabel] = sData; }
     sData.list.forEach(s => { 
-        if(!s.msgs) s.msgs = []; if(s.var_id === undefined) s.var_id = s.id; 
+        if(!s.msgs) s.msgs = []; if(s.var_id === undefined) s.var_id = s.id; _ensureSessionContext(s); 
         if(s.var_id && s.variables) { if(!GLOBAL_DATASETS[s.var_id]) GLOBAL_DATASETS[s.var_id] = { title: "Data Set " + String(s.var_id).substring(String(s.var_id).length-4), data: s.variables }; delete s.variables; } 
         if(s.var_id && !GLOBAL_DATASETS[s.var_id]) GLOBAL_DATASETS[s.var_id] = { title: "Data Set " + String(s.var_id).substring(String(s.var_id).length-4), data: {} };
     });
@@ -2134,7 +2170,7 @@ function renderAttachmentPreview() {
 }
 
 async function quickDel(type, idx) { activeCrud = type; openConfirm("Delete this item?", async () => { getActiveData().splice(idx, 1); addLog("CRUD", "Delete", `${type} index ${idx}`); await saveAll(); refreshUI(); renderEntryList(); if(type === 'profiles') { renderProfileList(); _syncBubbleConfigs(); } if(type === 'models') renderModelList(); }); }
-async function deleteSession(id) { openConfirm("Delete this chat session?", async () => { let sData = getSessions(); const wasActive = String(sData.current) === String(id); sData.list = sData.list.filter(s => String(s.id) !== String(id)); addLog("SESSION", "Delete Chat", id); if(sData.list.length === 0) { closeAllPanels(); await resetCurrentSession(); } else { if(wasActive) { const sorted = [...sData.list].sort((a,b) => Number(b.id) - Number(a.id)); sData.current = sorted[0].id; chatHistory = sorted[0].msgs || []; } chatHistories[activeProfileLabel] = sData; await saveAll(); renderWorkspaceLists(); if(wasActive) await switchProfileSession(activeProfileLabel); } }); }
+async function deleteSession(id) { openConfirm("Delete this chat session?", async () => { let sData = getSessions(); const wasActive = String(sData.current) === String(id); sData.list = sData.list.filter(s => String(s.id) !== String(id)); addLog("SESSION", "Delete Chat", id); if(sData.list.length === 0) { closeAllPanels(); await resetCurrentSession(); } else { if(wasActive) { const sorted = [...sData.list].sort((a,b) => Number(b.id) - Number(a.id)); sData.current = sorted[0].id; chatHistory = sorted[0].msgs || []; loadChatContext(sorted[0]); } chatHistories[activeProfileLabel] = sData; await saveAll(); renderWorkspaceLists(); if(wasActive) await switchProfileSession(activeProfileLabel); } }); }
 
 async function jumpToSession(profileLabel, sessionId) {
     if(activeProfileLabel !== profileLabel) { await switchProfileSession(profileLabel); }
@@ -2380,6 +2416,7 @@ function renderInlinePrompts() {
 
 async function saveAll(skipCloud = false) { 
     try {
+        persistActiveChatContext();
         let sData = chatHistories[activeProfileLabel]; if (sData) { let cur = sData.list.find(x => String(x.id) === String(sData.current)); if (cur) { cur.msgs = chatHistory; if(GLOBAL_DATASETS[cur.var_id]) GLOBAL_DATASETS[cur.var_id]._updated = Date.now(); } }
         CONFIG._ts = Date.now();
         await dbHelper.setMulti({ 'prompts': PROMPTS, 'templates': TEMPLATES, 'tools': API_SERVICES, 'config': CONFIG, 'profiles': AI_PROFILES, 'models': AI_MODELS, 'activeProfile': activeProfileLabel, 'histories': chatHistories, 'datasets': GLOBAL_DATASETS });
@@ -2862,18 +2899,21 @@ async function toggleCalTodo(vid, todoId) { let ds = GLOBAL_DATASETS[vid]; if(!d
 async function deleteTodo(vid, todoId) { let ds = GLOBAL_DATASETS[vid]; if(!ds || !ds.todos) return; ds.todos = ds.todos.filter(x => String(x.id) !== String(todoId)); await saveAll(); renderChatTodos(); renderGlobalTodos(); renderCalendar(); }
 
 async function aiGenTodos() { if(!CONFIG.ai_key) return notify("Missing API Key", "#ff3b30"); notify("Generating todos from chat...", "#007aff"); let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current)); if(!cur) return; if(!cur.var_id) return notify("No dataset linked to this session.", "#ff3b30"); let ds = GLOBAL_DATASETS[cur.var_id]; if(!ds) return notify("Dataset not found.", "#ff3b30"); if(!ds.todos) ds.todos = []; let msgs = (cur.msgs || []).filter(m => m.role !== 'developer').map(m => `${m.role}: ${getTextFromContent(m.content)}`).join('\n').substring(0, 3000); if(!msgs) return notify("Chat is empty.", "#888"); let p = AI_PROFILES.find(x => x.label === activeProfileLabel); let sysPrompt = _getAiPrompt('todos_gen').replace('[PROFILE]', p ? p.text : 'N/A').replace('[VARS]', '(no dataset linked)').replace('[DATA]', 'N/A'); let mdl = _getAiModel('todos_gen', getSuggestModel()); addLog('AI_PROMPTS', 'Todos Gen', `Model: ${mdl}\nPrompt:\n${sysPrompt}`); try { const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.ai_key}` }, body: JSON.stringify({ model: _getAiModel('todos_gen', getSuggestModel()), messages: [{ role: "system", content: sysPrompt }, { role: "user", content: msgs }] }) }); if(!res.ok) throw new Error("API error"); const d = await res.json(); let raw = d.choices[0].message.content.replace(/```json/g,'').replace(/```/g,'').trim(); addLog('AI_PROMPTS', 'Todos Gen Response', raw); let arr = JSON.parse(raw); let added = 0; const existingTexts = new Set((ds.todos||[]).map(t => t.text.toLowerCase().trim())); arr.forEach(item => { if(item.text && !existingTexts.has(item.text.toLowerCase().trim())) { ds.todos.push({ id: Date.now().toString() + added, text: item.text, done: false, date: item.date || null }); existingTexts.add(item.text.toLowerCase().trim()); added++; } }); await saveAll(); renderChatTodos(); renderCalendar(); notify(`Added ${added} todos!`, "#34c759"); } catch(e) { notify("Failed to generate todos.", "#ff3b30"); } }
-async function loadSession(id) { _calPreviewVid = null; if(_hsActive && _fchatActiveId === null) { closeAllPanels(); const existing=_fchatSessions.find(s=>String(s.chatId)===String(id)); if(existing){fchatMaximize(existing.id);return;} const sess={id:Date.now().toString(),profileLabel:activeProfileLabel,chatId:id,bubbleConfig:null}; _fchatSessions.push(sess); _fchatActiveId=sess.id; renderFchatBubbles(); _openFchatPanel(sess); return; } let sData = getSessions(); sData.current = String(id); let cur = sData.list.find(x => String(x.id) === String(id)); if(cur) { chatHistory = cur.msgs || []; document.getElementById('note-input').value = cur.draft || ""; addLog("SESSION", "Load Chat", cur.title); closeAllPanels(); await saveAll(true); refreshUI(); renderChatHistory(); requestAnimationFrame(() => scrollToLastRequest(true)); } }
+async function loadSession(id) { _calPreviewVid = null; if(_hsActive && _fchatActiveId === null) { closeAllPanels(); const existing=_fchatSessions.find(s=>String(s.chatId)===String(id)); if(existing){fchatMaximize(existing.id);return;} const sess={id:Date.now().toString(),profileLabel:activeProfileLabel,chatId:id,bubbleConfig:null}; _fchatSessions.push(sess); _fchatActiveId=sess.id; renderFchatBubbles(); _openFchatPanel(sess); return; } persistActiveChatContext(); let sData = getSessions(); sData.current = String(id); let cur = sData.list.find(x => String(x.id) === String(id)); if(cur) { chatHistory = cur.msgs || []; loadChatContext(cur); document.getElementById('note-input').value = cur.draft || ""; addLog("SESSION", "Load Chat", cur.title); closeAllPanels(); await saveAll(true); refreshUI(); renderChatHistory(); requestAnimationFrame(() => scrollToLastRequest(true)); } }
 function renderSessionsList() { let sData = getSessions(); let sortedChats = [...sData.list].sort((a,b) => { if(a.pinned && !b.pinned) return -1; if(!a.pinned && b.pinned) return 1; return Number(b.id) - Number(a.id); }); let visible = sortedChats.filter(s => { let isCurrent = String(s.id) === String(sData.current); if(s.archived && !isCurrent) return false; let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; return isCurrent || msgCount > 0; }); document.getElementById('sessions-list').innerHTML = visible.map(s => { let msgCount = (s.msgs||[]).filter(m => m.role !== 'developer').length; let lockIcon = s.title_locked ? ' <span style="font-size:9px; opacity:0.5;" title="Title locked">🔒</span>' : ''; return `<li class="list-item ${String(s.id) === String(sData.current) ? 'in-cut' : ''}" onclick="loadSession('${s.id}')"><div style="flex:1; min-width:0; overflow:hidden;"><strong style="display:flex; align-items:center; gap:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.title}${lockIcon}</strong><span style="font-size:10px; color:#888;">${msgCount} msg${msgCount !== 1 ? 's' : ''}</span></div><div class="inline-btn" data-sid="${s.id}" data-prof="${activeProfileLabel}" data-pinned="${s.pinned?'1':'0'}" onclick="event.stopPropagation(); openSessionMenu(event, this)" style="font-size:18px; font-weight:700; letter-spacing:1px;">⋯</div></li>`; }).join(''); }
 async function togglePinCurrentChat(chatId) { let sData = getSessions(); let chat = sData.list.find(x => String(x.id) === String(chatId)); if(!chat) return; chat.pinned = !chat.pinned; await saveAll(); renderSessionsList(); }
 
-async function resetCurrentSession(forced = false) { _calPreviewVid = null; _chatNavReturn = null; _updateChatNavBack();
+async function resetCurrentSession(forced = false, skipPersist = false) { _calPreviewVid = null; _chatNavReturn = null; _updateChatNavBack();
+    if(!skipPersist) persistActiveChatContext();
     let sData = getSessions(); let cur = sData.list.find(x => String(x.id) === String(sData.current));
-    if (!forced && cur && cur.msgs.filter(m => m.role !== 'developer').length === 0) { document.getElementById('note-input').focus(); return; } 
+    if (!forced && cur && cur.msgs.filter(m => m.role !== 'developer').length === 0) { loadChatContext(cur); document.getElementById('note-input').focus(); return; } 
     const p = AI_PROFILES.find(x => x.label === activeProfileLabel) || AI_PROFILES[0]; const newId = Date.now().toString(); const newChat = [];
     if(p) newChat.push({ role: "developer", content: [{ type: "input_text", text: p.text }] });
-    chatHistory = newChat; document.getElementById('note-input').value = ""; lastCursorPos = null; cutIdx = CONFIG.def_ctx === 'none' ? -1 : CONTEXT_LINES.length - 1;
-    sData.list.push({ id: newId, title: "Chat " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), msgs: newChat, var_id: null, draft: "" });
+    chatHistory = newChat; document.getElementById('note-input').value = ""; lastCursorPos = null;
+    const newSession = { id: newId, title: "Chat " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), msgs: newChat, var_id: null, draft: "", context_lines: [], context_cut_idx: -1, context_groups: [] };
+    sData.list.push(newSession);
     sData.current = newId;
+    loadChatContext(newSession);
     chatHistories[activeProfileLabel] = sData; addLog("SESSION", "New Chat", activeProfileLabel); renderChatHistory(); refreshUI(); document.getElementById('note-input').focus(); await saveAll(); setTimeout(() => document.getElementById('note-input').focus(), 150);
 }
 
@@ -3705,14 +3745,35 @@ function openChatWithResponse(msgIdx) { const text = getTextFromContent(chatHist
 
 function _openFchatWithContextPicker(text) { if(!AI_PROFILES.length) { notify('No profiles configured','#ff3b30'); return; } if(AI_PROFILES.length === 1) { _openFchatWithContext(AI_PROFILES[0].label, text); return; } window._pendingFchatCtx = text; const menu = document.createElement('div'); menu.className='fcp-menu'; menu.style.cssText='position:fixed;inset:0;z-index:9200;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.4);'; menu.innerHTML='<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px 16px 36px;"><div style="font-size:16px;font-weight:800;margin-bottom:14px;color:var(--text);">💬 Open in Floating Chat</div><div id="fcp-profile-list" style="display:flex;flex-direction:column;gap:8px;"></div><button onclick="this.closest(\'.fcp-menu\').remove();" style="width:100%;margin-top:14px;padding:12px;background:transparent;border:none;font-size:14px;color:#888;cursor:pointer;">Cancel</button></div>'; menu.onclick=(e)=>{if(e.target===menu)menu.remove();}; document.body.appendChild(menu); const listEl=document.getElementById('fcp-profile-list'); AI_PROFILES.forEach(p=>{ const d=document.createElement('div'); d.style.cssText='padding:12px 16px;border-radius:14px;background:var(--sec-bg);cursor:pointer;font-size:14px;font-weight:700;color:var(--text);'; d.textContent=(p.emoji||'🤖')+' '+p.label; d.onclick=(e)=>{ e.stopPropagation(); menu.remove(); _openFchatWithContext(p.label, window._pendingFchatCtx); }; listEl.appendChild(d); }); }
 
-function _openFchatWithContext(profileLabel, contextText) { if(contextText) { const lines = contextText.split('\n').filter(l=>l.trim()).slice(0,40); lines.forEach(l=>{ if(!CONTEXT_LINES.includes(l)) CONTEXT_LINES.push(l); }); cutIdx=CONTEXT_LINES.length-1; saveAll(true); } createFchatSession(profileLabel||activeProfileLabel); }
+function _openFchatWithContext(profileLabel, contextText) {
+    const lines = contextText ? contextText.split('\n').filter(l=>l.trim()).slice(0,40) : [];
+    const session = createFchatSession(profileLabel||activeProfileLabel);
+    if(!lines.length) return;
+    const applyContext = () => {
+        if(!session || !session.chatId) return false;
+        const sData = chatHistories[session.profileLabel];
+        const chat = sData && sData.list ? sData.list.find(c => String(c.id) === String(session.chatId)) : null;
+        if(!chat) return false;
+        if(activeProfileLabel !== session.profileLabel || String((getSessions()||{}).current) !== String(session.chatId)) return false;
+        lines.forEach(l=>{ if(!CONTEXT_LINES.includes(l)) CONTEXT_LINES.push(l); });
+        cutIdx=CONTEXT_LINES.length-1;
+        persistActiveChatContext();
+        saveAll(true);
+        refreshUI();
+        _updateFchatContextLabel();
+        return true;
+    };
+    let tries = 0;
+    const timer = setInterval(() => { tries++; if(applyContext() || tries > 30) clearInterval(timer); }, 50);
+}
 
 async function switchProfileSession(newLabel) { 
+    persistActiveChatContext();
     if (newLabel === '_new_') { closeAllPanels(); openModal('master-modal'); switchMasterTab('profiles'); manageSection('profiles'); setTimeout(() => document.getElementById('entry-l').focus(), 100); return; }
     _freshSessionActive = true;
     activeProfileLabel = newLabel; activeTagFilter = "";
     addLog("SESSION", "Switch Profile", newLabel);
-    await resetCurrentSession(); refreshUI(); renderWorkspaceLists();
+    await resetCurrentSession(false, true); refreshUI(); renderWorkspaceLists();
     setTimeout(() => null, 80);
 }
 
@@ -4624,7 +4685,7 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
                 if(sData && sData.list) {
                     const restored = prevSessionId ? sData.list.find(x => String(x.id) === prevSessionId) : null;
                     const cur = restored || sData.list.find(x => String(x.id) === String(sData.current)) || sData.list[0];
-                    if(cur) { if(!_freshSessionActive) { chatHistory = cur.msgs || []; } sData.current = _freshSessionActive ? (restored ? restored.id : sData.current) : cur.id; }
+                    if(cur) { if(!_freshSessionActive) { chatHistory = cur.msgs || []; loadChatContext(cur); } sData.current = _freshSessionActive ? (restored ? restored.id : sData.current) : cur.id; }
                 }
                 const activeProf = AI_PROFILES.find(p => p.label === activeProfileLabel);
                 if(activeProf && chatHistory.length > 0 && chatHistory[0].role === 'developer') chatHistory[0].content = [{ type: "input_text", text: activeProf.text }];
@@ -4635,7 +4696,7 @@ async function applyCloudData(data, db, silent = false, forceConfig = false, isI
                 const sData = chatHistories[activeProfileLabel];
                 if(sData && sData.list) {
                     const cur = sData.list.find(x => String(x.id) === String(sData.current)) || sData.list[0];
-                    if(cur) { if(!_freshSessionActive) { chatHistory = cur.msgs || []; } sData.current = _freshSessionActive ? sData.current : cur.id; }
+                    if(cur) { if(!_freshSessionActive) { chatHistory = cur.msgs || []; loadChatContext(cur); } sData.current = _freshSessionActive ? sData.current : cur.id; }
                 }
                 const activeProf = AI_PROFILES.find(p => p.label === activeProfileLabel);
                 if(activeProf && chatHistory.length > 0 && chatHistory[0].role === 'developer') chatHistory[0].content = [{ type: "input_text", text: activeProf.text }];
@@ -6894,7 +6955,6 @@ let _bubbleDragStartX = 0, _bubbleDragStartY = 0;
 let _bubbleMoved = false;
 let _fchatSessions = [];
 let _fchatActiveId = null;
-let _ctxGroups = [];
 let _freshSessionActive = false;
 
 
@@ -7547,7 +7607,7 @@ function renderFchatBubbles() {
 function createFchatSession(profileLabel, bubbleConfig) {
     if (_fchatActiveId !== null) {
         const cur = _fchatSessions.find(s => s.id === _fchatActiveId);
-        if (cur) cur.chatId = getSessions().current;
+        if (cur) { persistActiveChatContext(); cur.chatId = getSessions().current; }
         _fchatActiveId = null;
         const el = document.getElementById('floating-chat');
         const wrapper = document.getElementById('main-chat-wrapper');
@@ -7563,6 +7623,7 @@ function createFchatSession(profileLabel, bubbleConfig) {
     _fchatActiveId = session.id;
     renderFchatBubbles();
     _openFchatPanel(session);
+    return session;
 }
 
 function _openFchatPanel(session) {
@@ -7579,13 +7640,17 @@ function _openFchatPanel(session) {
     const sData = getSessions();
     const isSameSession = activeProfileLabel === session.profileLabel && String(sData.current) === String(session.chatId);
     if (isSameSession && currentAborter) {
+        const cur = sData.list.find(x => String(x.id) === String(session.chatId));
+        if (cur) loadChatContext(cur);
         if(!userScrolledDuringGen) scrollToLastRequest();
     } else if (isSameSession) {
+        const cur = sData.list.find(x => String(x.id) === String(session.chatId));
+        if (cur) loadChatContext(cur);
         renderChatHistory(); requestAnimationFrame(() => scrollToLastRequest(true));
     } else if (session.chatId) {
         jumpToSession(session.profileLabel, session.chatId);
     } else {
-        (async () => { if (activeProfileLabel !== session.profileLabel) { activeProfileLabel = session.profileLabel; addLog("SESSION", "Switch Profile", session.profileLabel); } await resetCurrentSession(true); refreshUI(); renderWorkspaceLists(); session.chatId = getSessions().current; renderFchatBubbles(); })();
+        (async () => { if (activeProfileLabel !== session.profileLabel) { persistActiveChatContext(); activeProfileLabel = session.profileLabel; addLog("SESSION", "Switch Profile", session.profileLabel); } await resetCurrentSession(true, true); refreshUI(); renderWorkspaceLists(); session.chatId = getSessions().current; renderFchatBubbles(); })();
     }
 }
 
@@ -7593,7 +7658,7 @@ function fchatMaximize(sessionId) {
     const session = _fchatSessions.find(s => s.id === sessionId); if (!session) return;
     if (_fchatActiveId !== null && _fchatActiveId !== sessionId) {
         const cur = _fchatSessions.find(s => s.id === _fchatActiveId);
-        if (cur) cur.chatId = getSessions().current;
+        if (cur) { persistActiveChatContext(); cur.chatId = getSessions().current; }
         const el2 = document.getElementById('floating-chat');
         const wr2 = document.getElementById('main-chat-wrapper');
         const ref = document.getElementById('master-modal');
@@ -7616,6 +7681,7 @@ function fchatMaximize(sessionId) {
 }
 
 function fchatCloseBubble(sessionId) {
+    if (_fchatActiveId === sessionId) persistActiveChatContext();
     _fchatSessions = _fchatSessions.filter(s => s.id !== sessionId);
     if (_fchatActiveId === sessionId) {
         _fchatActiveId = null;
@@ -7663,6 +7729,7 @@ function minimizeFloatingChat(e) {
     if (e && e.stopPropagation) e.stopPropagation();
     if (_fchatActiveId === null) return;
     const session = _fchatSessions.find(s => s.id === _fchatActiveId);
+    persistActiveChatContext();
     if (session) { session.chatId = getSessions().current; session.profileLabel = activeProfileLabel; }
     _fchatActiveId = null;
     const el = document.getElementById('floating-chat');
@@ -7680,6 +7747,7 @@ function goHomeFromFloatingChat(e) {
 }
 
 function goHomeFromMainChat() {
+    persistActiveChatContext();
     const profLabel = activeProfileLabel;
     const chatId = getSessions() && getSessions().current;
     if (chatId) {
@@ -7699,6 +7767,7 @@ function fchatClearAndClose(e) {
     cutIdx = -1;
     _ctxGroups = [];
     _updateFchatContextLabel();
+    persistActiveChatContext();
     _clearReplyAiTarget();
     _clearAtMentionTarget();
     const el = document.getElementById('floating-chat');
@@ -7714,16 +7783,19 @@ function _addCtxGroup(title, lines) {
     const id = 'cg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
     _ctxGroups.push({ id, title, lines, expanded: false });
     _updateFchatContextLabel();
+    persistActiveChatContext();
 }
 function _removeCtxGroup(id, e) {
     if (e && e.stopPropagation) e.stopPropagation();
     _ctxGroups = _ctxGroups.filter(g => g.id !== id);
     _updateFchatContextLabel();
+    persistActiveChatContext();
     refreshUI();
 }
 function _toggleCtxGroup(id) {
     const g = _ctxGroups.find(x => x.id === id); if (!g) return;
     g.expanded = !g.expanded;
+    persistActiveChatContext();
     refreshUI();
 }
 function _updateFchatContextLabel() {
@@ -7814,7 +7886,7 @@ async function _findRelatedEmailsForAddress(senderAddr) {
 }
 
 async function addFloatingChatContext(type) {
-    if (type === 'clear') { CONTEXT_LINES.splice(0); cutIdx = -1; _ctxGroups = []; _updateFchatContextLabel(); refreshUI(); notify('Context cleared', '#888', 1500); return; }
+    if (type === 'clear') { CONTEXT_LINES.splice(0); cutIdx = -1; _ctxGroups = []; _updateFchatContextLabel(); persistActiveChatContext(); refreshUI(); notify('Context cleared', '#888', 1500); return; }
     if (type === 'related') {
         const em = gmailCurrentEmail; if (!em) { notify('Open an email first', '#ff3b30', 1800); return; }
         const senderAddr = gmailExtractAddr(em.from); if (!senderAddr) { notify('Cannot extract sender address', '#ff3b30', 1800); return; }
@@ -7887,6 +7959,7 @@ async function addFloatingChatContext(type) {
         } catch (err) { notify('Clipboard access denied — allow clipboard permission', '#ff3b30', 2500); }
     }
     _updateFchatContextLabel();
+    persistActiveChatContext();
 }
 
 function _openRelatedEmailsPicker(relatedEmails, senderAddr) {
@@ -8128,7 +8201,7 @@ function openFloatChatForCurrentSession(emailKey) {
     }
     if (_fchatActiveId !== null) {
         const cur = _fchatSessions.find(s => s.id === _fchatActiveId);
-        if (cur) cur.chatId = getSessions().current;
+        if (cur) { persistActiveChatContext(); cur.chatId = getSessions().current; }
         _fchatActiveId = null;
         const el = document.getElementById('floating-chat');
         const wrapper = document.getElementById('main-chat-wrapper');
@@ -8212,7 +8285,7 @@ async function _doOpenChatSession(profileLabel, hasContext, options = {}) {
     if (p) newMsgs.push({ role: 'developer', content: [{ type: 'input_text', text: p.text }] });
     const sData = getSessions();
     const chatTitle = options.title || ('Email Chat ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    sData.list.push({ id: newId, title: chatTitle, msgs: newMsgs, var_id: newId, draft: '', email_context_key: options.emailContextKey || '' });
+    sData.list.push({ id: newId, title: chatTitle, msgs: newMsgs, var_id: newId, draft: '', email_context_key: options.emailContextKey || '', context_lines: [...CONTEXT_LINES], context_cut_idx: cutIdx, context_groups: _cloneCtxGroups(_ctxGroups) });
     sData.current = newId;
     GLOBAL_DATASETS[newId] = { title: 'Data Set ' + newId.substring(newId.length - 4), data: {} };
     chatHistory = newMsgs;
