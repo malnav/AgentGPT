@@ -4815,6 +4815,7 @@ let emailCurrentMailbox = 'INBOX';
 let gmailPreviewBodies = { panel: null, modal: null };
 let gmailPlainTextView = { panel: false, modal: false };
 let gmailReplyDraftSaveTimer = null;
+let gmailAutoChatStartingKey = '';
 let _varsRelatedEmailCache = { email: '', items: [] };
 
 function gmailReplyDraftKey(em) {
@@ -6265,6 +6266,7 @@ function waDoImport() {
 async function gmailPreview(i, src) {
     src = src || 'panel';
     const em = gmailEmails[i];
+    if (!em) return;
     gmailCurrentEmail = em;
     gmailCurrentIdx = i;
     ['panel','modal'].forEach(s => {
@@ -6335,6 +6337,7 @@ async function gmailPreview(i, src) {
             gmailRenderPreviewBody(src);
         }
     } catch(e) { gmailPreviewBodies[src] = { html: "", text: em.snippet || "" }; gmailRenderPreviewBody(src); }
+    await startOpenedEmailFloatChat(em, src);
     const _bEl = document.getElementById(ids.body); if(_bEl) { _bEl.addEventListener('click', function(ev) { const a = ev.target.closest('a'); if(a && a.href && (a.href.startsWith('mailto:') || a.protocol === 'mailto:')) { ev.preventDefault(); const addr = decodeURIComponent(a.href.replace(/^mailto:/i,'').split('?')[0]); if(addr) gmailComposeToAddress(addr); } }, { capture: true }); }
 }
 
@@ -8095,6 +8098,89 @@ async function startEmailChatAll() {
     await _doOpenChatSession(defLabel, CONTEXT_LINES.length > 0);
 }
 
+function gmailEmailContextKey(em) {
+    if (!em) return '';
+    const acctId = em._accountId || 'gmail';
+    return `${acctId}:${em.id || em.threadId || em.messageId || em.subject || ''}`;
+}
+
+function gmailEmailChatTitle(em) {
+    const subject = (em && em.subject ? em.subject : 'Opened Email').replace(/\s+/g, ' ').trim();
+    return 'Email: ' + subject.substring(0, 42) + (subject.length > 42 ? '…' : '');
+}
+
+function findEmailChatSession(profileLabel, emailKey) {
+    const sData = chatHistories[profileLabel];
+    if (!sData || !Array.isArray(sData.list)) return null;
+    return sData.list.find(s => s.email_context_key === emailKey) || null;
+}
+
+function openFloatChatForCurrentSession(emailKey) {
+    const profileLabel = activeProfileLabel;
+    const chatId = getSessions() && getSessions().current;
+    if (!chatId) return;
+    const existing = _fchatSessions.find(s => s.profileLabel === profileLabel && String(s.chatId) === String(chatId));
+    if (existing) {
+        if (emailKey) existing.emailContextKey = emailKey;
+        fchatMaximize(existing.id);
+        return;
+    }
+    if (_fchatActiveId !== null) {
+        const cur = _fchatSessions.find(s => s.id === _fchatActiveId);
+        if (cur) cur.chatId = getSessions().current;
+        _fchatActiveId = null;
+        const el = document.getElementById('floating-chat');
+        const wrapper = document.getElementById('main-chat-wrapper');
+        const ref = document.getElementById('master-modal');
+        if (wrapper && ref && ref.parentNode) ref.parentNode.insertBefore(wrapper, ref); else if (wrapper) document.body.appendChild(wrapper);
+        if (wrapper) wrapper.style.display = '';
+        if (el) el.style.display = 'none';
+    }
+    const session = { id: Date.now().toString(), profileLabel, chatId, bubbleConfig: null, emailContextKey: emailKey || '' };
+    _fchatSessions.push(session);
+    _fchatActiveId = session.id;
+    renderFchatBubbles();
+    _openFchatPanel(session);
+}
+
+async function startOpenedEmailFloatChat(em, src) {
+    if (!em) return;
+    const emailKey = gmailEmailContextKey(em);
+    if (!emailKey || gmailAutoChatStartingKey === emailKey) return;
+    const profileLabel = CONFIG.def_profile || activeProfileLabel;
+    gmailAutoChatStartingKey = emailKey;
+    try {
+        const existingChat = findEmailChatSession(profileLabel, emailKey);
+        if (existingChat) {
+            if (activeProfileLabel !== profileLabel) await switchProfileSession(profileLabel);
+            await loadSession(existingChat.id);
+            CONTEXT_LINES.splice(0);
+            const existingLines = await gmailBuildFullContextLines(em, (gmailPreviewBodies[src] && gmailPreviewBodies[src].text) || em.snippet || '');
+            existingLines.forEach(line => CONTEXT_LINES.push(line));
+            cutIdx = CONTEXT_LINES.length ? CONTEXT_LINES.length - 1 : -1;
+            await saveAll();
+            await refreshUI();
+            openFloatChatForCurrentSession(emailKey);
+            notify('Chat opened — current email is context', '#34c759', 1800);
+            return;
+        }
+        const fallbackBody = (gmailPreviewBodies[src] && gmailPreviewBodies[src].text) || em.snippet || '';
+        const emailLines = await gmailBuildFullContextLines(em, fallbackBody);
+        CONTEXT_LINES.splice(0);
+        emailLines.forEach(line => CONTEXT_LINES.push(line));
+        cutIdx = CONTEXT_LINES.length ? CONTEXT_LINES.length - 1 : -1;
+        await _doOpenChatSession(profileLabel, emailLines.length > 0, {
+            closeEmailModal: false,
+            title: gmailEmailChatTitle(em),
+            emailContextKey: emailKey,
+            notifyMessage: 'Chat ready — opened email loaded as context'
+        });
+        openFloatChatForCurrentSession(emailKey);
+    } finally {
+        gmailAutoChatStartingKey = '';
+    }
+}
+
 async function startEmailChat(profileLabel, mode) {
     closeProfileBubbleMenu();
     const checked = Array.from(document.querySelectorAll('#gmail-list .gmail-chk:checked, #gmail-modal-list .gmail-chk:checked'));
@@ -8116,14 +8202,15 @@ async function startEmailChat(profileLabel, mode) {
     await _doOpenChatSession(profileLabel, emailLines.length > 0);
 }
 
-async function _doOpenChatSession(profileLabel, hasContext) {
+async function _doOpenChatSession(profileLabel, hasContext, options = {}) {
     if (activeProfileLabel !== profileLabel) { await switchProfileSession(profileLabel); }
     const p = AI_PROFILES.find(x => x.label === profileLabel) || AI_PROFILES[0];
     const newId = Date.now().toString();
     const newMsgs = [];
     if (p) newMsgs.push({ role: 'developer', content: [{ type: 'input_text', text: p.text }] });
     const sData = getSessions();
-    sData.list.push({ id: newId, title: 'Email Chat ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), msgs: newMsgs, var_id: newId, draft: '' });
+    const chatTitle = options.title || ('Email Chat ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    sData.list.push({ id: newId, title: chatTitle, msgs: newMsgs, var_id: newId, draft: '', email_context_key: options.emailContextKey || '' });
     sData.current = newId;
     GLOBAL_DATASETS[newId] = { title: 'Data Set ' + newId.substring(newId.length - 4), data: {} };
     chatHistory = newMsgs;
@@ -8131,14 +8218,14 @@ async function _doOpenChatSession(profileLabel, hasContext) {
     document.getElementById('note-input').value = '';
     lastCursorPos = null;
     const modalEl = document.getElementById('gmail-modal');
-    if (modalEl && modalEl.style.display !== 'none') modalEl.style.display = 'none';
+    if (options.closeEmailModal !== false && modalEl && modalEl.style.display !== 'none') modalEl.style.display = 'none';
     closeAllPanels();
     await saveAll();
-    refreshUI();
+    await refreshUI();
     renderChatHistory();
     scrollToLastRequest();
     addLog('SESSION', 'Email Chat', profileLabel);
-    if (hasContext) notify('Chat ready — email context loaded', '#34c759', 2500);
+    if (hasContext) notify(options.notifyMessage || 'Chat ready — email context loaded', '#34c759', 2500);
     else notify('New chat started for ' + profileLabel, '#34c759', 2000);
     setTimeout(() => document.getElementById('note-input').focus(), 200);
 }
