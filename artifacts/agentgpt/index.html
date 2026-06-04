@@ -8201,7 +8201,10 @@ function openFloatChatForCurrentSession(emailKey) {
     }
     if (_fchatActiveId !== null) {
         const cur = _fchatSessions.find(s => s.id === _fchatActiveId);
-        if (cur) { persistActiveChatContext(); cur.chatId = getSessions().current; }
+        const curData = cur && chatHistories[cur.profileLabel];
+        if (cur && curData && String(curData.current) === String(cur.chatId)) {
+            persistActiveChatContext();
+        }
         _fchatActiveId = null;
         const el = document.getElementById('floating-chat');
         const wrapper = document.getElementById('main-chat-wrapper');
@@ -8223,6 +8226,10 @@ async function startOpenedEmailFloatChat(em, src) {
     const emailKey = gmailEmailContextKey(em);
     if (!emailKey || gmailAutoChatStartingKey === emailKey) return;
     const profileLabel = CONFIG.def_profile || activeProfileLabel;
+    const activeFloatSession = _fchatSessions.find(s => s.id === _fchatActiveId);
+    if (activeFloatSession && activeFloatSession.emailContextKey !== emailKey) {
+        minimizeFloatingChat(null);
+    }
     gmailAutoChatStartingKey = emailKey;
     try {
         const existingChat = findEmailChatSession(profileLabel, emailKey);
@@ -8230,6 +8237,7 @@ async function startOpenedEmailFloatChat(em, src) {
             if (activeProfileLabel !== profileLabel) await switchProfileSession(profileLabel);
             await loadSession(existingChat.id);
             CONTEXT_LINES.splice(0);
+            _ctxGroups = [];
             const existingLines = await gmailBuildFullContextLines(em, (gmailPreviewBodies[src] && gmailPreviewBodies[src].text) || em.snippet || '');
             existingLines.forEach(line => CONTEXT_LINES.push(line));
             cutIdx = CONTEXT_LINES.length ? CONTEXT_LINES.length - 1 : -1;
@@ -8242,6 +8250,7 @@ async function startOpenedEmailFloatChat(em, src) {
         const fallbackBody = (gmailPreviewBodies[src] && gmailPreviewBodies[src].text) || em.snippet || '';
         const emailLines = await gmailBuildFullContextLines(em, fallbackBody);
         CONTEXT_LINES.splice(0);
+        _ctxGroups = [];
         emailLines.forEach(line => CONTEXT_LINES.push(line));
         cutIdx = CONTEXT_LINES.length ? CONTEXT_LINES.length - 1 : -1;
         await _doOpenChatSession(profileLabel, emailLines.length > 0, {
@@ -8270,6 +8279,7 @@ async function startEmailChat(profileLabel, mode) {
         }
     }
     CONTEXT_LINES.splice(0);
+    _ctxGroups = [];
     if (emailLines.length > 0) {
         emailLines.forEach(line => { CONTEXT_LINES.push(line); });
         cutIdx = CONTEXT_LINES.length - 1;
