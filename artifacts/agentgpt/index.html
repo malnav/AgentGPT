@@ -992,13 +992,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div style="display:flex; align-items:center; gap:2px; padding:8px 10px; border-bottom:0.5px solid var(--border); background:var(--bg);">
                 <span onclick="gmailClosePreview('panel')" style="cursor:pointer; font-size:16px; color:var(--accent); font-weight:700; padding:4px 6px 4px 0; white-space:nowrap;">← Back</span>
                 <span style="flex:1;"></span>
-                <div class="email-action-icon" id="gmail-preview-star-panel" onclick="gmailStarToggle(gmailCurrentIdx,'panel')" title="Star">☆</div>
-                <div class="email-action-icon" onclick="gmailMarkReadToggle(gmailCurrentIdx,'panel')" title="Mark unread">✉️</div>
-                <div class="email-action-icon" onclick="gmailArchiveEmail(gmailCurrentIdx,'panel')" title="Archive">📥</div>
                 <div class="email-action-icon" onclick="gmailTrashEmail(gmailCurrentIdx,'panel')" title="Delete" style="color:#ff3b30;">🗑️</div>
-                <span id="gmail-view-toggle-panel" class="chip" style="font-size:10px; padding:4px 9px; white-space:nowrap; flex-shrink:0;" onclick="gmailTogglePlainTextView('panel')">TXT</span>
-                <span class="chip" style="font-size:10px; padding:4px 9px; white-space:nowrap; flex-shrink:0;" onclick="addFloatingChatContext('related')" title="Find related emails by sender or body mention">Related</span>
-                <span class="chip" style="font-size:10px; padding:4px 9px; background:var(--accent); color:#fff; font-weight:700; white-space:nowrap; flex-shrink:0;" onclick="gmailAddEmailToContext(false,'panel')">+ Context</span>
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
                 <div style="padding:14px 14px 12px; border-bottom:0.5px solid var(--border);">
@@ -1348,13 +1342,7 @@ code { font-family: "SF Mono", ui-monospace, monospace; }
             <div style="display:flex; align-items:center; gap:2px; padding:10px 12px; border-bottom:0.5px solid var(--border); background:var(--bg);">
                 <span onclick="gmailClosePreview('modal')" style="cursor:pointer; font-size:16px; color:var(--accent); font-weight:700; padding:4px 8px 4px 0; white-space:nowrap;">← Back</span>
                 <span style="flex:1;"></span>
-                <div class="email-action-icon" id="gmail-preview-star-modal" onclick="gmailStarToggle(gmailCurrentIdx,'modal')" title="Star">☆</div>
-                <div class="email-action-icon" onclick="gmailMarkReadToggle(gmailCurrentIdx,'modal')" title="Mark unread">✉️</div>
-                <div class="email-action-icon" onclick="gmailArchiveEmail(gmailCurrentIdx,'modal')" title="Archive">📥</div>
                 <div class="email-action-icon" onclick="gmailTrashEmail(gmailCurrentIdx,'modal')" title="Delete" style="color:#ff3b30;">🗑️</div>
-                <span id="gmail-view-toggle-modal" class="chip" style="font-size:11px; padding:5px 11px; white-space:nowrap; flex-shrink:0;" onclick="gmailTogglePlainTextView('modal')">TXT</span>
-                <span class="chip" style="font-size:11px; padding:5px 11px; white-space:nowrap; flex-shrink:0;" onclick="addFloatingChatContext('related')" title="Find related emails by sender or body mention">Related</span>
-                <span class="chip" style="font-size:11px; padding:5px 11px; background:var(--accent); color:#fff; font-weight:700; white-space:nowrap; flex-shrink:0;" onclick="gmailAddEmailToContext(false,'modal')">+ Context</span>
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
                 <div style="padding:16px 16px 14px; border-bottom:0.5px solid var(--border);">
